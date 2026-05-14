@@ -296,7 +296,7 @@ test('renders without crashing', () => {
 
 **T-000-13: `.env.example`** (committed to repo)
 ```
-# Required: register free at https://fred.stlouisfed.org/docs/api/
+# Required: register free at https://fred.stlouisfed.org/docs/api/fred/v2/index.html
 FRED_API_KEY=your_key_here
 
 # Optional: enables /api/v1/ai/* endpoints
@@ -328,7 +328,7 @@ FRED_API_KEY=your_key_here
 - Historical backfill: 7 years on first run; incremental thereafter (from `MAX(trade_date)` in `raw_prices`)
 
 **T-001-2: FRED client (`ingestion.client.FredClient`)** _(requires `FRED_API_KEY` env var — set up in EP-000)_
-- `WebClient` calling `https://api.stlouisfed.org/fred/series/observations`
+- `WebClient` calling `https://api.stlouisfed.org/fred/v2/series/observations` (FRED API v2)
 - API key from env `FRED_API_KEY` → `application.yml` → `ftm.fred.api-key`
 - Pull all 7 series; 7-year historical backfill; incremental afterwards
 

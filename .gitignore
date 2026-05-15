@@ -42,6 +42,7 @@ desktop.ini
 
 # ── Claude Code (local/machine-specific only) ─────────────────
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 
 # ── Misc ──────────────────────────────────────────────────────
 folder_ctx.txt~

@@ -7,17 +7,14 @@ import com.ftm.app.domain.IngestSource;
 import com.ftm.app.domain.IngestStatus;
 import com.ftm.app.ingestion.event.IngestionCompleteEvent;
 import com.ftm.app.ingestion.event.IngestionRequestedEvent;
-import com.ftm.app.ingestion.repository.IngestLogRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.util.function.Function;
 
 @Service
@@ -27,38 +24,36 @@ public class IngestionService {
 
     private final PricesIngestionHandler pricesHandler;
     private final MacroIngestionHandler macroHandler;
-    private final IngestLogRepository ingestLogRepository;
+    private final IngestLogService ingestLogService;
     private final ApplicationEventPublisher eventPublisher;
     private final ObjectMapper objectMapper;
 
     public IngestionService(PricesIngestionHandler pricesHandler,
                             MacroIngestionHandler macroHandler,
-                            IngestLogRepository ingestLogRepository,
+                            IngestLogService ingestLogService,
                             ApplicationEventPublisher eventPublisher,
                             ObjectMapper objectMapper) {
         this.pricesHandler = pricesHandler;
         this.macroHandler = macroHandler;
-        this.ingestLogRepository = ingestLogRepository;
+        this.ingestLogService = ingestLogService;
         this.eventPublisher = eventPublisher;
         this.objectMapper = objectMapper;
     }
 
     @EventListener(condition = "#event.source().name() == 'PRICES'")
     @Async("asyncExecutor")
-    @Transactional
     public void onPricesRequested(IngestionRequestedEvent event) {
         runIngestion(IngestSource.PRICES, pricesHandler::fetchAndPersist);
     }
 
     @EventListener(condition = "#event.source().name() == 'MACRO'")
     @Async("asyncExecutor")
-    @Transactional
     public void onMacroRequested(IngestionRequestedEvent event) {
         runIngestion(IngestSource.MACRO, macroHandler::fetchAndPersist);
     }
 
     private void runIngestion(IngestSource source, Function<LocalDate, IngestionResult> handler) {
-        IngestLog ingestLog = findRunningLog(source);
+        IngestLog ingestLog = ingestLogService.findRunningLog(source).orElse(null);
         if (ingestLog == null) {
             log.warn("No running ingest log found for source {}", source);
             return;
@@ -75,16 +70,9 @@ public class IngestionService {
         }
     }
 
-    private IngestLog findRunningLog(IngestSource source) {
-        return ingestLogRepository.findTopBySourceOrderByStartedAtDesc(source)
-                .filter(l -> l.getStatus() == IngestStatus.RUNNING)
-                .orElse(null);
-    }
-
     private void finishAndPublish(IngestLog ingestLog, IngestSource source,
                                   IngestStatus status, int rows, String errorsJson) {
-        ingestLog.finish(OffsetDateTime.now(), status, rows, errorsJson);
-        ingestLogRepository.save(ingestLog);
+        ingestLogService.finish(ingestLog, status, rows, errorsJson);
         eventPublisher.publishEvent(new IngestionCompleteEvent(ingestLog.getRunId(), source, status));
     }
 

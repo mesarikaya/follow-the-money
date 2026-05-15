@@ -43,7 +43,7 @@ public class FredClient {
                     .filter(o -> !o.isMissing())
                     .toList();
         } catch (Exception ex) {
-            log.warn("FRED fetch failed for series {}: {}", seriesId, ex.getMessage());
+            log.warn("FRED fetch failed for series {} (check FRED_API_KEY if 403)", seriesId);
             throw ex;
         }
     }

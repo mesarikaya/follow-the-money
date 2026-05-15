@@ -2,6 +2,8 @@ package com.ftm.app.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -27,8 +29,9 @@ public class IngestLog {
     @Column(name = "finished_at")
     private OffsetDateTime finishedAt;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 10)
-    private String status;
+    private IngestStatus status;
 
     @Column(name = "rows_inserted", nullable = false)
     private Integer rowsInserted;
@@ -37,12 +40,13 @@ public class IngestLog {
     @Column(name = "errors", columnDefinition = "jsonb")
     private String errors;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "source", nullable = false, length = 10)
-    private String source;
+    private IngestSource source;
 
     protected IngestLog() {}
 
-    public IngestLog(OffsetDateTime startedAt, String status, Integer rowsInserted, String source) {
+    public IngestLog(OffsetDateTime startedAt, IngestStatus status, Integer rowsInserted, IngestSource source) {
         this.startedAt = startedAt;
         this.status = status;
         this.rowsInserted = rowsInserted;
@@ -52,12 +56,12 @@ public class IngestLog {
     public UUID getRunId() { return runId; }
     public OffsetDateTime getStartedAt() { return startedAt; }
     public OffsetDateTime getFinishedAt() { return finishedAt; }
-    public String getStatus() { return status; }
+    public IngestStatus getStatus() { return status; }
     public Integer getRowsInserted() { return rowsInserted; }
     public String getErrors() { return errors; }
-    public String getSource() { return source; }
+    public IngestSource getSource() { return source; }
 
-    public void finish(OffsetDateTime finishedAt, String status, Integer rowsInserted, String errors) {
+    public void finish(OffsetDateTime finishedAt, IngestStatus status, Integer rowsInserted, String errors) {
         this.finishedAt = finishedAt;
         this.status = status;
         this.rowsInserted = rowsInserted;

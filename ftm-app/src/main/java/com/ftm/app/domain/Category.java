@@ -2,6 +2,8 @@ package com.ftm.app.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
@@ -16,8 +18,9 @@ public class Category {
     @Column(name = "name", nullable = false, length = 100)
     private String name;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 20)
-    private String type;
+    private CategoryType type;
 
     @Column(name = "etf_ticker", nullable = false, length = 10)
     private String etfTicker;
@@ -33,7 +36,7 @@ public class Category {
 
     protected Category() {}
 
-    public Category(String id, String name, String type, String etfTicker,
+    public Category(String id, String name, CategoryType type, String etfTicker,
                     String benchmarkTicker, Integer displayOrder, Boolean active) {
         this.id = id;
         this.name = name;
@@ -46,7 +49,7 @@ public class Category {
 
     public String getId() { return id; }
     public String getName() { return name; }
-    public String getType() { return type; }
+    public CategoryType getType() { return type; }
     public String getEtfTicker() { return etfTicker; }
     public String getBenchmarkTicker() { return benchmarkTicker; }
     public Integer getDisplayOrder() { return displayOrder; }

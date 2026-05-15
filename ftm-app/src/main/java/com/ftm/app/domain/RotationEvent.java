@@ -2,6 +2,8 @@ package com.ftm.app.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -27,8 +29,9 @@ public class RotationEvent {
     @Column(name = "category_id", nullable = false, length = 10)
     private String categoryId;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "event_type", nullable = false, length = 30)
-    private String eventType;
+    private RotationEventType eventType;
 
     @Column(name = "confidence", nullable = false, precision = 4, scale = 3)
     private BigDecimal confidence;
@@ -42,7 +45,7 @@ public class RotationEvent {
 
     protected RotationEvent() {}
 
-    public RotationEvent(LocalDate detectedDate, String categoryId, String eventType,
+    public RotationEvent(LocalDate detectedDate, String categoryId, RotationEventType eventType,
                          BigDecimal confidence, String signalSnapshot, String notes) {
         this.detectedDate = detectedDate;
         this.categoryId = categoryId;
@@ -55,7 +58,7 @@ public class RotationEvent {
     public Long getId() { return id; }
     public LocalDate getDetectedDate() { return detectedDate; }
     public String getCategoryId() { return categoryId; }
-    public String getEventType() { return eventType; }
+    public RotationEventType getEventType() { return eventType; }
     public BigDecimal getConfidence() { return confidence; }
     public String getSignalSnapshot() { return signalSnapshot; }
     public String getNotes() { return notes; }

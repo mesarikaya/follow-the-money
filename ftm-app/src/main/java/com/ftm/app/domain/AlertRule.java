@@ -2,6 +2,8 @@ package com.ftm.app.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -30,8 +32,9 @@ public class AlertRule {
     @Column(name = "composite_threshold", precision = 4, scale = 3)
     private BigDecimal compositeThreshold;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "severity", nullable = false, length = 10)
-    private String severity;
+    private Severity severity;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "category_filter", columnDefinition = "jsonb")
@@ -47,7 +50,7 @@ public class AlertRule {
     protected AlertRule() {}
 
     public AlertRule(String ruleId, Boolean enabled, BigDecimal zThreshold, Integer persistenceDays,
-                     BigDecimal compositeThreshold, String severity, String categoryFilter,
+                     BigDecimal compositeThreshold, Severity severity, String categoryFilter,
                      String config, OffsetDateTime lastUpdated) {
         this.ruleId = ruleId;
         this.enabled = enabled;
@@ -65,7 +68,7 @@ public class AlertRule {
     public BigDecimal getZThreshold() { return zThreshold; }
     public Integer getPersistenceDays() { return persistenceDays; }
     public BigDecimal getCompositeThreshold() { return compositeThreshold; }
-    public String getSeverity() { return severity; }
+    public Severity getSeverity() { return severity; }
     public String getCategoryFilter() { return categoryFilter; }
     public String getConfig() { return config; }
     public OffsetDateTime getLastUpdated() { return lastUpdated; }

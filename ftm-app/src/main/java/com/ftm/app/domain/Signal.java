@@ -2,6 +2,8 @@ package com.ftm.app.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
@@ -26,8 +28,9 @@ public class Signal {
     private String categoryId;
 
     @Id
+    @Enumerated(EnumType.STRING)
     @Column(name = "signal_type", length = 30)
-    private String signalType;
+    private SignalType signalType;
 
     @Column(name = "value", precision = 10, scale = 6)
     private BigDecimal value;
@@ -41,7 +44,7 @@ public class Signal {
 
     protected Signal() {}
 
-    public Signal(LocalDate signalDate, String categoryId, String signalType,
+    public Signal(LocalDate signalDate, String categoryId, SignalType signalType,
                   BigDecimal value, String metadata, OffsetDateTime computedAt) {
         this.signalDate = signalDate;
         this.categoryId = categoryId;
@@ -53,7 +56,7 @@ public class Signal {
 
     public LocalDate getSignalDate() { return signalDate; }
     public String getCategoryId() { return categoryId; }
-    public String getSignalType() { return signalType; }
+    public SignalType getSignalType() { return signalType; }
     public BigDecimal getValue() { return value; }
     public String getMetadata() { return metadata; }
     public OffsetDateTime getComputedAt() { return computedAt; }

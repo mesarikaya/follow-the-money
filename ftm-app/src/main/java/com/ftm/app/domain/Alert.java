@@ -2,6 +2,8 @@ package com.ftm.app.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -29,8 +31,9 @@ public class Alert {
     @Column(name = "rule_id", nullable = false, length = 40)
     private String ruleId;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "severity", nullable = false, length = 10)
-    private String severity;
+    private Severity severity;
 
     @Column(name = "message", nullable = false)
     private String message;
@@ -39,8 +42,9 @@ public class Alert {
     @Column(name = "trigger_snapshot", nullable = false, columnDefinition = "jsonb")
     private String triggerSnapshot;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 10)
-    private String status;
+    private AlertStatus status;
 
     @Column(name = "resolved_at")
     private OffsetDateTime resolvedAt;
@@ -50,8 +54,8 @@ public class Alert {
 
     protected Alert() {}
 
-    public Alert(OffsetDateTime createdAt, String categoryId, String ruleId, String severity,
-                 String message, String triggerSnapshot, String status) {
+    public Alert(OffsetDateTime createdAt, String categoryId, String ruleId, Severity severity,
+                 String message, String triggerSnapshot, AlertStatus status) {
         this.createdAt = createdAt;
         this.categoryId = categoryId;
         this.ruleId = ruleId;
@@ -65,10 +69,10 @@ public class Alert {
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public String getCategoryId() { return categoryId; }
     public String getRuleId() { return ruleId; }
-    public String getSeverity() { return severity; }
+    public Severity getSeverity() { return severity; }
     public String getMessage() { return message; }
     public String getTriggerSnapshot() { return triggerSnapshot; }
-    public String getStatus() { return status; }
+    public AlertStatus getStatus() { return status; }
     public OffsetDateTime getResolvedAt() { return resolvedAt; }
     public OffsetDateTime getAcknowledgedAt() { return acknowledgedAt; }
 }

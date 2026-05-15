@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 import static com.ftm.app.jooq.Tables.MACRO_INDICATORS;
+import static org.jooq.impl.DSL.max;
 
 @Repository
 public class MacroIndicatorReadRepository {
@@ -21,7 +22,7 @@ public class MacroIndicatorReadRepository {
         var m2 = MACRO_INDICATORS.as("m2");
         return dsl.selectFrom(MACRO_INDICATORS)
                 .where(MACRO_INDICATORS.OBSERVATION_DATE.eq(
-                        dsl.select(m2.OBSERVATION_DATE.max()).from(m2)
+                        dsl.select(max(m2.OBSERVATION_DATE)).from(m2)
                                 .where(m2.SERIES_ID.eq(MACRO_INDICATORS.SERIES_ID))
                 ))
                 .fetch()

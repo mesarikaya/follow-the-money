@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.ftm.app.jooq.Tables.BENCHMARK_PRICES;
+import static org.jooq.impl.DSL.max;
 
 @Repository
 public class BenchmarkPriceRepository {
@@ -36,10 +37,10 @@ public class BenchmarkPriceRepository {
 
     public Optional<LocalDate> findMaxTradeDate(String ticker) {
         return Optional.ofNullable(
-                dsl.select(BENCHMARK_PRICES.TRADE_DATE.max())
+                dsl.select(max(BENCHMARK_PRICES.TRADE_DATE))
                         .from(BENCHMARK_PRICES)
                         .where(BENCHMARK_PRICES.TICKER.eq(ticker))
-                        .fetchOne(BENCHMARK_PRICES.TRADE_DATE.max()));
+                        .fetchOneInto(LocalDate.class));
     }
 
     public int countAll() {

@@ -18,7 +18,10 @@ spring:
 
 ftm:
   fred:
+    base-url: "http://localhost:9999"
     api-key: "test-fred-key"
+  yahoo:
+    base-url: "http://localhost:9999"
 
 logging:
   level:

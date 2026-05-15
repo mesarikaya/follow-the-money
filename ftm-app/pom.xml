@@ -91,9 +91,11 @@
         </dependency>
 
         <!-- ── HTTP client (Yahoo Finance + FRED) ─────────────────── -->
+        <!-- RestClient is part of spring-boot-starter-web (Spring Boot 3.2+) -->
+        <!-- spring-retry for @Retryable on client calls -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webflux</artifactId>
+            <groupId>org.springframework.retry</groupId>
+            <artifactId>spring-retry</artifactId>
         </dependency>
 
         <!-- ── Validation ─────────────────────────────────────────── -->

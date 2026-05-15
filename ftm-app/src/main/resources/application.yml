@@ -19,6 +19,9 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: false
+        jdbc:
+          batch_size: 100
+        order_inserts: true
 
   flyway:
     enabled: true
@@ -39,7 +42,10 @@ spring:
 
 ftm:
   fred:
+    base-url: https://api.stlouisfed.org
     api-key: ${FRED_API_KEY}
+  yahoo:
+    base-url: https://query1.finance.yahoo.com
 
 logging:
   level:

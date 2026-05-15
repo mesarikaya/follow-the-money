@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
-import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -32,7 +31,8 @@ public class IngestTriggerService {
     @Transactional
     public IngestTriggerResponse trigger() {
         OffsetDateTime now = OffsetDateTime.now();
-        List<UUID> runIds = Arrays.stream(IngestSource.values())
+        // PRICES handler runs flow estimation inline; FLOWS is not a separate event
+        List<UUID> runIds = List.of(IngestSource.PRICES, IngestSource.MACRO).stream()
                 .map(source -> {
                     IngestLog log = new IngestLog(now, IngestStatus.RUNNING, 0, source);
                     ingestLogRepository.save(log);
@@ -43,7 +43,7 @@ public class IngestTriggerService {
         return new IngestTriggerResponse(
                 runIds,
                 "queued",
-                "Ingestion started for all sources. Poll /api/v1/ingest/status/latest for progress."
+                "Ingestion started for PRICES and MACRO. Poll /api/v1/ingest/status/latest for progress."
         );
     }
 

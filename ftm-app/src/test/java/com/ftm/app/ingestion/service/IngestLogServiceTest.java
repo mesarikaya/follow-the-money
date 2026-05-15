@@ -4,6 +4,7 @@ import com.ftm.app.domain.IngestLog;
 import com.ftm.app.domain.IngestSource;
 import com.ftm.app.domain.IngestStatus;
 import com.ftm.app.ingestion.repository.IngestLogRepository;
+import org.instancio.Instancio;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,10 +12,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.OffsetDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.instancio.Select.field;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -24,10 +25,20 @@ class IngestLogServiceTest {
     @Autowired IngestLogService ingestLogService;
     @Autowired IngestLogRepository ingestLogRepository;
 
+    private IngestLog runningLog(IngestSource source) {
+        return Instancio.of(IngestLog.class)
+                .set(field(IngestLog::status), IngestStatus.RUNNING)
+                .set(field(IngestLog::source), source)
+                .set(field(IngestLog::rowsInserted), 0)
+                .ignore(field(IngestLog::finishedAt))
+                .ignore(field(IngestLog::errors))
+                .create();
+    }
+
     @Test
     @DisplayName("findRunningLog returns the latest running log for source")
     void shouldReturnLatestRunningLogForSource() {
-        IngestLog log = new IngestLog(OffsetDateTime.now(), IngestStatus.RUNNING, 0, IngestSource.PRICES);
+        IngestLog log = runningLog(IngestSource.PRICES);
         ingestLogRepository.insert(log);
 
         Optional<IngestLog> found = ingestLogService.findRunningLog(IngestSource.PRICES);
@@ -40,7 +51,7 @@ class IngestLogServiceTest {
     @Test
     @DisplayName("findRunningLog returns empty when log is not in running state")
     void shouldReturnEmptyWhenLogIsNotRunning() {
-        IngestLog log = new IngestLog(OffsetDateTime.now(), IngestStatus.RUNNING, 0, IngestSource.MACRO);
+        IngestLog log = runningLog(IngestSource.MACRO);
         ingestLogRepository.insert(log);
         ingestLogService.finish(log, IngestStatus.SUCCESS, 42, null);
 
@@ -52,7 +63,7 @@ class IngestLogServiceTest {
     @Test
     @DisplayName("finish updates status and row count in the database")
     void shouldUpdateStatusAndRowCount() {
-        IngestLog log = new IngestLog(OffsetDateTime.now(), IngestStatus.RUNNING, 0, IngestSource.PRICES);
+        IngestLog log = runningLog(IngestSource.PRICES);
         ingestLogRepository.insert(log);
 
         ingestLogService.finish(log, IngestStatus.SUCCESS, 250, null);
@@ -66,7 +77,7 @@ class IngestLogServiceTest {
     @Test
     @DisplayName("finish persists errors JSON when status is partial")
     void shouldPersistErrorsJsonOnPartialStatus() {
-        IngestLog log = new IngestLog(OffsetDateTime.now(), IngestStatus.RUNNING, 0, IngestSource.MACRO);
+        IngestLog log = runningLog(IngestSource.MACRO);
         ingestLogRepository.insert(log);
 
         ingestLogService.finish(log, IngestStatus.PARTIAL, 5, "[\"T10Y2Y: timeout\"]");

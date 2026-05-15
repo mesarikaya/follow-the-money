@@ -8,6 +8,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.PositiveOrZero;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -33,6 +34,7 @@ public class IngestLog {
     @Column(name = "status", nullable = false, length = 10)
     private IngestStatus status;
 
+    @PositiveOrZero
     @Column(name = "rows_inserted", nullable = false)
     private Integer rowsInserted;
 

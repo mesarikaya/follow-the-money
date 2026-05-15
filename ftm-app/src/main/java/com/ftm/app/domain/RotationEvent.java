@@ -8,6 +8,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -33,6 +35,8 @@ public class RotationEvent {
     @Column(name = "event_type", nullable = false, length = 30)
     private RotationEventType eventType;
 
+    @DecimalMin("0.000")
+    @DecimalMax("1.000")
     @Column(name = "confidence", nullable = false, precision = 4, scale = 3)
     private BigDecimal confidence;
 

@@ -4,6 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.DecimalMin;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -16,6 +17,7 @@ public class Portfolio {
     @Column(name = "category_id", length = 10)
     private String categoryId;
 
+    @DecimalMin("0.00")
     @Column(name = "allocation_pct", nullable = false, precision = 5, scale = 2)
     private BigDecimal allocationPct;
 

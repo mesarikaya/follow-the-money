@@ -6,15 +6,18 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
 
 @Entity
 @Table(name = "categories")
 public class Category {
 
     @Id
+    @NotBlank
     @Column(name = "id", length = 10)
     private String id;
 
+    @NotBlank
     @Column(name = "name", nullable = false, length = 100)
     private String name;
 

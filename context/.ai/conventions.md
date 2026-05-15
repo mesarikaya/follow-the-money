@@ -36,6 +36,20 @@ Validate at https://mermaid.live before committing.
 
 ---
 
+## Code design principles
+
+All Java code in `ftm-app` must follow SOLID principles:
+
+- **S — Single Responsibility**: Each class has one reason to change. Services handle business logic only; repositories handle persistence only; controllers handle HTTP translation only.
+- **O — Open/Closed**: Extend behaviour through new classes or Spring event listeners, not by modifying existing ones.
+- **L — Liskov Substitution**: Implementations must be substitutable for their interfaces without altering correctness. Prefer interfaces over concrete types in constructor parameters.
+- **I — Interface Segregation**: Define narrow, purpose-specific interfaces. No fat interfaces that force unrelated method implementations.
+- **D — Dependency Inversion**: Depend on abstractions, not concretions. Wire dependencies via constructor injection (never `@Autowired` on fields).
+
+Violations found during review must be listed as MUST-FIX, not OPTIONAL.
+
+---
+
 ## AI must NEVER
 
 - Repeat a decision inline without saying "see DECISIONS.md D-00X"

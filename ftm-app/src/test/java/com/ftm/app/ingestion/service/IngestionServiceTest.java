@@ -1,6 +1,5 @@
 package com.ftm.app.ingestion.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ftm.app.domain.IngestLog;
 import com.ftm.app.domain.IngestSource;
 import com.ftm.app.domain.IngestStatus;
@@ -13,15 +12,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,12 +31,12 @@ class IngestionServiceTest {
     @Mock MacroIngestionHandler macroHandler;
     @Mock IngestLogService ingestLogService;
     @Mock ApplicationEventPublisher eventPublisher;
-    @Mock ObjectMapper objectMapper;
+    @Mock JsonMapper objectMapper;
 
     @InjectMocks IngestionService service;
 
     @Test
-    void onPricesRequested_finishesLogAndPublishesCompleteEvent_onSuccess() throws Exception {
+    void onPricesRequested_finishesLogAndPublishesCompleteEvent_onSuccess() {
         IngestLog log = runningLog(IngestSource.PRICES);
         when(ingestLogService.findRunningLog(IngestSource.PRICES)).thenReturn(Optional.of(log));
         when(pricesHandler.fetchAndPersist(any(LocalDate.class)))
@@ -54,7 +54,7 @@ class IngestionServiceTest {
     }
 
     @Test
-    void onMacroRequested_finishesLogWithPartialStatus_whenHandlerReturnsErrors() throws Exception {
+    void onMacroRequested_finishesLogWithPartialStatus_whenHandlerReturnsErrors() {
         IngestLog log = runningLog(IngestSource.MACRO);
         when(ingestLogService.findRunningLog(IngestSource.MACRO)).thenReturn(Optional.of(log));
         when(macroHandler.fetchAndPersist(any(LocalDate.class)))
@@ -95,8 +95,6 @@ class IngestionServiceTest {
     }
 
     private IngestLog runningLog(IngestSource source) {
-        IngestLog log = new IngestLog(OffsetDateTime.now(), IngestStatus.RUNNING, 0, source);
-        // Simulate a persisted UUID via reflection — or test without UUID assertion
-        return log;
+        return new IngestLog(OffsetDateTime.now(), IngestStatus.RUNNING, 0, source);
     }
 }

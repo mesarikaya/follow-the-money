@@ -1,7 +1,6 @@
 package com.ftm.app.ingestion.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.ftm.app.domain.IngestLog;
 import com.ftm.app.domain.IngestSource;
 import com.ftm.app.domain.IngestStatus;
@@ -10,8 +9,9 @@ import com.ftm.app.ingestion.event.IngestionRequestedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -26,13 +26,13 @@ public class IngestionService {
     private final MacroIngestionHandler macroHandler;
     private final IngestLogService ingestLogService;
     private final ApplicationEventPublisher eventPublisher;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper objectMapper;
 
     public IngestionService(PricesIngestionHandler pricesHandler,
                             MacroIngestionHandler macroHandler,
                             IngestLogService ingestLogService,
                             ApplicationEventPublisher eventPublisher,
-                            ObjectMapper objectMapper) {
+                            JsonMapper objectMapper) {
         this.pricesHandler = pricesHandler;
         this.macroHandler = macroHandler;
         this.ingestLogService = ingestLogService;
@@ -40,13 +40,13 @@ public class IngestionService {
         this.objectMapper = objectMapper;
     }
 
-    @EventListener(condition = "#event.source().name() == 'PRICES'")
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, condition = "#event.source().name() == 'PRICES'")
     @Async("asyncExecutor")
     public void onPricesRequested(IngestionRequestedEvent event) {
         runIngestion(IngestSource.PRICES, pricesHandler::fetchAndPersist);
     }
 
-    @EventListener(condition = "#event.source().name() == 'MACRO'")
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, condition = "#event.source().name() == 'MACRO'")
     @Async("asyncExecutor")
     public void onMacroRequested(IngestionRequestedEvent event) {
         runIngestion(IngestSource.MACRO, macroHandler::fetchAndPersist);
@@ -79,7 +79,7 @@ public class IngestionService {
     private String toJson(Object value) {
         try {
             return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException ex) {
+        } catch (Exception ex) {
             return "[\"serialization error\"]";
         }
     }

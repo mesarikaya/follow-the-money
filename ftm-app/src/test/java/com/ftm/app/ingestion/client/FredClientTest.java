@@ -9,8 +9,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -35,7 +38,7 @@ class FredClientTest {
     @Test
     void fetchObservations_parsesDatesAndValuesCorrectly() {
         server.enqueue(new MockResponse()
-                .setBody(validObservationsJson())
+                .setBody(fixture("fixtures/fred-observations-valid.json"))
                 .addHeader("Content-Type", "application/json"));
 
         List<FredObservationsResponse.Observation> result =
@@ -50,7 +53,7 @@ class FredClientTest {
     @Test
     void fetchObservations_filtersMissingValues() {
         server.enqueue(new MockResponse()
-                .setBody(observationsWithMissingJson())
+                .setBody(fixture("fixtures/fred-observations-with-missing.json"))
                 .addHeader("Content-Type", "application/json"));
 
         List<FredObservationsResponse.Observation> result =
@@ -70,26 +73,12 @@ class FredClientTest {
                 .isInstanceOf(Exception.class);
     }
 
-    private String validObservationsJson() {
-        return """
-                {
-                  "observations": [
-                    {"date": "2024-01-02", "value": "3.95"},
-                    {"date": "2024-01-04", "value": "3.88"}
-                  ]
-                }
-                """;
-    }
-
-    private String observationsWithMissingJson() {
-        return """
-                {
-                  "observations": [
-                    {"date": "2024-01-02", "value": "18.45"},
-                    {"date": "2024-01-03", "value": "."},
-                    {"date": "2024-01-04", "value": "19.10"}
-                  ]
-                }
-                """;
+    private String fixture(String path) {
+        try (var stream = getClass().getClassLoader().getResourceAsStream(path)) {
+            return new String(Objects.requireNonNull(stream, "Fixture not found: " + path).readAllBytes(),
+                    StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

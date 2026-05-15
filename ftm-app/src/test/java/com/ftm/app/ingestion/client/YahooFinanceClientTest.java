@@ -10,7 +10,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.Objects;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,7 +39,7 @@ class YahooFinanceClientTest {
     @Test
     void fetchChart_parsesTimestampsAndPricesCorrectly() throws InterruptedException {
         server.enqueue(new MockResponse()
-                .setBody(validChartJson())
+                .setBody(fixture("fixtures/yahoo-chart-valid.json"))
                 .addHeader("Content-Type", "application/json"));
 
         Optional<YahooChartResponse> result =
@@ -73,26 +76,12 @@ class YahooFinanceClientTest {
                 .isInstanceOf(Exception.class);
     }
 
-    private String validChartJson() {
-        return """
-                {
-                  "chart": {
-                    "result": [{
-                      "timestamp": [1704153600, 1704240000],
-                      "indicators": {
-                        "quote": [{
-                          "open":   [145.12, 146.00],
-                          "high":   [146.50, 147.00],
-                          "low":    [144.80, 145.50],
-                          "close":  [145.90, 146.80],
-                          "volume": [15000000, 12000000]
-                        }],
-                        "adjclose": [{"adjclose": [145.90, 146.80]}]
-                      }
-                    }],
-                    "error": null
-                  }
-                }
-                """;
+    private String fixture(String path) {
+        try (var stream = getClass().getClassLoader().getResourceAsStream(path)) {
+            return new String(Objects.requireNonNull(stream, "Fixture not found: " + path).readAllBytes(),
+                    StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

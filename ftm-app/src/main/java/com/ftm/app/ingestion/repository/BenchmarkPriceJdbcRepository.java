@@ -42,5 +42,10 @@ public class BenchmarkPriceJdbcRepository {
         return Optional.ofNullable(d).map(Date::toLocalDate);
     }
 
+    public int countAll() {
+        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM benchmark_prices", Integer.class);
+        return count != null ? count : 0;
+    }
+
     public record Row(LocalDate tradeDate, String ticker, BigDecimal adjClose) {}
 }

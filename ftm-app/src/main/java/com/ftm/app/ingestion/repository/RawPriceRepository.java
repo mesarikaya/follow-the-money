@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.ftm.app.jooq.Tables.RAW_PRICES;
+import static org.jooq.impl.DSL.max;
 
 @Repository
 public class RawPriceRepository {
@@ -44,10 +45,10 @@ public class RawPriceRepository {
 
     public Optional<LocalDate> findMaxTradeDate(String categoryId) {
         return Optional.ofNullable(
-                dsl.select(RAW_PRICES.TRADE_DATE.max())
+                dsl.select(max(RAW_PRICES.TRADE_DATE))
                         .from(RAW_PRICES)
                         .where(RAW_PRICES.CATEGORY_ID.eq(categoryId))
-                        .fetchOne(RAW_PRICES.TRADE_DATE.max()));
+                        .fetchOneInto(LocalDate.class));
     }
 
     public int countAll() {

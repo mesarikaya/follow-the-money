@@ -31,7 +31,7 @@ public class FredClient {
     )
     public List<FredObservationsResponse.Observation> fetchObservations(
             String seriesId, LocalDate from, LocalDate to) {
-        log.debug("Fetching FRED series {} from {} to {}", seriesId, from, to);
+        log.info("Fetching FRED series {} from {} to {}", seriesId, from, to);
         FredObservationsResponse response = restClient.get()
                 .uri("/fred/v2/series/observations?series_id={sid}&api_key={key}" +
                                 "&file_type=json&observation_start={from}&observation_end={to}",
@@ -42,7 +42,7 @@ public class FredClient {
         List<FredObservationsResponse.Observation> result = response.observations().stream()
                 .filter(o -> !o.isMissing())
                 .toList();
-        log.debug("FRED series {} returned {} observations", seriesId, result.size());
+        log.info("FRED series {} returned {} observations", seriesId, result.size());
         return result;
     }
 }

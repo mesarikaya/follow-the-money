@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.ftm.app.jooq.Tables.MACRO_INDICATORS;
+import static org.jooq.impl.DSL.max;
 
 @Repository
 public class MacroIndicatorRepository {
@@ -37,10 +38,10 @@ public class MacroIndicatorRepository {
 
     public Optional<LocalDate> findMaxObservationDate(String seriesId) {
         return Optional.ofNullable(
-                dsl.select(MACRO_INDICATORS.OBSERVATION_DATE.max())
+                dsl.select(max(MACRO_INDICATORS.OBSERVATION_DATE))
                         .from(MACRO_INDICATORS)
                         .where(MACRO_INDICATORS.SERIES_ID.eq(seriesId))
-                        .fetchOne(MACRO_INDICATORS.OBSERVATION_DATE.max()));
+                        .fetchOneInto(LocalDate.class));
     }
 
     public int countAll() {

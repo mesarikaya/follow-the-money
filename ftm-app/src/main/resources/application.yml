@@ -43,5 +43,6 @@ ftm:
 
 logging:
   level:
-    com.ftm: DEBUG
+    com.ftm: INFO
+    com.ftm.app.ingestion.client: INFO
     org.flywaydb: INFO

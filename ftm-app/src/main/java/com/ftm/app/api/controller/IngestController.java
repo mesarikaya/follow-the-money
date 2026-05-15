@@ -27,7 +27,7 @@ public class IngestController {
     }
 
     @PostMapping("/trigger")
-    @Operation(summary = "Trigger a manual ingestion run; returns run_id for polling")
+    @Operation(summary = "Trigger a manual ingestion run for all sources; returns run_ids for polling")
     public ResponseEntity<IngestTriggerResponse> trigger() {
         return ResponseEntity.accepted().body(ingestTriggerService.trigger());
     }

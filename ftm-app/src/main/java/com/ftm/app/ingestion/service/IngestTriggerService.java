@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -30,13 +31,19 @@ public class IngestTriggerService {
 
     @Transactional
     public IngestTriggerResponse trigger() {
-        IngestLog log = new IngestLog(OffsetDateTime.now(), IngestStatus.RUNNING, 0, IngestSource.PRICES);
-        ingestLogRepository.save(log);
-        eventPublisher.publishEvent(new IngestionRequestedEvent(IngestSource.PRICES));
+        OffsetDateTime now = OffsetDateTime.now();
+        List<UUID> runIds = Arrays.stream(IngestSource.values())
+                .map(source -> {
+                    IngestLog log = new IngestLog(now, IngestStatus.RUNNING, 0, source);
+                    ingestLogRepository.save(log);
+                    eventPublisher.publishEvent(new IngestionRequestedEvent(source));
+                    return log.getRunId();
+                })
+                .toList();
         return new IngestTriggerResponse(
-                log.getRunId(),
-                "QUEUED",
-                "Ingestion started. Poll /api/v1/ingest/status/" + log.getRunId() + " for progress."
+                runIds,
+                "queued",
+                "Ingestion started for all sources. Poll /api/v1/ingest/status/latest for progress."
         );
     }
 
@@ -58,8 +65,8 @@ public class IngestTriggerService {
     private IngestStatusResponse toResponse(IngestLog log) {
         return new IngestStatusResponse(
                 log.getRunId(),
-                log.getSource().name(),
-                log.getStatus().name(),
+                log.getSource().name().toLowerCase(),
+                log.getStatus().name().toLowerCase(),
                 log.getStartedAt(),
                 log.getFinishedAt(),
                 log.getRowsInserted()

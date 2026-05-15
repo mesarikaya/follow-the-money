@@ -381,8 +381,9 @@ curl -X POST http://localhost:8080/api/v1/ingest/trigger
 **T-002-4: `V3__seed_alert_rules.sql`**
 - INSERT 9 alert rule rows with RFC-0003 defaults (pending confirmation of thresholds)
 
-**T-002-5: JPA entities (`domain.*`)**
-- One `@Entity` per table; composite keys via `@IdClass`
+**T-002-5: jOOQ domain records (`domain.*`)**
+- One Java `record` per domain concept (e.g. `Category`, `MacroIndicator`, `IngestLog`)
+- Persistence via jOOQ generated DSL; no JPA/Hibernate
 - Use `BigDecimal` for monetary fields, never `Double`
 
 **Definition of done:**

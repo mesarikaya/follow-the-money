@@ -22,6 +22,7 @@
         <java.version>21</java.version>
         <springdoc.version>2.8.8</springdoc.version>
         <testcontainers.version>1.20.6</testcontainers.version>
+        <mapstruct.version>1.6.3</mapstruct.version>
         <!-- Spring AI BOM version — verify against Spring Boot parent compatibility -->
         <spring-ai.version>1.0.0</spring-ai.version>
     </properties>
@@ -95,6 +96,19 @@
             <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
 
+        <!-- ── Validation ─────────────────────────────────────────── -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- ── MapStruct (DTO ↔ Entity mapping) ───────────────────── -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+            <version>${mapstruct.version}</version>
+        </dependency>
+
         <!--
         ── Spring AI — add in EP-003 once correct artifact name confirmed.
            Check: https://docs.spring.io/spring-ai/reference/getting-started.html
@@ -130,6 +144,19 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.mapstruct</groupId>
+                            <artifactId>mapstruct-processor</artifactId>
+                            <version>${mapstruct.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
             </plugin>
         </plugins>
     </build>

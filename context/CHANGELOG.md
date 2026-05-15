@@ -14,6 +14,34 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 
 ---
 
+## 2026-05-15 (session 8 — JPA removal, records, repository tests)
+
+- `UPDATED` D-010 added: jOOQ as exclusive persistence layer; JPA removed
+  - `spring-boot-starter-data-jpa` removed from `pom.xml`
+  - All 5 JPA repository interfaces converted to concrete jOOQ `@Repository` classes
+  - Composite JPA key classes deleted (`BenchmarkPriceId`, `MacroIndicatorId`, `RawPriceId`, `SignalId`)
+  - ✅ DECISIONS.md — D-010 added with full rationale
+  - ✅ spec.md — ORM/data-access row updated; domain/ comment updated
+
+- `UPDATED` All domain objects converted to Java records (or functional classes)
+  - Records: `Category`, `RawPrice`, `BenchmarkPrice`, `MacroIndicator`, `Signal`, `AlertRule`, `Portfolio`, `IngestLog`, `Alert`, `RotationEvent`
+  - `IngestLog.finish()` returns new record instance (functional mutation pattern)
+  - Bean validation annotations retained on record components where applicable
+
+- `UPDATED` Repository naming: "Jdbc" suffix removed from all repository class names
+  - `BenchmarkPriceJdbcRepository` → `BenchmarkPriceRepository`
+  - `RawPriceJdbcRepository` → `RawPriceRepository`
+  - `MacroIndicatorJdbcRepository` → `MacroIndicatorRepository` (ingestion package)
+
+- `NEW` HikariCP configured explicitly in `application.yml` (pool-name, size 10, min-idle 2, timeouts)
+
+- `NEW` Integration tests for all 6 repositories
+  - `BenchmarkPriceRepositoryIT`, `RawPriceRepositoryIT`, `MacroIndicatorRepositoryIT` (ingestion)
+  - `IngestLogRepositoryIT`, `CategoryRepositoryIT`, `MacroIndicatorRepositoryIT` (api)
+  - All use `@SpringBootTest(NONE)` + `@ActiveProfiles("test")` + `@Transactional`
+
+---
+
 ## 2026-05-15 (session 7 — development workflow rules added)
 
 - `NEW` Development workflow convention: branch per epic → tests → independent agent review → PR to develop → milestone gate → merge to main

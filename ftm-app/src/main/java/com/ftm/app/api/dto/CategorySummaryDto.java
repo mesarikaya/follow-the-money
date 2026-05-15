@@ -1,12 +1,13 @@
 package com.ftm.app.api.dto;
 
+import com.ftm.app.domain.CategoryId;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
 
 @Schema(description = "Category summary with latest signals")
 public record CategorySummaryDto(
-        @Schema(description = "Category identifier", example = "TECH") String id,
+        @Schema(description = "Category identifier", example = "TECH") CategoryId id,
         @Schema(description = "Category display name") String name,
         @Schema(description = "Category type", example = "EQUITY_SECTOR") String type,
         @Schema(description = "ETF ticker symbol", example = "XLK") String etfTicker,

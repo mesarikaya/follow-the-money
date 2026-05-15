@@ -5,10 +5,6 @@ spring:
     username: ftm
     password: ftm
 
-  jpa:
-    hibernate:
-      ddl-auto: validate
-
   flyway:
     enabled: true
 
@@ -18,7 +14,10 @@ spring:
 
 ftm:
   fred:
+    base-url: "http://localhost:9999"
     api-key: "test-fred-key"
+  yahoo:
+    base-url: "http://localhost:9999"
 
 logging:
   level:

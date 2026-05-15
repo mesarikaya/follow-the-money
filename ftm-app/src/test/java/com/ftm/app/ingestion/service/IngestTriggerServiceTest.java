@@ -7,6 +7,7 @@ import com.ftm.app.domain.IngestSource;
 import com.ftm.app.domain.IngestStatus;
 import com.ftm.app.ingestion.event.IngestionRequestedEvent;
 import com.ftm.app.ingestion.repository.IngestLogRepository;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -34,20 +35,18 @@ class IngestTriggerServiceTest {
     @InjectMocks IngestTriggerService service;
 
     @Test
-    void trigger_createsRunLogsForPricesAndMacro() {
-        when(ingestLogRepository.save(any(IngestLog.class))).thenAnswer(inv -> inv.getArgument(0));
-
+    @DisplayName("trigger creates run logs for both PRICES and MACRO sources")
+    void shouldCreateRunLogsForBothSources() {
         IngestTriggerResponse response = service.trigger();
 
-        verify(ingestLogRepository, times(2)).save(any(IngestLog.class));
+        verify(ingestLogRepository, times(2)).insert(any(IngestLog.class));
         assertThat(response.runIds()).hasSize(2);
         assertThat(response.status()).isEqualTo("queued");
     }
 
     @Test
-    void trigger_publishesEventsForPricesAndMacro() {
-        when(ingestLogRepository.save(any(IngestLog.class))).thenAnswer(inv -> inv.getArgument(0));
-
+    @DisplayName("trigger publishes ingestion events for both PRICES and MACRO sources")
+    void shouldPublishEventsForBothSources() {
         service.trigger();
 
         ArgumentCaptor<IngestionRequestedEvent> captor =
@@ -60,9 +59,10 @@ class IngestTriggerServiceTest {
     }
 
     @Test
-    void getStatus_returnsCorrectResponse_forExistingRun() {
+    @DisplayName("getStatus returns correct response for an existing run")
+    void shouldReturnCorrectResponseForExistingRun() {
         UUID runId = UUID.randomUUID();
-        IngestLog log = runningLog(IngestSource.PRICES, runId);
+        IngestLog log = new IngestLog(OffsetDateTime.now(), IngestStatus.RUNNING, 0, IngestSource.PRICES);
         when(ingestLogRepository.findById(runId)).thenReturn(Optional.of(log));
 
         IngestStatusResponse response = service.getStatus(runId);
@@ -72,7 +72,8 @@ class IngestTriggerServiceTest {
     }
 
     @Test
-    void getStatus_throwsNoSuchElement_whenRunNotFound() {
+    @DisplayName("getStatus throws NoSuchElementException when run is not found")
+    void shouldThrowNoSuchElementWhenRunNotFound() {
         UUID runId = UUID.randomUUID();
         when(ingestLogRepository.findById(runId)).thenReturn(Optional.empty());
 
@@ -81,9 +82,10 @@ class IngestTriggerServiceTest {
     }
 
     @Test
-    void getLatestPerSource_returnsMappedResponsesForAllFoundLogs() {
-        IngestLog pricesLog = runningLog(IngestSource.PRICES, UUID.randomUUID());
-        IngestLog macroLog = runningLog(IngestSource.MACRO, UUID.randomUUID());
+    @DisplayName("getLatestPerSource returns mapped responses for all found logs")
+    void shouldReturnMappedResponsesForAllFoundLogs() {
+        IngestLog pricesLog = new IngestLog(OffsetDateTime.now(), IngestStatus.RUNNING, 0, IngestSource.PRICES);
+        IngestLog macroLog = new IngestLog(OffsetDateTime.now(), IngestStatus.RUNNING, 0, IngestSource.MACRO);
         when(ingestLogRepository.findLatestPerSource()).thenReturn(List.of(pricesLog, macroLog));
 
         List<IngestStatusResponse> responses = service.getLatestPerSource();
@@ -91,10 +93,5 @@ class IngestTriggerServiceTest {
         assertThat(responses).hasSize(2);
         assertThat(responses).extracting(IngestStatusResponse::source)
                 .containsExactlyInAnyOrder("prices", "macro");
-    }
-
-    private IngestLog runningLog(IngestSource source, UUID runId) {
-        IngestLog log = new IngestLog(OffsetDateTime.now(), IngestStatus.RUNNING, 0, source);
-        return log;
     }
 }

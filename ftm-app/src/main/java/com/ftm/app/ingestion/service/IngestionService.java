@@ -73,7 +73,7 @@ public class IngestionService {
     private void finishAndPublish(IngestLog ingestLog, IngestSource source,
                                   IngestStatus status, int rows, String errorsJson) {
         ingestLogService.finish(ingestLog, status, rows, errorsJson);
-        eventPublisher.publishEvent(new IngestionCompleteEvent(ingestLog.getRunId(), source, status));
+        eventPublisher.publishEvent(new IngestionCompleteEvent(ingestLog.runId(), source, status));
     }
 
     private String toJson(Object value) {

@@ -4,8 +4,8 @@ import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.domain.Category;
 import com.ftm.app.ingestion.client.YahooFinanceClient;
 import com.ftm.app.ingestion.client.dto.YahooChartResponse;
-import com.ftm.app.ingestion.repository.BenchmarkPriceJdbcRepository;
-import com.ftm.app.ingestion.repository.RawPriceJdbcRepository;
+import com.ftm.app.ingestion.repository.BenchmarkPriceRepository;
+import com.ftm.app.ingestion.repository.RawPriceRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -28,13 +28,13 @@ public class PricesIngestionHandler {
 
     private final CategoryRepository categoryRepository;
     private final YahooFinanceClient yahooClient;
-    private final RawPriceJdbcRepository rawPriceRepo;
-    private final BenchmarkPriceJdbcRepository benchmarkRepo;
+    private final RawPriceRepository rawPriceRepo;
+    private final BenchmarkPriceRepository benchmarkRepo;
 
     public PricesIngestionHandler(CategoryRepository categoryRepository,
                                   YahooFinanceClient yahooClient,
-                                  RawPriceJdbcRepository rawPriceRepo,
-                                  BenchmarkPriceJdbcRepository benchmarkRepo) {
+                                  RawPriceRepository rawPriceRepo,
+                                  BenchmarkPriceRepository benchmarkRepo) {
         this.categoryRepository = categoryRepository;
         this.yahooClient = yahooClient;
         this.rawPriceRepo = rawPriceRepo;
@@ -59,17 +59,17 @@ public class PricesIngestionHandler {
 
     private int fetchCategoryPrices(Category category, LocalDate today, List<String> errors) {
         try {
-            LocalDate from = rawPriceRepo.findMaxTradeDate(category.getId())
+            LocalDate from = rawPriceRepo.findMaxTradeDate(category.id().name())
                     .map(d -> d.plusDays(1))
                     .orElse(today.minusYears(BACKFILL_YEARS));
             if (!from.isBefore(today)) return 0;
 
-            return yahooClient.fetchChart(category.getEtfTicker(), from, today)
-                    .map(r -> rawPriceRepo.batchInsert(toRawPriceRows(r, category.getId())))
+            return yahooClient.fetchChart(category.etfTicker(), from, today)
+                    .map(r -> rawPriceRepo.batchInsert(toRawPriceRows(r, category.id().name())))
                     .orElse(0);
         } catch (Exception ex) {
-            log.warn("Price fetch failed for {}: {}", category.getId(), ex.getMessage());
-            errors.add(category.getId() + ": " + ex.getMessage());
+            log.warn("Price fetch failed for {}: {}", category.id(), ex.getMessage());
+            errors.add(category.id() + ": " + ex.getMessage());
             return 0;
         }
     }
@@ -91,13 +91,13 @@ public class PricesIngestionHandler {
         }
     }
 
-    private List<RawPriceJdbcRepository.Row> toRawPriceRows(YahooChartResponse response, String categoryId) {
+    private List<RawPriceRepository.Row> toRawPriceRows(YahooChartResponse response, String categoryId) {
         YahooChartResponse.Result result = firstResult(response);
         List<Long> timestamps = result.timestamp();
         YahooChartResponse.Quote quote = result.indicators().quote().get(0);
         List<BigDecimal> adjCloses = result.indicators().adjclose().get(0).adjclose();
 
-        List<RawPriceJdbcRepository.Row> rows = new ArrayList<>();
+        List<RawPriceRepository.Row> rows = new ArrayList<>();
         for (int i = 0; i < timestamps.size(); i++) {
             BigDecimal open = safeGet(quote.open(), i);
             BigDecimal high = safeGet(quote.high(), i);
@@ -109,22 +109,22 @@ public class PricesIngestionHandler {
                     || adjClose == null || volume == null) continue;
 
             LocalDate date = Instant.ofEpochSecond(timestamps.get(i)).atZone(NY).toLocalDate();
-            rows.add(new RawPriceJdbcRepository.Row(date, categoryId, open, high, low, close, adjClose, volume));
+            rows.add(new RawPriceRepository.Row(date, categoryId, open, high, low, close, adjClose, volume));
         }
         return rows;
     }
 
-    private List<BenchmarkPriceJdbcRepository.Row> toBenchmarkRows(YahooChartResponse response, String ticker) {
+    private List<BenchmarkPriceRepository.Row> toBenchmarkRows(YahooChartResponse response, String ticker) {
         YahooChartResponse.Result result = firstResult(response);
         List<Long> timestamps = result.timestamp();
         List<BigDecimal> adjCloses = result.indicators().adjclose().get(0).adjclose();
 
-        List<BenchmarkPriceJdbcRepository.Row> rows = new ArrayList<>();
+        List<BenchmarkPriceRepository.Row> rows = new ArrayList<>();
         for (int i = 0; i < timestamps.size(); i++) {
             BigDecimal adjClose = safeGet(adjCloses, i);
             if (adjClose == null) continue;
             LocalDate date = Instant.ofEpochSecond(timestamps.get(i)).atZone(NY).toLocalDate();
-            rows.add(new BenchmarkPriceJdbcRepository.Row(date, ticker, adjClose));
+            rows.add(new BenchmarkPriceRepository.Row(date, ticker, adjClose));
         }
         return rows;
     }

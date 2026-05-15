@@ -2,10 +2,10 @@ package com.ftm.app.ingestion;
 
 import com.ftm.app.domain.IngestSource;
 import com.ftm.app.domain.IngestStatus;
-import com.ftm.app.ingestion.repository.BenchmarkPriceJdbcRepository;
+import com.ftm.app.ingestion.repository.BenchmarkPriceRepository;
 import com.ftm.app.ingestion.repository.IngestLogRepository;
-import com.ftm.app.ingestion.repository.MacroIndicatorJdbcRepository;
-import com.ftm.app.ingestion.repository.RawPriceJdbcRepository;
+import com.ftm.app.ingestion.repository.MacroIndicatorRepository;
+import com.ftm.app.ingestion.repository.RawPriceRepository;
 import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -14,6 +14,7 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -43,9 +44,9 @@ class IngestionPipelineIT {
 
     @LocalServerPort int port;
     @Autowired IngestLogRepository ingestLogRepository;
-    @Autowired RawPriceJdbcRepository rawPriceRepository;
-    @Autowired BenchmarkPriceJdbcRepository benchmarkPriceRepository;
-    @Autowired MacroIndicatorJdbcRepository macroIndicatorRepository;
+    @Autowired RawPriceRepository rawPriceRepository;
+    @Autowired BenchmarkPriceRepository benchmarkPriceRepository;
+    @Autowired MacroIndicatorRepository macroIndicatorRepository;
     @Autowired JdbcTemplate jdbcTemplate;
     RestClient restClient;
 
@@ -74,7 +75,8 @@ class IngestionPipelineIT {
     }
 
     @Test
-    void triggerIngestion_persistsPricesToDatabaseAndCompletesSuccessfully() {
+    @DisplayName("POST /ingest/trigger persists prices to database and completes with SUCCESS status")
+    void shouldPersistPricesAndCompleteSuccessfully() {
         ResponseEntity<String> response = restClient.post()
                 .uri("/api/v1/ingest/trigger").retrieve().toEntity(String.class);
 
@@ -83,48 +85,50 @@ class IngestionPipelineIT {
         await().atMost(30, TimeUnit.SECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .until(() -> ingestLogRepository.findTopBySourceOrderByStartedAtDesc(IngestSource.PRICES)
-                        .map(l -> l.getStatus() != IngestStatus.RUNNING)
+                        .map(l -> l.status() != IngestStatus.RUNNING)
                         .orElse(false));
 
         var pricesLog = ingestLogRepository
                 .findTopBySourceOrderByStartedAtDesc(IngestSource.PRICES).orElseThrow();
-        assertThat(pricesLog.getStatus()).isEqualTo(IngestStatus.SUCCESS);
-        assertThat(pricesLog.getRowsInserted()).isPositive();
-        assertThat(pricesLog.getFinishedAt()).isNotNull();
+        assertThat(pricesLog.status()).isEqualTo(IngestStatus.SUCCESS);
+        assertThat(pricesLog.rowsInserted()).isPositive();
+        assertThat(pricesLog.finishedAt()).isNotNull();
 
         assertThat(rawPriceRepository.countAll()).isPositive();
         assertThat(benchmarkPriceRepository.countAll()).isPositive();
     }
 
     @Test
-    void triggerIngestion_persistsMacroDataAndCompletesSuccessfully() {
+    @DisplayName("POST /ingest/trigger persists macro data and completes with SUCCESS status")
+    void shouldPersistMacroDataAndCompleteSuccessfully() {
         restClient.post().uri("/api/v1/ingest/trigger").retrieve().toEntity(String.class);
 
         await().atMost(30, TimeUnit.SECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .until(() -> ingestLogRepository.findTopBySourceOrderByStartedAtDesc(IngestSource.MACRO)
-                        .map(l -> l.getStatus() != IngestStatus.RUNNING)
+                        .map(l -> l.status() != IngestStatus.RUNNING)
                         .orElse(false));
 
         var macroLog = ingestLogRepository
                 .findTopBySourceOrderByStartedAtDesc(IngestSource.MACRO).orElseThrow();
-        assertThat(macroLog.getStatus()).isEqualTo(IngestStatus.SUCCESS);
+        assertThat(macroLog.status()).isEqualTo(IngestStatus.SUCCESS);
 
         assertThat(macroIndicatorRepository.countAll()).isPositive();
     }
 
     @Test
-    void triggerIngestion_isIdempotent_noDuplicatesOnSecondTrigger() {
+    @DisplayName("POST /ingest/trigger is idempotent — no duplicates on second trigger")
+    void shouldBeIdempotentWithNoDuplicatesOnSecondTrigger() {
         restClient.post().uri("/api/v1/ingest/trigger").retrieve().toEntity(String.class);
 
         await().atMost(30, TimeUnit.SECONDS)
                 .until(() -> ingestLogRepository.findTopBySourceOrderByStartedAtDesc(IngestSource.PRICES)
-                        .map(l -> l.getStatus() == IngestStatus.SUCCESS)
+                        .map(l -> l.status() == IngestStatus.SUCCESS)
                         .orElse(false));
 
         int countAfterFirst = rawPriceRepository.countAll();
         OffsetDateTime firstRunStartedAt = ingestLogRepository
-                .findTopBySourceOrderByStartedAtDesc(IngestSource.PRICES).orElseThrow().getStartedAt();
+                .findTopBySourceOrderByStartedAtDesc(IngestSource.PRICES).orElseThrow().startedAt();
 
         // Second trigger — all dates already present, ON CONFLICT DO NOTHING keeps count the same
         restClient.post().uri("/api/v1/ingest/trigger").retrieve().toEntity(String.class);
@@ -132,8 +136,8 @@ class IngestionPipelineIT {
         // Wait for a NEW PRICES log (startedAt strictly after the first run) to complete
         await().atMost(30, TimeUnit.SECONDS)
                 .until(() -> ingestLogRepository.findTopBySourceOrderByStartedAtDesc(IngestSource.PRICES)
-                        .map(l -> l.getStatus() == IngestStatus.SUCCESS
-                                && l.getStartedAt().isAfter(firstRunStartedAt))
+                        .map(l -> l.status() == IngestStatus.SUCCESS
+                                && l.startedAt().isAfter(firstRunStartedAt))
                         .orElse(false));
 
         int countAfterSecond = rawPriceRepository.countAll();

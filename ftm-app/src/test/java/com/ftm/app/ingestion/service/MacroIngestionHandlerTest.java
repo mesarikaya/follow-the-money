@@ -2,7 +2,8 @@ package com.ftm.app.ingestion.service;
 
 import com.ftm.app.ingestion.client.FredClient;
 import com.ftm.app.ingestion.client.dto.FredObservationsResponse;
-import com.ftm.app.ingestion.repository.MacroIndicatorJdbcRepository;
+import com.ftm.app.ingestion.repository.MacroIndicatorRepository;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -22,12 +23,13 @@ import static org.mockito.Mockito.*;
 class MacroIngestionHandlerTest {
 
     @Mock FredClient fredClient;
-    @Mock MacroIndicatorJdbcRepository macroRepo;
+    @Mock MacroIndicatorRepository macroRepo;
 
     @InjectMocks MacroIngestionHandler handler;
 
     @Test
-    void fetchAndPersist_fetchesAllSevenFredSeries() {
+    @DisplayName("fetchAndPersist fetches all seven configured FRED series")
+    void shouldFetchAllSevenFredSeries() {
         when(macroRepo.findMaxObservationDate(anyString())).thenReturn(Optional.empty());
         when(fredClient.fetchObservations(anyString(), any(), any())).thenReturn(observations());
         when(macroRepo.batchInsert(any())).thenReturn(2);
@@ -41,7 +43,8 @@ class MacroIngestionHandlerTest {
     }
 
     @Test
-    void fetchAndPersist_usesMaxObservationDateForIncrementalFetch() {
+    @DisplayName("fetchAndPersist uses max observation date for incremental fetch")
+    void shouldUseMaxObservationDateForIncrementalFetch() {
         LocalDate lastKnown = LocalDate.of(2024, 1, 2);
         when(macroRepo.findMaxObservationDate(anyString())).thenReturn(Optional.of(lastKnown));
         when(fredClient.fetchObservations(anyString(), any(), any())).thenReturn(List.of());
@@ -54,7 +57,8 @@ class MacroIngestionHandlerTest {
     }
 
     @Test
-    void fetchAndPersist_capturesSeriesErrorsAsPartialResult() {
+    @DisplayName("fetchAndPersist captures per-series errors and returns partial result")
+    void shouldCaptureSeriesErrorsAsPartialResult() {
         when(macroRepo.findMaxObservationDate(anyString())).thenReturn(Optional.empty());
         when(fredClient.fetchObservations(anyString(), any(), any()))
                 .thenThrow(new RuntimeException("FRED unavailable"));

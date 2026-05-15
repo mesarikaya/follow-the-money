@@ -5,10 +5,6 @@ spring:
     username: ftm
     password: ftm
 
-  jpa:
-    hibernate:
-      ddl-auto: validate
-
   flyway:
     enabled: true
 

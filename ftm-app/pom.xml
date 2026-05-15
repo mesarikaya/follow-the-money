@@ -61,10 +61,6 @@
 
         <!-- ── Data / ORM ──────────────────────────────────────────── -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
@@ -85,6 +81,12 @@
             <artifactId>spring-boot-flyway</artifactId>
         </dependency>
 
+        <!-- ── jOOQ ───────────────────────────────────────────────── -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jooq</artifactId>
+        </dependency>
+
         <!-- ── Cache (Caffeine) ────────────────────────────────────── -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -97,11 +99,15 @@
 
         <!-- ── HTTP client (Yahoo Finance + FRED) ─────────────────── -->
         <!-- RestClient is part of spring-boot-starter-web (Spring Boot 3.2+) -->
-        <!-- spring-retry for @Retryable on client calls -->
+        <!-- spring-retry for @Retryable on client calls; aspectjweaver required for proxy-based retry -->
         <dependency>
             <groupId>org.springframework.retry</groupId>
             <artifactId>spring-retry</artifactId>
             <version>${spring-retry.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
         </dependency>
 
         <!-- ── Validation ─────────────────────────────────────────── -->
@@ -159,6 +165,63 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.jooq</groupId>
+                <artifactId>jooq-codegen-maven</artifactId>
+                <executions>
+                    <execution>
+                        <id>jooq-codegen</id>
+                        <phase>generate-sources</phase>
+                        <goals><goal>generate</goal></goals>
+                    </execution>
+                </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.postgresql</groupId>
+                        <artifactId>postgresql</artifactId>
+                        <version>42.7.4</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.testcontainers</groupId>
+                        <artifactId>jdbc</artifactId>
+                        <version>${testcontainers.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.testcontainers</groupId>
+                        <artifactId>postgresql</artifactId>
+                        <version>${testcontainers.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>junit</groupId>
+                        <artifactId>junit</artifactId>
+                        <version>4.13.2</version>
+                    </dependency>
+                </dependencies>
+                <configuration>
+                    <jdbc>
+                        <driver>org.testcontainers.jdbc.ContainerDatabaseDriver</driver>
+                        <url>jdbc:tc:postgresql:16-alpine:///codegen?TC_INITSCRIPT=file:src/main/resources/db/migration/V1__initial_schema.sql</url>
+                        <user>test</user>
+                        <password>test</password>
+                    </jdbc>
+                    <generator>
+                        <database>
+                            <name>org.jooq.meta.jdbc.JDBCDatabase</name>
+                            <includes>.*</includes>
+                            <inputSchema>public</inputSchema>
+                        </database>
+                        <generate>
+                            <records>true</records>
+                            <daos>false</daos>
+                            <pojos>false</pojos>
+                        </generate>
+                        <target>
+                            <packageName>com.ftm.app.jooq</packageName>
+                            <directory>target/generated-sources/jooq</directory>
+                        </target>
+                    </generator>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

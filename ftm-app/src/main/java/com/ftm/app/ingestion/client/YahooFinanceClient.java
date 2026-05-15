@@ -49,9 +49,6 @@ public class YahooFinanceClient {
         } catch (HttpClientErrorException.NotFound ex) {
             log.warn("Yahoo Finance: ticker {} not found", ticker);
             return Optional.empty();
-        } catch (Exception ex) {
-            log.warn("Yahoo Finance chart fetch failed for {}: {}", ticker, ex.getMessage());
-            throw ex;
         }
     }
 }

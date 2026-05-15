@@ -7,6 +7,8 @@ import com.ftm.app.domain.IngestSource;
 import com.ftm.app.domain.IngestStatus;
 import com.ftm.app.ingestion.event.IngestionRequestedEvent;
 import com.ftm.app.ingestion.repository.IngestLogRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +20,8 @@ import java.util.UUID;
 
 @Service
 public class IngestTriggerService {
+
+    private static final Logger log = LoggerFactory.getLogger(IngestTriggerService.class);
 
     private final IngestLogRepository ingestLogRepository;
     private final ApplicationEventPublisher eventPublisher;
@@ -31,13 +35,15 @@ public class IngestTriggerService {
     @Transactional
     public IngestTriggerResponse trigger() {
         OffsetDateTime now = OffsetDateTime.now();
+        log.info("Ingestion trigger received — queuing PRICES and MACRO");
         // PRICES handler runs flow estimation inline; FLOWS is not a separate event
         List<UUID> runIds = List.of(IngestSource.PRICES, IngestSource.MACRO).stream()
                 .map(source -> {
-                    IngestLog log = new IngestLog(now, IngestStatus.RUNNING, 0, source);
-                    ingestLogRepository.save(log);
+                    IngestLog ingestLog = new IngestLog(now, IngestStatus.RUNNING, 0, source);
+                    ingestLogRepository.insert(ingestLog);
                     eventPublisher.publishEvent(new IngestionRequestedEvent(source));
-                    return log.getRunId();
+                    log.info("Queued {} ingestion run {}", source, ingestLog.runId());
+                    return ingestLog.runId();
                 })
                 .toList();
         return new IngestTriggerResponse(
@@ -64,12 +70,12 @@ public class IngestTriggerService {
 
     private IngestStatusResponse toResponse(IngestLog log) {
         return new IngestStatusResponse(
-                log.getRunId(),
-                log.getSource().name().toLowerCase(),
-                log.getStatus().name().toLowerCase(),
-                log.getStartedAt(),
-                log.getFinishedAt(),
-                log.getRowsInserted()
+                log.runId(),
+                log.source().name().toLowerCase(),
+                log.status().name().toLowerCase(),
+                log.startedAt(),
+                log.finishedAt(),
+                log.rowsInserted()
         );
     }
 }

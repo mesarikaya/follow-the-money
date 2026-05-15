@@ -2,7 +2,7 @@ package com.ftm.app.ingestion.service;
 
 import com.ftm.app.ingestion.client.FredClient;
 import com.ftm.app.ingestion.client.dto.FredObservationsResponse;
-import com.ftm.app.ingestion.repository.MacroIndicatorJdbcRepository;
+import com.ftm.app.ingestion.repository.MacroIndicatorRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -23,9 +23,9 @@ public class MacroIngestionHandler {
             Set.of("T10Y2Y", "T10YIE", "VIXCLS", "DTWEXBGS", "FEDFUNDS", "DGS10", "DGS2");
 
     private final FredClient fredClient;
-    private final MacroIndicatorJdbcRepository macroRepo;
+    private final MacroIndicatorRepository macroRepo;
 
-    public MacroIngestionHandler(FredClient fredClient, MacroIndicatorJdbcRepository macroRepo) {
+    public MacroIngestionHandler(FredClient fredClient, MacroIndicatorRepository macroRepo) {
         this.fredClient = fredClient;
         this.macroRepo = macroRepo;
     }
@@ -50,7 +50,7 @@ public class MacroIngestionHandler {
                     .orElse(today.minusYears(BACKFILL_YEARS));
             if (!from.isBefore(today)) return 0;
 
-            List<MacroIndicatorJdbcRepository.Row> rows = fredClient
+            List<MacroIndicatorRepository.Row> rows = fredClient
                     .fetchObservations(seriesId, from, today).stream()
                     .map(o -> toRow(seriesId, o))
                     .toList();
@@ -63,8 +63,8 @@ public class MacroIngestionHandler {
         }
     }
 
-    private MacroIndicatorJdbcRepository.Row toRow(String seriesId, FredObservationsResponse.Observation o) {
-        return new MacroIndicatorJdbcRepository.Row(
+    private MacroIndicatorRepository.Row toRow(String seriesId, FredObservationsResponse.Observation o) {
+        return new MacroIndicatorRepository.Row(
                 LocalDate.parse(o.date()),
                 seriesId,
                 new BigDecimal(o.value())

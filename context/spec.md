@@ -20,7 +20,7 @@ Single authoritative specification. Covers stack, data model, signal formulas, a
 | REST API | Spring MVC | OpenAPI via springdoc-openapi |
 | Database | PostgreSQL 16 | Window functions for signal computation (D-001) |
 | DB migrations | Flyway | `ftm-app` owns all migrations |
-| ORM / data access | Spring Data JPA + JDBC Template | JPA for entities, JDBC for bulk signal inserts |
+| ORM / data access | jOOQ 3.21 (exclusive) | JPA removed; DSLContext for all queries; records for domain objects (D-010) |
 | Internal pipeline events | Spring `ApplicationEventPublisher` + `@Async` | Replaces RabbitMQ (D-002) |
 | Scheduler | Spring `@Scheduled` | Triggers daily ingestion |
 | Cache | Caffeine (Spring Boot in-process) | Replaces Redis (D-005) |
@@ -59,7 +59,7 @@ follow-the-money/
 │       ├── api/                      ← REST controllers (Spring MVC)
 │       │   └── controller/           ← CategoryController, SignalController, etc.
 │       ├── ai/                       ← ExplanationService, AdviceService (opt-in)
-│       └── domain/                   ← JPA entities
+│       └── domain/                   ← Java records and plain domain objects (no JPA)
 │   └── src/main/resources/
 │       ├── application.yml
 │       └── db/migration/             ← V1__initial_schema.sql, V2__seed_categories.sql …

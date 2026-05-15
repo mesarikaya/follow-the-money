@@ -5,6 +5,7 @@ import com.ftm.app.domain.IngestSource;
 import com.ftm.app.domain.IngestStatus;
 import com.ftm.app.ingestion.event.IngestionCompleteEvent;
 import com.ftm.app.ingestion.event.IngestionRequestedEvent;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -36,7 +37,8 @@ class IngestionServiceTest {
     @InjectMocks IngestionService service;
 
     @Test
-    void onPricesRequested_finishesLogAndPublishesCompleteEvent_onSuccess() {
+    @DisplayName("onPricesRequested finishes log and publishes complete event on success")
+    void shouldFinishLogAndPublishCompleteEventOnSuccess() {
         IngestLog log = runningLog(IngestSource.PRICES);
         when(ingestLogService.findRunningLog(IngestSource.PRICES)).thenReturn(Optional.of(log));
         when(pricesHandler.fetchAndPersist(any(LocalDate.class)))
@@ -54,7 +56,8 @@ class IngestionServiceTest {
     }
 
     @Test
-    void onMacroRequested_finishesLogWithPartialStatus_whenHandlerReturnsErrors() {
+    @DisplayName("onMacroRequested finishes log with partial status when handler returns errors")
+    void shouldFinishWithPartialStatusWhenHandlerReturnsErrors() {
         IngestLog log = runningLog(IngestSource.MACRO);
         when(ingestLogService.findRunningLog(IngestSource.MACRO)).thenReturn(Optional.of(log));
         when(macroHandler.fetchAndPersist(any(LocalDate.class)))
@@ -68,7 +71,8 @@ class IngestionServiceTest {
     }
 
     @Test
-    void onPricesRequested_marksLogFailed_whenHandlerThrows() {
+    @DisplayName("onPricesRequested marks log as failed when handler throws an exception")
+    void shouldMarkLogFailedWhenHandlerThrows() {
         IngestLog log = runningLog(IngestSource.PRICES);
         when(ingestLogService.findRunningLog(IngestSource.PRICES)).thenReturn(Optional.of(log));
         when(pricesHandler.fetchAndPersist(any(LocalDate.class)))
@@ -85,7 +89,8 @@ class IngestionServiceTest {
     }
 
     @Test
-    void onPricesRequested_doesNothing_whenNoRunningLogExists() {
+    @DisplayName("onPricesRequested does nothing when no running log exists")
+    void shouldDoNothingWhenNoRunningLogExists() {
         when(ingestLogService.findRunningLog(IngestSource.PRICES)).thenReturn(Optional.empty());
 
         service.onPricesRequested(new IngestionRequestedEvent(IngestSource.PRICES));

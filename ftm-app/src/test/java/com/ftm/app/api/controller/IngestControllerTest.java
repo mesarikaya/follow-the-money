@@ -4,6 +4,7 @@ import com.ftm.app.api.dto.IngestStatusResponse;
 import com.ftm.app.api.dto.IngestTriggerResponse;
 import com.ftm.app.ingestion.service.IngestTriggerService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -38,7 +39,8 @@ class IngestControllerTest {
     }
 
     @Test
-    void trigger_returns202WithRunIds() throws Exception {
+    @DisplayName("POST /ingest/trigger returns 202 Accepted with run IDs")
+    void shouldReturn202WithRunIds() throws Exception {
         UUID runId = UUID.randomUUID();
         when(ingestTriggerService.trigger()).thenReturn(
                 new IngestTriggerResponse(List.of(runId, UUID.randomUUID()), "queued", "Ingestion started"));
@@ -49,7 +51,8 @@ class IngestControllerTest {
     }
 
     @Test
-    void getStatus_returns200_forExistingRun() throws Exception {
+    @DisplayName("GET /ingest/status/{runId} returns 200 OK for existing run")
+    void shouldReturn200ForExistingRun() throws Exception {
         UUID runId = UUID.randomUUID();
         when(ingestTriggerService.getStatus(runId)).thenReturn(statusResponse(runId, "prices", "success"));
 
@@ -60,7 +63,8 @@ class IngestControllerTest {
     }
 
     @Test
-    void getStatus_returns404_whenRunNotFound() throws Exception {
+    @DisplayName("GET /ingest/status/{runId} returns 404 when run is not found")
+    void shouldReturn404WhenRunNotFound() throws Exception {
         UUID runId = UUID.randomUUID();
         when(ingestTriggerService.getStatus(runId)).thenThrow(new NoSuchElementException("not found"));
 
@@ -69,7 +73,8 @@ class IngestControllerTest {
     }
 
     @Test
-    void getLatest_returns200WithList() throws Exception {
+    @DisplayName("GET /ingest/status/latest returns 200 OK with list of latest logs")
+    void shouldReturn200WithLatestLogList() throws Exception {
         when(ingestTriggerService.getLatestPerSource()).thenReturn(
                 List.of(statusResponse(UUID.randomUUID(), "prices", "success"),
                         statusResponse(UUID.randomUUID(), "macro", "running")));

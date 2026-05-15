@@ -6,6 +6,7 @@ import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
 
@@ -37,7 +38,8 @@ class YahooFinanceClientTest {
     }
 
     @Test
-    void fetchChart_parsesTimestampsAndPricesCorrectly() throws InterruptedException {
+    @DisplayName("fetchChart parses timestamps and prices correctly from valid response")
+    void shouldParseTimestampsAndPricesCorrectly() throws InterruptedException {
         server.enqueue(new MockResponse()
                 .setBody(fixture("fixtures/yahoo-chart-valid.json"))
                 .addHeader("Content-Type", "application/json"));
@@ -57,7 +59,8 @@ class YahooFinanceClientTest {
     }
 
     @Test
-    void fetchChart_returnsEmptyOnNotFound() {
+    @DisplayName("fetchChart returns empty when ticker is not found (404)")
+    void shouldReturnEmptyOnNotFound() {
         server.enqueue(new MockResponse().setResponseCode(404));
 
         Optional<YahooChartResponse> result =
@@ -67,7 +70,8 @@ class YahooFinanceClientTest {
     }
 
     @Test
-    void fetchChart_throwsOnServerError() {
+    @DisplayName("fetchChart throws on server error so the handler can capture it")
+    void shouldThrowOnServerError() {
         // Without Spring context @Retryable is not active; client throws so the handler can capture the error
         server.enqueue(new MockResponse().setResponseCode(500));
 

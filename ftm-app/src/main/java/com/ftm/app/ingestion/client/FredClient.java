@@ -31,20 +31,18 @@ public class FredClient {
     )
     public List<FredObservationsResponse.Observation> fetchObservations(
             String seriesId, LocalDate from, LocalDate to) {
-        try {
-            FredObservationsResponse response = restClient.get()
-                    .uri("/fred/v2/series/observations?series_id={sid}&api_key={key}" +
-                                    "&file_type=json&observation_start={from}&observation_end={to}",
-                            seriesId, apiKey, from, to)
-                    .retrieve()
-                    .body(FredObservationsResponse.class);
-            if (response == null || response.observations() == null) return List.of();
-            return response.observations().stream()
-                    .filter(o -> !o.isMissing())
-                    .toList();
-        } catch (Exception ex) {
-            log.warn("FRED fetch failed for series {} (check FRED_API_KEY if 403)", seriesId);
-            throw ex;
-        }
+        log.debug("Fetching FRED series {} from {} to {}", seriesId, from, to);
+        FredObservationsResponse response = restClient.get()
+                .uri("/fred/v2/series/observations?series_id={sid}&api_key={key}" +
+                                "&file_type=json&observation_start={from}&observation_end={to}",
+                        seriesId, apiKey, from, to)
+                .retrieve()
+                .body(FredObservationsResponse.class);
+        if (response == null || response.observations() == null) return List.of();
+        List<FredObservationsResponse.Observation> result = response.observations().stream()
+                .filter(o -> !o.isMissing())
+                .toList();
+        log.debug("FRED series {} returned {} observations", seriesId, result.size());
+        return result;
     }
 }

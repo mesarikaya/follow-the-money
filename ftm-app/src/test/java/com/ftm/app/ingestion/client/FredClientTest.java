@@ -5,6 +5,7 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
 
@@ -36,7 +37,8 @@ class FredClientTest {
     }
 
     @Test
-    void fetchObservations_parsesDatesAndValuesCorrectly() {
+    @DisplayName("fetchObservations parses dates and values correctly from valid response")
+    void shouldParseDatesAndValuesCorrectly() {
         server.enqueue(new MockResponse()
                 .setBody(fixture("fixtures/fred-observations-valid.json"))
                 .addHeader("Content-Type", "application/json"));
@@ -51,7 +53,8 @@ class FredClientTest {
     }
 
     @Test
-    void fetchObservations_filtersMissingValues() {
+    @DisplayName("fetchObservations filters out missing value entries")
+    void shouldFilterMissingValues() {
         server.enqueue(new MockResponse()
                 .setBody(fixture("fixtures/fred-observations-with-missing.json"))
                 .addHeader("Content-Type", "application/json"));
@@ -64,7 +67,8 @@ class FredClientTest {
     }
 
     @Test
-    void fetchObservations_throwsOnServerError() {
+    @DisplayName("fetchObservations throws on server error so the handler can capture it")
+    void shouldThrowOnServerError() {
         // Without Spring context @Retryable is not active; client throws so the handler can capture the error
         server.enqueue(new MockResponse().setResponseCode(500));
 

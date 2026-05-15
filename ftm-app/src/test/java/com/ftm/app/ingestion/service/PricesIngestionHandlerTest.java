@@ -2,11 +2,13 @@ package com.ftm.app.ingestion.service;
 
 import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.domain.Category;
+import com.ftm.app.domain.CategoryId;
 import com.ftm.app.domain.CategoryType;
 import com.ftm.app.ingestion.client.YahooFinanceClient;
 import com.ftm.app.ingestion.client.dto.YahooChartResponse;
-import com.ftm.app.ingestion.repository.BenchmarkPriceJdbcRepository;
-import com.ftm.app.ingestion.repository.RawPriceJdbcRepository;
+import com.ftm.app.ingestion.repository.BenchmarkPriceRepository;
+import com.ftm.app.ingestion.repository.RawPriceRepository;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -29,14 +31,15 @@ class PricesIngestionHandlerTest {
 
     @Mock CategoryRepository categoryRepository;
     @Mock YahooFinanceClient yahooClient;
-    @Mock RawPriceJdbcRepository rawPriceRepo;
-    @Mock BenchmarkPriceJdbcRepository benchmarkRepo;
+    @Mock RawPriceRepository rawPriceRepo;
+    @Mock BenchmarkPriceRepository benchmarkRepo;
 
     @InjectMocks PricesIngestionHandler handler;
 
     @Test
-    void fetchAndPersist_insertsRowsForAllCategoriesAndBenchmarks() {
-        Category tech = category("TECH", "XLK");
+    @DisplayName("fetchAndPersist inserts rows for all categories and benchmarks")
+    void shouldInsertRowsForAllCategoriesAndBenchmarks() {
+        Category tech = category(CategoryId.TECH, "XLK");
         when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc()).thenReturn(List.of(tech));
         when(rawPriceRepo.findMaxTradeDate("TECH")).thenReturn(Optional.empty());
         when(benchmarkRepo.findMaxTradeDate(any())).thenReturn(Optional.empty());
@@ -53,8 +56,9 @@ class PricesIngestionHandlerTest {
     }
 
     @Test
-    void fetchAndPersist_usesMaxTradeDateForIncrementalFetch() {
-        Category tech = category("TECH", "XLK");
+    @DisplayName("fetchAndPersist uses max trade date for incremental fetch")
+    void shouldUseMaxTradeDateForIncrementalFetch() {
+        Category tech = category(CategoryId.TECH, "XLK");
         when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc()).thenReturn(List.of(tech));
         when(rawPriceRepo.findMaxTradeDate("TECH")).thenReturn(Optional.of(LocalDate.of(2024, 1, 3)));
         when(benchmarkRepo.findMaxTradeDate(any())).thenReturn(Optional.of(LocalDate.of(2024, 1, 3)));
@@ -70,8 +74,9 @@ class PricesIngestionHandlerTest {
     }
 
     @Test
-    void fetchAndPersist_capturesErrorsAndReturnsPartialResult() {
-        Category tech = category("TECH", "XLK");
+    @DisplayName("fetchAndPersist captures category errors and returns partial result")
+    void shouldCaptureErrorsAndReturnPartialResult() {
+        Category tech = category(CategoryId.TECH, "XLK");
         when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc()).thenReturn(List.of(tech));
         when(rawPriceRepo.findMaxTradeDate("TECH")).thenReturn(Optional.empty());
         when(benchmarkRepo.findMaxTradeDate(any())).thenReturn(Optional.empty());
@@ -89,8 +94,9 @@ class PricesIngestionHandlerTest {
     }
 
     @Test
-    void fetchAndPersist_skipsUpToDateCategories() {
-        Category tech = category("TECH", "XLK");
+    @DisplayName("fetchAndPersist skips categories that are already up to date")
+    void shouldSkipUpToDateCategories() {
+        Category tech = category(CategoryId.TECH, "XLK");
         LocalDate today = LocalDate.of(2024, 1, 5);
         when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc()).thenReturn(List.of(tech));
         when(rawPriceRepo.findMaxTradeDate("TECH")).thenReturn(Optional.of(today));
@@ -101,7 +107,7 @@ class PricesIngestionHandlerTest {
         verify(yahooClient, never()).fetchChart(eq("XLK"), any(), any());
     }
 
-    private Category category(String id, String ticker) {
+    private Category category(CategoryId id, String ticker) {
         return new Category(id, "Technology", CategoryType.EQUITY_SECTOR, ticker, "SPY", 1, true);
     }
 

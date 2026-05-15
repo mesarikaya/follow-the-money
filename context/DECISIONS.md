@@ -208,6 +208,38 @@ Same weights apply uniformly to all 19 categories (equity, fixed income, metals,
 
 ---
 
+### D-010 — jOOQ as the exclusive persistence layer (JPA removed)
+
+**Status:** Accepted · **Date:** 2026-05-15
+
+`spring-boot-starter-data-jpa` removed from `pom.xml`. jOOQ 3.21 is the sole ORM/query layer.
+
+**Data access pattern:**
+- All repositories are concrete `@Repository` classes with an injected `DSLContext`
+- Domain objects are Java records (or plain classes for mutable state) — no `@Entity` annotations
+- Flyway owns all DDL; jOOQ generates type-safe DSL from the schema at build time
+- Batch inserts use jOOQ `ON CONFLICT DO NOTHING` (idempotent upserts)
+- Complex reads use jOOQ correlated subqueries or window functions
+
+**Domain objects as records:** All 10 domain classes converted to Java records or plain immutable classes:
+- Records: `Category`, `RawPrice`, `BenchmarkPrice`, `MacroIndicator`, `Signal`, `AlertRule`, `Portfolio`, `IngestLog`, `Alert`, `RotationEvent`
+- `IngestLog.finish()` returns a new record instead of mutating — aligns with functional style
+- `Alert` and `RotationEvent` have a secondary constructor for pre-insert (null DB-generated id)
+
+**Connection pool:** HikariCP configured explicitly — pool-name, max pool size (10), min idle (2), idle timeout, max lifetime, connection timeout, and `SELECT 1` healthcheck.
+
+**Why JPA was removed:**
+- Mixing JPA and jOOQ creates two impedance-mismatch layers with conflicting assumptions about entity state and caching
+- JPA's session/first-level cache is meaningless in a batch-insert pipeline
+- jOOQ's type-safe DSL is more expressive than JPQL for window functions and bulk operations
+- `@Entity` lifecycle callbacks and lazy loading add complexity with no benefit at this data volume
+
+**Alternatives rejected:** Spring Data JDBC (less expressive than jOOQ for complex queries), keeping JPA alongside jOOQ (two conflicting persistence models).
+
+**Upgrade path:** No upgrade needed — jOOQ handles all planned query patterns.
+
+---
+
 ## Open questions (RFCs)
 
 ### RFC-0003 — Multi-timeframe independent alerts

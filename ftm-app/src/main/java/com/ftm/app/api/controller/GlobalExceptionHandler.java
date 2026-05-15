@@ -1,6 +1,8 @@
 package com.ftm.app.api.controller;
 
 import jakarta.validation.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -14,6 +16,8 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(NoSuchElementException.class)
     public ProblemDetail handleNotFound(NoSuchElementException ex, WebRequest request) {
@@ -50,6 +54,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneric(Exception ex, WebRequest request) {
+        log.error("Unhandled exception at {}: {}", request.getDescription(false), ex.getMessage(), ex);
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
                 "An unexpected error occurred");
         problem.setType(URI.create("https://ftm.local/errors/internal"));

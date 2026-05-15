@@ -2,6 +2,7 @@ package com.ftm.app.api.controller;
 
 import com.ftm.app.api.dto.IngestStatusResponse;
 import com.ftm.app.api.dto.IngestTriggerResponse;
+import com.ftm.app.api.exceptions.GlobalExceptionHandler;
 import com.ftm.app.ingestion.service.IngestTriggerService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -17,7 +18,6 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -27,7 +27,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(MockitoExtension.class)
 class IngestControllerTest {
 
-    @Mock IngestTriggerService ingestTriggerService;
+    @Mock
+    IngestTriggerService ingestTriggerService;
     MockMvc mockMvc;
 
     @BeforeEach

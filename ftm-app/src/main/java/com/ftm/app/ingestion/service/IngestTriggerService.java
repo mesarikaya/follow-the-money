@@ -17,6 +17,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @Service
 public class IngestTriggerService {
@@ -37,7 +38,7 @@ public class IngestTriggerService {
         OffsetDateTime now = OffsetDateTime.now();
         log.info("Ingestion trigger received — queuing PRICES and MACRO");
         // PRICES handler runs flow estimation inline; FLOWS is not a separate event
-        List<UUID> runIds = List.of(IngestSource.PRICES, IngestSource.MACRO).stream()
+        List<UUID> runIds = Stream.of(IngestSource.PRICES, IngestSource.MACRO)
                 .map(source -> {
                     IngestLog ingestLog = new IngestLog(now, IngestStatus.RUNNING, 0, source);
                     ingestLogRepository.insert(ingestLog);
@@ -55,9 +56,9 @@ public class IngestTriggerService {
 
     @Transactional(readOnly = true)
     public IngestStatusResponse getStatus(UUID runId) {
-        IngestLog log = ingestLogRepository.findById(runId)
+        IngestLog ingestLog = ingestLogRepository.findById(runId)
                 .orElseThrow(() -> new NoSuchElementException("Ingest run not found: " + runId));
-        return toResponse(log);
+        return toResponse(ingestLog);
     }
 
     @Transactional(readOnly = true)

@@ -3,6 +3,7 @@ package com.ftm.app.api.controller;
 import com.ftm.app.api.dto.MacroIndicatorsDto;
 import com.ftm.app.api.dto.MacroRegimeHistoryEntry;
 import com.ftm.app.api.dto.MacroResponse;
+import com.ftm.app.api.exceptions.GlobalExceptionHandler;
 import com.ftm.app.api.service.MacroService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -24,7 +25,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(MockitoExtension.class)
 class MacroControllerTest {
 
-    @Mock MacroService macroService;
+    @Mock
+    MacroService macroService;
     MockMvc mockMvc;
 
     @BeforeEach

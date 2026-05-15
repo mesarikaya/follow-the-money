@@ -1,6 +1,7 @@
 package com.ftm.app.api.controller;
 
 import com.ftm.app.api.dto.CategoriesResponse;
+import com.ftm.app.api.exceptions.GlobalExceptionHandler;
 import com.ftm.app.api.service.CategoryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,7 +24,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(MockitoExtension.class)
 class CategoryControllerTest {
 
-    @Mock CategoryService categoryService;
+    @Mock
+    CategoryService categoryService;
     MockMvc mockMvc;
 
     @BeforeEach

@@ -27,8 +27,11 @@ spring:
 
   cache:
     type: caffeine
-    caffeine:
-      spec: maximumSize=500,expireAfterWrite=3600s
+
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    serialization:
+      write-dates-as-timestamps: false
 
   ai:
     anthropic:

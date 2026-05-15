@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static com.ftm.app.jooq.Tables.INGEST_LOG;
+import static org.jooq.impl.DSL.max;
 
 @Repository
 public class IngestLogRepository {
@@ -63,7 +64,7 @@ public class IngestLogRepository {
         var i2 = INGEST_LOG.as("i2");
         return dsl.selectFrom(INGEST_LOG)
                 .where(INGEST_LOG.STARTED_AT.eq(
-                        dsl.select(i2.STARTED_AT.max()).from(i2)
+                        dsl.select(max(i2.STARTED_AT)).from(i2)
                                 .where(i2.SOURCE.eq(INGEST_LOG.SOURCE))
                 ))
                 .fetch()

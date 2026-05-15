@@ -26,7 +26,7 @@ class MacroIndicatorRepositoryIT {
 
     @BeforeEach
     void cleanTable() {
-        jdbcTemplate.execute("TRUNCATE macro_indicators");
+        jdbcTemplate.execute("TRUNCATE macro_indicators CASCADE");
     }
 
     private static final String SERIES_ID = "DGS10";

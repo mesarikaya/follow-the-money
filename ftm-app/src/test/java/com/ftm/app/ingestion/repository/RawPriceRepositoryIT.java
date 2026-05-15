@@ -26,7 +26,7 @@ class RawPriceRepositoryIT {
 
     @BeforeEach
     void cleanTable() {
-        jdbcTemplate.execute("TRUNCATE raw_prices");
+        jdbcTemplate.execute("TRUNCATE raw_prices CASCADE");
     }
 
     // V2 seeds this category — safe to use in all tests

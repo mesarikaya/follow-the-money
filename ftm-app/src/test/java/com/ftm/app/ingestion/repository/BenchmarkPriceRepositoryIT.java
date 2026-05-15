@@ -26,7 +26,7 @@ class BenchmarkPriceRepositoryIT {
 
     @BeforeEach
     void cleanTable() {
-        jdbcTemplate.execute("TRUNCATE benchmark_prices");
+        jdbcTemplate.execute("TRUNCATE benchmark_prices CASCADE");
     }
 
     private static final String TICKER = "SPY";

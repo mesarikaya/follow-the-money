@@ -25,6 +25,8 @@
         <spring-retry.version>2.0.12</spring-retry.version>
         <!-- Spring AI BOM version — verify against Spring Boot parent compatibility -->
         <spring-ai.version>1.0.0</spring-ai.version>
+        <!-- JaCoCo 0.8.12 does not support Java 25 class files; skip report until JaCoCo supports it -->
+        <jacoco.skip>true</jacoco.skip>
     </properties>
 
     <dependencyManagement>

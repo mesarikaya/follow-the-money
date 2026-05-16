@@ -159,9 +159,10 @@ follow-the-money/
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/v1/categories?timeframe=MONTH` | All 19 categories with latest prices |
+| `GET` | `/api/v1/categories?timeframe=MONTH` | All 19 categories with latest prices + RS_60 signal |
 | `GET` | `/api/v1/macro` | Current macro regime + 7 FRED indicators |
-| `POST` | `/api/v1/ingest/trigger` | Start price + macro ingestion |
+| `GET` | `/api/v1/signals/{categoryId}` | Full signal history for a category |
+| `POST` | `/api/v1/ingest/trigger` | Start price + macro ingestion (triggers signal computation) |
 | `GET` | `/api/v1/ingest/status/{runId}` | Check ingestion run status |
 | `GET` | `/api/v1/ingest/status/latest` | Latest run per source |
 | `GET` | `/swagger-ui.html` | Interactive API docs |
@@ -170,13 +171,26 @@ All responses use camelCase JSON.
 
 ---
 
-## Current milestone: M2 — Basic Dashboard
+## Current milestone: M3 — Full Signal Engine
+
+### Delivered so far (EP-005)
+
+- [x] RS_20, RS_60, RS_120 computed for all 19 categories after each price ingestion
+- [x] MOM computed (RS_60[today] − RS_60[10d ago])
+- [x] `GET /api/v1/signals/{categoryId}` — full signal history endpoint
+- [x] `GET /api/v1/categories` now returns RS_60 per category
+- [x] Signal computation auto-triggers after PRICES ingestion via Spring events
+
+Signal fields requiring AUM data (FLOW, PERSISTENCE) remain `null` until AUM ingestion is implemented.
+
+Still to do: EP-006 (RRG chart), EP-007 (macro regime + COMPOSITE score)
+
+---
+
+## Previous milestone: M2 — Basic Dashboard (complete)
 
 - [x] PostgreSQL schema (19 categories seeded)
 - [x] Yahoo Finance + FRED ingestion
 - [x] REST API (`/categories`, `/macro`, `/ingest/trigger`)
 - [x] Next.js dashboard (sidebar, category table, macro panel)
 - [x] E2E tests (Playwright + mock backend)
-- [ ] Merge to `main` as `vM2`
-
-Next: **M3** — RS, MOM, FLOW signal computation; RRG chart

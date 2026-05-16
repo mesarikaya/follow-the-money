@@ -216,7 +216,7 @@
                 <configuration>
                     <jdbc>
                         <driver>org.testcontainers.jdbc.ContainerDatabaseDriver</driver>
-                        <url>jdbc:tc:postgresql:16-alpine:///codegen?TC_INITSCRIPT=file:src/main/resources/db/migration/V1__initial_schema.sql</url>
+                        <url>jdbc:tc:postgresql:16-alpine:///codegen?TC_INITSCRIPT=file:src/main/resources/db/codegen/codegen_schema.sql</url>
                         <user>test</user>
                         <password>test</password>
                     </jdbc>

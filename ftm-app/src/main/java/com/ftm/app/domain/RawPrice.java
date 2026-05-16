@@ -12,6 +12,6 @@ public record RawPrice(
         BigDecimal close,
         BigDecimal adjClose,
         Long volume,
-        BigDecimal aumUsd,
+        BigDecimal assetsUnderManagementUsd,
         BigDecimal estimatedFlow
 ) {}

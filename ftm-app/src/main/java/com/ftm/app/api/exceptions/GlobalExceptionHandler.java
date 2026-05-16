@@ -73,6 +73,15 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ProblemDetail handleIllegalArgument(IllegalArgumentException ex, WebRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(UNPROCESSABLE, ex.getMessage());
+        problem.setType(URI.create(HTTPS_FTM_LOCAL_ERRORS_VALIDATION));
+        problem.setTitle(VALIDATION_FAILED);
+        problem.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
+        return problem;
+    }
+
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneric(Exception ex, WebRequest request) {
         log.error("Unhandled exception at {}: {}", request.getDescription(false), ex.getMessage(), ex);

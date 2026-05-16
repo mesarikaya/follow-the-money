@@ -44,5 +44,9 @@ desktop.ini
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 
+# ── Spring local overrides (machine-specific secrets) ─────────
+**/application-local.yml
+**/application-local.yaml
+
 # ── Misc ──────────────────────────────────────────────────────
 folder_ctx.txt~

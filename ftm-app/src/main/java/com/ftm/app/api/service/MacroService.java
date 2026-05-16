@@ -5,6 +5,8 @@ import com.ftm.app.api.dto.MacroRegimeHistoryEntry;
 import com.ftm.app.api.dto.MacroResponse;
 import com.ftm.app.api.repository.MacroIndicatorReadRepository;
 import com.ftm.app.domain.MacroIndicator;
+import com.ftm.app.signals.domain.MacroRegime;
+import com.ftm.app.signals.service.MacroRegimeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
@@ -21,13 +23,13 @@ public class MacroService {
 
     private static final Logger log = LoggerFactory.getLogger(MacroService.class);
 
-    // Hardcoded until EP-007 implements regime classification (see DECISIONS.md D-008)
-    private static final String HARDCODED_REGIME = "RISK_ON_GROWTH";
-
     private final MacroIndicatorReadRepository macroIndicatorRepository;
+    private final MacroRegimeService macroRegimeService;
 
-    public MacroService(MacroIndicatorReadRepository macroIndicatorRepository) {
+    public MacroService(MacroIndicatorReadRepository macroIndicatorRepository,
+                        MacroRegimeService macroRegimeService) {
         this.macroIndicatorRepository = macroIndicatorRepository;
+        this.macroRegimeService = macroRegimeService;
     }
 
     @Cacheable("macro-latest")
@@ -35,7 +37,7 @@ public class MacroService {
         log.debug("Loading latest macro indicators");
         List<MacroIndicator> indicators = macroIndicatorRepository.findLatestPerSeries();
 
-        Map<String, BigDecimal> latest = indicators.stream()
+        Map<String, BigDecimal> latestBySeriesId = indicators.stream()
                 .collect(Collectors.toMap(MacroIndicator::seriesId, MacroIndicator::value));
 
         LocalDate asOfDate = indicators.stream()
@@ -44,20 +46,20 @@ public class MacroService {
                 .orElse(LocalDate.now());
 
         MacroIndicatorsDto indicatorsDto = new MacroIndicatorsDto(
-                latest.get("T10Y2Y"),
-                latest.get("VIXCLS"),
-                latest.get("DTWEXBGS"),
-                latest.get("T10YIE"),
-                latest.get("FEDFUNDS"),
-                latest.get("DGS10"),
-                latest.get("DGS2")
+                latestBySeriesId.get("T10Y2Y"),
+                latestBySeriesId.get("VIXCLS"),
+                latestBySeriesId.get("DTWEXBGS"),
+                latestBySeriesId.get("T10YIE"),
+                latestBySeriesId.get("FEDFUNDS"),
+                latestBySeriesId.get("DGS10"),
+                latestBySeriesId.get("DGS2")
         );
 
-        // Regime history computed by EP-007; return single current entry for now
+        MacroRegime currentRegime = macroRegimeService.classifyCurrentRegime();
         List<MacroRegimeHistoryEntry> regimeHistory = List.of(
-                new MacroRegimeHistoryEntry(LocalDate.now(), HARDCODED_REGIME)
+                new MacroRegimeHistoryEntry(asOfDate, currentRegime.name())
         );
 
-        return new MacroResponse(asOfDate, HARDCODED_REGIME, indicatorsDto, regimeHistory);
+        return new MacroResponse(asOfDate, currentRegime.name(), indicatorsDto, regimeHistory);
     }
 }

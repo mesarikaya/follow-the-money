@@ -69,6 +69,19 @@ class MacroIngestionHandlerTest {
         assertThat(result.errors()).hasSize(7);
     }
 
+    @Test
+    @DisplayName("fetchAndPersist skips series that are already up to date")
+    void shouldSkipSeriesAlreadyUpToDate() {
+        LocalDate today = LocalDate.of(2024, 1, 5);
+        when(macroRepo.findMaxObservationDate(anyString())).thenReturn(Optional.of(today));
+
+        IngestionResult result = handler.fetchAndPersist(today);
+
+        assertThat(result.rowsInserted()).isEqualTo(0);
+        assertThat(result.hasErrors()).isFalse();
+        verifyNoInteractions(fredClient);
+    }
+
     private List<FredObservationsResponse.Observation> observations() {
         return List.of(
                 new FredObservationsResponse.Observation("2024-01-02", "3.95"),

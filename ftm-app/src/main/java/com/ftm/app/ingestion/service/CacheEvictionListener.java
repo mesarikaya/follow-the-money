@@ -3,6 +3,7 @@ package com.ftm.app.ingestion.service;
 import com.ftm.app.domain.IngestSource;
 import com.ftm.app.domain.IngestStatus;
 import com.ftm.app.ingestion.event.IngestionCompleteEvent;
+import com.ftm.app.signals.event.SignalsUpdatedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.CacheManager;
@@ -30,6 +31,14 @@ public class CacheEvictionListener {
         if (event.source() == IngestSource.MACRO) {
             evict("macro-latest");
         }
+    }
+
+    @EventListener
+    @Async("asyncExecutor")
+    public void onSignalsUpdated(SignalsUpdatedEvent event) {
+        evict("signals-latest");
+        evict("rrg-latest");
+        evict("rotation-latest");
     }
 
     private void evict(String cacheName) {

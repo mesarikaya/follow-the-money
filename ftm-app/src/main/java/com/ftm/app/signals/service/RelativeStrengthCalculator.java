@@ -35,7 +35,8 @@ public class RelativeStrengthCalculator {
 
         BigDecimal catReturn   = catToday.divide(catBase, MC);
         BigDecimal benchReturn = bnchToday.divide(bnchBase, MC);
-        return catReturn.divide(benchReturn, 6, RoundingMode.HALF_UP);
+        // RS = ratio - 1 so neutral = 0 (spec formula; required for RRG centering at 100)
+        return catReturn.divide(benchReturn, MC).subtract(BigDecimal.ONE).setScale(6, RoundingMode.HALF_UP);
     }
 
     /**

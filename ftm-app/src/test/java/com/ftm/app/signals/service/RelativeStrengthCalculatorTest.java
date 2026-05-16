@@ -18,14 +18,14 @@ class RelativeStrengthCalculatorTest {
     @Test
     @DisplayName("computeRs returns expected ratio when category outperforms benchmark")
     void shouldReturnRsWhenCategoryOutperformsBenchmark() {
-        // category +10%, benchmark +5% over 20 days => RS ≈ 1.0476
+        // category +10%, benchmark +5% over 20 days => ratio ≈ 1.0476 → RS = 0.0476
         List<BigDecimal> cat   = series(100.0, 20, 110.0);
         List<BigDecimal> bench = series(200.0, 20, 210.0);
 
         BigDecimal rs = calc.computeRs(cat, bench, 20);
 
         assertThat(rs).isNotNull();
-        assertThat(rs.doubleValue()).isCloseTo(1.0476, within(0.001));
+        assertThat(rs.doubleValue()).isCloseTo(0.0476, within(0.001));
     }
 
     @Test
@@ -47,15 +47,15 @@ class RelativeStrengthCalculatorTest {
     }
 
     @Test
-    @DisplayName("computeRs returns 1.0 when both move equally")
-    void shouldReturnOneWhenEqualPerformance() {
+    @DisplayName("computeRs returns 0.0 when both move equally")
+    void shouldReturnZeroWhenEqualPerformance() {
         List<BigDecimal> cat   = series(100.0, 20, 110.0);
         List<BigDecimal> bench = series(200.0, 20, 220.0);
 
         BigDecimal rs = calc.computeRs(cat, bench, 20);
 
         assertThat(rs).isNotNull();
-        assertThat(rs.doubleValue()).isCloseTo(1.0, within(0.0001));
+        assertThat(rs.doubleValue()).isCloseTo(0.0, within(0.0001));
     }
 
     @Test

@@ -108,6 +108,25 @@ class PricesIngestionHandlerTest {
         verify(yahooClient, never()).fetchChart(eq("XLK"), any(), any());
     }
 
+    @Test
+    @DisplayName("fetchAndPersist returns 0 rows when client returns empty optional for a ticker")
+    void shouldReturn0RowsWhenClientReturnsEmptyOptional() {
+        Category tech = category(CategoryId.TECH, "XLK");
+        when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc()).thenReturn(List.of(tech));
+        when(rawPriceRepo.findMaxTradeDate("TECH")).thenReturn(Optional.empty());
+        when(benchmarkRepo.findMaxTradeDate(any())).thenReturn(Optional.empty());
+        when(yahooClient.fetchChart(eq("XLK"), any(), any())).thenReturn(Optional.empty());
+        when(yahooClient.fetchChart(eq("SPY"), any(), any())).thenReturn(Optional.of(chartResponse()));
+        when(yahooClient.fetchChart(eq("AGG"), any(), any())).thenReturn(Optional.of(chartResponse()));
+        when(benchmarkRepo.batchInsert(any())).thenReturn(2);
+
+        IngestionResult result = handler.fetchAndPersist(LocalDate.of(2024, 1, 5));
+
+        assertThat(result.rowsInserted()).isEqualTo(4); // 0 for XLK + 2 × 2 benchmarks
+        assertThat(result.hasErrors()).isFalse();
+        verify(rawPriceRepo, never()).batchInsert(any());
+    }
+
     private Category category(CategoryId id, String ticker) {
         return Instancio.of(Category.class)
                 .set(field(Category::id), id)

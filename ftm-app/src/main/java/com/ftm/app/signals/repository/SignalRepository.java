@@ -45,6 +45,10 @@ public class SignalRepository {
                 .execute();
     }
 
+    public boolean hasAnySignalOfType(SignalType type) {
+        return dsl.fetchExists(SIGNALS, SIGNALS.SIGNAL_TYPE.eq(type.name()));
+    }
+
     public Map<String, BigDecimal> findLatestByType(SignalType type) {
         var latestDate = dsl.select(max(SIGNALS.SIGNAL_DATE))
                 .from(SIGNALS)

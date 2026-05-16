@@ -8,7 +8,7 @@ export default function RefreshButton() {
   async function handleRefresh() {
     setState("loading");
     try {
-      const res = await fetch("/api/ingest/trigger", { method: "POST" });
+      const res = await fetch("/api/v1/ingest/trigger", { method: "POST" });
       setState(res.ok ? "done" : "error");
     } catch {
       setState("error");

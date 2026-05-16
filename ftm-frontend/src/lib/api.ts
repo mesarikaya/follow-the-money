@@ -46,6 +46,6 @@ async function get<T>(path: string): Promise<T> {
 }
 
 export const fetchCategories = (timeframe = "MONTH") =>
-  get<CategoriesResponse>(`/categories?timeframe=${timeframe}`);
+  get<CategoriesResponse>(`/api/v1/categories?timeframe=${timeframe}`);
 
-export const fetchMacro = () => get<MacroResponse>("/macro");
+export const fetchMacro = () => get<MacroResponse>("/api/v1/macro");

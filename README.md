@@ -10,7 +10,7 @@ Tracks 19 categories (equity sectors, fixed income, commodities, currencies) usi
 
 | Tool | Version | Notes |
 |------|---------|-------|
-| Java | 21 LTS | Required by Spring Boot 4 |
+| Java | 25 | Required by Spring Boot 4 |
 | Maven wrapper | included | `./mvnw` in `ftm-app/` |
 | Docker Desktop | any | Runs PostgreSQL |
 | Node.js | 20+ | For Next.js frontend |
@@ -54,14 +54,14 @@ Backend starts on `http://127.0.0.1:8080`. First run takes ~30s to apply all Fly
 
 Verify:
 ```bash
-curl http://127.0.0.1:8080/categories
-curl http://127.0.0.1:8080/macro
+curl http://127.0.0.1:8080/api/v1/categories
+curl http://127.0.0.1:8080/api/v1/macro
 ```
 
 ### 3. Trigger initial data ingestion
 
 ```bash
-curl -X POST http://127.0.0.1:8080/ingest/trigger
+curl -X POST http://127.0.0.1:8080/api/v1/ingest/trigger
 ```
 
 Or click **Refresh Data** in the dashboard. Ingestion fetches ~2 years of daily prices for all 19 categories + 7 FRED macro series. Takes 1–2 minutes.
@@ -159,11 +159,11 @@ follow-the-money/
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/categories?timeframe=MONTH` | All 19 categories with latest prices |
-| `GET` | `/macro` | Current macro regime + 7 FRED indicators |
-| `POST` | `/ingest/trigger` | Start price + macro ingestion |
-| `GET` | `/ingest/status/{runId}` | Check ingestion run status |
-| `GET` | `/ingest/status/latest` | Latest run per source |
+| `GET` | `/api/v1/categories?timeframe=MONTH` | All 19 categories with latest prices |
+| `GET` | `/api/v1/macro` | Current macro regime + 7 FRED indicators |
+| `POST` | `/api/v1/ingest/trigger` | Start price + macro ingestion |
+| `GET` | `/api/v1/ingest/status/{runId}` | Check ingestion run status |
+| `GET` | `/api/v1/ingest/status/latest` | Latest run per source |
 | `GET` | `/swagger-ui.html` | Interactive API docs |
 
 All responses use camelCase JSON.

@@ -4,14 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:e2e": "\"C:/Users/mesar/AppData/Local/nvm/v24.15.0/node.exe\" node_modules/next/dist/bin/next dev",
+    "dev:e2e": "C:/Users/mesar/AppData/Local/nvm/v24.15.0/node.exe node_modules/next/dist/bin/next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test": "jest",
-    "mock-backend": "\"C:/Users/mesar/AppData/Local/nvm/v24.15.0/node.exe\" e2e/mock-backend.mjs",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
+    "mock-backend": "C:/Users/mesar/AppData/Local/nvm/v24.15.0/node.exe e2e/mock-backend.mjs",
+    "test:e2e": "C:/Users/mesar/AppData/Local/nvm/v24.15.0/node.exe node_modules/.pnpm/@playwright+test@1.60.0/node_modules/@playwright/test/cli.js test",
+    "test:e2e:ui": "C:/Users/mesar/AppData/Local/nvm/v24.15.0/node.exe node_modules/.pnpm/@playwright+test@1.60.0/node_modules/@playwright/test/cli.js test --ui",
     "test:e2e:report": "playwright show-report"
   },
   "dependencies": {

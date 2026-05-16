@@ -21,8 +21,8 @@ export default defineConfig({
     {
       // Mock backend replaces Spring Boot during E2E tests.
       // Uses "pnpm run mock-backend" so pnpm provides its bundled Node.js.
-      command: "pnpm run mock-backend",
-      url: "http://127.0.0.1:9999/categories",
+      command: "cmd /c e2e\\run-mock.cmd",
+      url: "http://127.0.0.1:9999/api/v1/categories",
       reuseExistingServer: !process.env.CI,
       stdout: "pipe",
       stderr: "pipe",
@@ -31,7 +31,7 @@ export default defineConfig({
       // Next.js dev server pointed at the mock backend via BACKEND_URL.
       // Uses "pnpm run dev:e2e" so pnpm resolves node via the explicit full
       // path baked into the script (nvm node is not in the system PATH).
-      command: "pnpm run dev:e2e",
+      command: "cmd /c e2e\\run-next.cmd",
       url: "http://localhost:3000",
       reuseExistingServer: !process.env.CI,
       env: { BACKEND_URL: "http://127.0.0.1:9999" },

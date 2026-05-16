@@ -120,13 +120,13 @@ const server = http.createServer((req, res) => {
 
   const path = req.url?.split("?")[0] ?? "";
 
-  if (path === "/categories") {
+  if (path === "/api/v1/categories") {
     res.writeHead(200);
     res.end(JSON.stringify(CATEGORIES_RESPONSE));
-  } else if (path === "/macro") {
+  } else if (path === "/api/v1/macro") {
     res.writeHead(200);
     res.end(JSON.stringify(MACRO_RESPONSE));
-  } else if (path === "/ingest/trigger" && req.method === "POST") {
+  } else if (path === "/api/v1/ingest/trigger" && req.method === "POST") {
     res.writeHead(202);
     res.end(JSON.stringify(INGEST_RESPONSE));
   } else {

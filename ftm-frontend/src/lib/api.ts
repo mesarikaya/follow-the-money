@@ -126,6 +126,23 @@ export const fetchRrg = () => get<RrgResponse>("/api/v1/rrg");
 
 export const fetchRotation = () => get<RotationResponse>("/api/v1/rotation");
 
+export type AlertDto = {
+  id: number;
+  createdAt: string;
+  categoryId: string | null;
+  ruleId: string;
+  severity: "INFO" | "WARNING" | "ACTION";
+  message: string;
+  status: "ACTIVE" | "RESOLVED" | "ACKNOWLEDGED";
+  resolvedAt: string | null;
+  acknowledgedAt: string | null;
+};
+
+export type AlertsResponse = {
+  activeCount: number;
+  alerts: AlertDto[];
+};
+
 export const fetchPortfolio = () => get<PortfolioResponse>("/api/v1/portfolio");
 
 export const savePortfolio = (entries: PortfolioSaveRequest) =>
@@ -137,4 +154,15 @@ export const savePortfolio = (entries: PortfolioSaveRequest) =>
   }).then(async (res) => {
     if (!res.ok) throw new Error(`PUT /api/v1/portfolio → ${res.status}`);
     return res.json() as Promise<PortfolioResponse>;
+  });
+
+export const fetchAlerts = () => get<AlertsResponse>("/api/v1/alerts");
+
+export const acknowledgeAlert = (alertId: number) =>
+  fetch(`${BACKEND}/api/v1/alerts/${alertId}/acknowledge`, {
+    method: "POST",
+    cache: "no-store",
+  }).then(async (res) => {
+    if (!res.ok) throw new Error(`POST /api/v1/alerts/${alertId}/acknowledge → ${res.status}`);
+    return res.json() as Promise<AlertDto>;
   });

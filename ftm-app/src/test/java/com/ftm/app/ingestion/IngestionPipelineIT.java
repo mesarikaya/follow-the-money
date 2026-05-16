@@ -42,12 +42,18 @@ class IngestionPipelineIT {
 
     static MockWebServer mockExternalApis;
 
-    @LocalServerPort int port;
-    @Autowired IngestLogRepository ingestLogRepository;
-    @Autowired RawPriceRepository rawPriceRepository;
-    @Autowired BenchmarkPriceRepository benchmarkPriceRepository;
-    @Autowired MacroIndicatorRepository macroIndicatorRepository;
-    @Autowired JdbcTemplate jdbcTemplate;
+    @LocalServerPort
+    int port;
+    @Autowired
+    IngestLogRepository ingestLogRepository;
+    @Autowired
+    RawPriceRepository rawPriceRepository;
+    @Autowired
+    BenchmarkPriceRepository benchmarkPriceRepository;
+    @Autowired
+    MacroIndicatorRepository macroIndicatorRepository;
+    @Autowired
+    JdbcTemplate jdbcTemplate;
     RestClient restClient;
 
     @BeforeAll
@@ -65,7 +71,7 @@ class IngestionPipelineIT {
     @DynamicPropertySource
     static void overrideExternalApiUrls(DynamicPropertyRegistry registry) {
         registry.add("ftm.yahoo.base-url", () -> mockExternalApis.url("/").toString());
-        registry.add("ftm.fred.base-url",  () -> mockExternalApis.url("/").toString());
+        registry.add("ftm.fred.base-url", () -> mockExternalApis.url("/").toString());
     }
 
     @BeforeEach
@@ -150,6 +156,15 @@ class IngestionPipelineIT {
      */
     static class ExternalApiDispatcher extends Dispatcher {
 
+        private static String fixture(String path) {
+            try (var stream = ExternalApiDispatcher.class.getClassLoader().getResourceAsStream(path)) {
+                return new String(Objects.requireNonNull(stream, "Fixture not found: " + path).readAllBytes(),
+                        StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
         @NotNull
         @Override
         public MockResponse dispatch(@NotNull RecordedRequest request) {
@@ -157,7 +172,7 @@ class IngestionPipelineIT {
             if (path.contains("/v8/finance/chart/")) {
                 return jsonResponse(fixture("fixtures/yahoo-chart-valid.json"));
             }
-            if (path.contains("/fred/v2/series/observations")) {
+            if (path.contains("/fred/series/observations")) {
                 return jsonResponse(fixture("fixtures/fred-observations-with-missing.json"));
             }
             return new MockResponse().setResponseCode(404);
@@ -167,15 +182,6 @@ class IngestionPipelineIT {
             return new MockResponse()
                     .addHeader("Content-Type", "application/json")
                     .setBody(body);
-        }
-
-        private static String fixture(String path) {
-            try (var stream = ExternalApiDispatcher.class.getClassLoader().getResourceAsStream(path)) {
-                return new String(Objects.requireNonNull(stream, "Fixture not found: " + path).readAllBytes(),
-                        StandardCharsets.UTF_8);
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
         }
     }
 }

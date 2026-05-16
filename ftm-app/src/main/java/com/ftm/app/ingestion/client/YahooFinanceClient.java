@@ -5,7 +5,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
-import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
@@ -13,7 +12,6 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Optional;
 
-@Component
 public class YahooFinanceClient {
 
     private static final Logger log = LoggerFactory.getLogger(YahooFinanceClient.class);
@@ -41,12 +39,16 @@ public class YahooFinanceClient {
         long period2 = to.atStartOfDay().toEpochSecond(ZoneOffset.UTC);
         try {
             YahooChartResponse response = restClient.get()
-                    .uri("/v8/finance/chart/{ticker}?interval=1d&period1={p1}&period2={p2}",
-                            ticker, period1, period2)
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/v8/finance/chart/{ticker}")
+                            .queryParam("interval", "1d")
+                            .queryParam("period1", period1)
+                            .queryParam("period2", period2)
+                            .build(ticker))
                     .retrieve()
                     .body(YahooChartResponse.class);
             return Optional.ofNullable(response);
-        } catch (HttpClientErrorException.NotFound ex) {
+        } catch (HttpClientErrorException.NotFound _) {
             log.warn("Yahoo Finance: ticker {} not found", ticker);
             return Optional.empty();
         }

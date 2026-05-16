@@ -5,13 +5,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
-import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.time.LocalDate;
 import java.util.List;
 
-@Component
 public class FredClient {
 
     private static final Logger log = LoggerFactory.getLogger(FredClient.class);
@@ -33,9 +31,14 @@ public class FredClient {
             String seriesId, LocalDate from, LocalDate to) {
         log.info("Fetching FRED series {} from {} to {}", seriesId, from, to);
         FredObservationsResponse response = restClient.get()
-                .uri("/fred/v2/series/observations?series_id={sid}&api_key={key}" +
-                                "&file_type=json&observation_start={from}&observation_end={to}",
-                        seriesId, apiKey, from, to)
+                .uri(uriBuilder -> uriBuilder
+                        .path("/fred/series/observations")
+                        .queryParam("series_id", seriesId)
+                        .queryParam("api_key", apiKey)
+                        .queryParam("file_type", "json")
+                        .queryParam("observation_start", from)
+                        .queryParam("observation_end", to)
+                        .build())
                 .retrieve()
                 .body(FredObservationsResponse.class);
         if (response == null || response.observations() == null) return List.of();

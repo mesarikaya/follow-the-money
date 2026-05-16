@@ -88,6 +88,35 @@ export type RotationResponse = {
   recentEvents: RotationEventEntry[];
 };
 
+export type PortfolioAllocationEntry = {
+  categoryId: string;
+  categoryName: string;
+  allocationPct: number;
+  compositeScore: number | null;
+  optimalAllocationPct: number | null;
+};
+
+export type RebalanceSuggestion = {
+  categoryId: string;
+  categoryName: string;
+  action: "INCREASE" | "DECREASE";
+  currentAllocationPct: number;
+  optimalAllocationPct: number;
+  deltaPct: number;
+};
+
+export type PortfolioResponse = {
+  allocations: PortfolioAllocationEntry[];
+  alignmentScore: number;
+  alignmentLabel: "ALIGNED" | "PARTIAL" | "MISALIGNED";
+  rebalanceSuggestions: RebalanceSuggestion[];
+};
+
+export type PortfolioSaveRequest = {
+  categoryId: string;
+  allocationPct: number;
+}[];
+
 export const fetchCategories = (timeframe = "MONTH") =>
   get<CategoriesResponse>(`/api/v1/categories?timeframe=${timeframe}`);
 
@@ -96,3 +125,16 @@ export const fetchMacro = () => get<MacroResponse>("/api/v1/macro");
 export const fetchRrg = () => get<RrgResponse>("/api/v1/rrg");
 
 export const fetchRotation = () => get<RotationResponse>("/api/v1/rotation");
+
+export const fetchPortfolio = () => get<PortfolioResponse>("/api/v1/portfolio");
+
+export const savePortfolio = (entries: PortfolioSaveRequest) =>
+  fetch(`${BACKEND}/api/v1/portfolio`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(entries),
+    cache: "no-store",
+  }).then(async (res) => {
+    if (!res.ok) throw new Error(`PUT /api/v1/portfolio → ${res.status}`);
+    return res.json() as Promise<PortfolioResponse>;
+  });

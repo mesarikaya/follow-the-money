@@ -1,76 +1,251 @@
-import ComingSoonPage from "@/components/ComingSoonPage";
+"use client";
 
-const MOCK_PORTFOLIO_ALLOCATIONS = [
-  { categoryName: "Technology",        allocationPercent: 25, compositeScore: 0.82, alignmentStatus: "aligned"    },
-  { categoryName: "Financial",         allocationPercent: 15, compositeScore: 0.71, alignmentStatus: "aligned"    },
-  { categoryName: "Healthcare",        allocationPercent: 12, compositeScore: 0.59, alignmentStatus: "neutral"    },
-  { categoryName: "Energy",            allocationPercent: 10, compositeScore: 0.68, alignmentStatus: "aligned"    },
-  { categoryName: "Consumer Disc.",    allocationPercent: 10, compositeScore: 0.45, alignmentStatus: "neutral"    },
-  { categoryName: "Industrials",       allocationPercent: 8,  compositeScore: 0.52, alignmentStatus: "neutral"    },
-  { categoryName: "Real Estate",       allocationPercent: 5,  compositeScore: 0.21, alignmentStatus: "misaligned" },
-  { categoryName: "Utilities",         allocationPercent: 5,  compositeScore: 0.18, alignmentStatus: "misaligned" },
-  { categoryName: "Bonds (Long-Term)", allocationPercent: 5,  compositeScore: 0.31, alignmentStatus: "misaligned" },
-  { categoryName: "Cash",              allocationPercent: 5,  compositeScore: 0.50, alignmentStatus: "neutral"    },
-];
+import { useEffect, useState, useCallback } from "react";
+import { fetchPortfolio, savePortfolio, PortfolioResponse, PortfolioAllocationEntry } from "@/lib/api";
 
-const OVERALL_ALIGNMENT_SCORE = 0.67;
+const ALIGNMENT_CONFIG = {
+  ALIGNED:    { label: "Aligned",    colorClass: "text-emerald-400", barClass: "bg-emerald-500" },
+  PARTIAL:    { label: "Partial",    colorClass: "text-amber-400",   barClass: "bg-amber-500"   },
+  MISALIGNED: { label: "Misaligned", colorClass: "text-red-400",     barClass: "bg-red-500"     },
+} as const;
+
+function AllocationBar({ currentPct, optimalPct, maxPct }: { currentPct: number; optimalPct: number | null; maxPct: number }) {
+  const currentWidth = maxPct > 0 ? (currentPct / maxPct) * 100 : 0;
+  const optimalWidth = maxPct > 0 && optimalPct != null ? (optimalPct / maxPct) * 100 : 0;
+
+  return (
+    <div className="flex flex-col gap-0.5 flex-1">
+      <div className="h-2 bg-zinc-700 rounded-full overflow-hidden">
+        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${currentWidth}%` }} />
+      </div>
+      {optimalPct != null && (
+        <div className="h-1.5 bg-zinc-700 rounded-full overflow-hidden">
+          <div className="h-full bg-emerald-500/70 rounded-full" style={{ width: `${optimalWidth}%` }} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function PortfolioPage() {
-  return (
-    <ComingSoonPage
-      title="Portfolio"
-      milestone="M5"
-      description="Enter your allocation, get an alignment score, and receive rebalancing recommendations."
-    >
-      <div className="space-y-6">
-        <div className="flex items-center gap-4 bg-zinc-800/60 border border-zinc-700 rounded-lg px-4 py-3">
-          <div>
-            <p className="text-xs text-zinc-500 mb-1">Overall Alignment Score</p>
-            <p className="text-3xl font-bold text-yellow-400">{Math.round(OVERALL_ALIGNMENT_SCORE * 100)}</p>
-          </div>
-          <div className="flex-1">
-            <div className="h-2 bg-zinc-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-red-500 via-yellow-400 to-emerald-500 rounded-full"
-                style={{ width: `${OVERALL_ALIGNMENT_SCORE * 100}%` }}
-              />
-            </div>
-            <div className="flex justify-between text-xs text-zinc-600 mt-1">
-              <span>Misaligned</span>
-              <span>Neutral</span>
-              <span>Aligned</span>
-            </div>
-          </div>
-        </div>
+  const [portfolio, setPortfolio] = useState<PortfolioResponse | null>(null);
+  const [editedAllocations, setEditedAllocations] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
 
-        <div>
-          <h3 className="text-sm font-medium text-zinc-400 mb-3">Current Allocation vs Composite Score</h3>
-          <div className="space-y-2">
-            {MOCK_PORTFOLIO_ALLOCATIONS.map((row) => {
-              const statusColor = row.alignmentStatus === "aligned" ? "text-emerald-400"
-                               : row.alignmentStatus === "misaligned" ? "text-red-400" : "text-zinc-400";
-              return (
-                <div key={row.categoryName} className="flex items-center gap-3 bg-zinc-800/40 border border-zinc-700/50 rounded-md px-3 py-2">
-                  <span className="w-36 text-sm text-zinc-300 shrink-0">{row.categoryName}</span>
-                  <div className="flex-1 flex items-center gap-2">
-                    <div className="flex-1 h-2 bg-zinc-700 rounded-full overflow-hidden">
-                      <div className="h-full bg-zinc-400 rounded-full" style={{ width: `${row.allocationPercent * 2}%` }} />
-                    </div>
-                    <span className="text-xs text-zinc-400 w-8 text-right font-mono">{row.allocationPercent}%</span>
-                  </div>
-                  <span className={`text-xs font-mono w-12 text-right shrink-0 ${statusColor}`}>
-                    {Math.round(row.compositeScore * 100)}
+  const loadPortfolio = useCallback(async () => {
+    try {
+      const data = await fetchPortfolio();
+      setPortfolio(data);
+      const initialAllocations: Record<string, string> = {};
+      data.allocations.forEach((entry) => {
+        initialAllocations[entry.categoryId] = entry.allocationPct.toFixed(2);
+      });
+      setEditedAllocations(initialAllocations);
+      setIsDirty(false);
+      setLoadError(null);
+    } catch (error) {
+      setLoadError(String(error));
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPortfolio();
+  }, [loadPortfolio]);
+
+  const handleAllocationChange = (categoryId: string, value: string) => {
+    setEditedAllocations((prev) => ({ ...prev, [categoryId]: value }));
+    setIsDirty(true);
+    setSaveError(null);
+  };
+
+  const totalAllocation = Object.values(editedAllocations).reduce((sum, value) => {
+    const parsed = parseFloat(value) || 0;
+    return sum + parsed;
+  }, 0);
+
+  const handleSave = async () => {
+    const entries = Object.entries(editedAllocations).map(([categoryId, value]) => ({
+      categoryId,
+      allocationPct: parseFloat(value) || 0,
+    }));
+
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const updated = await savePortfolio(entries);
+      setPortfolio(updated);
+      setIsDirty(false);
+    } catch (error) {
+      setSaveError(String(error));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleReset = () => {
+    if (!portfolio) return;
+    const resetAllocations: Record<string, string> = {};
+    portfolio.allocations.forEach((entry) => {
+      resetAllocations[entry.categoryId] = entry.allocationPct.toFixed(2);
+    });
+    setEditedAllocations(resetAllocations);
+    setIsDirty(false);
+    setSaveError(null);
+  };
+
+  const isValidTotal = Math.abs(totalAllocation - 100) <= 0.5;
+  const maxAllocationPct = portfolio
+    ? Math.max(...portfolio.allocations.map((a) => Math.max(a.allocationPct, a.optimalAllocationPct ?? 0)), 1)
+    : 100;
+
+  return (
+    <div className="flex flex-col h-full">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-900 sticky top-0 z-10">
+        <h1 className="text-sm font-semibold text-zinc-300">Portfolio</h1>
+        {portfolio && (
+          <div className="flex items-center gap-4">
+            <span className={`text-sm font-semibold ${ALIGNMENT_CONFIG[portfolio.alignmentLabel].colorClass}`}>
+              {ALIGNMENT_CONFIG[portfolio.alignmentLabel].label}
+            </span>
+            <div className="flex items-center gap-2">
+              <div className="w-24 h-2 bg-zinc-700 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${ALIGNMENT_CONFIG[portfolio.alignmentLabel].barClass}`}
+                  style={{ width: `${Math.round(portfolio.alignmentScore * 100)}%` }}
+                />
+              </div>
+              <span className="text-xs font-mono text-zinc-300">
+                {Math.round(portfolio.alignmentScore * 100)}
+              </span>
+            </div>
+          </div>
+        )}
+      </header>
+
+      <main className="flex-1 p-6 space-y-6 overflow-auto">
+        {loadError && (
+          <div className="bg-red-900/40 border border-red-700 text-red-300 px-4 py-3 rounded-md text-sm">
+            Failed to load portfolio: {loadError}
+          </div>
+        )}
+
+        {portfolio && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-zinc-200">Allocations</h2>
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs font-mono ${isValidTotal ? "text-emerald-400" : "text-red-400"}`}>
+                    Total: {totalAllocation.toFixed(2)}%
                   </span>
+                  {isDirty && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleReset}
+                        className="text-xs px-2 py-1 border border-zinc-600 text-zinc-400 rounded hover:text-zinc-200 hover:border-zinc-500 transition-colors"
+                      >
+                        Reset
+                      </button>
+                      <button
+                        onClick={handleSave}
+                        disabled={isSaving || !isValidTotal}
+                        className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {isSaving ? "Saving…" : "Save"}
+                      </button>
+                    </div>
+                  )}
                 </div>
-              );
-            })}
+              </div>
+
+              {saveError && (
+                <div className="mb-3 text-xs text-red-400 bg-red-900/20 border border-red-800 rounded px-3 py-2">
+                  {saveError}
+                </div>
+              )}
+
+              <div className="text-xs text-zinc-600 flex gap-4 mb-3">
+                <span className="flex items-center gap-1">
+                  <div className="w-3 h-1.5 bg-blue-500 rounded-sm" /> Current allocation
+                </span>
+                <span className="flex items-center gap-1">
+                  <div className="w-3 h-1.5 bg-emerald-500/70 rounded-sm" /> Composite-optimal
+                </span>
+              </div>
+
+              <ul className="space-y-2">
+                {portfolio.allocations.map((entry: PortfolioAllocationEntry) => (
+                  <li key={entry.categoryId} className="flex items-center gap-3">
+                    <span className="w-10 text-xs font-mono text-zinc-500 shrink-0">{entry.categoryId}</span>
+                    <span className="w-32 text-xs text-zinc-300 truncate shrink-0">{entry.categoryName}</span>
+                    <AllocationBar
+                      currentPct={parseFloat(editedAllocations[entry.categoryId] ?? "0") || 0}
+                      optimalPct={entry.optimalAllocationPct}
+                      maxPct={maxAllocationPct}
+                    />
+                    <div className="flex items-center gap-1 shrink-0">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={editedAllocations[entry.categoryId] ?? "0"}
+                        onChange={(e) => handleAllocationChange(entry.categoryId, e.target.value)}
+                        className="w-16 text-xs font-mono text-right bg-zinc-700 border border-zinc-600 rounded px-1 py-0.5 text-zinc-200 focus:border-blue-500 focus:outline-none"
+                      />
+                      <span className="text-xs text-zinc-500">%</span>
+                    </div>
+                    {entry.compositeScore != null && (
+                      <span className="w-6 text-xs font-mono text-zinc-500 text-right shrink-0">
+                        {Math.round(entry.compositeScore * 100)}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-4">
+              <h2 className="text-sm font-semibold text-zinc-200 mb-4">Rebalance Suggestions</h2>
+              {portfolio.rebalanceSuggestions.length === 0 ? (
+                <p className="text-xs text-zinc-500">
+                  {portfolio.alignmentLabel === "ALIGNED"
+                    ? "Portfolio is well aligned — no changes needed."
+                    : "No composite scores available to compute suggestions."}
+                </p>
+              ) : (
+                <ul className="space-y-3">
+                  {portfolio.rebalanceSuggestions.map((suggestion) => {
+                    const isIncrease = suggestion.action === "INCREASE";
+                    return (
+                      <li key={suggestion.categoryId} className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-zinc-200">{suggestion.categoryName}</span>
+                          <span className={`text-xs font-semibold ${isIncrease ? "text-emerald-400" : "text-red-400"}`}>
+                            {isIncrease ? "↑" : "↓"} {isIncrease ? "+" : ""}{suggestion.deltaPct.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="text-xs text-zinc-500">
+                          {suggestion.currentAllocationPct.toFixed(1)}% → {suggestion.optimalAllocationPct.toFixed(1)}%
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-4 mt-2 text-xs text-zinc-600">
-            <span className="flex items-center gap-1"><span className="w-3 h-1 bg-zinc-400 inline-block rounded" /> Allocation %</span>
-            <span className="flex items-center gap-1">Score = composite 0–100</span>
+        )}
+
+        {!portfolio && !loadError && (
+          <div className="text-zinc-500 text-sm text-center py-16">
+            Loading portfolio…
           </div>
-        </div>
-      </div>
-    </ComingSoonPage>
+        )}
+      </main>
+    </div>
   );
 }

@@ -136,13 +136,6 @@
         </dependency>
         -->
 
-        <!-- ── dotenv: load .env file at startup in dev ──────────── -->
-        <dependency>
-            <groupId>io.github.cdimascio</groupId>
-            <artifactId>dotenv-java</artifactId>
-            <version>3.0.0</version>
-        </dependency>
-
         <!-- ── Test ────────────────────────────────────────────────── -->
         <!-- MockWebServer for RestClient unit tests (no Spring context needed) -->
         <dependency>

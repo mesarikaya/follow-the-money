@@ -1,96 +1,211 @@
-import ComingSoonPage from "@/components/ComingSoonPage";
+"use client";
 
-const MOCK_BACKTEST_RESULT = {
-  startDate: "2021-01-01",
-  endDate: "2025-12-31",
-  totalReturnPercent: 68.4,
-  annualizedReturnPercent: 11.2,
-  maxDrawdownPercent: -18.7,
-  sharpeRatio: 1.34,
-  spyReturnPercent: 52.1,
-  spySharpeRatio: 0.91,
-};
+import { useState } from "react";
+import { runBacktest, BacktestResult, EquityCurvePoint } from "@/lib/api";
 
-const MOCK_EQUITY_CURVE = [
-  100, 103, 108, 106, 112, 118, 115, 122, 128, 125,
-  131, 135, 130, 138, 142, 148, 145, 152, 158, 162,
-  159, 165, 170, 168,
-];
+const DEFAULT_START_DATE = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+const DEFAULT_END_DATE   = new Date().toISOString().split("T")[0];
 
-export default function BacktesterPage() {
-  const maxValue = Math.max(...MOCK_EQUITY_CURVE);
-  const minValue = Math.min(...MOCK_EQUITY_CURVE);
-  const range = maxValue - minValue;
+function EquityCurveChart({ curve }: { curve: EquityCurvePoint[] }) {
+  if (curve.length < 2) return <p className="text-xs text-zinc-500 text-center py-8">Insufficient data to draw chart.</p>;
 
-  const chartH = 120;
-  const chartW = 480;
-  const points = MOCK_EQUITY_CURVE.map((value, index) => {
-    const x = (index / (MOCK_EQUITY_CURVE.length - 1)) * chartW;
-    const y = chartH - ((value - minValue) / range) * chartH;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(" ");
+  const CHART_WIDTH  = 600;
+  const CHART_HEIGHT = 160;
+  const PADDING      = 20;
+
+  const portfolioValues = curve.map(p => p.portfolioValue);
+  const spyValues       = curve.map(p => p.spyValue);
+  const allValues       = [...portfolioValues, ...spyValues];
+  const minValue = Math.min(...allValues);
+  const maxValue = Math.max(...allValues);
+  const valueRange = maxValue - minValue || 1;
+
+  const toX = (index: number) => PADDING + (index / (curve.length - 1)) * (CHART_WIDTH - 2 * PADDING);
+  const toY = (value: number) => CHART_HEIGHT - PADDING - ((value - minValue) / valueRange) * (CHART_HEIGHT - 2 * PADDING);
+
+  const portfolioPoints = curve.map((p, i) => `${toX(i).toFixed(1)},${toY(p.portfolioValue).toFixed(1)}`).join(" ");
+  const spyPoints       = curve.map((p, i) => `${toX(i).toFixed(1)},${toY(p.spyValue).toFixed(1)}`).join(" ");
+
+  const startLabel = curve[0]?.date ?? "";
+  const endLabel   = curve[curve.length - 1]?.date ?? "";
 
   return (
-    <ComingSoonPage
-      title="Backtester"
-      milestone="M6"
-      description="Simulate the rotation strategy on historical data and compare against SPY buy-and-hold."
-    >
-      <div className="space-y-6">
-        <div className="bg-zinc-800/40 border border-zinc-700 rounded-lg p-4">
-          <h3 className="text-xs text-zinc-500 mb-3">Strategy Parameters</h3>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: "Start Date",           value: MOCK_BACKTEST_RESULT.startDate    },
-              { label: "End Date",             value: MOCK_BACKTEST_RESULT.endDate      },
-              { label: "Rebalance Frequency",  value: "Monthly"                         },
-              { label: "Top-N Categories",     value: "5"                               },
-              { label: "Composite Threshold",  value: "0.55"                            },
-              { label: "Risk-Free Rate",       value: "FEDFUNDS"                        },
-            ].map((field) => (
-              <div key={field.label}>
-                <p className="text-xs text-zinc-500">{field.label}</p>
-                <p className="text-sm text-zinc-300 font-mono">{field.value}</p>
-              </div>
-            ))}
-          </div>
+    <div>
+      <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="w-full">
+        <polyline points={portfolioPoints} fill="none" stroke="#22c55e" strokeWidth={2} strokeLinejoin="round" />
+        <polyline points={spyPoints}       fill="none" stroke="#94a3b8" strokeWidth={1.5} strokeLinejoin="round" strokeDasharray="4 3" />
+      </svg>
+      <div className="flex items-center justify-between text-xs text-zinc-600 mt-1">
+        <span>{startLabel}</span>
+        <div className="flex gap-4">
+          <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-emerald-500 inline-block" /> Strategy</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-slate-400 inline-block" style={{borderTop: "1px dashed"}} /> SPY</span>
         </div>
-
-        <div>
-          <h3 className="text-xs text-zinc-500 mb-3">Equity Curve (2021–2025)</h3>
-          <div className="bg-zinc-800/40 border border-zinc-700 rounded-lg p-4">
-            <svg viewBox={`0 0 ${chartW} ${chartH}`} className="w-full">
-              <polyline
-                points={points}
-                fill="none"
-                stroke="#22c55e"
-                strokeWidth={2}
-                strokeLinejoin="round"
-              />
-            </svg>
-            <div className="flex justify-between text-xs text-zinc-600 mt-1">
-              <span>Jan 2021</span>
-              <span>Dec 2025</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { label: "Strategy Return",   value: `+${MOCK_BACKTEST_RESULT.totalReturnPercent}%`,    color: "text-emerald-400" },
-            { label: "Annualized Return", value: `+${MOCK_BACKTEST_RESULT.annualizedReturnPercent}%`, color: "text-emerald-400" },
-            { label: "Max Drawdown",      value: `${MOCK_BACKTEST_RESULT.maxDrawdownPercent}%`,     color: "text-red-400"     },
-            { label: "Sharpe Ratio",      value: MOCK_BACKTEST_RESULT.sharpeRatio.toFixed(2),        color: "text-zinc-300"   },
-            { label: "SPY Return",        value: `+${MOCK_BACKTEST_RESULT.spyReturnPercent}%`,       color: "text-zinc-400"   },
-            { label: "SPY Sharpe",        value: MOCK_BACKTEST_RESULT.spySharpeRatio.toFixed(2),     color: "text-zinc-400"   },
-          ].map((metric) => (
-            <div key={metric.label} className="bg-zinc-800/40 border border-zinc-700/50 rounded px-3 py-2">
-              <p className="text-xs text-zinc-500">{metric.label}</p>
-              <p className={`text-lg font-bold font-mono ${metric.color}`}>{metric.value}</p>
-            </div>
-          ))}
-        </div>
+        <span>{endLabel}</span>
       </div>
-    </ComingSoonPage>
+    </div>
+  );
+}
+
+export default function BacktesterPage() {
+  const [startDate, setStartDate] = useState(DEFAULT_START_DATE);
+  const [endDate, setEndDate] = useState(DEFAULT_END_DATE);
+  const [rebalanceFrequency, setRebalanceFrequency] = useState<"WEEKLY" | "MONTHLY">("MONTHLY");
+  const [topN, setTopN] = useState(5);
+  const [signalThreshold, setSignalThreshold] = useState("");
+  const [result, setResult] = useState<BacktestResult | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
+
+  const handleRun = async () => {
+    setIsRunning(true);
+    setRunError(null);
+    setResult(null);
+    try {
+      const data = await runBacktest({
+        startDate,
+        endDate,
+        rebalanceFrequency,
+        topN,
+        signalThreshold: signalThreshold ? parseFloat(signalThreshold) : undefined,
+      });
+      setResult(data);
+    } catch (error) {
+      setRunError(String(error));
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const formatPct = (value: number | null | undefined) => {
+    if (value == null) return "—";
+    const sign = value >= 0 ? "+" : "";
+    return `${sign}${value.toFixed(2)}%`;
+  };
+
+  const formatDecimal = (value: number | null | undefined) => {
+    if (value == null) return "—";
+    return value.toFixed(2);
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <header className="flex items-center px-6 py-4 border-b border-zinc-800 bg-zinc-900 sticky top-0 z-10">
+        <h1 className="text-sm font-semibold text-zinc-300">Backtester</h1>
+      </header>
+
+      <main className="flex-1 p-6 space-y-6 overflow-auto">
+        <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-4">
+          <h2 className="text-sm font-semibold text-zinc-200 mb-4">Strategy Parameters</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-xs text-zinc-500 block mb-1">Start Date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full text-xs font-mono bg-zinc-700 border border-zinc-600 rounded px-2 py-1.5 text-zinc-200 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-zinc-500 block mb-1">End Date</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full text-xs font-mono bg-zinc-700 border border-zinc-600 rounded px-2 py-1.5 text-zinc-200 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-zinc-500 block mb-1">Rebalance Frequency</label>
+              <select
+                value={rebalanceFrequency}
+                onChange={(e) => setRebalanceFrequency(e.target.value as "WEEKLY" | "MONTHLY")}
+                className="w-full text-xs bg-zinc-700 border border-zinc-600 rounded px-2 py-1.5 text-zinc-200 focus:border-blue-500 focus:outline-none"
+              >
+                <option value="WEEKLY">Weekly</option>
+                <option value="MONTHLY">Monthly</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-zinc-500 block mb-1">Top-N Categories</label>
+              <input
+                type="number"
+                min="1"
+                max="19"
+                value={topN}
+                onChange={(e) => setTopN(parseInt(e.target.value) || 5)}
+                className="w-full text-xs font-mono bg-zinc-700 border border-zinc-600 rounded px-2 py-1.5 text-zinc-200 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-zinc-500 block mb-1">Min Composite Score (optional)</label>
+              <input
+                type="number"
+                min="0"
+                max="1"
+                step="0.01"
+                placeholder="0.50"
+                value={signalThreshold}
+                onChange={(e) => setSignalThreshold(e.target.value)}
+                className="w-full text-xs font-mono bg-zinc-700 border border-zinc-600 rounded px-2 py-1.5 text-zinc-200 focus:border-blue-500 focus:outline-none placeholder-zinc-600"
+              />
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={handleRun}
+                disabled={isRunning}
+                className="w-full text-sm px-4 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isRunning ? "Running…" : "Run Backtest"}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {runError && (
+          <div className="bg-red-900/40 border border-red-700 text-red-300 px-4 py-3 rounded-md text-sm">
+            {runError}
+          </div>
+        )}
+
+        {result && (
+          <>
+            <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-4">
+              <h2 className="text-sm font-semibold text-zinc-200 mb-4">Equity Curve</h2>
+              <EquityCurveChart curve={result.equityCurve} />
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {[
+                { label: "Strategy Total Return",   value: formatPct(result.totalReturnPct),        color: result.totalReturnPct >= 0 ? "text-emerald-400" : "text-red-400" },
+                { label: "Annualized Return",        value: formatPct(result.annualizedReturnPct),   color: result.annualizedReturnPct >= 0 ? "text-emerald-400" : "text-red-400" },
+                { label: "Max Drawdown",             value: `-${result.maxDrawdownPct?.toFixed(2)}%`,color: "text-red-400" },
+                { label: "Sharpe Ratio",             value: formatDecimal(result.sharpeRatio),       color: (result.sharpeRatio ?? 0) >= 1 ? "text-emerald-400" : "text-zinc-300" },
+                { label: "SPY Total Return",         value: formatPct(result.spyTotalReturnPct),     color: "text-zinc-400" },
+                { label: "SPY Sharpe Ratio",         value: formatDecimal(result.spySharpeRatio),    color: "text-zinc-400" },
+              ].map((metric) => (
+                <div key={metric.label} className="bg-zinc-800/40 border border-zinc-700/50 rounded px-3 py-2">
+                  <p className="text-xs text-zinc-500">{metric.label}</p>
+                  <p className={`text-lg font-bold font-mono ${metric.color}`}>{metric.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="text-xs text-zinc-600 flex gap-4">
+              <span>Trading days: {result.tradingDays}</span>
+              <span>·</span>
+              <span>Run ID: {result.runId}</span>
+            </div>
+          </>
+        )}
+
+        {!result && !isRunning && !runError && (
+          <div className="text-zinc-600 text-sm text-center py-12">
+            Configure the strategy parameters and click Run Backtest.
+          </div>
+        )}
+      </main>
+    </div>
   );
 }

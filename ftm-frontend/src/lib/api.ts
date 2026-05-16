@@ -156,6 +156,54 @@ export const savePortfolio = (entries: PortfolioSaveRequest) =>
     return res.json() as Promise<PortfolioResponse>;
   });
 
+export type EquityCurvePoint = {
+  date: string;
+  portfolioValue: number;
+  spyValue: number;
+};
+
+export type BacktestResult = {
+  runId: string;
+  runAt: string;
+  startDate: string;
+  endDate: string;
+  rebalanceFrequency: string;
+  topN: number;
+  signalThreshold: number | null;
+  totalReturnPct: number;
+  annualizedReturnPct: number;
+  maxDrawdownPct: number;
+  sharpeRatio: number;
+  spyTotalReturnPct: number;
+  spySharpeRatio: number;
+  tradingDays: number;
+  equityCurve: EquityCurvePoint[];
+};
+
+export type BacktestRequest = {
+  startDate: string;
+  endDate: string;
+  rebalanceFrequency: "WEEKLY" | "MONTHLY";
+  topN: number;
+  signalThreshold?: number;
+};
+
+export const runBacktest = (request: BacktestRequest) =>
+  fetch(`${BACKEND}/api/v1/backtest/run`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+    cache: "no-store",
+  }).then(async (res) => {
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(body.detail ?? `POST /api/v1/backtest/run → ${res.status}`);
+    }
+    return res.json() as Promise<BacktestResult>;
+  });
+
+export const fetchRecentBacktests = () => get<BacktestResult[]>("/api/v1/backtest/recent");
+
 export const fetchAlerts = () => get<AlertsResponse>("/api/v1/alerts");
 
 export const acknowledgeAlert = (alertId: number) =>

@@ -29,9 +29,14 @@ public class SignalComputationService {
     private static final int LOOKBACK_DAYS = 365;
     private static final int MOM_LAG = 10;
 
+    private static final int RRG_RS_PERIOD    = 20;
+    private static final int RRG_RATIO_EMA   = 10;
+    private static final int RRG_MOM_EMA     = 5;
+
     private final CategoryRepository categoryRepository;
     private final SignalRepository signalRepository;
     private final RelativeStrengthCalculator rsCalc;
+    private final RrgCalculator rrgCalc;
     private final DSLContext dsl;
     private final ApplicationEventPublisher events;
 
@@ -39,11 +44,13 @@ public class SignalComputationService {
             CategoryRepository categoryRepository,
             SignalRepository signalRepository,
             RelativeStrengthCalculator rsCalc,
+            RrgCalculator rrgCalc,
             DSLContext dsl,
             ApplicationEventPublisher events) {
         this.categoryRepository = categoryRepository;
         this.signalRepository   = signalRepository;
         this.rsCalc             = rsCalc;
+        this.rrgCalc            = rrgCalc;
         this.dsl                = dsl;
         this.events             = events;
     }
@@ -75,6 +82,19 @@ public class SignalComputationService {
             addIfNotNull(rows, signalDate, cat.id().name(), SignalType.RS_60,  rs60);
             addIfNotNull(rows, signalDate, cat.id().name(), SignalType.RS_120, rs120);
             addIfNotNull(rows, signalDate, cat.id().name(), SignalType.MOM,    mom);
+
+            List<BigDecimal> rs20Series   = rsCalc.computeRsSeries(cp, bp, RRG_RS_PERIOD);
+            List<BigDecimal> ratioSeries  = rrgCalc.computeRatioSeries(rs20Series, RRG_RATIO_EMA);
+            List<BigDecimal> momSeries    = rrgCalc.computeMomentumSeries(ratioSeries, RRG_MOM_EMA);
+            BigDecimal latestRatio = lastNonNull(ratioSeries);
+            BigDecimal latestMom   = lastNonNull(momSeries);
+
+            addIfNotNull(rows, signalDate, cat.id().name(), SignalType.RRG_RATIO, latestRatio);
+            addIfNotNull(rows, signalDate, cat.id().name(), SignalType.RRG_MOM,   latestMom);
+            if (latestRatio != null && latestMom != null) {
+                rows.add(new SignalRepository.Row(signalDate, cat.id().name(), SignalType.RRG_QUADRANT,
+                        BigDecimal.valueOf(rrgCalc.computeQuadrant(latestRatio, latestMom))));
+            }
         }
 
         int written = signalRepository.batchUpsert(rows);
@@ -121,5 +141,13 @@ public class SignalComputationService {
         if (value != null) {
             rows.add(new SignalRepository.Row(date, categoryId, type, value));
         }
+    }
+
+    private BigDecimal lastNonNull(List<BigDecimal> series) {
+        for (int i = series.size() - 1; i >= 0; i--) {
+            BigDecimal v = series.get(i);
+            if (v != null) return v;
+        }
+        return null;
     }
 }

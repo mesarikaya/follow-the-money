@@ -4,6 +4,8 @@ import com.ftm.app.domain.MacroIndicator;
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 
 import static com.ftm.app.jooq.Tables.MACRO_INDICATORS;
@@ -16,6 +18,15 @@ public class MacroIndicatorReadRepository {
 
     public MacroIndicatorReadRepository(DSLContext dsl) {
         this.dsl = dsl;
+    }
+
+    public List<MacroIndicator> findHistoricalForSeries(Collection<String> seriesIds, LocalDate from) {
+        return dsl.selectFrom(MACRO_INDICATORS)
+                .where(MACRO_INDICATORS.SERIES_ID.in(seriesIds))
+                .and(MACRO_INDICATORS.OBSERVATION_DATE.ge(from))
+                .orderBy(MACRO_INDICATORS.OBSERVATION_DATE.asc(), MACRO_INDICATORS.SERIES_ID.asc())
+                .fetch()
+                .map(r -> new MacroIndicator(r.getObservationDate(), r.getSeriesId(), r.getValue(), r.getSource()));
     }
 
     public List<MacroIndicator> findLatestPerSeries() {

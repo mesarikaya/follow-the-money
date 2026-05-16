@@ -3,6 +3,7 @@ package com.ftm.app.signals.service;
 import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.SignalType;
+import com.ftm.app.signals.domain.MacroRegime;
 import com.ftm.app.signals.event.SignalsUpdatedEvent;
 import com.ftm.app.signals.repository.SignalRepository;
 import org.jooq.DSLContext;
@@ -37,6 +38,8 @@ public class SignalComputationService {
     private final SignalRepository signalRepository;
     private final RelativeStrengthCalculator rsCalc;
     private final RrgCalculator rrgCalc;
+    private final MacroRegimeService macroRegimeService;
+    private final CompositeScoreService compositeScoreService;
     private final DSLContext dsl;
     private final ApplicationEventPublisher events;
 
@@ -45,14 +48,18 @@ public class SignalComputationService {
             SignalRepository signalRepository,
             RelativeStrengthCalculator rsCalc,
             RrgCalculator rrgCalc,
+            MacroRegimeService macroRegimeService,
+            CompositeScoreService compositeScoreService,
             DSLContext dsl,
             ApplicationEventPublisher events) {
-        this.categoryRepository = categoryRepository;
-        this.signalRepository   = signalRepository;
-        this.rsCalc             = rsCalc;
-        this.rrgCalc            = rrgCalc;
-        this.dsl                = dsl;
-        this.events             = events;
+        this.categoryRepository    = categoryRepository;
+        this.signalRepository      = signalRepository;
+        this.rsCalc                = rsCalc;
+        this.rrgCalc               = rrgCalc;
+        this.macroRegimeService    = macroRegimeService;
+        this.compositeScoreService = compositeScoreService;
+        this.dsl                   = dsl;
+        this.events                = events;
     }
 
     @Transactional
@@ -65,40 +72,69 @@ public class SignalComputationService {
         log.info("Computing signals for signal_date={}", signalDate);
 
         List<Category> categories = categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc();
-        Map<String, List<BigDecimal>> catPrices   = loadCategoryPrices(signalDate);
-        Map<String, List<BigDecimal>> benchPrices = loadBenchmarkPrices(signalDate);
+        Map<String, List<BigDecimal>> categoryPricesByCategoryId  = loadCategoryPrices(signalDate);
+        Map<String, List<BigDecimal>> benchmarkPricesByTicker     = loadBenchmarkPrices(signalDate);
 
         List<SignalRepository.Row> rows = new ArrayList<>();
-        for (Category cat : categories) {
-            List<BigDecimal> cp = catPrices.getOrDefault(cat.id().name(), List.of());
-            List<BigDecimal> bp = benchPrices.getOrDefault(cat.benchmarkTicker(), List.of());
 
-            BigDecimal rs20  = rsCalc.computeRs(cp, bp, 20);
-            BigDecimal rs60  = rsCalc.computeRs(cp, bp, 60);
-            BigDecimal rs120 = rsCalc.computeRs(cp, bp, 120);
-            BigDecimal mom   = rsCalc.computeMom(cp, bp, MOM_LAG);
+        Map<String, BigDecimal> rs60ByCategoryId         = new HashMap<>();
+        Map<String, BigDecimal> flow20DayByCategoryId    = new HashMap<>();
+        Map<String, BigDecimal> momentumByCategoryId     = new HashMap<>();
+        Map<String, BigDecimal> rrgQuadrantByCategoryId  = new HashMap<>();
 
-            addIfNotNull(rows, signalDate, cat.id().name(), SignalType.RS_20,  rs20);
-            addIfNotNull(rows, signalDate, cat.id().name(), SignalType.RS_60,  rs60);
-            addIfNotNull(rows, signalDate, cat.id().name(), SignalType.RS_120, rs120);
-            addIfNotNull(rows, signalDate, cat.id().name(), SignalType.MOM,    mom);
+        for (Category category : categories) {
+            String categoryId = category.id().name();
+            List<BigDecimal> categoryPrices  = categoryPricesByCategoryId.getOrDefault(categoryId, List.of());
+            List<BigDecimal> benchmarkPrices = benchmarkPricesByTicker.getOrDefault(category.benchmarkTicker(), List.of());
 
-            List<BigDecimal> rs20Series   = rsCalc.computeRsSeries(cp, bp, RRG_RS_PERIOD);
-            List<BigDecimal> ratioSeries  = rrgCalc.computeRatioSeries(rs20Series, RRG_RATIO_EMA);
-            List<BigDecimal> momSeries    = rrgCalc.computeMomentumSeries(ratioSeries, RRG_MOM_EMA);
-            BigDecimal latestRatio = lastNonNull(ratioSeries);
-            BigDecimal latestMom   = lastNonNull(momSeries);
+            BigDecimal rs20  = rsCalc.computeRs(categoryPrices, benchmarkPrices, 20);
+            BigDecimal rs60  = rsCalc.computeRs(categoryPrices, benchmarkPrices, 60);
+            BigDecimal rs120 = rsCalc.computeRs(categoryPrices, benchmarkPrices, 120);
+            BigDecimal momentum = rsCalc.computeMom(categoryPrices, benchmarkPrices, MOM_LAG);
 
-            addIfNotNull(rows, signalDate, cat.id().name(), SignalType.RRG_RATIO, latestRatio);
-            addIfNotNull(rows, signalDate, cat.id().name(), SignalType.RRG_MOM,   latestMom);
-            if (latestRatio != null && latestMom != null) {
-                rows.add(new SignalRepository.Row(signalDate, cat.id().name(), SignalType.RRG_QUADRANT,
-                        BigDecimal.valueOf(rrgCalc.computeQuadrant(latestRatio, latestMom))));
+            addIfNotNull(rows, signalDate, categoryId, SignalType.RS_20,  rs20);
+            addIfNotNull(rows, signalDate, categoryId, SignalType.RS_60,  rs60);
+            addIfNotNull(rows, signalDate, categoryId, SignalType.RS_120, rs120);
+            addIfNotNull(rows, signalDate, categoryId, SignalType.MOM,    momentum);
+
+            if (rs60 != null) rs60ByCategoryId.put(categoryId, rs60);
+            if (momentum != null) momentumByCategoryId.put(categoryId, momentum);
+
+            List<BigDecimal> rs20Series  = rsCalc.computeRsSeries(categoryPrices, benchmarkPrices, RRG_RS_PERIOD);
+            List<BigDecimal> ratioSeries = rrgCalc.computeRatioSeries(rs20Series, RRG_RATIO_EMA);
+            List<BigDecimal> momentumSeries = rrgCalc.computeMomentumSeries(ratioSeries, RRG_MOM_EMA);
+            BigDecimal latestRatio   = lastNonNull(ratioSeries);
+            BigDecimal latestRrgMom  = lastNonNull(momentumSeries);
+
+            addIfNotNull(rows, signalDate, categoryId, SignalType.RRG_RATIO, latestRatio);
+            addIfNotNull(rows, signalDate, categoryId, SignalType.RRG_MOM,   latestRrgMom);
+            if (latestRatio != null && latestRrgMom != null) {
+                BigDecimal quadrant = BigDecimal.valueOf(rrgCalc.computeQuadrant(latestRatio, latestRrgMom));
+                rows.add(new SignalRepository.Row(signalDate, categoryId, SignalType.RRG_QUADRANT, quadrant));
+                rrgQuadrantByCategoryId.put(categoryId, quadrant);
             }
         }
 
+        // --- EP-007: Macro regime + MACRO_FIT + COMPOSITE ---
+        MacroRegime currentRegime = macroRegimeService.classifyCurrentRegime();
+        Map<String, BigDecimal> macroFitByCategoryId = macroRegimeService.computeMacroFitByCategory(currentRegime);
+        Map<String, BigDecimal> compositeScoresByCategoryId = compositeScoreService.computeCompositeScores(
+                rs60ByCategoryId,
+                flow20DayByCategoryId,
+                momentumByCategoryId,
+                macroFitByCategoryId,
+                rrgQuadrantByCategoryId);
+
+        BigDecimal regimeOrdinal = BigDecimal.valueOf(currentRegime.ordinal());
+        for (Category category : categories) {
+            String categoryId = category.id().name();
+            rows.add(new SignalRepository.Row(signalDate, categoryId, SignalType.MACRO_REGIME, regimeOrdinal));
+            addIfNotNull(rows, signalDate, categoryId, SignalType.MACRO_FIT,  macroFitByCategoryId.get(categoryId));
+            addIfNotNull(rows, signalDate, categoryId, SignalType.COMPOSITE,  compositeScoresByCategoryId.get(categoryId));
+        }
+
         int written = signalRepository.batchUpsert(rows);
-        log.info("Signal computation complete: {} signals written for date={}", written, signalDate);
+        log.info("Signal computation complete: {} signals written for date={}, regime={}", written, signalDate, currentRegime);
 
         events.publishEvent(new SignalsUpdatedEvent(signalDate));
     }

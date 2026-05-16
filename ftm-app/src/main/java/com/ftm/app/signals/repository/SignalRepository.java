@@ -7,8 +7,10 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.ftm.app.jooq.Tables.SIGNALS;
 import static org.jooq.impl.DSL.*;
@@ -59,6 +61,21 @@ public class SignalRepository {
                 .where(SIGNALS.SIGNAL_TYPE.eq(type.name())
                         .and(SIGNALS.SIGNAL_DATE.eq(latestDate)))
                 .fetchMap(SIGNALS.CATEGORY_ID, SIGNALS.VALUE);
+    }
+
+    public Map<LocalDate, Map<String, BigDecimal>> findByTypeForDates(SignalType type, Collection<LocalDate> dates) {
+        if (dates.isEmpty()) return Map.of();
+        return dsl.select(SIGNALS.SIGNAL_DATE, SIGNALS.CATEGORY_ID, SIGNALS.VALUE)
+                .from(SIGNALS)
+                .where(SIGNALS.SIGNAL_TYPE.eq(type.name()))
+                .and(SIGNALS.SIGNAL_DATE.in(dates))
+                .fetch()
+                .stream()
+                .collect(Collectors.groupingBy(
+                        r -> r.get(SIGNALS.SIGNAL_DATE),
+                        Collectors.toMap(
+                                r -> r.get(SIGNALS.CATEGORY_ID),
+                                r -> r.get(SIGNALS.VALUE))));
     }
 
     public List<RrgRow> findRrgTrail(int trailDays) {

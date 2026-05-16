@@ -63,6 +63,22 @@ public class SignalRepository {
                 .fetchMap(SIGNALS.CATEGORY_ID, SIGNALS.VALUE);
     }
 
+    public LocalDate findPreviousSignalDate(SignalType type, LocalDate currentDate) {
+        return dsl.select(max(SIGNALS.SIGNAL_DATE))
+                .from(SIGNALS)
+                .where(SIGNALS.SIGNAL_TYPE.eq(type.name()))
+                .and(SIGNALS.SIGNAL_DATE.lt(currentDate))
+                .fetchOneInto(LocalDate.class);
+    }
+
+    public Map<String, BigDecimal> findByTypeAndDate(SignalType type, LocalDate date) {
+        return dsl.select(SIGNALS.CATEGORY_ID, SIGNALS.VALUE)
+                .from(SIGNALS)
+                .where(SIGNALS.SIGNAL_TYPE.eq(type.name()))
+                .and(SIGNALS.SIGNAL_DATE.eq(date))
+                .fetchMap(SIGNALS.CATEGORY_ID, SIGNALS.VALUE);
+    }
+
     public Map<LocalDate, Map<String, BigDecimal>> findByTypeForDates(SignalType type, Collection<LocalDate> dates) {
         if (dates.isEmpty()) return Map.of();
         return dsl.select(SIGNALS.SIGNAL_DATE, SIGNALS.CATEGORY_ID, SIGNALS.VALUE)

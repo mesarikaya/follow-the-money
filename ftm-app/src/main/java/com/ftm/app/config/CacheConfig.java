@@ -25,6 +25,9 @@ public class CacheConfig {
         // Evicted on IngestionCompleteEvent (EP-001)
         manager.registerCustomCache("macro-latest",
                 Caffeine.newBuilder().maximumSize(10).expireAfterWrite(6, TimeUnit.HOURS).build());
+        // Evicted on SignalsUpdatedEvent (EP-008)
+        manager.registerCustomCache("rotation-latest",
+                Caffeine.newBuilder().maximumSize(10).expireAfterWrite(1, TimeUnit.HOURS).build());
         return manager;
     }
 }

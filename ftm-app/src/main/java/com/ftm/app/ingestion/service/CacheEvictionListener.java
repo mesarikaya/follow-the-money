@@ -38,6 +38,7 @@ public class CacheEvictionListener {
     public void onSignalsUpdated(SignalsUpdatedEvent event) {
         evict("signals-latest");
         evict("rrg-latest");
+        evict("rotation-latest");
     }
 
     private void evict(String cacheName) {

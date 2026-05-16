@@ -1,8 +1,10 @@
 import { Suspense } from "react";
-import { fetchCategories, fetchMacro } from "@/lib/api";
+import { fetchCategories, fetchMacro, fetchRotation } from "@/lib/api";
 import CategoryTable from "@/components/CategoryTable";
 import MacroPanel from "@/components/MacroPanel";
 import RRGSection from "@/components/RRGSection";
+import RotationHeatmap from "@/components/RotationHeatmap";
+import RotationPanel from "@/components/RotationPanel";
 import StaleDataBanner from "@/components/StaleDataBanner";
 import RefreshButton from "@/components/RefreshButton";
 import TimeframeSelector from "@/components/TimeframeSelector";
@@ -14,9 +16,10 @@ type Props = {
 export default async function Home({ searchParams }: Props) {
   const { timeframe = "MONTH" } = await searchParams;
 
-  const [categoriesResult, macroResult] = await Promise.allSettled([
+  const [categoriesResult, macroResult, rotationResult] = await Promise.allSettled([
     fetchCategories(timeframe),
     fetchMacro(),
+    fetchRotation(),
   ]);
 
   const categories =
@@ -24,6 +27,7 @@ export default async function Home({ searchParams }: Props) {
   const asOfDate =
     categoriesResult.status === "fulfilled" ? categoriesResult.value.asOfDate : null;
   const macro = macroResult.status === "fulfilled" ? macroResult.value : null;
+  const rotation = rotationResult.status === "fulfilled" ? rotationResult.value : null;
 
   return (
     <div className="flex flex-col h-full">
@@ -64,6 +68,20 @@ export default async function Home({ searchParams }: Props) {
         <Suspense fallback={null}>
           <RRGSection />
         </Suspense>
+
+        {rotation && (
+          <section className="space-y-3">
+            <h2 className="text-base font-semibold text-zinc-200">Rotation Signals</h2>
+            <RotationPanel rotation={rotation} />
+          </section>
+        )}
+
+        {categories.length > 0 && (
+          <section className="space-y-3">
+            <h2 className="text-base font-semibold text-zinc-200">Composite Score Heatmap</h2>
+            <RotationHeatmap categories={categories} />
+          </section>
+        )}
 
         <section className="space-y-3">
           <h2 className="text-base font-semibold text-zinc-200">

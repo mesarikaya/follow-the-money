@@ -3,11 +3,11 @@ package com.ftm.app.ingestion.service;
 import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.CategoryId;
-import com.ftm.app.domain.CategoryType;
 import com.ftm.app.ingestion.client.YahooFinanceClient;
 import com.ftm.app.ingestion.client.dto.YahooChartResponse;
 import com.ftm.app.ingestion.repository.BenchmarkPriceRepository;
 import com.ftm.app.ingestion.repository.RawPriceRepository;
+import org.instancio.Instancio;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.instancio.Select.field;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -108,7 +109,11 @@ class PricesIngestionHandlerTest {
     }
 
     private Category category(CategoryId id, String ticker) {
-        return new Category(id, "Technology", CategoryType.EQUITY_SECTOR, ticker, "SPY", 1, true);
+        return Instancio.of(Category.class)
+                .set(field(Category::id), id)
+                .set(field(Category::etfTicker), ticker)
+                .set(field(Category::active), true)
+                .create();
     }
 
     private YahooChartResponse chartResponse() {

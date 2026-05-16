@@ -5,6 +5,7 @@ import com.ftm.app.domain.IngestSource;
 import com.ftm.app.domain.IngestStatus;
 import com.ftm.app.ingestion.event.IngestionCompleteEvent;
 import com.ftm.app.ingestion.event.IngestionRequestedEvent;
+import org.instancio.Instancio;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,11 +17,11 @@ import org.springframework.context.ApplicationEventPublisher;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.instancio.Select.field;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
@@ -35,6 +36,16 @@ class IngestionServiceTest {
     @Mock JsonMapper objectMapper;
 
     @InjectMocks IngestionService service;
+
+    private IngestLog runningLog(IngestSource source) {
+        return Instancio.of(IngestLog.class)
+                .set(field(IngestLog::status), IngestStatus.RUNNING)
+                .set(field(IngestLog::source), source)
+                .set(field(IngestLog::rowsInserted), 0)
+                .ignore(field(IngestLog::finishedAt))
+                .ignore(field(IngestLog::errors))
+                .create();
+    }
 
     @Test
     @DisplayName("onPricesRequested finishes log and publishes complete event on success")
@@ -97,9 +108,5 @@ class IngestionServiceTest {
 
         verify(pricesHandler, never()).fetchAndPersist(any());
         verify(ingestLogService, never()).finish(any(), any(), anyInt(), any());
-    }
-
-    private IngestLog runningLog(IngestSource source) {
-        return new IngestLog(OffsetDateTime.now(), IngestStatus.RUNNING, 0, source);
     }
 }

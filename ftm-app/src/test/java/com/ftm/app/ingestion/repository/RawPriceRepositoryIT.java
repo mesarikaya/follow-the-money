@@ -1,5 +1,6 @@
 package com.ftm.app.ingestion.repository;
 
+import org.instancio.Instancio;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -8,11 +9,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.instancio.Select.field;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles("test")
@@ -36,15 +37,10 @@ class RawPriceRepositoryIT {
     private static final LocalDate DATE_3 = LocalDate.of(2024, 1, 4);
 
     private RawPriceRepository.Row row(LocalDate date, String categoryId) {
-        return new RawPriceRepository.Row(
-                date, categoryId,
-                new BigDecimal("190.00"),
-                new BigDecimal("192.50"),
-                new BigDecimal("189.75"),
-                new BigDecimal("191.00"),
-                new BigDecimal("191.00"),
-                50_000_000L
-        );
+        return Instancio.of(RawPriceRepository.Row.class)
+                .set(field(RawPriceRepository.Row::tradeDate), date)
+                .set(field(RawPriceRepository.Row::categoryId), categoryId)
+                .create();
     }
 
     @Test

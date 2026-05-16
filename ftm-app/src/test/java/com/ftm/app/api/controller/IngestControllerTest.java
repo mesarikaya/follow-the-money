@@ -4,6 +4,7 @@ import com.ftm.app.api.dto.IngestStatusResponse;
 import com.ftm.app.api.dto.IngestTriggerResponse;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
 import com.ftm.app.ingestion.service.IngestTriggerService;
+import org.instancio.Instancio;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,11 +14,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
+import static org.instancio.Select.field;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -37,6 +38,14 @@ class IngestControllerTest {
                 .standaloneSetup(new IngestController(ingestTriggerService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
+    }
+
+    private IngestStatusResponse statusResponse(UUID runId, String source, String status) {
+        return Instancio.of(IngestStatusResponse.class)
+                .set(field(IngestStatusResponse::runId), runId)
+                .set(field(IngestStatusResponse::source), source)
+                .set(field(IngestStatusResponse::status), status)
+                .create();
     }
 
     @Test
@@ -83,9 +92,5 @@ class IngestControllerTest {
         mockMvc.perform(get("/ingest/status/latest"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2));
-    }
-
-    private IngestStatusResponse statusResponse(UUID runId, String source, String status) {
-        return new IngestStatusResponse(runId, source, status, OffsetDateTime.now(), null, 0);
     }
 }

@@ -7,6 +7,7 @@ import com.ftm.app.domain.IngestSource;
 import com.ftm.app.domain.IngestStatus;
 import com.ftm.app.ingestion.event.IngestionRequestedEvent;
 import com.ftm.app.ingestion.repository.IngestLogRepository;
+import org.instancio.Instancio;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,7 +17,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -24,6 +24,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.instancio.Select.field;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -33,6 +34,16 @@ class IngestTriggerServiceTest {
     @Mock IngestLogRepository ingestLogRepository;
     @Mock ApplicationEventPublisher eventPublisher;
     @InjectMocks IngestTriggerService service;
+
+    private IngestLog runningLog(IngestSource source) {
+        return Instancio.of(IngestLog.class)
+                .set(field(IngestLog::status), IngestStatus.RUNNING)
+                .set(field(IngestLog::source), source)
+                .set(field(IngestLog::rowsInserted), 0)
+                .ignore(field(IngestLog::finishedAt))
+                .ignore(field(IngestLog::errors))
+                .create();
+    }
 
     @Test
     @DisplayName("trigger creates run logs for both PRICES and MACRO sources")
@@ -62,7 +73,7 @@ class IngestTriggerServiceTest {
     @DisplayName("getStatus returns correct response for an existing run")
     void shouldReturnCorrectResponseForExistingRun() {
         UUID runId = UUID.randomUUID();
-        IngestLog log = new IngestLog(OffsetDateTime.now(), IngestStatus.RUNNING, 0, IngestSource.PRICES);
+        IngestLog log = runningLog(IngestSource.PRICES);
         when(ingestLogRepository.findById(runId)).thenReturn(Optional.of(log));
 
         IngestStatusResponse response = service.getStatus(runId);
@@ -84,8 +95,8 @@ class IngestTriggerServiceTest {
     @Test
     @DisplayName("getLatestPerSource returns mapped responses for all found logs")
     void shouldReturnMappedResponsesForAllFoundLogs() {
-        IngestLog pricesLog = new IngestLog(OffsetDateTime.now(), IngestStatus.RUNNING, 0, IngestSource.PRICES);
-        IngestLog macroLog = new IngestLog(OffsetDateTime.now(), IngestStatus.RUNNING, 0, IngestSource.MACRO);
+        IngestLog pricesLog = runningLog(IngestSource.PRICES);
+        IngestLog macroLog = runningLog(IngestSource.MACRO);
         when(ingestLogRepository.findLatestPerSource()).thenReturn(List.of(pricesLog, macroLog));
 
         List<IngestStatusResponse> responses = service.getLatestPerSource();

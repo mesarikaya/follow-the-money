@@ -5,6 +5,8 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -37,6 +39,37 @@ public class RelativeStrengthCalculator {
         BigDecimal benchReturn = bnchToday.divide(bnchBase, MC);
         // RS = ratio - 1 so neutral = 0 (spec formula; required for RRG centering at 100)
         return catReturn.divide(benchReturn, MC).subtract(BigDecimal.ONE).setScale(6, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Computes the full RS series for every position t in [windowDays, minSize).
+     * Each element = RS(t) using a look-back of windowDays. Null when a price is zero.
+     * Prices must be in ascending chronological order (oldest first).
+     */
+    public List<BigDecimal> computeRsSeries(List<BigDecimal> catPrices, List<BigDecimal> benchPrices, int windowDays) {
+        int minSize = Math.min(catPrices.size(), benchPrices.size());
+        if (minSize <= windowDays) return List.of();
+
+        List<BigDecimal> series = new ArrayList<>(minSize - windowDays);
+        for (int t = windowDays; t < minSize; t++) {
+            BigDecimal catToday  = catPrices.get(t);
+            BigDecimal catBase   = catPrices.get(t - windowDays);
+            BigDecimal bnchToday = benchPrices.get(t);
+            BigDecimal bnchBase  = benchPrices.get(t - windowDays);
+
+            if (catBase.compareTo(BigDecimal.ZERO) == 0
+                    || bnchBase.compareTo(BigDecimal.ZERO) == 0
+                    || bnchToday.compareTo(BigDecimal.ZERO) == 0) {
+                series.add(null);
+            } else {
+                BigDecimal catReturn   = catToday.divide(catBase, MC);
+                BigDecimal benchReturn = bnchToday.divide(bnchBase, MC);
+                series.add(catReturn.divide(benchReturn, MC)
+                        .subtract(BigDecimal.ONE)
+                        .setScale(6, RoundingMode.HALF_UP));
+            }
+        }
+        return Collections.unmodifiableList(series);
     }
 
     /**

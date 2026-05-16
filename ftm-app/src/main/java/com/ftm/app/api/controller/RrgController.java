@@ -17,7 +17,7 @@ public class RrgController {
         this.rrgService = rrgService;
     }
 
-    @GetMapping("/api/v1/rrg")
+    @GetMapping("/rrg")
     @Operation(summary = "RRG chart data — last 42 trading days per active category")
     public RrgResponse getLatest() {
         return rrgService.getLatest();

@@ -37,6 +37,7 @@ public class CacheEvictionListener {
     @Async("asyncExecutor")
     public void onSignalsUpdated(SignalsUpdatedEvent event) {
         evict("signals-latest");
+        evict("rrg-latest");
     }
 
     private void evict(String cacheName) {

@@ -61,6 +61,29 @@ public class SignalRepository {
                 .fetchMap(SIGNALS.CATEGORY_ID, SIGNALS.VALUE);
     }
 
+    public List<RrgRow> findRrgTrail(int trailDays) {
+        LocalDate latestDate = dsl.select(max(SIGNALS.SIGNAL_DATE))
+                .from(SIGNALS)
+                .where(SIGNALS.SIGNAL_TYPE.eq(SignalType.RRG_RATIO.name()))
+                .fetchOneInto(LocalDate.class);
+
+        if (latestDate == null) return List.of();
+
+        LocalDate from = latestDate.minusDays(trailDays * 2L); // 2× to cover weekends/holidays
+        return dsl.select(SIGNALS.SIGNAL_DATE, SIGNALS.CATEGORY_ID, SIGNALS.SIGNAL_TYPE, SIGNALS.VALUE)
+                .from(SIGNALS)
+                .where(SIGNALS.SIGNAL_TYPE.in(
+                        SignalType.RRG_RATIO.name(), SignalType.RRG_MOM.name(), SignalType.RRG_QUADRANT.name()))
+                .and(SIGNALS.SIGNAL_DATE.between(from, latestDate))
+                .orderBy(SIGNALS.CATEGORY_ID, SIGNALS.SIGNAL_DATE.asc(), SIGNALS.SIGNAL_TYPE.asc())
+                .fetch()
+                .map(r -> new RrgRow(
+                        r.get(SIGNALS.SIGNAL_DATE),
+                        r.get(SIGNALS.CATEGORY_ID),
+                        SignalType.valueOf(r.get(SIGNALS.SIGNAL_TYPE)),
+                        r.get(SIGNALS.VALUE)));
+    }
+
     public List<HistoryRow> findByCategoryId(String categoryId) {
         return dsl.select(SIGNALS.SIGNAL_DATE, SIGNALS.SIGNAL_TYPE, SIGNALS.VALUE, SIGNALS.COMPUTED_AT)
                 .from(SIGNALS)
@@ -77,4 +100,6 @@ public class SignalRepository {
     public record Row(LocalDate signalDate, String categoryId, SignalType signalType, BigDecimal value) {}
 
     public record HistoryRow(LocalDate signalDate, SignalType signalType, BigDecimal value, OffsetDateTime computedAt) {}
+
+    public record RrgRow(LocalDate signalDate, String categoryId, SignalType signalType, BigDecimal value) {}
 }

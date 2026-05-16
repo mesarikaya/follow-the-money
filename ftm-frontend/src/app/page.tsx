@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { fetchCategories, fetchMacro } from "@/lib/api";
 import CategoryTable from "@/components/CategoryTable";
 import MacroPanel from "@/components/MacroPanel";
+import RRGSection from "@/components/RRGSection";
 import StaleDataBanner from "@/components/StaleDataBanner";
 import RefreshButton from "@/components/RefreshButton";
 import TimeframeSelector from "@/components/TimeframeSelector";
@@ -59,6 +60,10 @@ export default async function Home({ searchParams }: Props) {
             {String((macroResult as PromiseRejectedResult).reason)}
           </div>
         )}
+
+        <Suspense fallback={null}>
+          <RRGSection />
+        </Suspense>
 
         <section className="space-y-3">
           <h2 className="text-base font-semibold text-zinc-200">

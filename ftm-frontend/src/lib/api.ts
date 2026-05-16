@@ -39,6 +39,25 @@ export type MacroResponse = {
   regimeHistory: { date: string; regime: string }[];
 };
 
+export type RrgTrailPoint = {
+  date: string;
+  ratio: number;
+  momentum: number;
+};
+
+export type RrgCategoryEntry = {
+  id: string;
+  name: string;
+  color: string;
+  quadrant: number;
+  trail: RrgTrailPoint[];
+};
+
+export type RrgResponse = {
+  date: string;
+  categories: RrgCategoryEntry[];
+};
+
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BACKEND}${path}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
@@ -49,3 +68,5 @@ export const fetchCategories = (timeframe = "MONTH") =>
   get<CategoriesResponse>(`/api/v1/categories?timeframe=${timeframe}`);
 
 export const fetchMacro = () => get<MacroResponse>("/api/v1/macro");
+
+export const fetchRrg = () => get<RrgResponse>("/api/v1/rrg");

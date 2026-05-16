@@ -36,6 +36,33 @@ Validate at https://mermaid.live before committing.
 
 ---
 
+## Code design principles
+
+All Java code in `ftm-app` must follow SOLID principles **and** Clean Code rules:
+
+### SOLID
+
+- **S — Single Responsibility**: Each class has one reason to change. Services handle business logic only; repositories handle persistence only; controllers handle HTTP translation only.
+- **O — Open/Closed**: Extend behaviour through new classes or Spring event listeners, not by modifying existing ones.
+- **L — Liskov Substitution**: Implementations must be substitutable for their interfaces without altering correctness. Prefer interfaces over concrete types in constructor parameters.
+- **I — Interface Segregation**: Define narrow, purpose-specific interfaces. No fat interfaces that force unrelated method implementations.
+- **D — Dependency Inversion**: Depend on abstractions, not concretions. Wire dependencies via constructor injection (never `@Autowired` on fields).
+
+### Clean Code
+
+- **Small methods**: Every method does exactly one thing. If a method needs a comment to explain what it does, extract it.
+- **Meaningful names**: Classes, methods, and variables name what they are — no abbreviations, no generic names (`data`, `result`, `obj`, `temp`).
+- **No dead code**: Never leave commented-out code, unused imports, or unreachable branches in committed files.
+- **No magic values**: All constants must be named (`static final`) fields. No raw strings or numbers inline.
+- **Fail fast**: Validate preconditions at the top of a method and return/throw early. Avoid deep nesting.
+- **No mixed abstraction levels**: A method that calls business services must not also contain low-level string parsing or bit manipulation.
+- **Use the type system**: Prefer records, enums, and sealed types over `String`/`Map<String,Object>` for domain concepts.
+- **Jackson for JSON**: Never build JSON strings manually (`StringBuilder + "\""`). Use `ObjectMapper`.
+
+Violations found during review must be listed as MUST-FIX, not OPTIONAL.
+
+---
+
 ## AI must NEVER
 
 - Repeat a decision inline without saying "see DECISIONS.md D-00X"
@@ -140,7 +167,7 @@ Agent(
   1. Spec compliance — does implementation match spec.md exactly? Flag any deviation.
   2. Security — command injection, SQL injection, secrets in code, CORS misconfiguration
   3. Test coverage — are happy path and key error paths covered?
-  4. Code quality — unnecessary complexity, missing null checks, wrong data types (BigDecimal vs Double for money)
+  4. Code quality — SOLID violations, Clean Code violations (large methods, magic values, mixed abstraction levels, manual JSON building), missing null checks, wrong data types (BigDecimal vs Double for money)
   5. Spring conventions — @Transactional placement, @Async correctness, Caffeine cache key design
   6. Definition of done — is every task in roadmap.md EP-XXX actually implemented?
 

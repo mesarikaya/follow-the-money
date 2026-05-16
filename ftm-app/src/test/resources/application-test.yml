@@ -1,0 +1,25 @@
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:16:///ftm
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    username: ftm
+    password: ftm
+
+  flyway:
+    enabled: true
+
+  ai:
+    anthropic:
+      api-key: ""   # AI disabled in tests
+
+ftm:
+  fred:
+    base-url: "http://localhost:9999"
+    api-key: "test-fred-key"
+  yahoo:
+    base-url: "http://localhost:9999"
+
+logging:
+  level:
+    com.ftm: INFO
+    org.flywaydb: WARN

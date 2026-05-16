@@ -1,0 +1,45 @@
+server:
+  address: 127.0.0.1
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ftm
+    username: ftm
+    password: ftm
+    hikari:
+      pool-name: ftm-pool
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      connection-timeout: 20000
+      connection-test-query: SELECT 1
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+
+  jooq:
+    sql-dialect: POSTGRES
+
+  cache:
+    type: caffeine
+
+  ai:
+    anthropic:
+      api-key: ${SPRING_AI_ANTHROPIC_API_KEY:}
+
+ftm:
+  fred:
+    base-url: https://api.stlouisfed.org
+    api-key: ${FRED_API_KEY}
+  yahoo:
+    base-url: https://query1.finance.yahoo.com
+
+logging:
+  level:
+    com.ftm: INFO
+    com.ftm.app.ingestion.client: INFO
+    org.flywaydb: INFO

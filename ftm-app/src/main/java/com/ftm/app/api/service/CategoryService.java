@@ -3,7 +3,6 @@ package com.ftm.app.api.service;
 import com.ftm.app.api.dto.CategoriesResponse;
 import com.ftm.app.api.dto.CategorySummaryDto;
 import com.ftm.app.api.repository.CategoryRepository;
-import com.ftm.app.domain.Category;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
@@ -27,23 +26,26 @@ public class CategoryService {
     @Cacheable("signals-latest")
     public CategoriesResponse getCategoriesResponse(String timeframe) {
         log.debug("Loading categories for timeframe={}", timeframe);
-        List<Category> categories = categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc();
+        var rows = categoryRepository.findAllWithLatestPrice();
         AtomicInteger rank = new AtomicInteger(1);
-        List<CategorySummaryDto> dtos = categories.stream()
-                .map(c -> toDto(c, rank.getAndIncrement()))
+        List<CategorySummaryDto> dtos = rows.stream()
+                .map(row -> toDto(row, rank.getAndIncrement()))
                 .toList();
         return new CategoriesResponse(LocalDate.now(), timeframe, dtos);
     }
 
-    private CategorySummaryDto toDto(Category category, int rank) {
+    private CategorySummaryDto toDto(CategoryRepository.CategoryPriceRow row, int rank) {
+        var c = row.category();
         // Signal fields are null until EP-005 computes them.
         return new CategorySummaryDto(
-                category.id(),
-                category.name(),
-                category.type().name(),
-                category.etfTicker(),
+                c.id(),
+                c.name(),
+                c.type().name(),
+                c.etfTicker(),
                 null, null, null, null, null, null,
-                rank
+                rank,
+                row.latestClose(),
+                row.priceDate()
         );
     }
 }

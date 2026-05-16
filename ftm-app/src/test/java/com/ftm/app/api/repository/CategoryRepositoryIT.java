@@ -11,6 +11,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -70,5 +72,39 @@ class CategoryRepositoryIT {
 
         assertThat(categories).hasSize(18);
         assertThat(categories).extracting(Category::id).doesNotContain(CategoryId.CASH);
+    }
+
+    @Test
+    @DisplayName("findAllWithLatestPrice returns all 19 categories with null price when no prices ingested")
+    void findAllWithLatestPrice_returnsAllCategoriesWithNullPriceWhenNoPricesExist() {
+        jdbcTemplate.update("DELETE FROM raw_prices");
+
+        List<CategoryRepository.CategoryPriceRow> rows = repository.findAllWithLatestPrice();
+
+        assertThat(rows).hasSize(19);
+        assertThat(rows).allSatisfy(row -> {
+            assertThat(row.latestClose()).isNull();
+            assertThat(row.priceDate()).isNull();
+        });
+    }
+
+    @Test
+    @DisplayName("findAllWithLatestPrice returns latest close and date for a category with prices")
+    void findAllWithLatestPrice_returnsLatestCloseForCategoryWithPrices() {
+        jdbcTemplate.update("DELETE FROM raw_prices");
+        jdbcTemplate.update(
+                "INSERT INTO raw_prices (trade_date, category_id, open, high, low, close, adj_close, volume) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                LocalDate.of(2026, 1, 10), "TECH", 190.0, 195.0, 188.0, 192.0, 192.0, 1000000L);
+        jdbcTemplate.update(
+                "INSERT INTO raw_prices (trade_date, category_id, open, high, low, close, adj_close, volume) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                LocalDate.of(2026, 1, 15), "TECH", 193.0, 200.0, 191.0, 198.5, 198.5, 1200000L);
+
+        List<CategoryRepository.CategoryPriceRow> rows = repository.findAllWithLatestPrice();
+
+        CategoryRepository.CategoryPriceRow techRow = rows.stream()
+                .filter(r -> r.category().id() == CategoryId.TECH)
+                .findFirst().orElseThrow();
+        assertThat(techRow.latestClose()).isEqualByComparingTo(new BigDecimal("198.5"));
+        assertThat(techRow.priceDate()).isEqualTo(LocalDate.of(2026, 1, 15));
     }
 }

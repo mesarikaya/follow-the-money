@@ -27,9 +27,6 @@ spring:
   cache:
     type: caffeine
 
-  jackson:
-    property-naming-strategy: SNAKE_CASE
-
   ai:
     anthropic:
       api-key: ${SPRING_AI_ANTHROPIC_API_KEY:}

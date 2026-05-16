@@ -4,6 +4,7 @@ import com.ftm.app.domain.CategoryId;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Schema(description = "Category summary with latest signals")
 public record CategorySummaryDto(
@@ -17,5 +18,7 @@ public record CategorySummaryDto(
         @Schema(description = "60-day relative strength vs benchmark; null until signals computed") BigDecimal rs60,
         @Schema(description = "20-day flow z-score; null until signals computed") BigDecimal flow20d,
         @Schema(description = "Count of positive-flow days in last 20; null until signals computed") Integer persistence20d,
-        @Schema(description = "Rank by composite score (1 = strongest)") Integer rank
+        @Schema(description = "Rank by composite score (1 = strongest)") Integer rank,
+        @Schema(description = "Latest ETF closing price; null if not yet ingested") BigDecimal latestClose,
+        @Schema(description = "Date of the latest closing price; null if not yet ingested") LocalDate priceDate
 ) {}

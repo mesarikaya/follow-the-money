@@ -57,16 +57,19 @@ public class RrgCalculator {
     }
 
     List<BigDecimal> computeEma(List<BigDecimal> series, int period) {
-        if (series.size() < period) return Collections.nCopies(series.size(), null);
+        int startIdx = 0;
+        while (startIdx < series.size() && series.get(startIdx) == null) startIdx++;
+
+        if (series.size() - startIdx < period) return Collections.nCopies(series.size(), null);
 
         BigDecimal alpha         = BigDecimal.valueOf(2.0 / (period + 1));
         BigDecimal oneMinusAlpha = BigDecimal.ONE.subtract(alpha, MC);
 
         List<BigDecimal> result = new ArrayList<>(series.size());
-        for (int i = 0; i < period - 1; i++) result.add(null);
+        for (int i = 0; i < startIdx + period - 1; i++) result.add(null);
 
         BigDecimal sum = BigDecimal.ZERO;
-        for (int i = 0; i < period; i++) {
+        for (int i = startIdx; i < startIdx + period; i++) {
             BigDecimal v = series.get(i);
             if (v == null) return Collections.nCopies(series.size(), null);
             sum = sum.add(v);
@@ -74,7 +77,7 @@ public class RrgCalculator {
         BigDecimal ema = sum.divide(BigDecimal.valueOf(period), MC);
         result.add(ema.setScale(6, RoundingMode.HALF_UP));
 
-        for (int i = period; i < series.size(); i++) {
+        for (int i = startIdx + period; i < series.size(); i++) {
             BigDecimal v = series.get(i);
             if (v == null) {
                 result.add(null);

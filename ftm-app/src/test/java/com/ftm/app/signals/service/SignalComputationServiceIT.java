@@ -38,7 +38,7 @@ class SignalComputationServiceIT {
     }
 
     @Test
-    @DisplayName("computeAndStore writes RS_20, RS_60, RS_120 and MOM when price data is sufficient")
+    @DisplayName("computeAndStore writes RS_20, RS_60, RS_120, MOM and RRG signals when price data is sufficient")
     void shouldComputeAllSignalTypesWhenDataSufficient() {
         insertCategoryPrices("TECH", SIGNAL_DATE, 130);
         insertBenchmarkPrices("SPY", SIGNAL_DATE, 130);
@@ -48,7 +48,9 @@ class SignalComputationServiceIT {
         List<SignalRepository.HistoryRow> signals = signalRepository.findByCategoryId("TECH");
         assertThat(signals)
                 .extracting(SignalRepository.HistoryRow::signalType)
-                .containsExactlyInAnyOrder(SignalType.RS_20, SignalType.RS_60, SignalType.RS_120, SignalType.MOM);
+                .containsExactlyInAnyOrder(
+                        SignalType.RS_20, SignalType.RS_60, SignalType.RS_120, SignalType.MOM,
+                        SignalType.RRG_RATIO, SignalType.RRG_MOM, SignalType.RRG_QUADRANT);
     }
 
     @Test

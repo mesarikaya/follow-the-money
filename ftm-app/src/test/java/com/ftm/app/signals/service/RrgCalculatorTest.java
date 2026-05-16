@@ -45,6 +45,21 @@ class RrgCalculatorTest {
         assertThat(last.doubleValue()).isCloseTo(42.0, within(0.001));
     }
 
+    @Test
+    @DisplayName("computeEma skips leading nulls and seeds from first non-null run")
+    void emaShouldSkipLeadingNulls() {
+        List<BigDecimal> series = new java.util.ArrayList<>();
+        for (int i = 0; i < 9; i++) series.add(null);
+        for (int i = 0; i < 10; i++) series.add(bd(100)); // 10 non-null values after 9 nulls
+
+        List<BigDecimal> ema = calc.computeEma(series, 5);
+
+        assertThat(ema).hasSize(19);
+        assertThat(ema.subList(0, 13)).containsOnlyNulls();  // 9 leading + 4 more = 13
+        assertThat(ema.get(13)).isNotNull();
+        assertThat(ema.getLast()).isNotNull();
+    }
+
     // ── computeRatioSeries ────────────────────────────────────────────────
 
     @Test

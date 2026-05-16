@@ -66,6 +66,18 @@ Hard non-negotiables. These do not change without explicit discussion.
 
 ---
 
+## Testing standards (non-negotiable)
+
+| Level | Tool | Scope | Run command |
+|-------|------|-------|-------------|
+| Unit / slice | JUnit 5 + Mockito + Testcontainers | `ftm-app` all layers | `./mvnw test` |
+| Frontend unit | Jest + Testing Library | `ftm-frontend` components | `pnpm test` |
+| **E2E integration** | **Playwright** | **Browser → Next.js → mock backend** | **`pnpm test:e2e`** |
+
+**E2E test requirement:** Every milestone merge to `develop` (and `main`) **must** have all Playwright E2E tests passing. The mock backend (`e2e/mock-backend.mjs`) runs on port 9999 and replaces Spring Boot during CI; `BACKEND_URL=http://127.0.0.1:9999` ensures both RSC server fetches and browser-side rewrites hit the mock. New features require new E2E tests before the PR is merged.
+
+---
+
 ## Data quality
 
 | Rule | Detail |

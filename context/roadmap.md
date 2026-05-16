@@ -26,7 +26,19 @@ Phase 3 — Intelligence (M5 + M6)
   M6: Backtester (historical validation, Sharpe vs SPY, weight optimization)
 ```
 
-**Current status:** Phase 1 — nothing built yet. Start with M1.
+**Current status:** M1 complete (merged to develop). M2 in progress (EP-004 PR open).
+
+---
+
+## Branch and merge strategy
+
+| Event | Action |
+|-------|--------|
+| Epic complete | PR → `develop`; must pass all unit + E2E tests |
+| Milestone complete | PR `develop` → `main`; tag with `vM{N}` (e.g. `vM2`) |
+| `main` always | Runnable demo: `docker compose up -d && ./mvnw spring-boot:run && pnpm dev` |
+
+**README requirement:** `README.md` in the repo root must be kept current at every milestone merge. It must explain: prerequisites, how to run the full stack, how to run each test suite (unit, E2E), and what the current milestone delivers. This is a merge gate — a PR to `main` without an updated README is rejected.
 
 ---
 
@@ -408,6 +420,7 @@ curl -X POST http://localhost:8080/api/v1/ingest/trigger
 - [ ] Category list view displays all 19 categories with name, ETF ticker, latest price
 - [ ] Manual refresh button triggers ingestion and updates displayed data
 - [ ] Stale data warning shown if `raw_prices` last updated > 2 trading days ago
+- [ ] **`pnpm test:e2e` passes all Playwright E2E tests** (dashboard load, category table, macro panel, refresh, timeframe selector)
 
 **Enables:** M3
 
@@ -451,7 +464,24 @@ curl -X POST http://localhost:8080/api/v1/ingest/trigger
 
 **T-004-5: Macro panel** — cards for all 7 FRED series; regime badge with color coding
 
-**Definition of done:** M2 acceptance criteria above
+**T-004-6: Playwright E2E tests** — `@playwright/test` with mock backend server (`e2e/mock-backend.mjs`) running on port 9999; `BACKEND_URL` env var routes both RSC fetches and browser-side rewrites to the mock; tests: dashboard load, sidebar, category table, macro panel, timeframe selector, refresh button; `pnpm test:e2e` in CI
+
+**Definition of done:** M2 acceptance criteria above (including E2E tests passing)
+
+---
+
+### EP-004b — README + Milestone Merge to main
+
+**Milestone:** M2 (gate before merging develop → main)  
+**Goal:** `README.md` in repo root is complete and `develop` is merged to `main` as a runnable M2 demo.
+
+**Tasks:**
+
+**T-004b-1: Write `README.md`** — prerequisites (Java 21, Docker, pnpm, Node 20+, FRED API key); how to start PostgreSQL (`docker compose up -d`); how to start `ftm-app` (`./mvnw spring-boot:run`); how to start `ftm-frontend` (`pnpm dev`); how to run unit tests (`./mvnw test` + `pnpm test`); how to run E2E tests (`pnpm test:e2e`); what M2 delivers (category list, macro panel, refresh, stale banner)
+
+**T-004b-2: Merge develop → main** — tag `vM2`; verify README and E2E tests pass on main
+
+**Definition of done:** `main` branch has a working dashboard, passing E2E tests, and a README that a new developer can follow from scratch
 
 ---
 

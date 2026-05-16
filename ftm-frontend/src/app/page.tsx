@@ -27,7 +27,7 @@ export default async function Home({ searchParams }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center justify-between gap-4 px-6 py-4 border-b border-zinc-800 bg-zinc-900/50 sticky top-0 z-10">
+      <header className="flex items-center justify-between gap-4 px-6 py-4 border-b border-zinc-800 bg-zinc-900 sticky top-0 z-10">
         <div className="flex items-center gap-4">
           <h1 className="text-sm font-semibold text-zinc-300">Sector Rotation</h1>
           <Suspense fallback={null}>

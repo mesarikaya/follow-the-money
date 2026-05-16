@@ -1,13 +1,13 @@
 import Link from "next/link";
 
-const navItems = [
-  { href: "/", label: "Rotation", icon: "⬡" },
-  { href: "/rrg", label: "RRG", icon: "◎" },
-  { href: "/flows", label: "Flows", icon: "↑↓" },
-  { href: "/macro", label: "Macro", icon: "M" },
-  { href: "/portfolio", label: "Portfolio", icon: "◫" },
-  { href: "/alerts", label: "Alerts", icon: "⚑" },
-  { href: "/backtest", label: "Backtest", icon: "⧖" },
+const navigationItems = [
+  { href: "/",         label: "Sector Rotation",  icon: "⬡" },
+  { href: "/rrg",      label: "Rotation Graph",   icon: "◎" },
+  { href: "/flows",    label: "Capital Flows",    icon: "↑↓" },
+  { href: "/macro",    label: "Macro Regime",     icon: "M" },
+  { href: "/portfolio",label: "Portfolio",        icon: "◫" },
+  { href: "/alerts",   label: "Alerts",           icon: "⚑" },
+  { href: "/backtest", label: "Backtester",       icon: "⧖" },
 ];
 
 export default function Sidebar() {
@@ -21,7 +21,7 @@ export default function Sidebar() {
       </div>
       <nav className="flex-1 py-4">
         <ul className="space-y-1">
-          {navItems.map((item) => (
+          {navigationItems.map((item) => (
             <li key={item.href}>
               <Link
                 href={item.href}

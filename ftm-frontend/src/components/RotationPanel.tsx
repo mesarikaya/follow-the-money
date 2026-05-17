@@ -1,10 +1,10 @@
 import { RotationResponse } from "@/lib/api";
 
 const QUADRANT_LABELS: Record<number, string> = {
-  1: "Lagging",
-  2: "Weakening",
-  3: "Improving",
-  4: "Leading",
+  1: "↗ Leading",
+  2: "↖ Improving",
+  3: "↘ Weakening",
+  4: "↙ Lagging",
 };
 
 const EVENT_TYPE_LABELS: Record<string, string> = {

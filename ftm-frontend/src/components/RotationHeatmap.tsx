@@ -3,10 +3,10 @@
 import { CategorySummary } from "@/lib/api";
 
 const QUADRANT_LABELS: Record<string, string> = {
-  LEADING:   "Leading",
-  IMPROVING: "Improving",
-  WEAKENING: "Weakening",
-  LAGGING:   "Lagging",
+  "1": "↗ Leading",
+  "2": "↖ Improving",
+  "3": "↘ Weakening",
+  "4": "↙ Lagging",
 };
 
 function compositeScoreToColor(score: number | null): string {

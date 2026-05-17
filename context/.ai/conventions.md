@@ -12,6 +12,37 @@ If the same claim appears in two files, that is a bug. Flag it and consolidate i
 
 ---
 
+## ⛔ SPEC DRIFT IS A BUG — ZERO TOLERANCE
+
+**Every file in `context/` is a living specification. Stale content is incorrect content.**
+
+The `context/` folder is not documentation written after the fact — it IS the spec. When code is built, the context files must be updated in the same session, not deferred. When context files drift from reality, future sessions build on false assumptions, creating compounding errors.
+
+### Non-negotiable obligations at session end
+
+1. **`roadmap.md` must reflect actual state** — every completed acceptance criterion must be `[x]`. Every completed milestone status must say `✅ Complete`. If you built something that satisfies an AC, check it. If you completed a milestone, update its status row. No exceptions.
+
+2. **`CHANGELOG.md` must have an entry for this session** — describe what changed, not what was planned. Include epic names, file counts, test counts.
+
+3. **`spec.md` must match the running system** — if the API shape, data model, or signal formula changed, update spec.md. Do not leave spec.md describing something the code no longer does.
+
+4. **`INDEX.md` Spec Health table must be refreshed** — update the `last-verified` date for every spec file touched.
+
+5. **Test counts must be accurate** — if the AC says "25 E2E tests" and there are now 32, update the AC. If the backend has 141 tests, update any reference that says 100.
+
+### How to detect spec drift in the current session
+
+Before ending a session, scan these specific things:
+- `roadmap.md` milestone table: any row that says "In Progress" for work you completed today?
+- `roadmap.md` acceptance criteria: any `[ ]` for work that is provably done?
+- `roadmap.md` test counts: do they match `mvn test` and `pnpm test:e2e` output?
+- `CHANGELOG.md`: does it have an entry dated today?
+- `spec.md` API table: does it list every endpoint that actually exists?
+
+If you find drift, fix it immediately — before the PR, before the commit, before the session ends.
+
+---
+
 ## Where facts live (single source of truth)
 
 | Fact type | Canonical location |
@@ -65,6 +96,9 @@ Violations found during review must be listed as MUST-FIX, not OPTIONAL.
 
 ## AI must NEVER
 
+- **Leave `roadmap.md` with stale `[ ]` checkboxes for work that is done** — this is spec drift and violates the zero-tolerance rule above
+- **Leave a milestone status as "In Progress" after completing all its epics** — update the status table immediately
+- **State a test count anywhere that doesn't match the actual test run output** — check `mvn test` and `pnpm test:e2e` before writing numbers
 - Repeat a decision inline without saying "see DECISIONS.md D-00X"
 - Mark an RFC as resolved without updating `DECISIONS.md` and `INDEX.md` open questions table
 - Author or edit a Mermaid diagram without checking `.ai/mermaid-conventions.md`
@@ -74,6 +108,7 @@ Violations found during review must be listed as MUST-FIX, not OPTIONAL.
 - Silently implement something that differs from what `spec.md` says
 - Change `spec.md` or `DECISIONS.md` without appending the change to `CHANGELOG.md`
 - Mark a milestone complete without verifying every acceptance criterion is checked in `roadmap.md`
+- End a session without running through the session end checklist at the bottom of this file
 
 ---
 

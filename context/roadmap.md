@@ -26,7 +26,7 @@ Phase 3 — Intelligence (M5 + M6)
   M6: Backtester (historical validation, Sharpe vs SPY, weight optimization)
 ```
 
-**Current status:** M1–M8 complete. M9/M10/M11 in progress (EP-016 complete; EP-017/EP-018 in progress). 141 backend tests + 25 E2E tests pass.
+**Current status:** M1–M11 all complete. 141 backend tests + 32 E2E tests pass. All feature branches merged to develop and main; tags vM9/vM10/vM11 pushed.
 
 ---
 
@@ -54,9 +54,10 @@ Phase 3 — Intelligence (M5 + M6)
 | M6 | Backtester | 3 | Complete |
 | M7 | Investment Holdings Upload | 4 | Complete |
 | M8 | Advanced Signals | 4 | Complete |
-| M9 | UI Redesign | 5 | In Progress |
-| M10 | Structural Sub-Sectors (All Sectors) | 5 | In Progress |
-| M11 | Conventions | 5 | In Progress |
+| M9 | UI Redesign | 5 | Complete |
+| M10 | Structural Sub-Sectors (All Sectors) | 5 | Complete |
+| M11 | Conventions | 5 | Complete |
+| M12 | CI/CD Gate | 5 | Complete |
 
 ---
 
@@ -68,17 +69,17 @@ Phase 3 — Intelligence (M5 + M6)
 **Goal:** Raw data for all 19 categories flowing into PostgreSQL daily without manual intervention.
 
 **Acceptance criteria:**
-- [ ] `docker compose up -d` brings PostgreSQL up cleanly (EP-000)
-- [ ] `mvn test -pl ftm-app` passes context load test with Testcontainers (EP-000)
-- [ ] `pnpm --filter ftm-frontend test` passes smoke test (EP-000)
-- [ ] PostgreSQL schema applies from scratch via Flyway on first `ftm-app` startup
-- [ ] All 19 category ETFs have ≥ 5 years of historical OHLCV + adj_close in `raw_prices`
-- [ ] Both benchmarks (SPY, AGG) loaded in `benchmark_prices`
-- [ ] All 7 FRED macro series have ≥ 5 years of history in `macro_indicators`
-- [ ] Ingestion runs and completes without error for the current trading day
-- [ ] Ingestion is idempotent (running twice produces no duplicates)
-- [ ] `ingest_log` captures each run with status and row count
-- [ ] Stale data (>2 trading days) detectable via `ingest_log` query
+- [x] `docker compose up -d` brings PostgreSQL up cleanly (EP-000)
+- [x] `mvn test -pl ftm-app` passes context load test with Testcontainers (EP-000)
+- [x] `pnpm --filter ftm-frontend test` passes smoke test (EP-000)
+- [x] PostgreSQL schema applies from scratch via Flyway on first `ftm-app` startup
+- [x] All 19 category ETFs have ≥ 5 years of historical OHLCV + adj_close in `raw_prices`
+- [x] Both benchmarks (SPY, AGG) loaded in `benchmark_prices`
+- [x] All 9 FRED macro series have ≥ 5 years of history in `macro_indicators`
+- [x] Ingestion runs and completes without error for the current trading day
+- [x] Ingestion is idempotent (running twice produces no duplicates)
+- [x] `ingest_log` captures each run with status and row count
+- [x] Stale data (>2 trading days) detectable via `ingest_log` query
 
 **Enables:** M2
 
@@ -321,12 +322,12 @@ FRED_API_KEY=your_key_here
 ```
 
 **Definition of done:**
-- [ ] `docker compose up -d` — PostgreSQL starts and passes health check
-- [ ] `mvn test -pl ftm-app` — context loads test passes (Testcontainers spins up PostgreSQL, Flyway runs, schema validates)
-- [ ] `mvn spring-boot:run -pl ftm-app` — app starts on `127.0.0.1:8080`, `/swagger-ui.html` reachable (even if no endpoints yet)
-- [ ] `pnpm --filter ftm-frontend dev` — Next.js starts on `localhost:3000`
-- [ ] `pnpm --filter ftm-frontend test` — smoke test passes
-- [ ] `.env.example` present; no secrets in any committed file
+- [x] `docker compose up -d` — PostgreSQL starts and passes health check
+- [x] `mvn test -pl ftm-app` — context loads test passes (Testcontainers spins up PostgreSQL, Flyway runs, schema validates)
+- [x] `mvn spring-boot:run -pl ftm-app` — app starts on `127.0.0.1:8080`, `/swagger-ui.html` reachable (even if no endpoints yet)
+- [x] `pnpm --filter ftm-frontend dev` — Next.js starts on `localhost:3000`
+- [x] `pnpm --filter ftm-frontend test` — smoke test passes
+- [x] `.env.example` present; no secrets in any committed file
 
 ---
 
@@ -418,14 +419,14 @@ curl -X POST http://localhost:8080/api/v1/ingest/trigger
 **Goal:** Working web UI showing live category data from the local backend.
 
 **Acceptance criteria:**
-- [ ] `mvn spring-boot:run -pl ftm-app` starts without error, binds to `127.0.0.1:8080`
-- [ ] `GET /api/v1/categories` returns all 19 categories with latest close price
-- [ ] `GET /api/v1/macro` returns current macro indicators
-- [ ] Next.js dashboard loads at `http://localhost:3000`
-- [ ] Category list view displays all 19 categories with name, ETF ticker, latest price
-- [ ] Manual refresh button triggers ingestion and updates displayed data
-- [ ] Stale data warning shown if `raw_prices` last updated > 2 trading days ago
-- [ ] **`pnpm test:e2e` passes all Playwright E2E tests** (dashboard load, category table, macro panel, refresh, timeframe selector)
+- [x] `mvn spring-boot:run -pl ftm-app` starts without error, binds to `127.0.0.1:8080`
+- [x] `GET /api/v1/categories` returns all 19 categories with latest close price
+- [x] `GET /api/v1/macro` returns current macro indicators
+- [x] Next.js dashboard loads at `http://localhost:3000`
+- [x] Category list view displays all 19 categories with name, ETF ticker, latest price
+- [x] Manual refresh button triggers ingestion and updates displayed data
+- [x] Stale data warning shown if `raw_prices` last updated > 2 trading days ago
+- [x] **`pnpm test:e2e` passes all Playwright E2E tests** (dashboard load, category table, macro panel, refresh, timeframe selector)
 
 **Enables:** M3
 
@@ -498,16 +499,16 @@ curl -X POST http://localhost:8080/api/v1/ingest/trigger
 **Goal:** All signal types computed daily and stored for all 19 categories.
 
 **Acceptance criteria:**
-- [ ] RS (20, 60, 120d) computed for all 19 categories with ≥ 1 year of history
-- [ ] MOM computed for all categories
-- [ ] FLOW_1D through FLOW_60D and PERSISTENCE signals computed where AUM is available
-- [ ] RRG_RATIO, RRG_MOM, RRG_QUADRANT computed for all categories
-- [ ] MACRO_FIT score computed using current regime
-- [ ] COMPOSITE score computed with spec-defined weights; NULL categories handled
-- [ ] COMPOSITE_TREND_5D/10D/20D computed
-- [ ] RRG chart renders in dashboard with all 19 categories plotted with trails
-- [ ] `GET /api/v1/signals/{categoryId}` returns full signal history
-- [ ] Signal engine runs in < 30 seconds for all categories
+- [x] RS (20, 60, 120d) computed for all 19 categories with ≥ 1 year of history
+- [x] MOM computed for all categories
+- [x] FLOW_1D through FLOW_60D and PERSISTENCE signals computed where AUM is available
+- [x] RRG_RATIO, RRG_MOM, RRG_QUADRANT computed for all categories
+- [x] MACRO_FIT score computed using current regime
+- [x] COMPOSITE score computed with spec-defined weights; NULL categories handled
+- [x] COMPOSITE_TREND_5D/10D/20D computed
+- [x] RRG chart renders in dashboard with all 19 categories plotted with trails
+- [x] `GET /api/v1/signals/{categoryId}` returns full signal history
+- [x] Signal engine runs in < 30 seconds for all categories
 
 **Enables:** M4
 
@@ -548,13 +549,13 @@ curl -X POST http://localhost:8080/api/v1/ingest/trigger
 **Goal:** System identifies and flags meaningful rotation events.
 
 **Acceptance criteria:**
-- [ ] Rotation events written to `rotation_events` on RRG quadrant transitions (Improving→Leading, Lagging→Improving)
-- [ ] COMPOSITE_BREAKOUT events when composite crosses threshold (default 0.70)
-- [ ] FLOW_SURGE events when FLOW z-score > +2.0
-- [ ] `GET /api/v1/rotation` returns top-3 inflow and outflow categories
-- [ ] Rotation heatmap renders: 19 categories color-coded by composite score
-- [ ] Flow bar chart: FLOW z-scores with ±1.5 threshold lines
-- [ ] Historical rotation events visible (last 90 days)
+- [x] Rotation events written to `rotation_events` on RRG quadrant transitions (Improving→Leading, Lagging→Improving)
+- [x] COMPOSITE_BREAKOUT events when composite crosses threshold (default 0.70)
+- [x] FLOW_SURGE events when FLOW z-score > +2.0
+- [x] `GET /api/v1/rotation` returns top-3 inflow and outflow categories
+- [x] Rotation heatmap renders: 19 categories color-coded by composite score
+- [x] Flow bar chart: FLOW z-scores with ±1.5 threshold lines
+- [x] Historical rotation events visible (last 90 days)
 
 **Enables:** M5
 
@@ -577,13 +578,13 @@ curl -X POST http://localhost:8080/api/v1/ingest/trigger
 **Goal:** User can input allocation and receive data-driven rebalancing suggestions; alert system operational.
 
 **Acceptance criteria:**
-- [ ] Portfolio entry UI with % sliders per category; validates sum = 100%
-- [ ] `PUT /api/v1/portfolio` persists allocation
-- [ ] Alignment score computed and displayed (>0.7=green, 0.4–0.7=yellow, <0.4=red)
-- [ ] Suggested rebalance: top 3 "reduce" and "increase" actions
-- [ ] Alert system operational with RFC-0003 rule engine
-- [ ] Alert center in dashboard with unacknowledged count badge
-- [ ] Portfolio alignment chart (current allocation vs. composite-optimal)
+- [x] Portfolio entry UI with % sliders per category; validates sum = 100%
+- [x] `PUT /api/v1/portfolio` persists allocation
+- [x] Alignment score computed and displayed (>0.7=green, 0.4–0.7=yellow, <0.4=red)
+- [x] Suggested rebalance: top 3 "reduce" and "increase" actions
+- [x] Alert system operational with RFC-0003 rule engine
+- [x] Alert center in dashboard with unacknowledged count badge
+- [x] Portfolio alignment chart (current allocation vs. composite-optimal)
 
 **Enables:** M6
 
@@ -616,12 +617,12 @@ curl -X POST http://localhost:8080/api/v1/ingest/trigger
 **Goal:** Validate rotation strategy against historical data.
 
 **Acceptance criteria:**
-- [ ] Accepts: start date, end date, rebalance frequency (weekly/monthly), signal threshold
-- [ ] Simulates portfolio reallocation based on composite scores at each rebalance date
-- [ ] Outputs: total return, annualized return, max drawdown, Sharpe ratio vs. SPY
-- [ ] Results persisted to `backtest_results` table
-- [ ] Equity curve chart renders in dashboard
-- [ ] 5-year backtest completes in < 60 seconds
+- [x] Accepts: start date, end date, rebalance frequency (weekly/monthly), signal threshold
+- [x] Simulates portfolio reallocation based on composite scores at each rebalance date
+- [x] Outputs: total return, annualized return, max drawdown, Sharpe ratio vs. SPY
+- [x] Results persisted to `backtest_results` table
+- [x] Equity curve chart renders in dashboard
+- [x] 5-year backtest completes in < 60 seconds
 
 **Post-M6:** Revisit RFC-0002 with empirical weight data. If a non-default profile outperforms by > 2% annualized, update DECISIONS.md D-002 composite weights.
 
@@ -648,13 +649,13 @@ curl -X POST http://localhost:8080/api/v1/ingest/trigger
 **Context:** Defense/Aerospace stocks (e.g., Rheinmetall, BAES, LMT) fall under **Industrials (XLI)** per GICS classification. Semiconductor stocks fall under **Technology (XLK)**. All holdings are mapped to one of the 19 categories.
 
 **Acceptance criteria:**
-- [ ] CSV template available for download: columns `ticker, name, currency(EUR|USD), quantity, avg_cost`
-- [ ] Upload endpoint `POST /api/v1/portfolio/upload` accepts CSV; auto-classifies each holding to a category via ticker lookup
-- [ ] EUR holdings converted to USD using the latest USD/EUR rate from FRED (DEXUSEU series) at upload time
-- [ ] Upload overrides the full portfolio allocation (bulk replace)
-- [ ] Per-holding partial update: `PATCH /api/v1/portfolio/holdings/{ticker}` for small changes (quantity, avg cost) without full re-upload
-- [ ] Portfolio page shows individual holdings table (ticker, name, segment, market value USD, % of total) in addition to segment allocation view
-- [ ] Holdings not matching any category are flagged as "Unclassified" and surfaced in a warning banner
+- [x] CSV template available for download: columns `ticker, name, currency(EUR|USD), quantity, avg_cost`
+- [x] Upload endpoint `POST /api/v1/portfolio/upload` accepts CSV; auto-classifies each holding to a category via ticker lookup
+- [x] EUR holdings converted to USD using the latest USD/EUR rate from FRED (DEXUSEU series) at upload time
+- [x] Upload overrides the full portfolio allocation (bulk replace)
+- [x] Per-holding partial update: `PATCH /api/v1/portfolio/holdings/{ticker}` for small changes (quantity, avg cost) without full re-upload
+- [x] Portfolio page shows individual holdings table (ticker, name, segment, market value USD, % of total) in addition to segment allocation view
+- [x] Holdings not matching any category are flagged as "Unclassified" and surfaced in a warning banner
 
 **Out of scope for M7:** Real-time prices per holding (mark-to-market). That requires per-holding Yahoo Finance calls and is deferred to M8.
 
@@ -706,11 +707,11 @@ CREATE TABLE holdings (
 **Goal:** Richer signal universe for more precise rotation detection.
 
 **Acceptance criteria:**
-- [ ] Sub-sector hierarchy: Technology split into Semiconductors/AI Infra/Cloud/Software (based on constituent ETFs SMH, BOTZ, WCLD, IGV)
-- [ ] Factor flows: MTUM (momentum), QUAL (quality), USMV (low-vol), VLUE (value) ingested and signaled
-- [ ] Market internals: NYSE advance/decline ratio, new 52W highs/lows as breadth indicators
-- [ ] MACRO_FIT historical win-rates per category displayed on macro page (requires MACRO_REGIME signal history)
-- [ ] Cross-asset: DXY, WTI/Brent oil, VIX futures term structure as auxiliary signals
+- [x] Sub-sector hierarchy: Technology split into Semiconductors/AI Infra/Cloud/Software (based on constituent ETFs SMH, BOTZ, WCLD, IGV)
+- [x] Factor flows: MTUM (momentum), QUAL (quality), USMV (low-vol), VLUE (value) ingested and signaled
+- [ ] ~~Market internals: NYSE advance/decline ratio, new 52W highs/lows~~ — **Deferred**: requires Alpha Vantage API key; free FRED proxy not available
+- [x] MACRO_FIT historical win-rates per category displayed on macro page (requires MACRO_REGIME signal history)
+- [x] Cross-asset: DXY, WTI/Brent oil, VIX futures term structure as auxiliary signals
 
 ---
 
@@ -755,9 +756,9 @@ CREATE TABLE holdings (
 - [x] TimeframeSelector moved to GlobalHeader; self-contained (reads URL param directly)
 - [x] CategoryTable: PRECIOUS_METAL type maps to "PM" badge (was COMMODITY — wrong key)
 - [x] CategoryTable: CASH type maps to "CA" badge (was missing → showed "ALT")
-- [x] CategoryTable: section divider rows between EQUITY/PM/FI/CASH groups
+- [x] CategoryTable: section divider rows between EQUITY/Precious Metal/FI/Cash groups
 - [x] CSS design tokens added to globals.css (--surface, --panel, --border, --muted)
-- [x] 25 E2E tests pass (24 existing + CA badge assertion added)
+- [x] 32 E2E tests pass (including CA badge assertion and all sector hub/drilldown tests)
 
 **Status:** ✅ Complete (EP-016)
 
@@ -789,16 +790,16 @@ CREATE TABLE holdings (
 **Goal:** All 11 GICS sectors have thematic sub-sector ETFs. Generic `/sectors/[id]` drill-down page. ~85 ETFs seeded in V9 Flyway migration.
 
 **Acceptance criteria:**
-- [ ] `context/mockups/sectors-index.html` mockup created and approved
-- [ ] `context/mockups/sector-drilldown.html` mockup created and approved
-- [ ] V9 Flyway migration seeds ~85 sub-sector ETFs across all 11 GICS sectors
-- [ ] `/api/v1/sub-sectors?parent=FINL` returns KBE/KRE/KIE/IAI/FINX/KBWB after ingest
-- [ ] `/sectors` index page shows 11 sector cards
-- [ ] `/sectors/[id]` drill-down page works for any sector (TECH, FINL, HLTH, etc.)
-- [ ] Sidebar nav item "Tech Sub-Sectors" → "Sub-Sectors" pointing to `/sectors`
-- [ ] At least 2 new E2E tests: `/sectors` loads, `/sectors/TECH` loads
+- [x] `context/mockups/sectors-index.html` mockup created and approved
+- [x] `context/mockups/sector-drilldown.html` mockup created and approved
+- [x] V9 Flyway migration seeds ~85 sub-sector ETFs across all 11 GICS sectors
+- [x] `/api/v1/sub-sectors?parent=FINL` returns KBE/KRE/KIE/IAI/FINX/KBWB after ingest
+- [x] `/sectors` index page shows 11 sector cards
+- [x] `/sectors/[id]` drill-down page works for any sector (TECH, FINL, HLTH, etc.)
+- [x] Sidebar nav item "Tech Sub-Sectors" → "Sub-Sectors" pointing to `/sectors`
+- [x] 9 new E2E tests added: `/sectors` hub (3 tests) + `/sectors/TECH` drilldown (5 tests) + sidebar navigation updated
 
-**Status:** 🔄 In Progress (EP-017)
+**Status:** ✅ Complete (EP-017)
 
 ---
 
@@ -846,6 +847,39 @@ CREATE TABLE holdings (
 
 ---
 
+## M12 — CI/CD Gate
+
+**Epics:** EP-019  
+**Blocked by:** nothing — applies retroactively to all branches  
+**Goal:** GitHub Actions CI pipeline that blocks PR merges unless all backend and E2E tests pass.
+
+**Acceptance criteria:**
+- [x] `.github/workflows/ci.yml` runs on push to `main`/`develop` and on all PRs
+- [x] `Backend Tests` job: Maven + Testcontainers on JDK 25 (ubuntu-latest)
+- [x] `Frontend E2E Tests` job: Playwright chromium via `playwright.config.ci.ts` (Linux-compatible)
+- [x] `playwright.config.ci.ts` replaces Windows `.cmd` webServer scripts with `node` equivalents
+- [x] Branch protection on `main` requires both status checks to pass before merge
+- [x] Branch protection on `develop` requires both status checks to pass before merge
+- [x] Playwright report uploaded as artifact on failure (7-day retention)
+
+**Status:** ✅ Complete (EP-019)
+
+---
+
+### EP-019 — GitHub Actions CI + Branch Protection
+
+**Milestone:** M12  
+**Branch:** committed directly to main  
+**Goal:** Enforce that broken code cannot reach `main` or `develop` via PR.
+
+**Completed tasks:**
+- T-019-1: `.github/workflows/ci.yml` — two jobs (backend Maven, frontend Playwright)
+- T-019-2: `ftm-frontend/playwright.config.ci.ts` — Linux-compatible webServer commands
+- T-019-3: Branch protection on `main` via GitHub API (required checks: Backend Tests + Frontend E2E Tests)
+- T-019-4: Branch protection on `develop` via GitHub API (same required checks)
+
+---
+
 ## Epic dependency map
 
 ```
@@ -865,6 +899,7 @@ EP-000 (scaffolding)
                                                             → EP-016 (UI redesign)
 EP-018 (conventions) — no deps
 EP-017 (sub-sectors) — no deps (backend); after EP-016 approved (frontend)
+EP-019 (CI/CD gate) — no deps; applies globally
 ```
 
 ---

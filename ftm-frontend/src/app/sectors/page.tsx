@@ -6,7 +6,7 @@ const EQUITY_SECTOR_IDS = new Set([
 ]);
 
 const SUB_SECTOR_COUNTS: Record<string, number> = {
-  TECH: 9,
+  TECH: 8,
   HLTH: 6,
   FINL: 6,
   DISR: 6,

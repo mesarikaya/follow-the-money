@@ -2,12 +2,12 @@ import { Fragment } from "react";
 import { CategorySummary } from "@/lib/api";
 
 const TYPE_CONFIG: Record<string, { label: string; className: string }> = {
-  EQUITY_SECTOR:  { label: "EQ",  className: "bg-blue-900/50 text-blue-300 border border-blue-800/40" },
-  FIXED_INCOME:   { label: "FI",  className: "bg-purple-900/50 text-purple-300 border border-purple-800/40" },
-  PRECIOUS_METAL: { label: "PM",  className: "bg-yellow-900/50 text-yellow-300 border border-yellow-800/40" },
-  CURRENCY:       { label: "FX",  className: "bg-emerald-900/50 text-emerald-300 border border-emerald-800/40" },
-  CASH:           { label: "CA",  className: "bg-slate-700 text-slate-300 border border-slate-600" },
-  ALTERNATIVE:    { label: "ALT", className: "bg-slate-700 text-slate-300 border border-slate-600" },
+  EQUITY_SECTOR:  { label: "Equity",         className: "bg-blue-900/50 text-blue-300 border border-blue-800/40" },
+  FIXED_INCOME:   { label: "Fixed Income",   className: "bg-purple-900/50 text-purple-300 border border-purple-800/40" },
+  PRECIOUS_METAL: { label: "Precious Metal", className: "bg-yellow-900/50 text-yellow-300 border border-yellow-800/40" },
+  CURRENCY:       { label: "Currency",       className: "bg-emerald-900/50 text-emerald-300 border border-emerald-800/40" },
+  CASH:           { label: "Cash",           className: "bg-slate-700 text-slate-300 border border-slate-600" },
+  ALTERNATIVE:    { label: "Alternative",    className: "bg-slate-700 text-slate-300 border border-slate-600" },
 };
 
 const TYPE_SECTION_LABELS: Record<string, string> = {
@@ -125,23 +125,14 @@ export default function CategoryTable({ categories }: { categories: CategorySumm
         </tbody>
       </table>
 
-      <div className="px-4 py-2.5 border-t border-slate-700 flex items-center gap-6 text-xs text-slate-500 bg-slate-800/40 flex-wrap">
-        <span className="flex items-center gap-1">
-          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${TYPE_CONFIG.EQUITY_SECTOR.className}`}>EQ</span>
-          Equity Sector
-        </span>
-        <span className="flex items-center gap-1">
-          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${TYPE_CONFIG.PRECIOUS_METAL.className}`}>PM</span>
-          Precious Metal
-        </span>
-        <span className="flex items-center gap-1">
-          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${TYPE_CONFIG.FIXED_INCOME.className}`}>FI</span>
-          Fixed Income
-        </span>
-        <span className="flex items-center gap-1">
-          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${TYPE_CONFIG.CASH.className}`}>CA</span>
-          Cash
-        </span>
+      <div className="px-4 py-2.5 border-t border-slate-700 flex items-center gap-4 text-xs text-slate-500 bg-slate-800/40 flex-wrap">
+        {(["EQUITY_SECTOR", "PRECIOUS_METAL", "FIXED_INCOME", "CASH"] as const).map((type) => (
+          <span key={type} className="flex items-center gap-1.5">
+            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${TYPE_CONFIG[type].className}`}>
+              {TYPE_CONFIG[type].label}
+            </span>
+          </span>
+        ))}
         <span className="ml-auto" title="Score bars: 5 cells = 0-100 composite signal score">
           Score: ██████ = strong · ███ = moderate · █ = weak
         </span>

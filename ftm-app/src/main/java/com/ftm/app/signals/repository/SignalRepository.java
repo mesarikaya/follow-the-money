@@ -7,12 +7,10 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.ftm.app.jooq.Tables.SIGNALS;
+import static com.ftm.app.jooq.Tables.*;
 import static org.jooq.impl.DSL.*;
 
 @Repository
@@ -45,6 +43,18 @@ public class SignalRepository {
                 .set(SIGNALS.VALUE, excluded(SIGNALS.VALUE))
                 .set(SIGNALS.COMPUTED_AT, excluded(SIGNALS.COMPUTED_AT))
                 .execute();
+    }
+
+    public Optional<LocalDate> findLatestSignalDate() {
+        LocalDate date = dsl.select(max(SIGNALS.SIGNAL_DATE)).from(SIGNALS).fetchOneInto(LocalDate.class);
+        return Optional.ofNullable(date);
+    }
+
+    public List<LocalDate> findAllTradeDatesAscending() {
+        return dsl.selectDistinct(RAW_PRICES.TRADE_DATE)
+                .from(RAW_PRICES)
+                .orderBy(RAW_PRICES.TRADE_DATE.asc())
+                .fetchInto(LocalDate.class);
     }
 
     public boolean hasAnySignalOfType(SignalType type) {

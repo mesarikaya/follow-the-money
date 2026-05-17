@@ -63,14 +63,14 @@ follow-the-money/
 │       └── domain/                   ← Java records (Category, Signal, Alert, Holding, …)
 │   └── src/main/resources/
 │       ├── application.yml
-│       └── db/migration/             ← V1–V8 (schema + seeds + sub-sectors + factors)
+│       └── db/migration/             ← V1–V9 (schema + seeds + sub-sectors + factors + all-sector ETFs)
 │
 └── ftm-frontend/                     ← Next.js 15
     ├── package.json
     ├── e2e/                          ← Playwright tests (24 tests, mock backend on :9999)
     └── src/
-        ├── app/                      ← App Router pages (/, /rrg, /sub-sectors, /factors,
-        │                               /flows, /macro, /portfolio, /alerts, /backtest)
+        ├── app/                      ← App Router pages (/, /rrg, /sectors, /sectors/[id],
+        │                               /factors, /flows, /macro, /portfolio, /alerts, /backtest)
         ├── components/               ← charts, panels, tables
         └── lib/api.ts                ← typed fetch client (pure RSC + client components; no React Query)
 ```
@@ -85,7 +85,7 @@ follow-the-money/
     → publishes IngestionRequestedEvent
 
 @EventListener @Async → IngestionService
-  → fetches Yahoo Finance (19 ETFs + 4 sub-sector ETFs + 4 factor ETFs + SPY + AGG benchmarks)
+  → fetches Yahoo Finance (19 top-level ETFs + ~70 sub-sector ETFs (V9, all 11 GICS sectors) + 4 factor ETFs + SPY + AGG benchmarks)
   → fetches FRED (9 macro series: VIX, T10Y2Y, T10YIE, DXY, FEDFUNDS, DGS2, DGS10, DEXUSEU, DCOILWTICO)
   → writes raw_prices, macro_indicators
   → publishes IngestionCompleteEvent
@@ -161,8 +161,10 @@ CREATE TABLE categories (
     parent_id        VARCHAR(10)  REFERENCES categories(id)   -- V7: sub-sector hierarchy
 );
 -- parent_id IS NULL → top-level category (shown in heatmap, portfolio, backtester)
--- parent_id = 'TECH' → Technology sub-sector (SEMI/AIRO/CLOD/SOFT); benchmarked vs XLK
+-- parent_id = 'TECH' → Technology sub-sector; benchmark_ticker = XLK (within-sector RS)
 -- parent_id = 'FTRS' (inactive virtual) → Factor ETFs (MTUM/QUAL/USMV/VLUE)
+-- V9: all 11 GICS sectors have sub-sectors (~70 ETFs); display_order = parent_order*100+N
+-- /api/v1/sub-sectors?parent={id} returns sub-sectors for ANY sector (generic endpoint)
 ```
 
 ### `raw_prices`
@@ -464,7 +466,7 @@ flowchart LR
 
 ### `GET /categories`
 
-All 19 categories with latest composite score and RRG quadrant.
+All 19 top-level categories (those with `parent_id IS NULL`) with latest composite score and RRG quadrant.
 
 **Query params:** `timeframe` (default `MONTH`) — `DAY | WEEK | MONTH | QUARTER | YEAR`
 
@@ -488,6 +490,26 @@ All 19 categories with latest composite score and RRG quadrant.
     }
   ]
 }
+```
+
+### `GET /sub-sectors?parent={id}`
+
+Returns all sub-sector ETFs for a given parent category ID. Works for any of the 11 GICS sectors after V9 migration. `benchmark_ticker` is the parent sector ETF (e.g., XLK for TECH) — signals measure within-sector rotation, not vs. SPY.
+
+```json
+[
+  {
+    "id": "SEMI",
+    "name": "Semiconductors",
+    "parent_id": "TECH",
+    "etf_ticker": "SMH",
+    "rs20": 1.08,
+    "rs60": 1.12,
+    "rs120": 1.15,
+    "momentum": 0.03,
+    "rrg_quadrant": "4"
+  }
+]
 ```
 
 ### `GET /rotation`

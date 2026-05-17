@@ -26,7 +26,7 @@ Phase 3 — Intelligence (M5 + M6)
   M6: Backtester (historical validation, Sharpe vs SPY, weight optimization)
 ```
 
-**Current status:** M1–M8 complete (all 141 tests pass; EP-008–EP-015 delivered). All 8 milestones done.
+**Current status:** M1–M8 complete. M9/M10/M11 in progress (EP-016 complete; EP-017/EP-018 in progress). 141 backend tests + 25 E2E tests pass.
 
 ---
 
@@ -54,6 +54,9 @@ Phase 3 — Intelligence (M5 + M6)
 | M6 | Backtester | 3 | Complete |
 | M7 | Investment Holdings Upload | 4 | Complete |
 | M8 | Advanced Signals | 4 | Complete |
+| M9 | UI Redesign | 5 | In Progress |
+| M10 | Structural Sub-Sectors (All Sectors) | 5 | In Progress |
+| M11 | Conventions | 5 | In Progress |
 
 ---
 
@@ -738,6 +741,111 @@ CREATE TABLE holdings (
 
 ---
 
+---
+
+## M9 — UI Redesign
+
+**Epics:** EP-016  
+**Blocked by:** M8  
+**Goal:** Frontend matches the professional HTML mockups in `context/mockups/`. Global header pattern replaces per-page headers. CategoryTable type bugs fixed.
+
+**Acceptance criteria:**
+- [x] GlobalHeader component: brand + timeframe pills + refresh button in one top bar
+- [x] Brand text removed from Sidebar; sidebar starts with "Analysis" group label
+- [x] TimeframeSelector moved to GlobalHeader; self-contained (reads URL param directly)
+- [x] CategoryTable: PRECIOUS_METAL type maps to "PM" badge (was COMMODITY — wrong key)
+- [x] CategoryTable: CASH type maps to "CA" badge (was missing → showed "ALT")
+- [x] CategoryTable: section divider rows between EQUITY/PM/FI/CASH groups
+- [x] CSS design tokens added to globals.css (--surface, --panel, --border, --muted)
+- [x] 25 E2E tests pass (24 existing + CA badge assertion added)
+
+**Status:** ✅ Complete (EP-016)
+
+---
+
+### EP-016 — Global Layout + CategoryTable Redesign
+
+**Milestone:** M9  
+**Branch:** `feat/EP-016-ui-redesign`  
+**Goal:** Match frontend to mockups; fix CategoryTable type bugs and add section dividers; consolidate header controls into a global bar.
+
+**Completed tasks:**
+- T-016-1: GlobalHeader component (brand + TimeframeSelector + RefreshButton)
+- T-016-2: layout.tsx — GlobalHeader above sidebar+content flex row
+- T-016-3: Sidebar — remove brand text; starts with Analysis group label
+- T-016-4: TimeframeSelector — self-contained, no `current` prop needed
+- T-016-5: page.tsx — remove per-page header; asOfDate moved into main content
+- T-016-6: globals.css — add design token CSS vars
+- T-016-7: CategoryTable — fix PRECIOUS_METAL/CASH types, add section dividers, Fragment key fix
+- T-016-8: mock-backend — fix COMMODITY→PRECIOUS_METAL, FIXED_INCOME→CASH for BIL, add TLT
+- T-016-9: E2E dashboard.spec.ts — add CA badge assertion, update type comment
+
+---
+
+## M10 — Structural Sub-Sectors (All Sectors)
+
+**Epics:** EP-017  
+**Blocked by:** M9 (inherits GlobalHeader)  
+**Goal:** All 11 GICS sectors have thematic sub-sector ETFs. Generic `/sectors/[id]` drill-down page. ~85 ETFs seeded in V9 Flyway migration.
+
+**Acceptance criteria:**
+- [ ] `context/mockups/sectors-index.html` mockup created and approved
+- [ ] `context/mockups/sector-drilldown.html` mockup created and approved
+- [ ] V9 Flyway migration seeds ~85 sub-sector ETFs across all 11 GICS sectors
+- [ ] `/api/v1/sub-sectors?parent=FINL` returns KBE/KRE/KIE/IAI/FINX/KBWB after ingest
+- [ ] `/sectors` index page shows 11 sector cards
+- [ ] `/sectors/[id]` drill-down page works for any sector (TECH, FINL, HLTH, etc.)
+- [ ] Sidebar nav item "Tech Sub-Sectors" → "Sub-Sectors" pointing to `/sectors`
+- [ ] At least 2 new E2E tests: `/sectors` loads, `/sectors/TECH` loads
+
+**Status:** 🔄 In Progress (EP-017)
+
+---
+
+### EP-017 — V9 Migration + Universal Sub-Sector Pages
+
+**Milestone:** M10  
+**Branch:** `feat/EP-017-structural-sub-sectors`  
+**Goal:** Seed ~85 sub-sector ETFs (all 11 GICS sectors); generic drill-down pages; hub navigation.
+
+**Tasks:**
+- T-017-0: Create mockups sectors-index.html + sector-drilldown.html; get approval
+- T-017-1: V9__sub_sectors_all_sectors.sql (~85 ETFs, display_order = parent_order × 100 + N)
+- T-017-2: `/sectors` index page (11 sector cards)
+- T-017-3: `/sectors/[id]` dynamic drill-down page (reuse SubSectorCard)
+- T-017-4: Sidebar update (Sub-Sectors link → `/sectors`)
+- T-017-5: 2 new E2E tests in pages.spec.ts
+- T-017-6: Verify `curl /api/v1/sub-sectors?parent=FINL` after ingest
+
+---
+
+## M11 — Conventions
+
+**Epics:** EP-018  
+**Blocked by:** nothing  
+**Goal:** Mockup-first rule for all new frontend pages baked into the development conventions.
+
+**Acceptance criteria:**
+- [x] `context/.ai/conventions.md` has `## Frontend workflow (mandatory)` section
+- [x] Mockup-first rule: create HTML mockup → get approval → implement → E2E test → visual verify
+- [x] Design token reference table included
+
+**Status:** ✅ Complete (EP-018)
+
+---
+
+### EP-018 — Add Mockup-First Workflow Rule
+
+**Milestone:** M11  
+**Branch:** `feat/EP-018-conventions`  
+**Goal:** Prevent design divergence between mockups and implementations.
+
+**Completed tasks:**
+- T-018-1: Add `## Frontend workflow (mandatory)` section to `context/.ai/conventions.md`
+- T-018-2: Include design token reference table
+
+---
+
 ## Epic dependency map
 
 ```
@@ -754,6 +862,9 @@ EP-000 (scaffolding)
                                                       → EP-011 (backtester)
                                                         → EP-012 (holdings upload)
                                                           → EP-013/014/015 (advanced signals)
+                                                            → EP-016 (UI redesign)
+EP-018 (conventions) — no deps
+EP-017 (sub-sectors) — no deps (backend); after EP-016 approved (frontend)
 ```
 
 ---

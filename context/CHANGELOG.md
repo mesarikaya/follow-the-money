@@ -14,6 +14,38 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 
 ---
 
+## 2026-05-17 (session 12 — M9/M10/M11: UI redesign, structural sub-sectors, conventions)
+
+- `NEW` EP-018 (M11) complete: mockup-first workflow rule added to `context/.ai/conventions.md`
+  - Added `## Frontend workflow (mandatory)` section with 5-step mockup → approve → implement → E2E → verify rule
+  - Design token reference table (surface/panel/border/muted hex values)
+  - ✅ `context/.ai/conventions.md`
+
+- `NEW` EP-016 (M9) complete: global header + CategoryTable redesign
+  - GlobalHeader component: brand + TimeframeSelector + RefreshButton in one top bar
+  - Brand moved out of Sidebar; sidebar starts with Analysis group label
+  - TimeframeSelector made self-contained (reads ?timeframe= from URL; no prop)
+  - CategoryTable: fixed PRECIOUS_METAL key (was COMMODITY — no DB rows matched)
+  - CategoryTable: added CASH→"CA" badge (BIL was falling through to ALT)
+  - CategoryTable: added section divider rows between EQUITY/PM/FI/CASH groups
+  - CSS design token vars added: --surface, --panel, --border, --muted
+  - 25 E2E tests pass (24 + CA badge assertion)
+  - ✅ `ftm-frontend/src/components/GlobalHeader.tsx` (new)
+  - ✅ `ftm-frontend/src/app/layout.tsx`
+  - ✅ `ftm-frontend/src/components/Sidebar.tsx`
+  - ✅ `ftm-frontend/src/components/TimeframeSelector.tsx`
+  - ✅ `ftm-frontend/src/app/page.tsx`
+  - ✅ `ftm-frontend/src/app/globals.css`
+  - ✅ `ftm-frontend/src/components/CategoryTable.tsx`
+
+- `UPDATED` roadmap.md: M9/M10/M11 milestones and EP-016/017/018 epics added
+  - ✅ `context/roadmap.md`
+
+- `NEW` EP-017 (M10) in progress: V9 migration + sectors hub page (mockups pending approval)
+  - ⚠️ Still needs: mockup creation + approval, V9 SQL, /sectors frontend pages
+
+---
+
 ## 2026-05-17 (session 11 — context sync to M8 reality)
 
 - `UPDATED` INDEX.md: all 8 milestones marked complete; Java 21→25; RFC-0003 removed from open questions; spec health dates updated

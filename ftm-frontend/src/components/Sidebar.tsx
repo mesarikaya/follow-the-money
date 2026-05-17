@@ -42,14 +42,14 @@ export default function Sidebar() {
     <aside className="flex flex-col w-14 md:w-52 bg-slate-800 border-r border-slate-700 text-slate-100 shrink-0">
       <nav className="flex-1 py-3 overflow-y-auto">
         <div className="px-3 mb-1.5 hidden md:block">
-          <span className="text-slate-500 text-[10px] font-semibold uppercase tracking-widest">Analysis</span>
+          <span className="text-slate-500 text-[10px] font-semibold uppercase tracking-widest" style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.1em" }}>Analysis</span>
         </div>
         {ANALYSIS_ITEMS.map((item) => (
           <NavItem key={item.href} {...item} />
         ))}
 
         <div className="px-3 mt-4 mb-1.5 hidden md:block">
-          <span className="text-slate-500 text-[10px] font-semibold uppercase tracking-widest">Management</span>
+          <span className="text-slate-500 text-[10px] font-semibold uppercase tracking-widest" style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.1em" }}>Management</span>
         </div>
         {MANAGEMENT_ITEMS.map((item) => (
           <NavItem key={item.href} {...item} />

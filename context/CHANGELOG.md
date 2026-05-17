@@ -14,6 +14,18 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 
 ---
 
+## 2026-05-17 (session 10 — retroactive milestone tags vM1–vM5)
+
+- `NEW` Milestone tags vM1–vM5 created retroactively (vM6/vM7/vM8 already existed)
+  - vM1 → `7210a25` (EP-001 cache eviction — data foundation complete)
+  - vM2 → `89c0670` (EP-004 end-to-end — basic dashboard complete)
+  - vM3 → `00e75fb` (EP-007+frontend — full signal engine complete)
+  - vM4 → `0e542e1` (EP-008 — rotation detection complete)
+  - vM5 → `8aaa36f` (EP-010 — portfolio intelligence complete)
+  - All 8 milestone tags (vM1–vM8) now present in git
+
+---
+
 ## 2026-05-17 (session 9 — Playwright E2E suite completed, milestone tags)
 
 - `NEW` EP-004 T-004-6 complete: Playwright E2E tests (24/24 passing)

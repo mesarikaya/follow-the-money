@@ -96,6 +96,20 @@ function ScoreStat({ value }: { value: number | null }) {
   );
 }
 
+function RankStat({ rank }: { rank: number }) {
+  const colorClass = rank <= 3 ? "text-green-400" : rank <= 8 ? "text-yellow-400" : "text-slate-400";
+  return (
+    <div className="text-center">
+      <div className="text-[10px] text-slate-500 mb-0.5 uppercase tracking-widest" style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+        Rank
+      </div>
+      <div className={`text-sm font-medium tabular-nums ${colorClass}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+        #{rank}
+      </div>
+    </div>
+  );
+}
+
 function SectorCard({ sector }: { sector: CategorySummary }) {
   const quadrant = sector.rrgQuadrant ?? null;
   const qConfig = quadrant ? QUADRANT_CONFIG[quadrant] : null;
@@ -139,7 +153,7 @@ function SectorCard({ sector }: { sector: CategorySummary }) {
       <div className="grid grid-cols-3 gap-2 mb-3 py-2 border-y border-slate-700/40">
         <ScoreStat value={sector.compositeScore} />
         <RsStat label="RS 60d" value={sector.rs60} />
-        <RsStat label="Flow 20d" value={sector.flow20d} />
+        <RankStat rank={sector.rank} />
       </div>
 
       {/* Footer: sub-sector count + drill-down hint */}

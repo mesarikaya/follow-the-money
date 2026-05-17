@@ -14,6 +14,27 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 
 ---
 
+## 2026-05-17 (session 9 — Playwright E2E suite completed, milestone tags)
+
+- `NEW` EP-004 T-004-6 complete: Playwright E2E tests (24/24 passing)
+  - `dashboard.spec.ts`: 7 tests — category table, macro panel, type badges, refresh, null dashes, timeframe selector
+  - `pages.spec.ts`: 17 tests — all 8 pages (macro, sub-sectors, factors, RRG, portfolio, alerts, backtest) + sidebar navigation
+  - Fix: `getByRole("heading", { name: "...", level: 1 })` for all headings that conflict with sidebar nav spans
+  - Fix: `{ exact: true }` on `getByText("VIX")` — regime description also contains "VIX low"
+  - Fix: `.first()` on "Risk On — Growth" — appears in badge and body section
+  - Fix: port 3001 for E2E Next.js server (isolated from dev server on 3000)
+  - Fix: `run-next.cmd` reads `.next/dev/lock` PID and kills existing dev server before starting E2E server with `BACKEND_URL=http://127.0.0.1:9999`
+  - Fix: portfolio/alerts/backtest tests check static-only elements (client-side fetch bypasses mock)
+  - ✅ `mock-backend.mjs` — all API endpoints: rotation, RRG, sub-sectors (TECH+FTRS), portfolio, holdings, alerts, backtest
+  - ✅ `playwright.config.ts` — baseURL + webServer url updated to port 3001
+  - ✅ README — `pnpm test:e2e` instructions added to Running Tests section
+
+- `NEW` Milestone tags created: `vM7` (Holdings Upload) and `vM8` (Advanced Signals + E2E)
+  - vM7 → `68c7aae` (EP-012 complete, 141 backend tests)
+  - vM8 → HEAD (EP-013/014/015 + E2E suite, 141 backend + 24 E2E tests)
+
+---
+
 ## 2026-05-15 (session 8 — JPA removal, records, repository tests)
 
 - `UPDATED` D-010 added: jOOQ as exclusive persistence layer; JPA removed

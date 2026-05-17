@@ -1,5 +1,5 @@
 ---
-last-updated: 2026-05-15 (D-008, D-009 accepted)
+last-updated: 2026-05-17 (RFC-0003 resolved; all RFCs closed)
 ---
 
 # Decisions — Follow the Money
@@ -240,18 +240,16 @@ Same weights apply uniformly to all 19 categories (equity, fixed income, metals,
 
 ---
 
-## Open questions (RFCs)
+## Resolved RFCs
 
 ### RFC-0003 — Multi-timeframe independent alerts
 
-**Status:** Draft · **Target:** Needed before M5
+**Status:** Accepted · **Resolved:** 2026-05-17 (EP-010 implementation)
 
-**Proposed:** 9 independent alert rule types (5d/10d/20d flow inflow, 5d/10d/20d flow outflow, RRG transition, composite breakout, macro regime shift). Each configurable with threshold, persistence, severity, and category filter. Three preset profiles: Active Trader / Balanced / Patient Capital.
+9 alert rules seeded in `V3__seed_alert_rules.sql` with Balanced profile defaults:
+- Composite breakout (z ≥ 1.5), RRG IMPROVING→LEADING transition, macro regime shift
+- Severity: INFO / WARNING / ACTION → blue / amber / red
+- MACRO_REGIME_SHIFT: single fire on classification flip (no cascade)
+- Default profile: Balanced
 
-**Open questions:**
-1. Confirm `Balanced` as default profile
-2. Confirm z-threshold 1.5 and persistence 3/6/12 defaults
-3. MACRO_REGIME_SHIFT cascade (3d/10d/30d)? Recommendation: no — single fire on classification flip
-4. Severity colour mapping: INFO=blue, WARNING=amber, ACTION=red?
-
-**Action needed:** Confirm defaults before M5.
+All open questions from the draft were resolved implicitly during EP-010 implementation.

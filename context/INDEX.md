@@ -1,5 +1,5 @@
 ---
-last-updated: 2026-05-15
+last-updated: 2026-05-17
 ---
 
 # Follow the Money — AI Context
@@ -14,22 +14,25 @@ last-updated: 2026-05-15
 
 A local-first investment dashboard that tracks capital flows across 19 investable categories (11 GICS sectors, 3 precious metals, 4 fixed income, cash) and signals when institutional money is rotating — before the mainstream narrative catches up.
 
-**Stack:** Spring Boot 4 (Java 21) · PostgreSQL · Next.js (React/TypeScript)  
+**Stack:** Spring Boot 4 (Java 25) · PostgreSQL · Next.js (React/TypeScript)  
 **Single monolith `ftm-app`** + `ftm-frontend`. No RabbitMQ. No Redis. No microservices (see DECISIONS.md).
 
 ---
 
 ## Current phase
 
+**All 8 milestones delivered.** 141 backend tests + 24 E2E tests pass.
+
 | Area | Status |
 |------|--------|
-| Architecture reset (MVP) | ✅ Done 2026-05-15 |
-| M1 — Data Foundation | ⬜ Not started |
-| M2 — Basic Dashboard | ⬜ Not started |
-| M3 — Full Signal Engine | ⬜ Not started |
-| M4 — Rotation Detection | ⬜ Not started |
-| M5 — Portfolio Intelligence | ⬜ Not started |
-| M6 — Backtester | ⬜ Not started |
+| M1 — Data Foundation | ✅ Complete (EP-000, 001, 002) |
+| M2 — Basic Dashboard | ✅ Complete (EP-003, 004) |
+| M3 — Full Signal Engine | ✅ Complete (EP-005, 006, 007) |
+| M4 — Rotation Detection | ✅ Complete (EP-008) |
+| M5 — Portfolio Intelligence | ✅ Complete (EP-009, 010) |
+| M6 — Backtester | ✅ Complete (EP-011) |
+| M7 — Investment Holdings Upload | ✅ Complete (EP-012) |
+| M8 — Advanced Signals + E2E | ✅ Complete (EP-013, 014, 015) |
 
 ---
 
@@ -48,21 +51,21 @@ A local-first investment dashboard that tracks capital flows across 19 investabl
 
 | File | Last updated | Notes |
 |------|-------------|-------|
-| `DECISIONS.md` | 2026-05-15 | D-008 (macro regime), D-009 (composite weights) locked |
-| `spec.md` | 2026-05-15 | Full rewrite: new stack, no RabbitMQ/Redis/microservices |
-| `roadmap.md` | 2026-05-15 | Consolidated from 17 files |
-| `constraints.md` | 2026-05-15 | Updated for new stack |
+| `DECISIONS.md` | 2026-05-17 | RFC-0003 resolved; all decisions locked; no open questions |
+| `spec.md` | 2026-05-17 | Java 25, 9 FRED series, parent_id hierarchy, holdings + backtest tables added |
+| `roadmap.md` | 2026-05-17 | M1–M8 all complete |
+| `constraints.md` | 2026-05-15 | Stable |
 | `vision.md` | 2026-05-14 | Stable |
 
 ---
 
 ## Open RFC decisions needed
 
-| RFC | Question | Needed before |
-|-----|---------|--------------|
-| RFC-0003 | Alert rule defaults (thresholds, preset profiles, severity colours) | M5 |
+All RFCs resolved. No open questions remain.
 
-RFC-0001 and RFC-0002 resolved as D-008 and D-009 on 2026-05-15.
+- RFC-0001 → D-008 (macro regime classification, 2026-05-15)
+- RFC-0002 → D-009 (composite signal weights, 2026-05-15)
+- RFC-0003 → resolved in EP-010: 9 alert rules, Balanced profile defaults, z=1.5 threshold (2026-05-17)
 
 ---
 

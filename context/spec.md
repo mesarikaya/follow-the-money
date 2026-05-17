@@ -1,5 +1,5 @@
 ---
-last-updated: 2026-05-15
+last-updated: 2026-05-17
 ---
 
 # Spec — Follow the Money
@@ -15,7 +15,7 @@ Single authoritative specification. Covers stack, data model, signal formulas, a
 
 | Layer | Technology | Notes |
 |-------|-----------|-------|
-| Backend language | Java 21 (LTS) | Spring Boot 4 / Spring Framework 7 |
+| Backend language | Java 25 | Spring Boot 4 / Spring Framework 7 |
 | Backend service | `ftm-app` — single Spring Boot 4 monolith | See D-007 |
 | REST API | Spring MVC | OpenAPI via springdoc-openapi |
 | Database | PostgreSQL 16 | Window functions for signal computation (D-001) |
@@ -52,24 +52,27 @@ follow-the-money/
 │       ├── FtmApplication.java
 │       ├── ingestion/                ← YahooFinanceClient, FredClient, IngestionService
 │       │   └── events/               ← IngestionRequestedEvent, IngestionCompleteEvent
-│       ├── signals/                  ← RelativeStrengthService, MomentumService, FlowService
+│       ├── signals/                  ← RelativeStrengthService, MomentumService, RrgCalculator,
+│       │   │                           MacroRegimeClassifier, SignalComputationService
 │       │   └── events/               ← SignalsUpdatedEvent
-│       ├── alerts/                   ← AlertRulesEngine, AlertService
-│       ├── portfolio/                ← PortfolioService, AlignmentService
-│       ├── api/                      ← REST controllers (Spring MVC)
-│       │   └── controller/           ← CategoryController, SignalController, etc.
-│       ├── ai/                       ← ExplanationService, AdviceService (opt-in)
-│       └── domain/                   ← Java records and plain domain objects (no JPA)
+│       ├── alerts/                   ← AlertRulesEngine, AlertRepository
+│       ├── portfolio/                ← PortfolioService, AlignmentService,
+│       │                               HoldingRepository, HoldingClassificationService, HoldingUploadService
+│       ├── backtest/                 ← BacktestEngine, BacktestRepository
+│       ├── api/                      ← REST controllers + DTOs + services + repositories
+│       └── domain/                   ← Java records (Category, Signal, Alert, Holding, …)
 │   └── src/main/resources/
 │       ├── application.yml
-│       └── db/migration/             ← V1__initial_schema.sql, V2__seed_categories.sql …
+│       └── db/migration/             ← V1–V8 (schema + seeds + sub-sectors + factors)
 │
 └── ftm-frontend/                     ← Next.js 15
     ├── package.json
+    ├── e2e/                          ← Playwright tests (24 tests, mock backend on :9999)
     └── src/
-        ├── app/                      ← App Router pages
+        ├── app/                      ← App Router pages (/, /rrg, /sub-sectors, /factors,
+        │                               /flows, /macro, /portfolio, /alerts, /backtest)
         ├── components/               ← charts, panels, tables
-        └── lib/api.ts                ← typed API client (generated from OpenAPI spec)
+        └── lib/api.ts                ← typed fetch client (pure RSC + client components; no React Query)
 ```
 
 ---
@@ -82,13 +85,14 @@ follow-the-money/
     → publishes IngestionRequestedEvent
 
 @EventListener @Async → IngestionService
-  → fetches Yahoo Finance (19 ETFs + SPY + AGG)
-  → fetches FRED (7 macro series)
+  → fetches Yahoo Finance (19 ETFs + 4 sub-sector ETFs + 4 factor ETFs + SPY + AGG benchmarks)
+  → fetches FRED (9 macro series: VIX, T10Y2Y, T10YIE, DXY, FEDFUNDS, DGS2, DGS10, DEXUSEU, DCOILWTICO)
   → writes raw_prices, macro_indicators
   → publishes IngestionCompleteEvent
 
 @EventListener @Async → SignalService
-  → computes RS, MOM, FLOW family, RRG, MACRO_FIT, COMPOSITE
+  → computes RS_20/60/120, MOM, RRG_RATIO/MOM/QUADRANT, MACRO_FIT, COMPOSITE
+    (FLOW signals deferred — AUM data not available from free Yahoo Finance API)
   → writes signals
   → evicts Caffeine cache
   → publishes SignalsUpdatedEvent
@@ -153,8 +157,12 @@ CREATE TABLE categories (
     etf_ticker       VARCHAR(10)  NOT NULL,
     benchmark_ticker VARCHAR(10)  NOT NULL,
     display_order    INTEGER      NOT NULL,
-    active           BOOLEAN      NOT NULL DEFAULT TRUE
+    active           BOOLEAN      NOT NULL DEFAULT TRUE,
+    parent_id        VARCHAR(10)  REFERENCES categories(id)   -- V7: sub-sector hierarchy
 );
+-- parent_id IS NULL → top-level category (shown in heatmap, portfolio, backtester)
+-- parent_id = 'TECH' → Technology sub-sector (SEMI/AIRO/CLOD/SOFT); benchmarked vs XLK
+-- parent_id = 'FTRS' (inactive virtual) → Factor ETFs (MTUM/QUAL/USMV/VLUE)
 ```
 
 ### `raw_prices`
@@ -169,8 +177,8 @@ CREATE TABLE raw_prices (
     close            NUMERIC(12,4) NOT NULL,
     adj_close        NUMERIC(12,4) NOT NULL,   -- use this for all return calculations
     volume           BIGINT        NOT NULL,
-    aum_usd          NUMERIC(18,2),             -- nullable; not all ETFs expose AUM
-    estimated_flow   NUMERIC(18,2),             -- AUM delta minus price-driven change (D-003)
+    assets_under_management_usd NUMERIC(18,2),  -- nullable; not available from free Yahoo Finance API
+    estimated_flow              NUMERIC(18,2),  -- AUM delta minus price-driven change (D-003); not populated
     PRIMARY KEY (trade_date, category_id)
 );
 
@@ -200,7 +208,7 @@ CREATE TABLE macro_indicators (
 );
 ```
 
-FRED series tracked: `T10Y2Y`, `T10YIE`, `VIXCLS`, `DTWEXBGS`, `FEDFUNDS`, `DGS10`, `DGS2`
+FRED series tracked: `T10Y2Y`, `T10YIE`, `VIXCLS`, `DTWEXBGS`, `FEDFUNDS`, `DGS10`, `DGS2`, `DEXUSEU` (EUR/USD), `DCOILWTICO` (WTI crude oil)
 
 ### `signals`
 
@@ -308,13 +316,49 @@ CREATE TABLE ingest_log (
 );
 ```
 
+### `holdings` (V6)
+
+```sql
+CREATE TABLE holdings (
+    ticker           VARCHAR(20)   NOT NULL PRIMARY KEY,
+    name             VARCHAR(200)  NOT NULL,
+    quantity         NUMERIC(18,6) NOT NULL,
+    avg_cost_usd     NUMERIC(18,4) NOT NULL,   -- EUR converted to USD at upload time
+    category_id      VARCHAR(10)   REFERENCES categories(id),
+    last_updated     TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+-- Bulk-replaced on each upload (DELETE all + INSERT all in one transaction)
+-- HoldingClassificationService maps 130+ tickers → CategoryId
+```
+
+### `backtest_results` (V4)
+
+```sql
+CREATE TABLE backtest_results (
+    run_id          UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    start_date      DATE          NOT NULL,
+    end_date        DATE          NOT NULL,
+    rebalance_freq  VARCHAR(10)   NOT NULL,
+    top_n           INTEGER       NOT NULL,
+    threshold       NUMERIC(5,3),
+    total_return    NUMERIC(10,6),
+    annualized_return NUMERIC(10,6),
+    max_drawdown    NUMERIC(10,6),
+    sharpe_ratio    NUMERIC(10,6),
+    spy_total_return NUMERIC(10,6),
+    equity_curve    JSONB,
+    trades          JSONB
+);
+```
+
 ### Data integrity rules
 
 1. `adj_close` is the canonical price for all return calculations. Never use `close` for analytics.
 2. `portfolio.allocation_pct` values across all rows must sum to exactly 100.0.
 3. Dates are US trading calendar dates. Weekends and market holidays must not appear in `raw_prices` or `signals`.
 4. `signals` rows are immutable once written. To correct a signal, insert a new row with updated `computed_at`.
-5. `aum_usd` may be NULL. In that case, FLOW signals are NULL and excluded from COMPOSITE with weights redistributed.
+5. `assets_under_management_usd` is always NULL (AUM data is not available from free Yahoo Finance API). FLOW signals are deferred; COMPOSITE weight redistributed: RS_60=35%, MOM=28%, MACRO_FIT=14%, RRG=14%, with remaining 9% spread proportionally.
 
 ---
 
@@ -370,7 +414,7 @@ Quadrant assignment:
 - RS_Ratio < 100 AND RS_Momentum < 100 → **Lagging**
 - RS_Ratio < 100 AND RS_Momentum > 100 → **Improving**
 
-### COMPOSITE (pending RFC-0002 confirmation)
+### COMPOSITE (D-009)
 ```
 COMPOSITE = 0.35 × norm(RS_60)
           + 0.25 × norm(FLOW_20D)

@@ -21,7 +21,7 @@ A local-first investment dashboard that tracks capital flows across 19 investabl
 
 ## Current phase
 
-**All 8 milestones delivered.** 141 backend tests + 24 E2E tests pass.
+**All 12 milestones delivered.** 141 backend tests + 32 E2E tests pass.
 
 | Area | Status |
 |------|--------|
@@ -33,6 +33,10 @@ A local-first investment dashboard that tracks capital flows across 19 investabl
 | M6 — Backtester | ✅ Complete (EP-011) |
 | M7 — Investment Holdings Upload | ✅ Complete (EP-012) |
 | M8 — Advanced Signals + E2E | ✅ Complete (EP-013, 014, 015) |
+| M9 — UI Redesign | ✅ Complete (EP-016) |
+| M10 — Structural Sub-Sectors | ✅ Complete (EP-017) |
+| M11 — Conventions | ✅ Complete (EP-018) |
+| M12 — CI/CD Gate | ✅ Complete (EP-019) |
 
 ---
 
@@ -52,8 +56,8 @@ A local-first investment dashboard that tracks capital flows across 19 investabl
 | File | Last updated | Notes |
 |------|-------------|-------|
 | `DECISIONS.md` | 2026-05-17 | RFC-0003 resolved; all decisions locked; no open questions |
-| `spec.md` | 2026-05-17 | Java 25, 9 FRED series, parent_id hierarchy, holdings + backtest tables added |
-| `roadmap.md` | 2026-05-17 | M1–M8 all complete |
+| `spec.md` | 2026-05-17 | Java 25, 9 FRED series, parent_id hierarchy, V9 sub-sectors (~70 ETFs), /sub-sectors API |
+| `roadmap.md` | 2026-05-17 | M1–M12 all complete; all ACs ticked |
 | `constraints.md` | 2026-05-15 | Stable |
 | `vision.md` | 2026-05-14 | Stable |
 

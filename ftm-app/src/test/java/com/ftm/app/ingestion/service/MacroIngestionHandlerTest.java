@@ -28,18 +28,18 @@ class MacroIngestionHandlerTest {
     @InjectMocks MacroIngestionHandler handler;
 
     @Test
-    @DisplayName("fetchAndPersist fetches all seven configured FRED series")
-    void shouldFetchAllSevenFredSeries() {
+    @DisplayName("fetchAndPersist fetches all eight configured FRED series")
+    void shouldFetchAllEightFredSeries() {
         when(macroRepo.findMaxObservationDate(anyString())).thenReturn(Optional.empty());
         when(fredClient.fetchObservations(anyString(), any(), any())).thenReturn(observations());
         when(macroRepo.batchInsert(any())).thenReturn(2);
 
         IngestionResult result = handler.fetchAndPersist(LocalDate.of(2024, 1, 5));
 
-        // 7 series × 2 rows each
-        assertThat(result.rowsInserted()).isEqualTo(14);
+        // 8 series × 2 rows each (DEXUSEU added for EUR/USD FX conversion)
+        assertThat(result.rowsInserted()).isEqualTo(16);
         assertThat(result.hasErrors()).isFalse();
-        verify(fredClient, times(7)).fetchObservations(anyString(), any(), any());
+        verify(fredClient, times(8)).fetchObservations(anyString(), any(), any());
     }
 
     @Test
@@ -66,7 +66,7 @@ class MacroIngestionHandlerTest {
         IngestionResult result = handler.fetchAndPersist(LocalDate.of(2024, 1, 5));
 
         assertThat(result.hasErrors()).isTrue();
-        assertThat(result.errors()).hasSize(7);
+        assertThat(result.errors()).hasSize(8);
     }
 
     @Test

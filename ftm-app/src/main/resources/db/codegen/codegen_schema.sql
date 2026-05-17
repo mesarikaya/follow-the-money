@@ -117,3 +117,36 @@ CREATE TABLE ingest_log (
 
 -- V5 rename:
 ALTER TABLE raw_prices RENAME COLUMN aum_usd TO assets_under_management_usd;
+
+-- V4: backtest_results
+CREATE TABLE backtest_results (
+    run_id                  UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    run_at                  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    start_date              DATE         NOT NULL,
+    end_date                DATE         NOT NULL,
+    rebalance_frequency     VARCHAR(10)  NOT NULL,
+    top_n                   INTEGER      NOT NULL DEFAULT 5,
+    signal_threshold        NUMERIC(4,3),
+    total_return_pct        NUMERIC(10,4),
+    annualized_return_pct   NUMERIC(10,4),
+    max_drawdown_pct        NUMERIC(10,4),
+    sharpe_ratio            NUMERIC(10,4),
+    spy_total_return_pct    NUMERIC(10,4),
+    spy_sharpe_ratio        NUMERIC(10,4),
+    trading_days            INTEGER,
+    equity_curve            JSONB,
+    metadata                JSONB
+);
+
+-- V6: investment holdings
+CREATE TABLE holdings (
+    id                  BIGSERIAL       PRIMARY KEY,
+    ticker              VARCHAR(20)     NOT NULL,
+    name                VARCHAR(200),
+    category_id         VARCHAR(10)     REFERENCES categories(id),
+    currency            VARCHAR(3)      NOT NULL DEFAULT 'USD',
+    quantity            NUMERIC(18,6)   NOT NULL,
+    avg_cost_local      NUMERIC(18,4),
+    usd_fx_rate         NUMERIC(18,6),
+    uploaded_at         TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+);

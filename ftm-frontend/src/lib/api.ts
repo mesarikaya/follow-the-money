@@ -206,6 +206,17 @@ export const fetchRecentBacktests = () => get<BacktestResult[]>("/api/v1/backtes
 
 export const fetchAlerts = () => get<AlertsResponse>("/api/v1/alerts");
 
+export type IngestStatusEntry = {
+  runId: string;
+  source: string;
+  status: string;
+  startedAt: string;
+  finishedAt: string | null;
+  rowsInserted: number | null;
+};
+
+export const fetchLatestIngestStatus = () => get<IngestStatusEntry[]>("/api/v1/ingest/status/latest");
+
 export const acknowledgeAlert = (alertId: number) =>
   fetch(`${BACKEND}/api/v1/alerts/${alertId}/acknowledge`, {
     method: "POST",

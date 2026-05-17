@@ -30,16 +30,16 @@ export default async function Home({ searchParams }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center justify-between gap-4 px-6 py-4 border-b border-zinc-800 bg-zinc-900 sticky top-0 z-10">
-        <div className="flex items-center gap-4">
-          <h1 className="text-sm font-semibold text-zinc-300">Sector Rotation</h1>
+      <header className="flex items-center justify-between gap-4 px-6 py-3 border-b border-slate-700 bg-slate-800 sticky top-0 z-10 shrink-0">
+        <div className="flex items-center gap-3">
+          <h1 className="text-sm font-semibold text-slate-200">Sector Rotation</h1>
           <Suspense fallback={null}>
             <TimeframeSelector current={timeframe} />
           </Suspense>
         </div>
         <div className="flex items-center gap-4">
           {asOfDate && (
-            <span className="text-xs text-zinc-500">Data as of {asOfDate}</span>
+            <span className="text-xs text-slate-500">Data as of {asOfDate}</span>
           )}
           <RefreshButton />
         </div>

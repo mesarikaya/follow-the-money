@@ -16,15 +16,15 @@ export default function TimeframeSelector({ current }: { current: string }) {
   }
 
   return (
-    <div className="flex gap-1">
+    <div className="flex items-center gap-0.5 bg-slate-900 rounded-lg p-0.5">
       {TIMEFRAMES.map((tf) => (
         <button
           key={tf}
           onClick={() => select(tf)}
-          className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
+          className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
             current === tf
-              ? "bg-indigo-600 text-white"
-              : "text-zinc-400 hover:text-white hover:bg-zinc-700"
+              ? "bg-blue-600 text-white"
+              : "text-slate-400 hover:text-white hover:bg-slate-700"
           }`}
         >
           {tf.charAt(0) + tf.slice(1).toLowerCase()}

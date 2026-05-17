@@ -74,9 +74,14 @@ export default function AlertsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center justify-between px-6 py-3 border-b border-slate-700 bg-slate-800 sticky top-0 z-10 shrink-0">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-slate-700 shrink-0">
         <div className="flex items-center gap-3">
-          <h1 className="text-sm font-semibold text-slate-200">Alerts</h1>
+          <h1
+            className="text-slate-100 font-bold"
+            style={{ fontFamily: "var(--font-rajdhani)", fontSize: "22px", letterSpacing: "0.02em" }}
+          >
+            Alerts
+          </h1>
           {activeCount > 0 && (
             <span className="text-xs px-1.5 py-0.5 bg-red-500 text-white rounded-full font-semibold">
               {activeCount}

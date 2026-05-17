@@ -1,12 +1,9 @@
-import { Suspense } from "react";
 import { fetchCategories, fetchMacro, fetchRotation } from "@/lib/api";
 import CategoryTable from "@/components/CategoryTable";
 import MacroPanel from "@/components/MacroPanel";
 import RotationHeatmap from "@/components/RotationHeatmap";
 import RotationPanel from "@/components/RotationPanel";
 import StaleDataBanner from "@/components/StaleDataBanner";
-import RefreshButton from "@/components/RefreshButton";
-import TimeframeSelector from "@/components/TimeframeSelector";
 
 type Props = {
   searchParams: Promise<{ timeframe?: string }>;
@@ -30,21 +27,6 @@ export default async function Home({ searchParams }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center justify-between gap-4 px-6 py-3 border-b border-slate-700 bg-slate-800 sticky top-0 z-10 shrink-0">
-        <div className="flex items-center gap-3">
-          <h1 className="text-sm font-semibold text-slate-200">Sector Rotation</h1>
-          <Suspense fallback={null}>
-            <TimeframeSelector current={timeframe} />
-          </Suspense>
-        </div>
-        <div className="flex items-center gap-4">
-          {asOfDate && (
-            <span className="text-xs text-slate-500">Data as of {asOfDate}</span>
-          )}
-          <RefreshButton />
-        </div>
-      </header>
-
       <main className="flex-1 p-6 space-y-6 overflow-auto">
         {categoriesResult.status === "rejected" && (
           <div className="bg-red-900/40 border border-red-700 text-red-300 px-4 py-3 rounded-md text-sm">
@@ -76,6 +58,10 @@ export default async function Home({ searchParams }: Props) {
             <h2 className="text-base font-semibold text-slate-200">Composite Score Heatmap</h2>
             <RotationHeatmap categories={categories} />
           </section>
+        )}
+
+        {asOfDate && (
+          <div className="text-xs text-slate-500">Data as of {asOfDate}</div>
         )}
 
         <section className="space-y-3">

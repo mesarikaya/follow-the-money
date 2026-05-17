@@ -1,11 +1,19 @@
+import { Fragment } from "react";
 import { CategorySummary } from "@/lib/api";
 
 const TYPE_CONFIG: Record<string, { label: string; className: string }> = {
-  EQUITY_SECTOR: { label: "EQ",  className: "bg-blue-900/50 text-blue-300 border border-blue-800/40" },
-  FIXED_INCOME:  { label: "FI",  className: "bg-purple-900/50 text-purple-300 border border-purple-800/40" },
-  COMMODITY:     { label: "PM",  className: "bg-yellow-900/50 text-yellow-300 border border-yellow-800/40" },
-  CURRENCY:      { label: "FX",  className: "bg-emerald-900/50 text-emerald-300 border border-emerald-800/40" },
-  ALTERNATIVE:   { label: "ALT", className: "bg-slate-700 text-slate-300 border border-slate-600" },
+  EQUITY_SECTOR:  { label: "EQ",  className: "bg-blue-900/50 text-blue-300 border border-blue-800/40" },
+  FIXED_INCOME:   { label: "FI",  className: "bg-purple-900/50 text-purple-300 border border-purple-800/40" },
+  PRECIOUS_METAL: { label: "PM",  className: "bg-yellow-900/50 text-yellow-300 border border-yellow-800/40" },
+  CURRENCY:       { label: "FX",  className: "bg-emerald-900/50 text-emerald-300 border border-emerald-800/40" },
+  CASH:           { label: "CA",  className: "bg-slate-700 text-slate-300 border border-slate-600" },
+  ALTERNATIVE:    { label: "ALT", className: "bg-slate-700 text-slate-300 border border-slate-600" },
+};
+
+const TYPE_SECTION_LABELS: Record<string, string> = {
+  PRECIOUS_METAL: "Precious Metals",
+  FIXED_INCOME:   "Fixed Income",
+  CASH:           "Cash",
 };
 
 const RRG_QUADRANT_LABELS: Record<number, { label: string; color: string }> = {
@@ -45,7 +53,7 @@ function RsCell({ value }: { value: number | null }) {
   const pct = (value * 100).toFixed(1);
   const color = value > 0 ? "text-green-400" : value < 0 ? "text-red-400" : "text-slate-400";
   return (
-    <span className={`tabular-nums ${color}`} title={`60-day relative strength vs benchmark. Positive = outperforming.`}>
+    <span className={`tabular-nums ${color}`} title="60-day relative strength vs benchmark. Positive = outperforming.">
       {value > 0 ? "+" : ""}{pct}%
     </span>
   );
@@ -63,60 +71,77 @@ export default function CategoryTable({ categories }: { categories: CategorySumm
             <th className="px-4 py-3">Type</th>
             <th className="px-4 py-3 text-right" title="Latest closing price">Close</th>
             <th className="px-4 py-3 text-center" title="Composite signal score: 0-100 bar. Combines RS-60, momentum, and macro-regime alignment.">Score</th>
-            <th className="px-4 py-3 text-right" title="60-day relative strength vs SPY benchmark">vs SPY (60d)</th>
+            <th className="px-4 py-3 text-right" title="60-day relative strength vs benchmark">vs Benchmark (60d)</th>
             <th className="px-4 py-3 text-center" title="Relative Rotation Graph quadrant based on RS ratio and momentum">Signal</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-800">
-          {categories.map((cat) => {
+          {categories.map((cat, idx) => {
             const typeConfig = TYPE_CONFIG[cat.type] ?? TYPE_CONFIG.ALTERNATIVE;
             const quadrantInfo = cat.rrgQuadrant != null ? RRG_QUADRANT_LABELS[Number(cat.rrgQuadrant)] : null;
+            const prevType = idx > 0 ? categories[idx - 1].type : null;
+            const showDivider = prevType !== cat.type && TYPE_SECTION_LABELS[cat.type] != null;
+
             return (
-              <tr
-                key={cat.id}
-                className="hover:bg-slate-800/50 transition-colors text-slate-200"
-              >
-                <td className="px-4 py-2.5 text-slate-500 tabular-nums text-xs">{cat.rank}</td>
-                <td className="px-4 py-2.5 font-mono text-blue-300 font-medium">{cat.etfTicker}</td>
-                <td className="px-4 py-2.5 font-medium">{cat.name}</td>
-                <td className="px-4 py-2.5">
-                  <span
-                    className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${typeConfig.className}`}
-                  >
-                    {typeConfig.label}
-                  </span>
-                </td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-slate-300">
-                  {cat.latestClose != null ? `$${Number(cat.latestClose).toFixed(2)}` : "—"}
-                </td>
-                <td className="px-4 py-2.5">
-                  <div className="flex justify-center">
-                    <ScoreBar score={cat.compositeScore} />
-                  </div>
-                </td>
-                <td className="px-4 py-2.5 text-right">
-                  <RsCell value={cat.rs60} />
-                </td>
-                <td className="px-4 py-2.5 text-center text-xs">
-                  {quadrantInfo ? (
-                    <span className={quadrantInfo.color}>{quadrantInfo.label}</span>
-                  ) : (
-                    <span className="text-slate-600">—</span>
-                  )}
-                </td>
-              </tr>
+              <Fragment key={cat.id}>
+                {showDivider && (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-1.5 text-xs font-semibold text-slate-500 bg-slate-900/60 uppercase tracking-widest border-t border-slate-700/60">
+                      {TYPE_SECTION_LABELS[cat.type]}
+                    </td>
+                  </tr>
+                )}
+                <tr className="hover:bg-slate-800/50 transition-colors text-slate-200">
+                  <td className="px-4 py-2.5 text-slate-500 tabular-nums text-xs">{cat.rank}</td>
+                  <td className="px-4 py-2.5 font-mono text-blue-300 font-medium">{cat.etfTicker}</td>
+                  <td className="px-4 py-2.5 font-medium">{cat.name}</td>
+                  <td className="px-4 py-2.5">
+                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${typeConfig.className}`}>
+                      {typeConfig.label}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-300">
+                    {cat.latestClose != null ? `$${Number(cat.latestClose).toFixed(2)}` : "—"}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex justify-center">
+                      <ScoreBar score={cat.compositeScore} />
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    <RsCell value={cat.rs60} />
+                  </td>
+                  <td className="px-4 py-2.5 text-center text-xs">
+                    {quadrantInfo ? (
+                      <span className={quadrantInfo.color}>{quadrantInfo.label}</span>
+                    ) : (
+                      <span className="text-slate-600">—</span>
+                    )}
+                  </td>
+                </tr>
+              </Fragment>
             );
           })}
         </tbody>
       </table>
 
       <div className="px-4 py-2.5 border-t border-slate-700 flex items-center gap-6 text-xs text-slate-500 bg-slate-800/40 flex-wrap">
-        {Object.entries(TYPE_CONFIG).map(([key, cfg]) => (
-          <span key={key} className="flex items-center gap-1">
-            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${cfg.className}`}>{cfg.label}</span>
-            {key === "EQUITY_SECTOR" ? "Equity Sector" : key === "FIXED_INCOME" ? "Fixed Income" : key === "COMMODITY" ? "Precious Metal" : key === "CURRENCY" ? "Currency" : "Alternative"}
-          </span>
-        ))}
+        <span className="flex items-center gap-1">
+          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${TYPE_CONFIG.EQUITY_SECTOR.className}`}>EQ</span>
+          Equity Sector
+        </span>
+        <span className="flex items-center gap-1">
+          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${TYPE_CONFIG.PRECIOUS_METAL.className}`}>PM</span>
+          Precious Metal
+        </span>
+        <span className="flex items-center gap-1">
+          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${TYPE_CONFIG.FIXED_INCOME.className}`}>FI</span>
+          Fixed Income
+        </span>
+        <span className="flex items-center gap-1">
+          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${TYPE_CONFIG.CASH.className}`}>CA</span>
+          Cash
+        </span>
         <span className="ml-auto" title="Score bars: 5 cells = 0-100 composite signal score">
           Score: ██████ = strong · ███ = moderate · █ = weak
         </span>

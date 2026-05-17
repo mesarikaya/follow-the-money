@@ -39,15 +39,7 @@ function NavItem({ href, label, icon }: { href: string; label: string; icon: str
 
 export default function Sidebar() {
   return (
-    <aside className="flex flex-col w-14 md:w-52 min-h-screen bg-slate-800 border-r border-slate-700 text-slate-100 shrink-0">
-      <div className="px-4 py-4 border-b border-slate-700">
-        <div className="hidden md:block">
-          <div className="text-blue-400 text-base font-bold tracking-tight">📈 Follow the Money</div>
-          <div className="text-slate-500 text-xs mt-0.5">local · single-user</div>
-        </div>
-        <div className="md:hidden text-blue-400 text-lg font-bold">📈</div>
-      </div>
-
+    <aside className="flex flex-col w-14 md:w-52 bg-slate-800 border-r border-slate-700 text-slate-100 shrink-0">
       <nav className="flex-1 py-3 overflow-y-auto">
         <div className="px-3 mb-1.5 hidden md:block">
           <span className="text-slate-500 text-[10px] font-semibold uppercase tracking-widest">Analysis</span>

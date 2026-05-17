@@ -45,11 +45,12 @@ test.describe("Dashboard shell", () => {
 
   test("shows type badges on category rows", async ({ page }) => {
     await page.goto("/");
-    // Type badge abbreviations: EQUITY_SECTOR→"EQ", COMMODITY→"PM", FIXED_INCOME→"FI"
-    // Use exact:true to avoid partial matches (e.g. "FI" in "FINL" ticker)
+    // Type badge abbreviations: EQUITY_SECTOR→"EQ", PRECIOUS_METAL→"PM", FIXED_INCOME→"FI", CASH→"CA"
+    // Use exact:true to avoid partial matches
     await expect(page.getByText("EQ", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("PM", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("FI", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("CA", { exact: true }).first()).toBeVisible();
   });
 
   test("null signal values display as dash", async ({ page }) => {

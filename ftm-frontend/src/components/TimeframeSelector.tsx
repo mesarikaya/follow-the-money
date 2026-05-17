@@ -4,10 +4,11 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 const TIMEFRAMES = ["DAY", "WEEK", "MONTH", "QUARTER", "YEAR"] as const;
 
-export default function TimeframeSelector({ current }: { current: string }) {
+export default function TimeframeSelector() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const current = searchParams.get("timeframe") ?? "MONTH";
 
   function select(tf: string) {
     const params = new URLSearchParams(searchParams.toString());

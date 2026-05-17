@@ -172,6 +172,27 @@ test.describe("Legacy /sub-sectors redirect", () => {
   });
 });
 
+test.describe("Capital Flows page", () => {
+  test("loads with Capital Flows heading", async ({ page }) => {
+    await page.goto("/flows");
+    await expect(page.getByRole("heading", { name: "Capital Flows", level: 1 })).toBeVisible();
+  });
+
+  test("shows top leaders from rotation data", async ({ page }) => {
+    await page.goto("/flows");
+    // Mock rotation response has TECH and HLTH as top leaders
+    await expect(page.getByText("↑ Top Leaders")).toBeVisible();
+    await expect(page.getByText("Information Technology").first()).toBeVisible();
+  });
+
+  test("shows bottom laggards from rotation data", async ({ page }) => {
+    await page.goto("/flows");
+    // Mock rotation response has UTIL as bottom laggard
+    await expect(page.getByText("↓ Bottom Laggards")).toBeVisible();
+    await expect(page.getByText("Utilities")).toBeVisible();
+  });
+});
+
 test.describe("Sidebar navigation", () => {
   test("sidebar contains all main section links", async ({ page }) => {
     await page.goto("/");

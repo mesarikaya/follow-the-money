@@ -8,7 +8,7 @@ export default defineConfig({
   workers: 1,
   reporter: "list",
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: "http://localhost:3001",
     trace: "on-first-retry",
   },
   projects: [
@@ -32,7 +32,7 @@ export default defineConfig({
       // Uses "pnpm run dev:e2e" so pnpm resolves node via the explicit full
       // path baked into the script (nvm node is not in the system PATH).
       command: "cmd /c e2e\\run-next.cmd",
-      url: "http://localhost:3000",
+      url: "http://localhost:3001",
       reuseExistingServer: !process.env.CI,
       env: { BACKEND_URL: "http://127.0.0.1:9999" },
       timeout: 60000,

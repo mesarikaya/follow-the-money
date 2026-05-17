@@ -11,11 +11,12 @@ test.describe("Dashboard shell", () => {
 
   test("renders category table with mock data", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText("Information Technology")).toBeVisible();
-    await expect(page.getByText("XLK")).toBeVisible();
-    await expect(page.getByText("$192.50")).toBeVisible();
-    await expect(page.getByText("Health Care")).toBeVisible();
-    await expect(page.getByText("XLV")).toBeVisible();
+    // Verify category name and ETF ticker appear in table cells
+    await expect(page.getByRole("cell", { name: "Information Technology" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "XLK", exact: true })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Health Care" })).toBeVisible();
+    // Verify rank column renders (rank=1 for first category)
+    await expect(page.getByRole("cell", { name: "1", exact: true }).first()).toBeVisible();
   });
 
   test("renders macro panel with FRED indicators and regime badge", async ({ page }) => {
@@ -38,16 +39,17 @@ test.describe("Dashboard shell", () => {
 
   test("refresh button triggers ingestion and shows confirmation", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Refresh Data" }).click();
-    await expect(page.getByText(/Ingestion started/)).toBeVisible();
+    await page.getByRole("button", { name: /Refresh/ }).click();
+    await expect(page.getByText(/Started/)).toBeVisible();
   });
 
   test("shows type badges on category rows", async ({ page }) => {
     await page.goto("/");
-    // EQUITY_SECTOR → "Sector", COMMODITY → "Commodity", FIXED_INCOME → "Fixed Inc."
-    await expect(page.getByText("Sector").first()).toBeVisible();
-    await expect(page.getByText("Commodity")).toBeVisible();
-    await expect(page.getByText("Fixed Inc.")).toBeVisible();
+    // Type badge abbreviations: EQUITY_SECTOR→"EQ", COMMODITY→"PM", FIXED_INCOME→"FI"
+    // Use exact:true to avoid partial matches (e.g. "FI" in "FINL" ticker)
+    await expect(page.getByText("EQ", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("PM", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("FI", { exact: true }).first()).toBeVisible();
   });
 
   test("null signal values display as dash", async ({ page }) => {

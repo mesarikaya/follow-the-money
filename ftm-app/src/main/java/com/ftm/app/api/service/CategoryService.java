@@ -26,7 +26,7 @@ public class CategoryService {
 
     public CategoryService(CategoryRepository categoryRepository, SignalRepository signalRepository) {
         this.categoryRepository = categoryRepository;
-        this.signalRepository   = signalRepository;
+        this.signalRepository = signalRepository;
     }
 
     @Cacheable("signals-latest")
@@ -35,24 +35,24 @@ public class CategoryService {
         var rows = categoryRepository.findAllWithLatestPrice();
         Map<String, BigDecimal> rs60 = signalRepository.findLatestByType(SignalType.RS_60);
         AtomicInteger rank = new AtomicInteger(1);
-        List<CategorySummaryDto> dtos = rows.stream()
+        List<CategorySummaryDto> categorySummaryDtos = rows.stream()
                 .map(row -> toDto(row, rank.getAndIncrement(), rs60))
                 .toList();
-        return new CategoriesResponse(LocalDate.now(), timeframe, dtos);
+        return new CategoriesResponse(LocalDate.now(), timeframe, categorySummaryDtos);
     }
 
     private CategorySummaryDto toDto(CategoryRepository.CategoryPriceRow row, int rank,
                                      Map<String, BigDecimal> rs60ByCategory) {
-        var c = row.category();
+        var category = row.category();
         return new CategorySummaryDto(
-                c.id(),
-                c.name(),
-                c.type().name(),
-                c.etfTicker(),
+                category.id(),
+                category.name(),
+                category.type().name(),
+                category.etfTicker(),
                 null,
                 null,
                 null,
-                rs60ByCategory.get(c.id().name()),
+                rs60ByCategory.get(category.id().name()),
                 null,
                 null,
                 rank,

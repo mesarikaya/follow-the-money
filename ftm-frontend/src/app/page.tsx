@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { fetchCategories, fetchMacro, fetchRotation } from "@/lib/api";
 import CategoryTable from "@/components/CategoryTable";
 import MacroPanel from "@/components/MacroPanel";
-import RRGSection from "@/components/RRGSection";
 import RotationHeatmap from "@/components/RotationHeatmap";
 import RotationPanel from "@/components/RotationPanel";
 import StaleDataBanner from "@/components/StaleDataBanner";
@@ -64,10 +63,6 @@ export default async function Home({ searchParams }: Props) {
             {String((macroResult as PromiseRejectedResult).reason)}
           </div>
         )}
-
-        <Suspense fallback={null}>
-          <RRGSection />
-        </Suspense>
 
         {rotation && (
           <section className="space-y-3">

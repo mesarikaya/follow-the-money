@@ -9,17 +9,31 @@ const ALIGNMENT_CONFIG = {
   MISALIGNED: { label: "Misaligned", colorClass: "text-red-400",     barClass: "bg-red-500"     },
 } as const;
 
+const ALIGNMENT_TOOLTIP =
+  "Alignment score: how closely your current allocation percentages match the signal-optimal weights " +
+  "(Spearman rank correlation, scaled 0–100). " +
+  "100 = perfect match · 50 = random · 0 = fully inverted.\n" +
+  "ALIGNED ≥ 70 · PARTIAL 40–69 · MISALIGNED < 40";
+
+const COMPOSITE_OPTIMAL_TOOLTIP =
+  "Composite-optimal target: if you invested 100% proportionally to each category's composite signal score, " +
+  "this is the % each category would receive. It sums to 100% across all active categories.";
+
+const COMPOSITE_SCORE_TOOLTIP =
+  "Composite signal score (0–100): a weighted combination of relative-strength, momentum, " +
+  "and macro-regime signals for this category. Higher = stronger current signal.";
+
 function AllocationBar({ currentPct, optimalPct, maxPct }: { currentPct: number; optimalPct: number | null; maxPct: number }) {
   const currentWidth = maxPct > 0 ? (currentPct / maxPct) * 100 : 0;
   const optimalWidth = maxPct > 0 && optimalPct != null ? (optimalPct / maxPct) * 100 : 0;
 
   return (
-    <div className="flex flex-col gap-0.5 flex-1">
+    <div className="flex flex-col gap-0.5 flex-1" title="Blue = your current allocation · Green = composite-optimal target">
       <div className="h-2 bg-zinc-700 rounded-full overflow-hidden">
         <div className="h-full bg-blue-500 rounded-full" style={{ width: `${currentWidth}%` }} />
       </div>
       {optimalPct != null && (
-        <div className="h-1.5 bg-zinc-700 rounded-full overflow-hidden">
+        <div className="h-1.5 bg-zinc-700 rounded-full overflow-hidden" title={COMPOSITE_OPTIMAL_TOOLTIP}>
           <div className="h-full bg-emerald-500/70 rounded-full" style={{ width: `${optimalWidth}%` }} />
         </div>
       )}
@@ -101,12 +115,14 @@ export default function PortfolioPage() {
     ? Math.max(...portfolio.allocations.map((a) => Math.max(a.allocationPct, a.optimalAllocationPct ?? 0)), 1)
     : 100;
 
+  const alignmentScorePercent = portfolio ? Math.round(portfolio.alignmentScore * 100) : 0;
+
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-900 sticky top-0 z-10">
         <h1 className="text-sm font-semibold text-zinc-300">Portfolio</h1>
         {portfolio && (
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4" title={ALIGNMENT_TOOLTIP}>
             <span className={`text-sm font-semibold ${ALIGNMENT_CONFIG[portfolio.alignmentLabel].colorClass}`}>
               {ALIGNMENT_CONFIG[portfolio.alignmentLabel].label}
             </span>
@@ -114,12 +130,13 @@ export default function PortfolioPage() {
               <div className="w-24 h-2 bg-zinc-700 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full ${ALIGNMENT_CONFIG[portfolio.alignmentLabel].barClass}`}
-                  style={{ width: `${Math.round(portfolio.alignmentScore * 100)}%` }}
+                  style={{ width: `${alignmentScorePercent}%` }}
                 />
               </div>
               <span className="text-xs font-mono text-zinc-300">
-                {Math.round(portfolio.alignmentScore * 100)}
+                {alignmentScorePercent}<span className="text-zinc-600">/100</span>
               </span>
+              <span className="text-[10px] text-zinc-600 cursor-help" title={ALIGNMENT_TOOLTIP}>(?)</span>
             </div>
           </div>
         )}
@@ -139,7 +156,7 @@ export default function PortfolioPage() {
                 <h2 className="text-sm font-semibold text-zinc-200">Allocations</h2>
                 <div className="flex items-center gap-3">
                   <span className={`text-xs font-mono ${isValidTotal ? "text-emerald-400" : "text-red-400"}`}>
-                    Total: {totalAllocation.toFixed(2)}%
+                    Total: {totalAllocation.toFixed(2)}%{!isValidTotal && " (must be 100%)"}
                   </span>
                   {isDirty && (
                     <div className="flex gap-2">
@@ -167,12 +184,23 @@ export default function PortfolioPage() {
                 </div>
               )}
 
-              <div className="text-xs text-zinc-600 flex gap-4 mb-3">
+              <div className="text-xs text-zinc-600 flex gap-4 mb-2">
                 <span className="flex items-center gap-1">
                   <div className="w-3 h-1.5 bg-blue-500 rounded-sm" /> Current allocation
                 </span>
-                <span className="flex items-center gap-1">
-                  <div className="w-3 h-1.5 bg-emerald-500/70 rounded-sm" /> Composite-optimal
+                <span className="flex items-center gap-1" title={COMPOSITE_OPTIMAL_TOOLTIP}>
+                  <div className="w-3 h-1.5 bg-emerald-500/70 rounded-sm" />
+                  <span className="cursor-help">Composite-optimal target (?)</span>
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3 px-0 mb-1">
+                <span className="w-10 shrink-0" />
+                <span className="w-32 shrink-0" />
+                <span className="flex-1" />
+                <span className="w-16 shrink-0" />
+                <span className="text-[10px] text-zinc-600 w-6 text-right shrink-0 cursor-help" title={COMPOSITE_SCORE_TOOLTIP}>
+                  CS
                 </span>
               </div>
 
@@ -198,23 +226,35 @@ export default function PortfolioPage() {
                       />
                       <span className="text-xs text-zinc-500">%</span>
                     </div>
-                    {entry.compositeScore != null && (
-                      <span className="w-6 text-xs font-mono text-zinc-500 text-right shrink-0">
-                        {Math.round(entry.compositeScore * 100)}
-                      </span>
-                    )}
+                    <span
+                      className="w-6 text-xs font-mono text-zinc-500 text-right shrink-0 cursor-help"
+                      title={entry.compositeScore != null ? COMPOSITE_SCORE_TOOLTIP : "No composite score available yet — run signal computation first"}
+                    >
+                      {entry.compositeScore != null ? Math.round(entry.compositeScore * 100) : "—"}
+                    </span>
                   </li>
                 ))}
               </ul>
             </div>
 
             <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-4">
-              <h2 className="text-sm font-semibold text-zinc-200 mb-4">Rebalance Suggestions</h2>
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-sm font-semibold text-zinc-200">Rebalance Suggestions</h2>
+                <span
+                  className="text-[10px] text-zinc-600 cursor-help"
+                  title="These suggestions show categories where your current allocation differs from the composite-optimal target by more than 0.5%. The optimal targets sum to 100% across all active categories."
+                >
+                  (?)
+                </span>
+              </div>
+              <p className="text-[10px] text-zinc-600 mb-3">
+                Shows categories where |current − optimal| &gt; 0.5%. Optimal targets sum to 100% across all categories.
+              </p>
               {portfolio.rebalanceSuggestions.length === 0 ? (
                 <p className="text-xs text-zinc-500">
                   {portfolio.alignmentLabel === "ALIGNED"
                     ? "Portfolio is well aligned — no changes needed."
-                    : "No composite scores available to compute suggestions."}
+                    : "No composite scores available to compute suggestions. Run signal computation first."}
                 </p>
               ) : (
                 <ul className="space-y-3">
@@ -229,7 +269,7 @@ export default function PortfolioPage() {
                           </span>
                         </div>
                         <div className="text-xs text-zinc-500">
-                          {suggestion.currentAllocationPct.toFixed(1)}% → {suggestion.optimalAllocationPct.toFixed(1)}%
+                          {suggestion.currentAllocationPct.toFixed(1)}% current → {suggestion.optimalAllocationPct.toFixed(1)}% optimal
                         </div>
                       </li>
                     );

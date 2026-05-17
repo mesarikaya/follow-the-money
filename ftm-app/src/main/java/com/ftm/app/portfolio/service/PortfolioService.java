@@ -28,7 +28,6 @@ public class PortfolioService {
 
     private static final BigDecimal TOTAL_ALLOCATION_EXPECTED = new BigDecimal("100");
     private static final BigDecimal ALLOCATION_TOLERANCE = new BigDecimal("0.5");
-    private static final int REBALANCE_SUGGESTION_COUNT = 5;
     private static final BigDecimal ALIGNMENT_SCORE_GREEN_THRESHOLD  = new BigDecimal("0.70");
     private static final BigDecimal ALIGNMENT_SCORE_YELLOW_THRESHOLD = new BigDecimal("0.40");
 
@@ -137,7 +136,6 @@ public class PortfolioService {
                 })
                 .filter(suggestion -> suggestion.deltaPct().abs().compareTo(new BigDecimal("0.5")) > 0)
                 .sorted(Comparator.comparing(s -> s.deltaPct().abs(), Comparator.reverseOrder()))
-                .limit(REBALANCE_SUGGESTION_COUNT)
                 .toList();
     }
 }

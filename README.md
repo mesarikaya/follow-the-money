@@ -65,7 +65,7 @@ curl http://127.0.0.1:8080/api/v1/rotation
 curl -X POST http://127.0.0.1:8080/api/v1/ingest/trigger
 ```
 
-Or click **Refresh Data** in the dashboard. Ingestion fetches 5+ years of daily prices for all 19 categories + 7 FRED macro series. After prices are ingested, signals (RS, RRG, Composite) are computed automatically. Allow 2–3 minutes on first run.
+Or click **Refresh Data** in the dashboard. Ingestion fetches 5+ years of daily prices for all 19 categories + 8 FRED macro series. After prices are ingested, signals (RS, RRG, Composite) are computed automatically. Allow 2–3 minutes on first run.
 
 ### 4. Start the frontend
 
@@ -79,9 +79,9 @@ Dashboard available at **http://localhost:3000**
 
 ---
 
-## Current milestone: M6 — Complete
+## Current milestone: M7 — Complete
 
-All 6 milestones are delivered.
+All 7 milestones are delivered.
 
 | Milestone | Epics | Status |
 |-----------|-------|--------|
@@ -91,13 +91,14 @@ All 6 milestones are delivered.
 | M4 — Rotation Detection | EP-008 | ✓ Complete |
 | M5 — Portfolio Intelligence | EP-009, EP-010 | ✓ Complete |
 | M6 — Backtester | EP-011 | ✓ Complete |
+| M7 — Investment Holdings | EP-012 | ✓ Complete |
 
 ### What each milestone delivers
 
 **M1 — Data Foundation**
 - PostgreSQL schema with Flyway migrations
 - Yahoo Finance ingestion (19 ETFs + SPY/AGG benchmarks, OHLCV + adj_close)
-- FRED ingestion (VIX, T10Y2Y, T10YIE, DXY, FEDFUNDS, DGS2, DGS10)
+- FRED ingestion (VIX, T10Y2Y, T10YIE, DXY, FEDFUNDS, DGS2, DGS10, DEXUSEU)
 - Idempotent `INSERT … ON CONFLICT DO NOTHING`
 - `ingest_log` captures every run with status and row count
 
@@ -136,6 +137,18 @@ All 6 milestones are delivered.
 - Results persisted to `backtest_results` table; retrievable by run ID
 - Equity curve chart comparing strategy vs SPY
 
+**M7 — Investment Holdings**
+- Upload current stock/ETF positions via CSV template (download from portfolio page)
+- Columns: ticker, name, quantity, currency (USD or EUR), avg_cost_local
+- EUR→USD conversion at upload time using live FRED DEXUSEU rate (falls back to 1.08)
+- `HoldingClassificationService` auto-maps 130+ tickers to their category (US sectors, European defense, fixed income, precious metals, currency ETFs, large-caps)
+- Holdings stored in `holdings` table (V6 migration)
+- `/api/v1/portfolio/holdings` — list all holdings with market value in USD
+- `/api/v1/portfolio/holdings/template` — download CSV template
+- `/api/v1/portfolio/holdings/upload` — bulk replace via multipart CSV upload
+- `/api/v1/portfolio/holdings/{ticker}` (PATCH) — update individual position quantity or cost
+- Holdings table in portfolio page showing segment badge, quantity, avg cost, and market value USD
+
 ---
 
 ## Running tests
@@ -147,7 +160,7 @@ cd ftm-app
 ./mvnw test
 ```
 
-Requires Docker (Testcontainers spins up PostgreSQL for integration tests). ~90 seconds. 135 tests.
+Requires Docker (Testcontainers spins up PostgreSQL for integration tests). ~90 seconds. 141 tests.
 
 ### Frontend type check + build
 
@@ -163,11 +176,15 @@ pnpm next build
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/v1/categories?timeframe=MONTH` | All 19 categories with latest prices and signals |
-| `GET` | `/api/v1/macro` | Current macro regime + 7 FRED indicators |
+| `GET` | `/api/v1/macro` | Current macro regime + 8 FRED indicators |
 | `GET` | `/api/v1/rrg` | RRG trail data for all categories (last 42 trading days) |
 | `GET` | `/api/v1/rotation` | Top-3 leaders, bottom-3 laggards, recent rotation events |
 | `GET` | `/api/v1/portfolio` | Current portfolio allocations with alignment score |
 | `PUT` | `/api/v1/portfolio` | Save portfolio allocations (body: `[{categoryId, allocationPct}]`) |
+| `GET` | `/api/v1/portfolio/holdings` | List all holdings with market value in USD |
+| `GET` | `/api/v1/portfolio/holdings/template` | Download CSV upload template |
+| `POST` | `/api/v1/portfolio/holdings/upload` | Bulk-replace holdings via multipart CSV |
+| `PATCH` | `/api/v1/portfolio/holdings/{ticker}` | Update a single position (quantity, avg cost) |
 | `GET` | `/api/v1/alerts` | Active and recent alerts (last 100) |
 | `POST` | `/api/v1/alerts/{id}/acknowledge` | Acknowledge an active alert |
 | `POST` | `/api/v1/backtest/run` | Run a backtest simulation |
@@ -190,16 +207,18 @@ follow-the-money/
       api/              REST controllers, DTOs, services, repositories
       ingestion/        YahooFinanceClient, FredClient, IngestionService
       signals/          RS, MOM, RRG, MacroRegime, Composite, RotationEventDetector
-      portfolio/        AlignmentService, PortfolioService, PortfolioRepository
+      portfolio/        AlignmentService, PortfolioService, PortfolioRepository,
+                        HoldingRepository, HoldingClassificationService, HoldingUploadService
       alerts/           AlertRulesEngine, AlertRepository, AlertRulesRepository
       backtest/         BacktestEngine, BacktestRepository
-      domain/           Domain records (Category, Alert, Signal, ...)
+      domain/           Domain records (Category, Alert, Signal, Holding, ...)
       config/           Caffeine cache (6 caches, 1h TTL), async executor
     src/main/resources/db/migration/
       V1__initial_schema.sql     All tables + indexes
       V2__seed_categories.sql    19 categories (ETF tickers, display order)
       V3__seed_alert_rules.sql   9 alert rules (Balanced profile defaults)
       V4__backtest_schema.sql    backtest_results table
+      V6__holdings_schema.sql    holdings table + indexes
   ftm-frontend/         Next.js 15 (TypeScript, Tailwind CSS, App Router)
     src/app/            Pages: /, /rrg, /flows, /macro, /portfolio, /alerts, /backtest
     src/components/     CategoryTable, MacroPanel, RRGSection, RotationHeatmap, RotationPanel, ...

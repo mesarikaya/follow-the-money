@@ -41,8 +41,27 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 - `UPDATED` roadmap.md: M9/M10/M11 milestones and EP-016/017/018 epics added
   - ✅ `context/roadmap.md`
 
-- `NEW` EP-017 (M10) in progress: V9 migration + sectors hub page (mockups pending approval)
-  - ⚠️ Still needs: mockup creation + approval, V9 SQL, /sectors frontend pages
+- `UPDATED` EP-016 badge labels corrected: all type badges use full descriptive names (Equity, Precious Metal, Fixed Income, Cash) — no abbreviations
+  - ✅ `ftm-frontend/src/components/CategoryTable.tsx`
+  - ✅ `ftm-frontend/e2e/mock-backend.mjs` (GOLD → PRECIOUS_METAL type; BIL → CASH type; TLT added as FIXED_INCOME)
+  - ✅ `ftm-frontend/e2e/dashboard.spec.ts`
+
+- `NEW` EP-017 (M10) complete: V9 migration + /sectors hub + /sectors/[id] drilldown + redesigned mockups
+  - V9 Flyway migration: ~70 ETFs across all 11 GICS sectors. benchmark_ticker = parent sector ETF. display_order = parent×100+N. HLTH starts at 205 (skips 201-204 used by FTRS from V8).
+  - `/sectors` hub: 11 sector cards with RRG quadrant badge, RS% vs SPY, sub-sector count, link to drilldown
+  - `/sectors/[id]` drilldown: table sorted by quadrant→RS60, quadrant distribution summary cards, breadcrumb
+  - Sidebar: "Tech Sub-Sectors" → "Sub-Sectors" → /sectors
+  - Both mockups redesigned with Rajdhani + JetBrains Mono, deep dark gradient, left-border quadrant coloring
+  - 11 new E2E tests; 32/32 total pass
+  - PRs: #9 (EP-018 → develop), #10 (EP-016 → develop), #11 (EP-017 → EP-016)
+  - ✅ `ftm-app/src/main/resources/db/migration/V9__sub_sectors_all_sectors.sql`
+  - ✅ `ftm-frontend/src/app/sectors/page.tsx` (new)
+  - ✅ `ftm-frontend/src/app/sectors/[id]/page.tsx` (new)
+  - ✅ `ftm-frontend/src/components/Sidebar.tsx`
+  - ✅ `ftm-frontend/e2e/mock-backend.mjs`
+  - ✅ `ftm-frontend/e2e/pages.spec.ts`
+  - ✅ `context/mockups/sectors-index.html` (redesigned)
+  - ✅ `context/mockups/sector-drilldown.html` (redesigned)
 
 ---
 

@@ -217,6 +217,62 @@ export type IngestStatusEntry = {
 
 export const fetchLatestIngestStatus = () => get<IngestStatusEntry[]>("/api/v1/ingest/status/latest");
 
+export type HoldingDto = {
+  ticker: string;
+  name: string | null;
+  categoryId: string | null;
+  currency: string;
+  quantity: number;
+  avgCostLocal: number | null;
+  usdFxRate: number | null;
+  marketValueUsd: number | null;
+};
+
+export type HoldingsUploadResponse = {
+  totalAccepted: number;
+  unclassifiedTickers: string[];
+  totalMarketValueUsd: number | null;
+  usdPerEurRateUsed: number | null;
+  holdings: HoldingDto[];
+};
+
+export type HoldingUpdateRequest = {
+  quantity: number;
+  avgCostLocal?: number;
+};
+
+export const fetchHoldings = () => get<HoldingDto[]>("/api/v1/portfolio/holdings");
+
+export const downloadHoldingsTemplate = () =>
+  fetch(`${BACKEND}/api/v1/portfolio/holdings/template`, { cache: "no-store" });
+
+export const uploadHoldings = (file: File): Promise<HoldingsUploadResponse> => {
+  const form = new FormData();
+  form.append("file", file);
+  return fetch(`${BACKEND}/api/v1/portfolio/holdings/upload`, {
+    method: "POST",
+    body: form,
+    cache: "no-store",
+  }).then(async (res) => {
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(body.detail ?? `Upload failed: ${res.status}`);
+    }
+    return res.json() as Promise<HoldingsUploadResponse>;
+  });
+};
+
+export const updateHolding = (ticker: string, request: HoldingUpdateRequest): Promise<HoldingDto> =>
+  fetch(`${BACKEND}/api/v1/portfolio/holdings/${ticker}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+    cache: "no-store",
+  }).then(async (res) => {
+    if (!res.ok) throw new Error(`PATCH /portfolio/holdings/${ticker} → ${res.status}`);
+    return res.json() as Promise<HoldingDto>;
+  });
+
 export const acknowledgeAlert = (alertId: number) =>
   fetch(`${BACKEND}/api/v1/alerts/${alertId}/acknowledge`, {
     method: "POST",

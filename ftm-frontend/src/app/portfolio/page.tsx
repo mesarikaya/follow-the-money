@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { fetchPortfolio, savePortfolio, PortfolioResponse, PortfolioAllocationEntry } from "@/lib/api";
+import {
+  fetchPortfolio, savePortfolio, PortfolioResponse, PortfolioAllocationEntry,
+  fetchHoldings, uploadHoldings, downloadHoldingsTemplate, HoldingDto, HoldingsUploadResponse,
+} from "@/lib/api";
 
 const ALIGNMENT_CONFIG = {
   ALIGNED:    { label: "Aligned",    colorClass: "text-emerald-400", barClass: "bg-emerald-500" },
@@ -48,6 +51,10 @@ export default function PortfolioPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [holdings, setHoldings] = useState<HoldingDto[] | null>(null);
+  const [uploadResult, setUploadResult] = useState<HoldingsUploadResponse | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const loadPortfolio = useCallback(async () => {
     try {
@@ -67,6 +74,7 @@ export default function PortfolioPage() {
 
   useEffect(() => {
     loadPortfolio();
+    fetchHoldings().then(setHoldings).catch(() => setHoldings([]));
   }, [loadPortfolio]);
 
   const handleAllocationChange = (categoryId: string, value: string) => {
@@ -108,6 +116,33 @@ export default function PortfolioPage() {
     setEditedAllocations(resetAllocations);
     setIsDirty(false);
     setSaveError(null);
+  };
+
+  const handleUpload = async (file: File) => {
+    setIsUploading(true);
+    setUploadError(null);
+    setUploadResult(null);
+    try {
+      const result = await uploadHoldings(file);
+      setUploadResult(result);
+      setHoldings(result.holdings);
+    } catch (error) {
+      setUploadError(String(error));
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleTemplateDownload = async () => {
+    const res = await downloadHoldingsTemplate();
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "holdings-template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const isValidTotal = Math.abs(totalAllocation - 100) <= 0.5;
@@ -285,6 +320,107 @@ export default function PortfolioPage() {
             Loading portfolio…
           </div>
         )}
+
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-200">
+              Holdings
+              {holdings && holdings.length > 0 && (
+                <span className="text-slate-500 font-normal ml-2">({holdings.length})</span>
+              )}
+            </h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleTemplateDownload}
+                className="text-xs px-2 py-1 border border-slate-600 text-slate-400 rounded hover:text-slate-200 hover:border-slate-500 transition-colors"
+                title="Download CSV template to fill in your holdings"
+              >
+                ↓ Template
+              </button>
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={(e) => { if (e.target.files?.[0]) handleUpload(e.target.files[0]); }}
+                />
+                <span className={`text-xs px-3 py-1 rounded border transition-colors ${
+                  isUploading
+                    ? "bg-slate-700 border-slate-600 text-slate-500 cursor-not-allowed"
+                    : "bg-blue-600 border-blue-600 text-white hover:bg-blue-700 cursor-pointer"
+                }`}>
+                  {isUploading ? "Uploading…" : "↑ Upload CSV"}
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {uploadError && (
+            <div className="text-xs text-red-400 bg-red-900/20 border border-red-800 rounded px-3 py-2">
+              {uploadError}
+            </div>
+          )}
+
+          {uploadResult && (
+            <div className="text-xs text-emerald-400 bg-emerald-900/20 border border-emerald-800 rounded px-3 py-2 flex items-center justify-between">
+              <span>
+                Uploaded {uploadResult.totalAccepted} holdings
+                {uploadResult.totalMarketValueUsd != null && ` · Total: $${Number(uploadResult.totalMarketValueUsd).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+                {uploadResult.usdPerEurRateUsed != null && ` (EUR→USD @ ${Number(uploadResult.usdPerEurRateUsed).toFixed(4)})`}
+              </span>
+              {uploadResult.unclassifiedTickers.length > 0 && (
+                <span className="text-amber-400 ml-2" title="These tickers were not mapped to a category">
+                  ⚠ Unclassified: {uploadResult.unclassifiedTickers.join(", ")}
+                </span>
+              )}
+            </div>
+          )}
+
+          {holdings && holdings.length > 0 ? (
+            <div className="overflow-x-auto rounded-xl border border-slate-700">
+              <table className="w-full text-sm text-left">
+                <thead>
+                  <tr className="border-b border-slate-700 bg-slate-800/80 text-slate-400 text-xs uppercase tracking-wider">
+                    <th className="px-4 py-2">Ticker</th>
+                    <th className="px-4 py-2">Name</th>
+                    <th className="px-4 py-2">Segment</th>
+                    <th className="px-4 py-2 text-right">Qty</th>
+                    <th className="px-4 py-2 text-right">Avg Cost</th>
+                    <th className="px-4 py-2 text-right">Market Value USD</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {holdings.map((h) => (
+                    <tr key={h.ticker} className="hover:bg-slate-800/50 transition-colors text-slate-200">
+                      <td className="px-4 py-2 font-mono text-blue-300 font-medium">{h.ticker}</td>
+                      <td className="px-4 py-2 text-slate-400 text-xs">{h.name ?? "—"}</td>
+                      <td className="px-4 py-2 text-xs">
+                        {h.categoryId ? (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-900/50 text-blue-300 border border-blue-800/40">
+                            {h.categoryId}
+                          </span>
+                        ) : (
+                          <span className="text-amber-400 text-[10px]">Unclassified</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums">{Number(h.quantity).toFixed(2)}</td>
+                      <td className="px-4 py-2 text-right tabular-nums text-slate-400">
+                        {h.avgCostLocal != null ? `${h.currency === "EUR" ? "€" : "$"}${Number(h.avgCostLocal).toFixed(2)}` : "—"}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        {h.marketValueUsd != null ? `$${Number(h.marketValueUsd).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : holdings !== null && holdings.length === 0 ? (
+            <div className="text-slate-500 text-sm text-center py-8">
+              No holdings uploaded yet. Download the template, fill it in, and upload your CSV.
+            </div>
+          ) : null}
+        </section>
       </main>
     </div>
   );

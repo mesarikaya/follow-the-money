@@ -14,6 +14,27 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 
 ---
 
+## 2026-05-17 (session 11 — context sync to M8 reality)
+
+- `UPDATED` INDEX.md: all 8 milestones marked complete; Java 21→25; RFC-0003 removed from open questions; spec health dates updated
+  - ✅ INDEX.md
+
+- `RESOLVED` RFC-0003 — Multi-timeframe independent alerts (resolved in EP-010 implementation)
+  - 9 alert rules seeded (V3__seed_alert_rules.sql), Balanced profile defaults, z=1.5 threshold
+  - Single-fire on MACRO_REGIME_SHIFT (no cascade); severity: INFO/WARNING/ACTION → blue/amber/red
+  - ✅ DECISIONS.md — RFC-0003 moved from Open to Resolved
+
+- `UPDATED` spec.md — multiple staleness fixes:
+  - Java 21 → Java 25 (matches pom.xml and README)
+  - 7 FRED series → 9 (added DEXUSEU, DCOILWTICO)
+  - `aum_usd` → `assets_under_management_usd` in raw_prices DDL and data integrity rules
+  - `categories` table: added `parent_id` column (V7 migration)
+  - Repository layout updated: added backtest/, portfolio holdings, e2e/ Playwright tests
+  - FLOW signals noted as deferred (AUM not available)
+  - COMPOSITE label: removed "(pending RFC-0002 confirmation)"
+  - Added `holdings` (V6) and `backtest_results` (V4) table DDL
+  - ✅ spec.md
+
 ## 2026-05-17 (session 10 — retroactive milestone tags vM1–vM5)
 
 - `NEW` Milestone tags vM1–vM5 created retroactively (vM6/vM7/vM8 already existed)

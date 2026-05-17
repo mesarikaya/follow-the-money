@@ -66,29 +66,29 @@ export default async function Home({ searchParams }: Props) {
 
         {rotation && (
           <section className="space-y-3">
-            <h2 className="text-base font-semibold text-zinc-200">Rotation Signals</h2>
+            <h2 className="text-base font-semibold text-slate-200">Rotation Signals</h2>
             <RotationPanel rotation={rotation} />
           </section>
         )}
 
         {categories.length > 0 && (
           <section className="space-y-3">
-            <h2 className="text-base font-semibold text-zinc-200">Composite Score Heatmap</h2>
+            <h2 className="text-base font-semibold text-slate-200">Composite Score Heatmap</h2>
             <RotationHeatmap categories={categories} />
           </section>
         )}
 
         <section className="space-y-3">
-          <h2 className="text-base font-semibold text-zinc-200">
+          <h2 className="text-base font-semibold text-slate-200">
             Categories{" "}
-            <span className="text-zinc-500 font-normal text-sm">
+            <span className="text-slate-500 font-normal text-sm">
               ({categories.length})
             </span>
           </h2>
           {categories.length > 0 ? (
             <CategoryTable categories={categories} />
           ) : (
-            <div className="text-zinc-500 text-sm py-8 text-center">
+            <div className="text-slate-500 text-sm py-8 text-center">
               No categories loaded.
             </div>
           )}

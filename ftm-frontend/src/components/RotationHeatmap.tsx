@@ -10,7 +10,7 @@ const QUADRANT_LABELS: Record<string, string> = {
 };
 
 function compositeScoreToColor(score: number | null): string {
-  if (score === null) return "bg-zinc-700 border-zinc-600";
+  if (score === null) return "bg-slate-700 border-slate-600";
   if (score >= 0.7) return "bg-emerald-500/20 border-emerald-500/40 text-emerald-300";
   if (score >= 0.5) return "bg-blue-500/15 border-blue-500/30 text-blue-300";
   if (score >= 0.3) return "bg-amber-500/15 border-amber-500/30 text-amber-300";
@@ -49,8 +49,8 @@ export default function RotationHeatmap({ categories }: Props) {
               {formatCompositeScore(category.compositeScore)}
             </span>
           </div>
-          <p className="text-xs text-zinc-400 truncate">{category.name}</p>
-          <p className="text-xs text-zinc-500">{rrgQuadrantLabel(category.rrgQuadrant)}</p>
+          <p className="text-xs text-slate-400 truncate">{category.name}</p>
+          <p className="text-xs text-slate-500">{rrgQuadrantLabel(category.rrgQuadrant)}</p>
         </div>
       ))}
     </div>

@@ -29,11 +29,11 @@ function AllocationBar({ currentPct, optimalPct, maxPct }: { currentPct: number;
 
   return (
     <div className="flex flex-col gap-0.5 flex-1" title="Blue = your current allocation · Green = composite-optimal target">
-      <div className="h-2 bg-zinc-700 rounded-full overflow-hidden">
+      <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
         <div className="h-full bg-blue-500 rounded-full" style={{ width: `${currentWidth}%` }} />
       </div>
       {optimalPct != null && (
-        <div className="h-1.5 bg-zinc-700 rounded-full overflow-hidden" title={COMPOSITE_OPTIMAL_TOOLTIP}>
+        <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden" title={COMPOSITE_OPTIMAL_TOOLTIP}>
           <div className="h-full bg-emerald-500/70 rounded-full" style={{ width: `${optimalWidth}%` }} />
         </div>
       )}
@@ -119,24 +119,24 @@ export default function PortfolioPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-900 sticky top-0 z-10">
-        <h1 className="text-sm font-semibold text-zinc-300">Portfolio</h1>
+      <header className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900 sticky top-0 z-10">
+        <h1 className="text-sm font-semibold text-slate-300">Portfolio</h1>
         {portfolio && (
           <div className="flex items-center gap-4" title={ALIGNMENT_TOOLTIP}>
             <span className={`text-sm font-semibold ${ALIGNMENT_CONFIG[portfolio.alignmentLabel].colorClass}`}>
               {ALIGNMENT_CONFIG[portfolio.alignmentLabel].label}
             </span>
             <div className="flex items-center gap-2">
-              <div className="w-24 h-2 bg-zinc-700 rounded-full overflow-hidden">
+              <div className="w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full ${ALIGNMENT_CONFIG[portfolio.alignmentLabel].barClass}`}
                   style={{ width: `${alignmentScorePercent}%` }}
                 />
               </div>
-              <span className="text-xs font-mono text-zinc-300">
-                {alignmentScorePercent}<span className="text-zinc-600">/100</span>
+              <span className="text-xs font-mono text-slate-300">
+                {alignmentScorePercent}<span className="text-slate-600">/100</span>
               </span>
-              <span className="text-[10px] text-zinc-600 cursor-help" title={ALIGNMENT_TOOLTIP}>(?)</span>
+              <span className="text-[10px] text-slate-600 cursor-help" title={ALIGNMENT_TOOLTIP}>(?)</span>
             </div>
           </div>
         )}
@@ -151,9 +151,9 @@ export default function PortfolioPage() {
 
         {portfolio && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2 bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-4">
+            <div className="lg:col-span-2 bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-zinc-200">Allocations</h2>
+                <h2 className="text-sm font-semibold text-slate-200">Allocations</h2>
                 <div className="flex items-center gap-3">
                   <span className={`text-xs font-mono ${isValidTotal ? "text-emerald-400" : "text-red-400"}`}>
                     Total: {totalAllocation.toFixed(2)}%{!isValidTotal && " (must be 100%)"}
@@ -162,7 +162,7 @@ export default function PortfolioPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={handleReset}
-                        className="text-xs px-2 py-1 border border-zinc-600 text-zinc-400 rounded hover:text-zinc-200 hover:border-zinc-500 transition-colors"
+                        className="text-xs px-2 py-1 border border-slate-600 text-slate-400 rounded hover:text-slate-200 hover:border-slate-500 transition-colors"
                       >
                         Reset
                       </button>
@@ -184,7 +184,7 @@ export default function PortfolioPage() {
                 </div>
               )}
 
-              <div className="text-xs text-zinc-600 flex gap-4 mb-2">
+              <div className="text-xs text-slate-600 flex gap-4 mb-2">
                 <span className="flex items-center gap-1">
                   <div className="w-3 h-1.5 bg-blue-500 rounded-sm" /> Current allocation
                 </span>
@@ -199,7 +199,7 @@ export default function PortfolioPage() {
                 <span className="w-32 shrink-0" />
                 <span className="flex-1" />
                 <span className="w-16 shrink-0" />
-                <span className="text-[10px] text-zinc-600 w-6 text-right shrink-0 cursor-help" title={COMPOSITE_SCORE_TOOLTIP}>
+                <span className="text-[10px] text-slate-600 w-6 text-right shrink-0 cursor-help" title={COMPOSITE_SCORE_TOOLTIP}>
                   CS
                 </span>
               </div>
@@ -207,8 +207,8 @@ export default function PortfolioPage() {
               <ul className="space-y-2">
                 {portfolio.allocations.map((entry: PortfolioAllocationEntry) => (
                   <li key={entry.categoryId} className="flex items-center gap-3">
-                    <span className="w-10 text-xs font-mono text-zinc-500 shrink-0">{entry.categoryId}</span>
-                    <span className="w-32 text-xs text-zinc-300 truncate shrink-0">{entry.categoryName}</span>
+                    <span className="w-10 text-xs font-mono text-slate-500 shrink-0">{entry.categoryId}</span>
+                    <span className="w-32 text-xs text-slate-300 truncate shrink-0">{entry.categoryName}</span>
                     <AllocationBar
                       currentPct={parseFloat(editedAllocations[entry.categoryId] ?? "0") || 0}
                       optimalPct={entry.optimalAllocationPct}
@@ -222,12 +222,12 @@ export default function PortfolioPage() {
                         step="0.01"
                         value={editedAllocations[entry.categoryId] ?? "0"}
                         onChange={(e) => handleAllocationChange(entry.categoryId, e.target.value)}
-                        className="w-16 text-xs font-mono text-right bg-zinc-700 border border-zinc-600 rounded px-1 py-0.5 text-zinc-200 focus:border-blue-500 focus:outline-none"
+                        className="w-16 text-xs font-mono text-right bg-slate-700 border border-slate-600 rounded px-1 py-0.5 text-slate-200 focus:border-blue-500 focus:outline-none"
                       />
-                      <span className="text-xs text-zinc-500">%</span>
+                      <span className="text-xs text-slate-500">%</span>
                     </div>
                     <span
-                      className="w-6 text-xs font-mono text-zinc-500 text-right shrink-0 cursor-help"
+                      className="w-6 text-xs font-mono text-slate-500 text-right shrink-0 cursor-help"
                       title={entry.compositeScore != null ? COMPOSITE_SCORE_TOOLTIP : "No composite score available yet — run signal computation first"}
                     >
                       {entry.compositeScore != null ? Math.round(entry.compositeScore * 100) : "—"}
@@ -237,21 +237,21 @@ export default function PortfolioPage() {
               </ul>
             </div>
 
-            <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-4">
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-sm font-semibold text-zinc-200">Rebalance Suggestions</h2>
+                <h2 className="text-sm font-semibold text-slate-200">Rebalance Suggestions</h2>
                 <span
-                  className="text-[10px] text-zinc-600 cursor-help"
+                  className="text-[10px] text-slate-600 cursor-help"
                   title="These suggestions show categories where your current allocation differs from the composite-optimal target by more than 0.5%. The optimal targets sum to 100% across all active categories."
                 >
                   (?)
                 </span>
               </div>
-              <p className="text-[10px] text-zinc-600 mb-3">
+              <p className="text-[10px] text-slate-600 mb-3">
                 Shows categories where |current − optimal| &gt; 0.5%. Optimal targets sum to 100% across all categories.
               </p>
               {portfolio.rebalanceSuggestions.length === 0 ? (
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-slate-500">
                   {portfolio.alignmentLabel === "ALIGNED"
                     ? "Portfolio is well aligned — no changes needed."
                     : "No composite scores available to compute suggestions. Run signal computation first."}
@@ -263,12 +263,12 @@ export default function PortfolioPage() {
                     return (
                       <li key={suggestion.categoryId} className="flex flex-col gap-1">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-zinc-200">{suggestion.categoryName}</span>
+                          <span className="text-xs font-medium text-slate-200">{suggestion.categoryName}</span>
                           <span className={`text-xs font-semibold ${isIncrease ? "text-emerald-400" : "text-red-400"}`}>
                             {isIncrease ? "↑" : "↓"} {isIncrease ? "+" : ""}{suggestion.deltaPct.toFixed(1)}%
                           </span>
                         </div>
-                        <div className="text-xs text-zinc-500">
+                        <div className="text-xs text-slate-500">
                           {suggestion.currentAllocationPct.toFixed(1)}% current → {suggestion.optimalAllocationPct.toFixed(1)}% optimal
                         </div>
                       </li>
@@ -281,7 +281,7 @@ export default function PortfolioPage() {
         )}
 
         {!portfolio && !loadError && (
-          <div className="text-zinc-500 text-sm text-center py-16">
+          <div className="text-slate-500 text-sm text-center py-16">
             Loading portfolio…
           </div>
         )}

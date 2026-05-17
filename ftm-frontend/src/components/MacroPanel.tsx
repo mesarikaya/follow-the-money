@@ -23,7 +23,7 @@ function MacroCard({ label, value }: { label: string; value: string }) {
 
 export default function MacroPanel({ macro }: { macro: MacroResponse }) {
   const { indicators, regime, asOfDate } = macro;
-  const regimeClass = REGIME_COLORS[regime] ?? "bg-zinc-700 text-zinc-300 border-zinc-600";
+  const regimeClass = REGIME_COLORS[regime] ?? "bg-slate-700 text-slate-300 border-slate-600";
 
   return (
     <section className="space-y-4">

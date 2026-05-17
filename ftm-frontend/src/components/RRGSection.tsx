@@ -7,18 +7,18 @@ export default async function RRGSection() {
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-3">
-        <h2 className="text-base font-semibold text-zinc-200">Relative Rotation Graph</h2>
+        <h2 className="text-base font-semibold text-slate-200">Relative Rotation Graph</h2>
         {data?.date && (
-          <span className="text-xs text-zinc-500">as of {data.date}</span>
+          <span className="text-xs text-slate-500">as of {data.date}</span>
         )}
       </div>
 
       {!data || data.categories.length === 0 ? (
-        <div className="text-zinc-500 text-sm py-8 text-center">
+        <div className="text-slate-500 text-sm py-8 text-center">
           No RRG data yet — run ingestion to populate.
         </div>
       ) : (
-        <div className="bg-zinc-800/40 border border-zinc-700 rounded-lg p-4">
+        <div className="bg-slate-800/40 border border-slate-700 rounded-lg p-4">
           <RRGChart categories={data.categories} />
         </div>
       )}

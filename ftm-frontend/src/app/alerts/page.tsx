@@ -11,7 +11,7 @@ const SEVERITY_STYLES: Record<string, string> = {
 
 const STATUS_STYLES: Record<string, string> = {
   ACTIVE:       "bg-red-500/20 text-red-300",
-  ACKNOWLEDGED: "bg-zinc-500/20 text-zinc-400",
+  ACKNOWLEDGED: "bg-slate-500/20 text-slate-400",
   RESOLVED:     "bg-emerald-500/20 text-emerald-400",
 };
 
@@ -74,9 +74,9 @@ export default function AlertsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-900 sticky top-0 z-10">
+      <header className="flex items-center justify-between px-6 py-3 border-b border-slate-700 bg-slate-800 sticky top-0 z-10 shrink-0">
         <div className="flex items-center gap-3">
-          <h1 className="text-sm font-semibold text-zinc-300">Alerts</h1>
+          <h1 className="text-sm font-semibold text-slate-200">Alerts</h1>
           {activeCount > 0 && (
             <span className="text-xs px-1.5 py-0.5 bg-red-500 text-white rounded-full font-semibold">
               {activeCount}
@@ -84,7 +84,7 @@ export default function AlertsPage() {
           )}
         </div>
         {alertsResponse && (
-          <div className="flex items-center gap-4 text-xs text-zinc-500">
+          <div className="flex items-center gap-4 text-xs text-slate-500">
             {actionCount > 0 && (
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> {actionCount} Action
@@ -107,7 +107,7 @@ export default function AlertsPage() {
         )}
 
         {alertsResponse?.alerts.length === 0 && (
-          <div className="text-zinc-500 text-sm text-center py-16">
+          <div className="text-slate-500 text-sm text-center py-16">
             No alerts yet. Alerts fire after signal computation runs.
           </div>
         )}
@@ -115,30 +115,30 @@ export default function AlertsPage() {
         {alertsResponse?.alerts.map((alert: AlertDto) => (
           <div
             key={alert.id}
-            className={`border rounded-md px-4 py-3 ${SEVERITY_STYLES[alert.severity] ?? "border-zinc-700 text-zinc-400"}`}
+            className={`border rounded-md px-4 py-3 ${SEVERITY_STYLES[alert.severity] ?? "border-slate-700 text-slate-400"}`}
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="text-xs font-semibold uppercase tracking-wide">{alert.severity}</span>
-                  <span className="text-xs text-zinc-600">·</span>
-                  <span className="text-xs text-zinc-500">{RULE_LABELS[alert.ruleId] ?? alert.ruleId}</span>
+                  <span className="text-xs text-slate-600">·</span>
+                  <span className="text-xs text-slate-500">{RULE_LABELS[alert.ruleId] ?? alert.ruleId}</span>
                   {alert.categoryId && (
                     <>
-                      <span className="text-xs text-zinc-600">·</span>
-                      <span className="text-xs font-mono text-zinc-400">{alert.categoryId}</span>
+                      <span className="text-xs text-slate-600">·</span>
+                      <span className="text-xs font-mono text-slate-400">{alert.categoryId}</span>
                     </>
                   )}
                 </div>
-                <p className="text-sm text-zinc-300">{alert.message}</p>
-                <p className="text-xs text-zinc-600 mt-1">{formatAlertTime(alert.createdAt)}</p>
+                <p className="text-sm text-slate-300">{alert.message}</p>
+                <p className="text-xs text-slate-600 mt-1">{formatAlertTime(alert.createdAt)}</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {alert.status === "ACTIVE" && (
                   <button
                     onClick={() => handleAcknowledge(alert.id)}
                     disabled={acknowledging === alert.id}
-                    className="text-xs px-2 py-1 border border-zinc-600 text-zinc-400 rounded hover:text-zinc-200 hover:border-zinc-500 transition-colors disabled:opacity-50"
+                    className="text-xs px-2 py-1 border border-slate-600 text-slate-400 rounded hover:text-slate-200 hover:border-slate-500 transition-colors disabled:opacity-50"
                   >
                     {acknowledging === alert.id ? "…" : "Acknowledge"}
                   </button>
@@ -152,7 +152,7 @@ export default function AlertsPage() {
         ))}
 
         {!alertsResponse && !loadError && (
-          <div className="text-zinc-500 text-sm text-center py-16">
+          <div className="text-slate-500 text-sm text-center py-16">
             Loading alerts…
           </div>
         )}

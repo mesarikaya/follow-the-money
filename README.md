@@ -184,6 +184,15 @@ cd ftm-frontend
 pnpm next build
 ```
 
+### E2E tests (Playwright)
+
+```bash
+cd ftm-frontend
+pnpm test:e2e
+```
+
+Starts a lightweight mock backend on port 9999 and a dedicated Next.js server on port 3001 (separate from the dev server on 3000). If a `pnpm dev` server is already running, the script stops it automatically before starting the E2E server. 24 tests across dashboard and all page routes.
+
 ---
 
 ## API endpoints

@@ -20,31 +20,6 @@ test.describe("Macro Regime page", () => {
   });
 });
 
-test.describe("Tech Sub-Sectors page", () => {
-  test("loads with sub-sector heading", async ({ page }) => {
-    await page.goto("/sub-sectors");
-    // Sidebar says "Tech Sub-Sectors", h1 says "Technology Sub-Sectors" — no conflict
-    await expect(page.getByText("Technology Sub-Sectors")).toBeVisible();
-    await expect(page.getByText(/RS signals vs XLK/)).toBeVisible();
-  });
-
-  test("renders all four sub-sector ETF tickers", async ({ page }) => {
-    await page.goto("/sub-sectors");
-    // Cards show "ETF: SMH" etc — substring match works; data served by mock backend
-    await expect(page.getByText(/SMH/)).toBeVisible();
-    await expect(page.getByText(/BOTZ/)).toBeVisible();
-    await expect(page.getByText(/WCLD/)).toBeVisible();
-    await expect(page.getByText(/IGV/)).toBeVisible();
-  });
-
-  test("renders sub-sector names", async ({ page }) => {
-    await page.goto("/sub-sectors");
-    await expect(page.getByText("Semiconductors").first()).toBeVisible();
-    await expect(page.getByText("AI & Robotics")).toBeVisible();
-    await expect(page.getByText("Cloud Computing")).toBeVisible();
-    await expect(page.getByText("Software").first()).toBeVisible();
-  });
-});
 
 test.describe("Factor Flows page", () => {
   test("loads with factor heading", async ({ page }) => {
@@ -186,6 +161,14 @@ test.describe("Sector drilldown page", () => {
     await expect(page.getByText("↖ Improving").first()).toBeVisible();
     await expect(page.getByText("↘ Weakening").first()).toBeVisible();
     await expect(page.getByText("↙ Lagging").first()).toBeVisible();
+  });
+});
+
+test.describe("Legacy /sub-sectors redirect", () => {
+  test("redirects /sub-sectors to /sectors/TECH", async ({ page }) => {
+    await page.goto("/sub-sectors");
+    await expect(page).toHaveURL(/\/sectors\/TECH/);
+    await expect(page.getByText("Information Technology").first()).toBeVisible();
   });
 });
 

@@ -1,6 +1,7 @@
 package com.ftm.app.api.controller;
 
 import com.ftm.app.api.dto.SignalHistoryDto;
+import com.ftm.app.api.mapper.SignalHistoryMapper;
 import com.ftm.app.signals.repository.SignalRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -15,16 +16,18 @@ import java.util.List;
 public class SignalController {
 
     private final SignalRepository signalRepository;
+    private final SignalHistoryMapper signalHistoryMapper;
 
-    public SignalController(SignalRepository signalRepository) {
-        this.signalRepository = signalRepository;
+    public SignalController(SignalRepository signalRepository, SignalHistoryMapper signalHistoryMapper) {
+        this.signalRepository    = signalRepository;
+        this.signalHistoryMapper = signalHistoryMapper;
     }
 
     @GetMapping("/signals/{categoryId}")
     @Operation(summary = "Full signal history for a category")
     public List<SignalHistoryDto> getSignalHistory(@PathVariable String categoryId) {
         return signalRepository.findByCategoryId(categoryId.toUpperCase()).stream()
-                .map(r -> new SignalHistoryDto(r.signalDate(), r.signalType(), r.value(), r.computedAt()))
+                .map(signalHistoryMapper::toDto)
                 .toList();
     }
 }

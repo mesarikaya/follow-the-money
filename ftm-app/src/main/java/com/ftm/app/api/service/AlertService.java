@@ -3,6 +3,7 @@ package com.ftm.app.api.service;
 import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.api.dto.AlertDto;
 import com.ftm.app.api.dto.AlertsResponse;
+import com.ftm.app.api.mapper.AlertMapper;
 import com.ftm.app.domain.Alert;
 import com.ftm.app.domain.AlertStatus;
 import org.slf4j.Logger;
@@ -19,9 +20,11 @@ public class AlertService {
     private static final int RECENT_ALERTS_LIMIT = 100;
 
     private final AlertRepository alertRepository;
+    private final AlertMapper alertMapper;
 
-    public AlertService(AlertRepository alertRepository) {
+    public AlertService(AlertRepository alertRepository, AlertMapper alertMapper) {
         this.alertRepository = alertRepository;
+        this.alertMapper     = alertMapper;
     }
 
     public AlertsResponse getAlerts() {
@@ -30,7 +33,7 @@ public class AlertService {
                 .filter(a -> a.status() == AlertStatus.ACTIVE)
                 .count();
         List<AlertDto> alertDtos = recentAlerts.stream()
-                .map(this::toDto)
+                .map(alertMapper::toDto)
                 .toList();
         return new AlertsResponse((int) activeCount, alertDtos);
     }
@@ -43,21 +46,8 @@ public class AlertService {
         log.info("Alert acknowledged: id={}", alertId);
         return alertRepository.findRecentAlerts(RECENT_ALERTS_LIMIT).stream()
                 .filter(a -> a.id().equals(alertId))
-                .map(this::toDto)
+                .map(alertMapper::toDto)
                 .findFirst()
                 .orElseThrow();
-    }
-
-    private AlertDto toDto(Alert alert) {
-        return new AlertDto(
-                alert.id(),
-                alert.createdAt(),
-                alert.categoryId() != null ? alert.categoryId().name() : null,
-                alert.ruleId(),
-                alert.severity().name(),
-                alert.message(),
-                alert.status().name(),
-                alert.resolvedAt(),
-                alert.acknowledgedAt());
     }
 }

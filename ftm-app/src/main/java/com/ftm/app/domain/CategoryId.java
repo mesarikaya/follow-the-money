@@ -1,8 +1,33 @@
 package com.ftm.app.domain;
 
 public enum CategoryId {
+    // Sector parents
     TECH, HLTH, FINL, DISR, INDU, ENRG, MATL, UTIL, REIT, STPL, COMM,
+    // Other asset classes
     GOLD, SLVR, GDMN, TLTD, TINT, CORP, HIYLD, CASH,
+    // TECH sub-sectors (V7 + V9)
     SEMI, AIRO, CLOD, SOFT,
-    FTRS, MTUM, QUAL, USMV, VLUE
+    TECH_CYBR, TECH_HACK, TECH_ROBO, TECH_AIQQ,
+    // Factor ETFs (V8)
+    FTRS, MTUM, QUAL, USMV, VLUE,
+    // HLTH sub-sectors (V9)
+    HLTH_BIOT, HLTH_BIOI, HLTH_MDEV, HLTH_PROV, HLTH_PHAR, HLTH_GNOM,
+    // FINL sub-sectors (V9)
+    FINL_BANK, FINL_REGI, FINL_INSR, FINL_BROK, FINL_FINT, FINL_KBWB,
+    // DISR sub-sectors (V9)
+    DISR_RETL, DISR_HOME, DISR_AIRL, DISR_HOTL, DISR_REST, DISR_AUTO,
+    // INDU sub-sectors (V9)
+    INDU_ADEF, INDU_TRAN, INDU_PAVE, INDU_AIRR, INDU_ROAD,
+    // ENRG sub-sectors (V9)
+    ENRG_OILS, ENRG_EXPL, ENRG_SOLR, ENRG_CLEN, ENRG_WIND, ENRG_DRIV, ENRG_NUCL, ENRG_URAN,
+    // MATL sub-sectors (V9)
+    MATL_STEE, MATL_LITH, MATL_COPP, MATL_RING, MATL_WOOD, MATL_AGRI, MATL_RARE,
+    // UTIL sub-sectors (V9)
+    UTIL_WATR, UTIL_FIWA, UTIL_UTES,
+    // REIT sub-sectors (V9)
+    REIT_RESI, REIT_MORT, REIT_DATA, REIT_INDS, REIT_RETL,
+    // STPL sub-sectors (V9)
+    STPL_FOOD, STPL_GROC, STPL_PRDT,
+    // COMM sub-sectors (V9)
+    COMM_SOCL, COMM_ESPO, COMM_NERD, COMM_BETZ, COMM_FIVG
 }

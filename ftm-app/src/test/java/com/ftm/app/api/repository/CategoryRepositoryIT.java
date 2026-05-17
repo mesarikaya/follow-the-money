@@ -33,11 +33,12 @@ class CategoryRepositoryIT {
     }
 
     @Test
-    @DisplayName("findAllByActiveTrueOrderByDisplayOrderAsc returns all 27 active categories including sub-sectors and factor ETFs")
+    @DisplayName("findAllByActiveTrueOrderByDisplayOrderAsc returns all active categories including sub-sectors and factor ETFs")
     void shouldReturnAllActiveSeededCategories() {
         List<Category> categories = repository.findAllByActiveTrueOrderByDisplayOrderAsc();
 
-        assertThat(categories).hasSize(27);
+        // 19 top-level + 4 TECH sub-sectors (V7) + 4 factor ETFs (V8) + 58 universal sub-sectors (V9) = 85; FTRS stays inactive
+        assertThat(categories).hasSize(85);
     }
 
     @Test
@@ -45,7 +46,7 @@ class CategoryRepositoryIT {
     void shouldReturnCategoriesOrderedByDisplayOrder() {
         List<Category> categories = repository.findAllByActiveTrueOrderByDisplayOrderAsc();
 
-        assertThat(categories.get(0).id()).isEqualTo(CategoryId.TECH);
+        assertThat(categories.getFirst().id()).isEqualTo(CategoryId.TECH);
         assertThat(categories.get(18).id()).isEqualTo(CategoryId.CASH);
     }
 
@@ -70,7 +71,7 @@ class CategoryRepositoryIT {
 
         List<Category> categories = repository.findAllByActiveTrueOrderByDisplayOrderAsc();
 
-        assertThat(categories).hasSize(26);
+        assertThat(categories).hasSize(84);
         assertThat(categories).extracting(Category::id).doesNotContain(CategoryId.CASH);
     }
 

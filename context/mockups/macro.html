@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Follow the Money — Macro Regime</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface: '#0f172a',
+            panel: '#1e293b',
+            border: '#334155',
+            muted: '#64748b',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background: #0f172a; font-family: 'Inter', system-ui, sans-serif; }
+    .nav-item { transition: all 0.15s; }
+    .nav-item:hover { background: #1e293b; }
+    .nav-item.active { background: #1e3a5f; border-left: 3px solid #3b82f6; }
+    .tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+    tr:hover td { background: #1e293b; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .win-bar { height: 6px; border-radius: 3px; background: #334155; }
+    .win-fill { height: 6px; border-radius: 3px; }
+  </style>
+</head>
+<body class="text-slate-200 min-h-screen flex flex-col">
+
+  <!-- HEADER -->
+  <header class="bg-panel border-b border-border px-6 py-3 flex items-center justify-between shrink-0 z-10">
+    <div class="flex items-center gap-3">
+      <a href="dashboard.html" class="text-blue-400 text-lg font-bold tracking-tight hover:text-blue-300">📈 Follow the Money</a>
+      <span class="text-muted text-xs">local · single-user</span>
+    </div>
+
+    <div class="flex items-center gap-1 bg-surface rounded-lg p-1 text-sm">
+      <button onclick="setTimeframe('DAY')" id="tf-DAY"   class="tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors">Day</button>
+      <button onclick="setTimeframe('WEEK')" id="tf-WEEK"  class="tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors">Week</button>
+      <button onclick="setTimeframe('MONTH')" id="tf-MONTH" class="tf-btn px-3 py-1 rounded-md bg-blue-600 text-white">Month</button>
+      <button onclick="setTimeframe('QUARTER')" id="tf-QUARTER" class="tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors">Quarter</button>
+      <button onclick="setTimeframe('YEAR')" id="tf-YEAR"  class="tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors">Year</button>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button onclick="simulateRefresh()" class="flex items-center gap-2 text-sm text-slate-300 hover:text-white bg-surface border border-border px-3 py-1.5 rounded-lg transition-colors">
+        <span id="refresh-icon">⟳</span> Refresh
+      </button>
+      <div id="status-dot" class="flex items-center gap-1.5 text-xs">
+        <span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span>
+        <span class="text-green-400">Up to date</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- SIDEBAR -->
+    <nav class="w-52 bg-panel border-r border-border flex flex-col py-4 shrink-0">
+      <div class="px-3 mb-2">
+        <span class="text-muted text-xs font-semibold uppercase tracking-widest">Analysis</span>
+      </div>
+      <a href="dashboard.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>🔄</span> Rotation
+      </a>
+      <a href="rrg.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>🎯</span> RRG Chart
+      </a>
+      <a href="flows.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>💰</span> Capital Flows
+      </a>
+      <a href="macro.html" class="nav-item active flex items-center gap-2.5 px-4 py-2.5 text-sm text-white">
+        <span>🌍</span> Macro Regime
+      </a>
+
+      <div class="px-3 mt-4 mb-2">
+        <span class="text-muted text-xs font-semibold uppercase tracking-widest">Management</span>
+      </div>
+      <a href="portfolio.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>📁</span> Portfolio
+      </a>
+      <a href="alerts.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>🔔</span> Alerts
+      </a>
+      <a href="backtest.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>📈</span> Backtester
+      </a>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 overflow-auto p-6">
+
+      <!-- Page title + current regime badge -->
+      <div class="flex items-center justify-between mb-5">
+        <div class="flex items-center gap-2">
+          <h1 class="text-xl font-semibold">Macro Regime</h1>
+          <span class="text-muted cursor-help text-sm" title="The macro regime classifies the current economic environment based on growth, inflation, and risk indicators. It influences which asset categories historically perform best.">(?)
+          </span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-muted">Current regime</span>
+          <span class="px-4 py-1.5 bg-green-900/60 border border-green-600/50 text-green-300 text-sm font-bold rounded-full flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span>
+            Risk On — Growth
+          </span>
+        </div>
+      </div>
+
+      <!-- 6 Metric cards: 2×3 grid -->
+      <div class="grid grid-cols-3 gap-4 mb-5">
+
+        <!-- Yield Spread -->
+        <div class="bg-panel border border-border rounded-xl p-4" title="The 10Y-2Y spread is the difference between long-term and short-term Treasury yields. When positive, banks lend profitably and growth is expected. A negative spread (inversion) often precedes recessions.">
+          <div class="flex items-center justify-between mb-1">
+            <div class="text-xs text-muted">Yield Spread (10Y−2Y)</div>
+            <span class="text-muted cursor-help text-xs" title="10-Year minus 2-Year Treasury yield. Positive = normal curve (growth expected). Negative = inverted (recession warning). Source: FRED T10Y2Y.">(?)
+            </span>
+          </div>
+          <div class="text-2xl font-bold text-white mb-1">+0.42%</div>
+          <div class="flex items-center gap-1.5 text-xs text-green-400">
+            <span>↑</span> <span>Uninverted — was −0.15%</span>
+          </div>
+          <div class="mt-2 text-[10px] text-muted">Series: T10Y2Y · Source: FRED</div>
+        </div>
+
+        <!-- VIX -->
+        <div class="bg-panel border border-border rounded-xl p-4" title="VIX measures expected stock market volatility over the next 30 days, derived from S&P 500 options. Below 20 = calm markets. 20–30 = elevated fear. Above 30 = high stress.">
+          <div class="flex items-center justify-between mb-1">
+            <div class="text-xs text-muted">Volatility Index (VIX)</div>
+            <span class="text-muted cursor-help text-xs" title="CBOE VIX: implied 30-day volatility of the S&amp;P 500. &lt;20 = calm, 20–30 = caution, &gt;30 = fear/crisis. Lower VIX supports risk-on positioning.">(?)
+            </span>
+          </div>
+          <div class="text-2xl font-bold text-white mb-1">18.3</div>
+          <div class="flex items-center gap-1.5 text-xs text-green-400">
+            <span>↓</span> <span>Calming — was 22.1</span>
+          </div>
+          <div class="mt-2 text-[10px] text-muted">Series: VIXCLS · Source: FRED</div>
+        </div>
+
+        <!-- DXY -->
+        <div class="bg-panel border border-border rounded-xl p-4" title="The DXY (Dollar Index) measures USD strength against a basket of major currencies. A rising DXY can pressure commodities and emerging markets. A falling DXY supports Gold and international equities.">
+          <div class="flex items-center justify-between mb-1">
+            <div class="text-xs text-muted">USD Index (DXY)</div>
+            <span class="text-muted cursor-help text-xs" title="Trade-weighted US Dollar index. Rising = USD strengthening (headwind for GLD, SLV, international). Falling = USD weakening (tailwind for commodities). Series: DTWEXBGS.">(?)
+            </span>
+          </div>
+          <div class="text-2xl font-bold text-white mb-1">104.2</div>
+          <div class="flex items-center gap-1.5 text-xs text-yellow-400">
+            <span>↓</span> <span>Weakening — was 106.5</span>
+          </div>
+          <div class="mt-2 text-[10px] text-muted">Series: DTWEXBGS · Source: FRED</div>
+        </div>
+
+        <!-- Breakeven Inflation -->
+        <div class="bg-panel border border-border rounded-xl p-4" title="10Y Breakeven Inflation is the difference between nominal and TIPS yields — the market's expectation of average inflation over 10 years. High inflation expectations favor commodities, Gold, TIPS, and Energy.">
+          <div class="flex items-center justify-between mb-1">
+            <div class="text-xs text-muted">Breakeven Inflation (10Y)</div>
+            <span class="text-muted cursor-help text-xs" title="Market-implied 10Y average inflation rate (10Y nominal yield minus 10Y TIPS yield). Rising = inflation expectations increasing (bullish for GLD, XLE, XLB). Series: T10YIE.">(?)
+            </span>
+          </div>
+          <div class="text-2xl font-bold text-white mb-1">2.31%</div>
+          <div class="flex items-center gap-1.5 text-xs text-slate-400">
+            <span>→</span> <span>Stable</span>
+          </div>
+          <div class="mt-2 text-[10px] text-muted">Series: T10YIE · Source: FRED</div>
+        </div>
+
+        <!-- Fed Funds Rate -->
+        <div class="bg-panel border border-border rounded-xl p-4" title="The Federal Funds Rate is the overnight interest rate set by the Fed. Rising rates tend to hurt bonds and growth stocks. Cuts support equities and risk assets.">
+          <div class="flex items-center justify-between mb-1">
+            <div class="text-xs text-muted">Fed Funds Rate</div>
+            <span class="text-muted cursor-help text-xs" title="The benchmark overnight lending rate set by the Federal Reserve. Hikes = tighter money (bullish BIL, bearish TLT and growth). Cuts = looser money (bearish BIL, bullish equities). Series: FEDFUNDS.">(?)
+            </span>
+          </div>
+          <div class="text-2xl font-bold text-white mb-1">4.25%</div>
+          <div class="flex items-center gap-1.5 text-xs text-slate-400">
+            <span>→</span> <span>Hold — unchanged</span>
+          </div>
+          <div class="mt-2 text-[10px] text-muted">Series: FEDFUNDS · Source: FRED</div>
+        </div>
+
+        <!-- 10Y Treasury -->
+        <div class="bg-panel border border-border rounded-xl p-4" title="The 10Y Treasury yield is the benchmark long-term rate. Rising yields hurt bond prices (TLT) and high-valuation growth stocks. Falling yields support bonds and duration-sensitive assets.">
+          <div class="flex items-center justify-between mb-1">
+            <div class="text-xs text-muted">10Y Treasury Yield</div>
+            <span class="text-muted cursor-help text-xs" title="Yield on 10-year US Treasury note — the global risk-free rate benchmark. Falling = bullish for TLT, growth stocks. Rising = bullish for financials (XLF), bearish for bonds. Series: DGS10.">(?)
+            </span>
+          </div>
+          <div class="text-2xl font-bold text-white mb-1">4.38%</div>
+          <div class="flex items-center gap-1.5 text-xs text-green-400">
+            <span>↓</span> <span>Declining — was 4.70%</span>
+          </div>
+          <div class="mt-2 text-[10px] text-muted">Series: DGS10 · Source: FRED</div>
+        </div>
+
+      </div>
+
+      <!-- Regime History Timeline — last 90 days -->
+      <div class="bg-panel border border-border rounded-xl p-4 mb-5">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-sm font-medium">Regime History</span>
+          <span class="text-muted cursor-help text-xs" title="Each segment represents one week. Color indicates the dominant macro regime classification for that period. Today is rightmost.">(?)
+          </span>
+          <span class="text-xs text-muted ml-1">— last 90 days</span>
+        </div>
+        <!-- Weekly segments (~13 weeks) represented as colored bars -->
+        <div class="flex items-center gap-1 mb-3">
+          <!-- Week bars: each ~54px wide, 24px tall, rounded -->
+          <div class="flex-1 h-6 bg-green-600 rounded-sm opacity-80" title="Mar 3–9 · Risk On / Growth"></div>
+          <div class="flex-1 h-6 bg-green-600 rounded-sm opacity-80" title="Mar 10–16 · Risk On / Growth"></div>
+          <div class="flex-1 h-6 bg-green-600 rounded-sm opacity-80" title="Mar 17–23 · Risk On / Growth"></div>
+          <div class="flex-1 h-6 bg-yellow-500 rounded-sm opacity-80" title="Mar 24–30 · Neutral / Transition"></div>
+          <div class="flex-1 h-6 bg-red-600 rounded-sm opacity-80" title="Mar 31–Apr 6 · Risk Off / Recession"></div>
+          <div class="flex-1 h-6 bg-red-600 rounded-sm opacity-80" title="Apr 7–13 · Risk Off / Recession"></div>
+          <div class="flex-1 h-6 bg-red-600 rounded-sm opacity-80" title="Apr 14–20 · Risk Off / Recession"></div>
+          <div class="flex-1 h-6 bg-yellow-500 rounded-sm opacity-80" title="Apr 21–27 · Neutral / Transition"></div>
+          <div class="flex-1 h-6 bg-yellow-500 rounded-sm opacity-80" title="Apr 28–May 4 · Neutral / Transition"></div>
+          <div class="flex-1 h-6 bg-green-600 rounded-sm opacity-80" title="May 5–11 · Risk On / Growth"></div>
+          <div class="flex-1 h-6 bg-green-600 rounded-sm opacity-80" title="May 12–18 · Risk On / Growth"></div>
+          <div class="flex-1 h-6 bg-green-600 rounded-sm opacity-80" title="May 12–18 · Risk On / Growth"></div>
+          <div class="flex-1 h-6 bg-green-600 rounded-sm ring-2 ring-white opacity-90" title="May 19–Today · Risk On / Growth (current)"></div>
+          <div class="ml-1 text-[10px] text-muted whitespace-nowrap">← Today</div>
+        </div>
+        <!-- Date labels -->
+        <div class="flex items-center text-[10px] text-muted mb-3" style="gap:0">
+          <span class="flex-1 text-left">Mar 3</span>
+          <span class="flex-1 text-center">Apr 6</span>
+          <span class="flex-1 text-right">May 17</span>
+        </div>
+        <div class="flex items-center gap-5 text-xs text-muted">
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-green-600 inline-block"></span> Risk On / Growth</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-yellow-500 inline-block"></span> Neutral / Transition</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-red-600 inline-block"></span> Risk Off / Recession</span>
+          <span class="ml-auto text-[10px]">Regime duration: 12 days in current Risk On phase</span>
+        </div>
+      </div>
+
+      <!-- MACRO_FIT Win-Rate Table -->
+      <div class="bg-panel border border-border rounded-xl overflow-hidden">
+        <div class="px-4 py-3 border-b border-border flex items-center gap-2">
+          <span class="text-sm font-medium">MACRO_FIT Win Rate</span>
+          <span class="text-muted cursor-help text-xs" title="For each asset category, this shows the percentage of historical days in the current macro regime (Risk On / Growth) where the 60-day relative strength (RS_60) vs SPY was positive. Higher = historically outperforms in this regime.">(?)
+          </span>
+          <span class="text-xs text-muted ml-1">— % of days in Risk On / Growth where RS_60 &gt; 0</span>
+        </div>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-border text-muted text-xs uppercase tracking-wider">
+              <th class="text-left px-4 py-3">ETF</th>
+              <th class="text-left px-4 py-3">Name</th>
+              <th class="text-left px-4 py-3">Type</th>
+              <th class="text-right px-4 py-3">Win Rate</th>
+              <th class="text-left px-4 py-3 w-48">Historical fit</th>
+              <th class="text-left px-4 py-3">Interpretation</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLK</td>
+              <td class="px-4 py-2.5">Info Technology</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5 text-right font-mono text-green-400 font-semibold">78%</td>
+              <td class="px-4 py-2.5">
+                <div class="win-bar w-full"><div class="win-fill bg-green-500" style="width:78%"></div></div>
+              </td>
+              <td class="px-4 py-2.5 text-xs text-green-400">Strong fit — historically leads in growth regimes</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLF</td>
+              <td class="px-4 py-2.5">Financials</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5 text-right font-mono text-green-400 font-semibold">71%</td>
+              <td class="px-4 py-2.5">
+                <div class="win-bar w-full"><div class="win-fill bg-green-500" style="width:71%"></div></div>
+              </td>
+              <td class="px-4 py-2.5 text-xs text-green-400">Good fit — benefits from yield curve normalization</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLI</td>
+              <td class="px-4 py-2.5">Industrials</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5 text-right font-mono text-green-400 font-semibold">68%</td>
+              <td class="px-4 py-2.5">
+                <div class="win-bar w-full"><div class="win-fill bg-green-500" style="width:68%"></div></div>
+              </td>
+              <td class="px-4 py-2.5 text-xs text-green-400">Good fit — cyclical, benefits from growth</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-yellow-300 font-medium">GLD</td>
+              <td class="px-4 py-2.5">Gold</td>
+              <td class="px-4 py-2.5"><span class="tag bg-yellow-900/50 text-yellow-300">PM</span></td>
+              <td class="px-4 py-2.5 text-right font-mono text-yellow-400 font-semibold">62%</td>
+              <td class="px-4 py-2.5">
+                <div class="win-bar w-full"><div class="win-fill bg-yellow-500" style="width:62%"></div></div>
+              </td>
+              <td class="px-4 py-2.5 text-xs text-yellow-400">Moderate — gold outperforms when DXY falls</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLY</td>
+              <td class="px-4 py-2.5">Consumer Discr.</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5 text-right font-mono text-yellow-400 font-semibold">59%</td>
+              <td class="px-4 py-2.5">
+                <div class="win-bar w-full"><div class="win-fill bg-yellow-500" style="width:59%"></div></div>
+              </td>
+              <td class="px-4 py-2.5 text-xs text-yellow-400">Moderate — consumer spending sensitive to rates</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLC</td>
+              <td class="px-4 py-2.5">Comm. Services</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5 text-right font-mono text-yellow-400 font-semibold">57%</td>
+              <td class="px-4 py-2.5">
+                <div class="win-bar w-full"><div class="win-fill bg-yellow-500" style="width:57%"></div></div>
+              </td>
+              <td class="px-4 py-2.5 text-xs text-yellow-400">Moderate — mixed growth/defensive characteristics</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-yellow-300 font-medium">SLV</td>
+              <td class="px-4 py-2.5">Silver</td>
+              <td class="px-4 py-2.5"><span class="tag bg-yellow-900/50 text-yellow-300">PM</span></td>
+              <td class="px-4 py-2.5 text-right font-mono text-yellow-400 font-semibold">55%</td>
+              <td class="px-4 py-2.5">
+                <div class="win-bar w-full"><div class="win-fill bg-yellow-500" style="width:55%"></div></div>
+              </td>
+              <td class="px-4 py-2.5 text-xs text-yellow-400">Moderate — industrial demand offsets safe-haven</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-purple-300 font-medium">HYG</td>
+              <td class="px-4 py-2.5">High Yield</td>
+              <td class="px-4 py-2.5"><span class="tag bg-purple-900/50 text-purple-300">FI</span></td>
+              <td class="px-4 py-2.5 text-right font-mono text-yellow-400 font-semibold">54%</td>
+              <td class="px-4 py-2.5">
+                <div class="win-bar w-full"><div class="win-fill bg-yellow-500" style="width:54%"></div></div>
+              </td>
+              <td class="px-4 py-2.5 text-xs text-yellow-400">Moderate — spreads compress in growth, but rate risk</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLB</td>
+              <td class="px-4 py-2.5">Materials</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5 text-right font-mono text-yellow-400 font-semibold">52%</td>
+              <td class="px-4 py-2.5">
+                <div class="win-bar w-full"><div class="win-fill bg-yellow-500" style="width:52%"></div></div>
+              </td>
+              <td class="px-4 py-2.5 text-xs text-slate-400">Neutral — commodity-dependent, mixed regime fit</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLV</td>
+              <td class="px-4 py-2.5">Health Care</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5 text-right font-mono text-slate-400 font-semibold">49%</td>
+              <td class="px-4 py-2.5">
+                <div class="win-bar w-full"><div class="win-fill bg-slate-500" style="width:49%"></div></div>
+              </td>
+              <td class="px-4 py-2.5 text-xs text-slate-400">Neutral — defensive, slightly underperforms in risk-on</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLE</td>
+              <td class="px-4 py-2.5">Energy</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5 text-right font-mono text-slate-400 font-semibold">47%</td>
+              <td class="px-4 py-2.5">
+                <div class="win-bar w-full"><div class="win-fill bg-slate-500" style="width:47%"></div></div>
+              </td>
+              <td class="px-4 py-2.5 text-xs text-slate-400">Neutral — depends on oil prices more than growth</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLP</td>
+              <td class="px-4 py-2.5">Consumer Staples</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5 text-right font-mono text-red-400 font-semibold">38%</td>
+              <td class="px-4 py-2.5">
+                <div class="win-bar w-full"><div class="win-fill bg-red-500" style="width:38%"></div></div>
+              </td>
+              <td class="px-4 py-2.5 text-xs text-red-400">Weak fit — defensive, lags in risk-on regimes</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLU</td>
+              <td class="px-4 py-2.5">Utilities</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5 text-right font-mono text-red-400 font-semibold">34%</td>
+              <td class="px-4 py-2.5">
+                <div class="win-bar w-full"><div class="win-fill bg-red-500" style="width:34%"></div></div>
+              </td>
+              <td class="px-4 py-2.5 text-xs text-red-400">Weak fit — rate-sensitive, typically underperforms</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLRE</td>
+              <td class="px-4 py-2.5">Real Estate</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5 text-right font-mono text-red-400 font-semibold">33%</td>
+              <td class="px-4 py-2.5">
+                <div class="win-bar w-full"><div class="win-fill bg-red-500" style="width:33%"></div></div>
+              </td>
+              <td class="px-4 py-2.5 text-xs text-red-400">Weak fit — high rate sensitivity hurts REITs</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-purple-300 font-medium">TLT</td>
+              <td class="px-4 py-2.5">Long Duration</td>
+              <td class="px-4 py-2.5"><span class="tag bg-purple-900/50 text-purple-300">FI</span></td>
+              <td class="px-4 py-2.5 text-right font-mono text-red-400 font-semibold">29%</td>
+              <td class="px-4 py-2.5">
+                <div class="win-bar w-full"><div class="win-fill bg-red-500" style="width:29%"></div></div>
+              </td>
+              <td class="px-4 py-2.5 text-xs text-red-400">Poor fit — bonds underperform in risk-on, rising rate env.</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-slate-300 font-medium">BIL</td>
+              <td class="px-4 py-2.5">Cash / Short-Term</td>
+              <td class="px-4 py-2.5"><span class="tag bg-slate-700 text-slate-300">CA</span></td>
+              <td class="px-4 py-2.5 text-right font-mono text-red-400 font-semibold">18%</td>
+              <td class="px-4 py-2.5">
+                <div class="win-bar w-full"><div class="win-fill bg-red-500" style="width:18%"></div></div>
+              </td>
+              <td class="px-4 py-2.5 text-xs text-red-400">Poor fit — cash drag always lags in bull markets</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="px-4 py-2.5 border-t border-border text-xs text-muted">
+          Win rate based on 5 years of historical data in "Risk On / Growth" regime days · Higher = category historically outperforms SPY in this regime
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-panel border-t border-border px-6 py-2 flex items-center gap-6 text-xs text-muted shrink-0">
+    <span>Last ingestion: <span class="text-slate-300">Today 16:32 ET</span></span>
+    <span>PRICES: <span class="text-green-400">✓ success</span> · 1,840 rows</span>
+    <span>MACRO: <span class="text-green-400">✓ success</span> · 49 rows</span>
+    <span class="ml-auto">ftm-app :8080 · PostgreSQL :5432 · <a href="http://localhost:8080/swagger-ui.html" class="text-blue-400 hover:underline" target="_blank">OpenAPI ↗</a></span>
+  </footer>
+
+  <script>
+    function setTimeframe(tf) {
+      document.querySelectorAll('.tf-btn').forEach(btn => {
+        btn.className = 'tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors';
+      });
+      const btn = document.getElementById('tf-' + tf);
+      if (btn) btn.className = 'tf-btn px-3 py-1 rounded-md bg-blue-600 text-white';
+    }
+
+    function simulateRefresh() {
+      const icon = document.getElementById('refresh-icon');
+      const dot = document.getElementById('status-dot');
+      icon.style.animation = 'spin 1s linear infinite';
+      dot.innerHTML = '<span class="w-2 h-2 rounded-full bg-yellow-400 inline-block"></span><span class="text-yellow-400">Refreshing…</span>';
+      setTimeout(() => {
+        icon.style.animation = '';
+        dot.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span><span class="text-green-400">Up to date</span>';
+      }, 2000);
+    }
+  </script>
+</body>
+</html>

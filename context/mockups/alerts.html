@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Follow the Money — Alerts</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface: '#0f172a',
+            panel: '#1e293b',
+            border: '#334155',
+            muted: '#64748b',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background: #0f172a; font-family: 'Inter', system-ui, sans-serif; }
+    .nav-item { transition: all 0.15s; }
+    .nav-item:hover { background: #1e293b; }
+    .nav-item.active { background: #1e3a5f; border-left: 3px solid #3b82f6; }
+    .tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+    tr:hover td { background: #1e293b; }
+    input, select { background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 6px 10px; color: #e2e8f0; font-size: 13px; }
+    input:focus, select:focus { outline: none; border-color: #3b82f6; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="text-slate-200 min-h-screen flex flex-col">
+
+  <!-- HEADER -->
+  <header class="bg-panel border-b border-border px-6 py-3 flex items-center justify-between shrink-0 z-10">
+    <div class="flex items-center gap-3">
+      <a href="dashboard.html" class="text-blue-400 text-lg font-bold tracking-tight hover:text-blue-300">📈 Follow the Money</a>
+      <span class="text-muted text-xs">local · single-user</span>
+    </div>
+
+    <div class="flex items-center gap-1 bg-surface rounded-lg p-1 text-sm">
+      <button onclick="setTimeframe('DAY')" id="tf-DAY"   class="tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors">Day</button>
+      <button onclick="setTimeframe('WEEK')" id="tf-WEEK"  class="tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors">Week</button>
+      <button onclick="setTimeframe('MONTH')" id="tf-MONTH" class="tf-btn px-3 py-1 rounded-md bg-blue-600 text-white">Month</button>
+      <button onclick="setTimeframe('QUARTER')" id="tf-QUARTER" class="tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors">Quarter</button>
+      <button onclick="setTimeframe('YEAR')" id="tf-YEAR"  class="tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors">Year</button>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button onclick="simulateRefresh()" class="flex items-center gap-2 text-sm text-slate-300 hover:text-white bg-surface border border-border px-3 py-1.5 rounded-lg transition-colors">
+        <span id="refresh-icon">⟳</span> Refresh
+      </button>
+      <div id="status-dot" class="flex items-center gap-1.5 text-xs">
+        <span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span>
+        <span class="text-green-400">Up to date</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- SIDEBAR -->
+    <nav class="w-52 bg-panel border-r border-border flex flex-col py-4 shrink-0">
+      <div class="px-3 mb-2">
+        <span class="text-muted text-xs font-semibold uppercase tracking-widest">Analysis</span>
+      </div>
+      <a href="dashboard.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>🔄</span> Rotation
+      </a>
+      <a href="rrg.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>🎯</span> RRG Chart
+      </a>
+      <a href="flows.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>💰</span> Capital Flows
+      </a>
+      <a href="macro.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>🌍</span> Macro Regime
+      </a>
+
+      <div class="px-3 mt-4 mb-2">
+        <span class="text-muted text-xs font-semibold uppercase tracking-widest">Management</span>
+      </div>
+      <a href="portfolio.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>📁</span> Portfolio
+      </a>
+      <a href="alerts.html" class="nav-item active flex items-center gap-2.5 px-4 py-2.5 text-sm text-white">
+        <span>🔔</span> Alerts
+      </a>
+      <a href="backtest.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>📈</span> Backtester
+      </a>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 overflow-auto p-6">
+
+      <div class="flex items-center justify-between mb-5">
+        <h1 class="text-xl font-semibold">Alerts</h1>
+        <span class="flex items-center gap-2 text-xs">
+          <span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span>
+          <span class="text-red-400 font-semibold">3 active</span>
+          <span class="text-muted">· 2 rules defined</span>
+        </span>
+      </div>
+
+      <!-- Two-column layout: left=alerts/rules, right=add form -->
+      <div class="grid grid-cols-3 gap-5">
+
+        <!-- Left col (spans 2): Active Alerts + Rules List -->
+        <div class="col-span-2 flex flex-col gap-5">
+
+          <!-- Active Alerts -->
+          <div class="bg-panel border border-border rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-border flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span>
+              <span class="text-sm font-medium">Active Alerts</span>
+              <span class="text-muted cursor-help text-xs" title="Alerts that have triggered today based on the latest signal data. Dismiss an alert to silence it until the next trigger.">(?)
+              </span>
+              <button onclick="document.getElementById('active-alerts').classList.toggle('hidden')" class="ml-auto text-xs text-muted hover:text-slate-300">toggle</button>
+            </div>
+            <div id="active-alerts">
+              <!-- Alert 1: CRITICAL -->
+              <div class="px-4 py-3 border-b border-border flex items-start gap-3 bg-red-950/20">
+                <div class="mt-0.5">
+                  <span class="tag bg-red-900/80 text-red-300 border border-red-700/50">CRITICAL</span>
+                </div>
+                <div class="flex-1">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="font-mono text-red-300 font-semibold text-sm">XLU</span>
+                    <span class="text-slate-300 text-sm">Utilities</span>
+                    <span class="text-xs text-muted ml-auto">Today 09:31 ET</span>
+                  </div>
+                  <div class="text-sm text-slate-200 mb-1">
+                    RS_60 dropped below <span class="font-mono">−0.10</span> — severe underperformance vs SPY
+                  </div>
+                  <div class="text-xs text-muted">
+                    RS_60 = <span class="font-mono text-red-400">−0.142</span> · Condition: RS_60 &lt; −0.10 · Rule: "Deep Laggard"
+                  </div>
+                </div>
+                <button class="text-xs text-muted hover:text-slate-300 border border-border px-2 py-1 rounded" title="Dismiss until next trigger">Dismiss</button>
+              </div>
+
+              <!-- Alert 2: WARN -->
+              <div class="px-4 py-3 border-b border-border flex items-start gap-3 bg-yellow-950/20">
+                <div class="mt-0.5">
+                  <span class="tag bg-yellow-900/80 text-yellow-300 border border-yellow-700/50">WARN</span>
+                </div>
+                <div class="flex-1">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="font-mono text-yellow-300 font-semibold text-sm">TLT</span>
+                    <span class="text-slate-300 text-sm">Long Duration Bonds</span>
+                    <span class="text-xs text-muted ml-auto">Today 09:31 ET</span>
+                  </div>
+                  <div class="text-sm text-slate-200 mb-1">
+                    Composite score crossed below threshold <span class="font-mono">0.20</span>
+                  </div>
+                  <div class="text-xs text-muted">
+                    Score = <span class="font-mono text-yellow-400">0.15</span> · Condition: composite_score &lt; 0.20 · Rule: "Low Score Warning"
+                  </div>
+                </div>
+                <button class="text-xs text-muted hover:text-slate-300 border border-border px-2 py-1 rounded">Dismiss</button>
+              </div>
+
+              <!-- Alert 3: INFO -->
+              <div class="px-4 py-3 flex items-start gap-3 bg-blue-950/10">
+                <div class="mt-0.5">
+                  <span class="tag bg-blue-900/80 text-blue-300 border border-blue-700/50">INFO</span>
+                </div>
+                <div class="flex-1">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="font-mono text-blue-300 font-semibold text-sm">GLD</span>
+                    <span class="text-slate-300 text-sm">Gold</span>
+                    <span class="text-xs text-muted ml-auto">Today 09:31 ET</span>
+                  </div>
+                  <div class="text-sm text-slate-200 mb-1">
+                    RS_60 crossed above <span class="font-mono">+0.05</span> — entering outperformance territory
+                  </div>
+                  <div class="text-xs text-muted">
+                    RS_60 = <span class="font-mono text-green-400">+0.062</span> · Condition: RS_60 crosses +0.05 ↑ · Rule: "RS Breakout"
+                  </div>
+                </div>
+                <button class="text-xs text-muted hover:text-slate-300 border border-border px-2 py-1 rounded">Dismiss</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Alert History (last 7 days) -->
+          <div class="bg-panel border border-border rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-border flex items-center gap-2">
+              <span class="text-sm font-medium">Alert History</span>
+              <span class="text-xs text-muted">— last 7 days</span>
+            </div>
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-border text-muted text-xs uppercase tracking-wider">
+                  <th class="text-left px-4 py-2.5">Date</th>
+                  <th class="text-left px-4 py-2.5">ETF</th>
+                  <th class="text-left px-4 py-2.5">Severity</th>
+                  <th class="text-left px-4 py-2.5">Rule</th>
+                  <th class="text-right px-4 py-2.5">Signal Value</th>
+                  <th class="text-left px-4 py-2.5">Status</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border">
+                <tr>
+                  <td class="px-4 py-2 text-xs text-muted">May 17</td>
+                  <td class="px-4 py-2 font-mono text-blue-300 font-medium">XLU</td>
+                  <td class="px-4 py-2"><span class="tag bg-red-900/80 text-red-300">CRITICAL</span></td>
+                  <td class="px-4 py-2 text-xs">Deep Laggard</td>
+                  <td class="px-4 py-2 text-right font-mono text-xs text-red-400">RS_60 = −0.142</td>
+                  <td class="px-4 py-2 text-xs text-yellow-400">Active</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-2 text-xs text-muted">May 17</td>
+                  <td class="px-4 py-2 font-mono text-purple-300 font-medium">TLT</td>
+                  <td class="px-4 py-2"><span class="tag bg-yellow-900/80 text-yellow-300">WARN</span></td>
+                  <td class="px-4 py-2 text-xs">Low Score Warning</td>
+                  <td class="px-4 py-2 text-right font-mono text-xs text-yellow-400">score = 0.15</td>
+                  <td class="px-4 py-2 text-xs text-yellow-400">Active</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-2 text-xs text-muted">May 17</td>
+                  <td class="px-4 py-2 font-mono text-yellow-300 font-medium">GLD</td>
+                  <td class="px-4 py-2"><span class="tag bg-blue-900/80 text-blue-300">INFO</span></td>
+                  <td class="px-4 py-2 text-xs">RS Breakout</td>
+                  <td class="px-4 py-2 text-right font-mono text-xs text-green-400">RS_60 = +0.062</td>
+                  <td class="px-4 py-2 text-xs text-yellow-400">Active</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-2 text-xs text-muted">May 14</td>
+                  <td class="px-4 py-2 font-mono text-blue-300 font-medium">XLE</td>
+                  <td class="px-4 py-2"><span class="tag bg-red-900/80 text-red-300">CRITICAL</span></td>
+                  <td class="px-4 py-2 text-xs">Deep Laggard</td>
+                  <td class="px-4 py-2 text-right font-mono text-xs text-red-400">RS_60 = −0.118</td>
+                  <td class="px-4 py-2 text-xs text-muted">Dismissed</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-2 text-xs text-muted">May 12</td>
+                  <td class="px-4 py-2 font-mono text-blue-300 font-medium">XLK</td>
+                  <td class="px-4 py-2"><span class="tag bg-blue-900/80 text-blue-300">INFO</span></td>
+                  <td class="px-4 py-2 text-xs">RS Breakout</td>
+                  <td class="px-4 py-2 text-right font-mono text-xs text-green-400">RS_60 = +0.038</td>
+                  <td class="px-4 py-2 text-xs text-muted">Dismissed</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Alert Rules -->
+          <div class="bg-panel border border-border rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-border flex items-center gap-2">
+              <span class="text-sm font-medium">Alert Rules</span>
+              <span class="text-muted cursor-help text-xs" title="Rules are evaluated each time data is ingested. A rule fires when its condition transitions from false to true (crossing trigger, not sustained).">(?)
+              </span>
+            </div>
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-border text-muted text-xs uppercase tracking-wider">
+                  <th class="text-left px-4 py-3">Rule Name</th>
+                  <th class="text-left px-4 py-3">Category</th>
+                  <th class="text-left px-4 py-3">
+                    <span class="flex items-center gap-1">
+                      Condition
+                      <span class="text-muted cursor-help" title="RS_60: 60-day relative return vs SPY. composite_score: 0–1 signal combining RS, momentum, macro fit. 'crosses' means the value transitions from below to above (or vice versa) on this ingestion.">(?)
+                      </span>
+                    </span>
+                  </th>
+                  <th class="text-left px-4 py-3">Severity</th>
+                  <th class="text-left px-4 py-3">Enabled</th>
+                  <th class="text-right px-4 py-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border">
+                <tr>
+                  <td class="px-4 py-3 font-medium">RS Breakout</td>
+                  <td class="px-4 py-3 text-muted">Any</td>
+                  <td class="px-4 py-3">
+                    <code class="text-xs bg-slate-800 px-2 py-0.5 rounded font-mono text-green-300">RS_60 crosses +0.05 ↑</code>
+                    <span class="text-muted cursor-help text-xs ml-1" title="Fires when any category's 60-day relative return vs SPY crosses above +5% for the first time in the window. Suggests a potential leadership shift.">(?)
+                    </span>
+                  </td>
+                  <td class="px-4 py-3"><span class="tag bg-blue-900/80 text-blue-300">INFO</span></td>
+                  <td class="px-4 py-3">
+                    <span class="w-4 h-4 rounded-full bg-green-400 inline-block" title="Enabled"></span>
+                  </td>
+                  <td class="px-4 py-3 text-right">
+                    <button onclick="editRule('RS Breakout')" class="text-xs text-blue-400 hover:text-blue-300 mr-3">Edit</button>
+                    <button class="text-xs text-red-400 hover:text-red-300">Delete</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 font-medium">Low Score Warning</td>
+                  <td class="px-4 py-3 text-muted">Any</td>
+                  <td class="px-4 py-3">
+                    <code class="text-xs bg-slate-800 px-2 py-0.5 rounded font-mono text-yellow-300">composite_score &lt; 0.20</code>
+                    <span class="text-muted cursor-help text-xs ml-1" title="Fires when any category's composite score drops below 0.20 (on a 0–1 scale). Signals weak RS + momentum + macro alignment — consider reducing.">(?)
+                    </span>
+                  </td>
+                  <td class="px-4 py-3"><span class="tag bg-yellow-900/80 text-yellow-300">WARN</span></td>
+                  <td class="px-4 py-3">
+                    <span class="w-4 h-4 rounded-full bg-green-400 inline-block" title="Enabled"></span>
+                  </td>
+                  <td class="px-4 py-3 text-right">
+                    <button onclick="editRule('Low Score Warning')" class="text-xs text-blue-400 hover:text-blue-300 mr-3">Edit</button>
+                    <button class="text-xs text-red-400 hover:text-red-300">Delete</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 font-medium">Deep Laggard</td>
+                  <td class="px-4 py-3 text-muted">Any</td>
+                  <td class="px-4 py-3">
+                    <code class="text-xs bg-slate-800 px-2 py-0.5 rounded font-mono text-red-300">RS_60 &lt; −0.10</code>
+                    <span class="text-muted cursor-help text-xs ml-1" title="Fires when RS_60 drops below −10% vs SPY over 60 days. This is a severe underperformance signal — strong sell signal.">(?)
+                    </span>
+                  </td>
+                  <td class="px-4 py-3"><span class="tag bg-red-900/80 text-red-300">CRITICAL</span></td>
+                  <td class="px-4 py-3">
+                    <span class="w-4 h-4 rounded-full bg-green-400 inline-block" title="Enabled"></span>
+                  </td>
+                  <td class="px-4 py-3 text-right">
+                    <button onclick="editRule('Deep Laggard')" class="text-xs text-blue-400 hover:text-blue-300 mr-3">Edit</button>
+                    <button class="text-xs text-red-400 hover:text-red-300">Delete</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+
+        <!-- Right col: Add / Edit Rule Form -->
+        <div>
+          <div class="bg-panel border border-border rounded-xl p-4" id="rule-form">
+            <div class="text-sm font-medium mb-4 flex items-center gap-2">
+              <span id="form-title">Add Alert Rule</span>
+            </div>
+
+            <div class="flex flex-col gap-3">
+              <div>
+                <label class="text-xs text-muted block mb-1">Rule Name</label>
+                <input type="text" id="rule-name" placeholder="e.g. Momentum Breakout" class="w-full"/>
+              </div>
+
+              <div>
+                <label class="text-xs text-muted block mb-1 flex items-center gap-1">
+                  Category
+                  <span class="cursor-help" title="Select a specific ETF or 'Any' to apply the rule to all categories.">(?)
+                  </span>
+                </label>
+                <select id="rule-category" class="w-full">
+                  <option value="">Any category</option>
+                  <option>XLK — Info Technology</option>
+                  <option>XLF — Financials</option>
+                  <option>XLI — Industrials</option>
+                  <option>XLY — Consumer Discr.</option>
+                  <option>XLC — Comm. Services</option>
+                  <option>XLV — Health Care</option>
+                  <option>XLB — Materials</option>
+                  <option>XLE — Energy</option>
+                  <option>XLP — Consumer Staples</option>
+                  <option>XLU — Utilities</option>
+                  <option>XLRE — Real Estate</option>
+                  <option>QQQ — Nasdaq 100</option>
+                  <option>IWM — Russell 2000</option>
+                  <option>GLD — Gold</option>
+                  <option>SLV — Silver</option>
+                  <option>TLT — Long Duration</option>
+                  <option>HYG — High Yield</option>
+                  <option>BIL — Cash</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="text-xs text-muted block mb-1 flex items-center gap-1">
+                  Signal
+                  <span class="cursor-help" title="RS_60: 60-day relative return vs SPY (-1 to +1). composite_score: combined 0–1 signal. RS_Ratio: RRG ratio centered at 100. RS_Momentum: RRG momentum centered at 100.">(?)
+                  </span>
+                </label>
+                <select id="rule-signal" class="w-full">
+                  <option>RS_60</option>
+                  <option>composite_score</option>
+                  <option>RS_Ratio</option>
+                  <option>RS_Momentum</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="text-xs text-muted block mb-1 flex items-center gap-1">
+                  Condition
+                  <span class="cursor-help" title="'crosses above' fires once when the value moves from below to above the threshold. 'crosses below' fires once on the downside transition. 'falls below' / 'rises above' fires on every ingestion while the condition holds.">(?)
+                  </span>
+                </label>
+                <select id="rule-condition" class="w-full">
+                  <option>crosses above</option>
+                  <option>crosses below</option>
+                  <option>falls below</option>
+                  <option>rises above</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="text-xs text-muted block mb-1">Threshold value</label>
+                <input type="number" id="rule-threshold" placeholder="e.g. 0.05" step="0.01" class="w-full"/>
+              </div>
+
+              <div>
+                <label class="text-xs text-muted block mb-1">Severity</label>
+                <select id="rule-severity" class="w-full">
+                  <option>INFO</option>
+                  <option>WARN</option>
+                  <option>CRITICAL</option>
+                </select>
+              </div>
+
+              <div class="flex gap-2 pt-1">
+                <button onclick="saveRule()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-sm py-2 rounded-lg font-medium transition-colors">
+                  Save Rule
+                </button>
+                <button onclick="resetForm()" class="px-3 py-2 text-sm text-muted hover:text-slate-300 border border-border rounded-lg transition-colors">
+                  Clear
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Condition reference card -->
+          <div class="bg-panel border border-border rounded-xl p-4 mt-4">
+            <div class="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Signal Reference</div>
+            <div class="flex flex-col gap-2 text-xs">
+              <div class="flex justify-between">
+                <span class="font-mono text-slate-300">RS_60</span>
+                <span class="text-muted text-right">60-day excess return vs SPY</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="font-mono text-slate-300">composite_score</span>
+                <span class="text-muted text-right">Combined signal (0–1)</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="font-mono text-slate-300">RS_Ratio</span>
+                <span class="text-muted text-right">RRG x-axis (centered 100)</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="font-mono text-slate-300">RS_Momentum</span>
+                <span class="text-muted text-right">RRG y-axis (centered 100)</span>
+              </div>
+              <div class="border-t border-border mt-1 pt-2 text-muted">
+                RS_60 typical range: −0.3 to +0.3<br/>
+                composite_score: 0.0 (weak) → 1.0 (strong)<br/>
+                RS_Ratio / RS_Momentum: ~95 to ~105
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-panel border-t border-border px-6 py-2 flex items-center gap-6 text-xs text-muted shrink-0">
+    <span>Last ingestion: <span class="text-slate-300">Today 16:32 ET</span></span>
+    <span>PRICES: <span class="text-green-400">✓ success</span> · 1,840 rows</span>
+    <span>MACRO: <span class="text-green-400">✓ success</span> · 49 rows</span>
+    <span class="ml-auto">ftm-app :8080 · PostgreSQL :5432 · <a href="http://localhost:8080/swagger-ui.html" class="text-blue-400 hover:underline" target="_blank">OpenAPI ↗</a></span>
+  </footer>
+
+  <script>
+    function setTimeframe(tf) {
+      document.querySelectorAll('.tf-btn').forEach(btn => {
+        btn.className = 'tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors';
+      });
+      const btn = document.getElementById('tf-' + tf);
+      if (btn) btn.className = 'tf-btn px-3 py-1 rounded-md bg-blue-600 text-white';
+    }
+
+    function simulateRefresh() {
+      const icon = document.getElementById('refresh-icon');
+      const dot = document.getElementById('status-dot');
+      icon.style.animation = 'spin 1s linear infinite';
+      dot.innerHTML = '<span class="w-2 h-2 rounded-full bg-yellow-400 inline-block"></span><span class="text-yellow-400">Refreshing…</span>';
+      setTimeout(() => {
+        icon.style.animation = '';
+        dot.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span><span class="text-green-400">Up to date</span>';
+      }, 2000);
+    }
+
+    function editRule(name) {
+      document.getElementById('form-title').textContent = 'Edit Rule: ' + name;
+      document.getElementById('rule-name').value = name;
+      if (name === 'RS Breakout') {
+        document.getElementById('rule-signal').value = 'RS_60';
+        document.getElementById('rule-condition').value = 'crosses above';
+        document.getElementById('rule-threshold').value = '0.05';
+        document.getElementById('rule-severity').value = 'INFO';
+      } else if (name === 'Low Score Warning') {
+        document.getElementById('rule-signal').value = 'composite_score';
+        document.getElementById('rule-condition').value = 'falls below';
+        document.getElementById('rule-threshold').value = '0.20';
+        document.getElementById('rule-severity').value = 'WARN';
+      } else if (name === 'Deep Laggard') {
+        document.getElementById('rule-signal').value = 'RS_60';
+        document.getElementById('rule-condition').value = 'falls below';
+        document.getElementById('rule-threshold').value = '-0.10';
+        document.getElementById('rule-severity').value = 'CRITICAL';
+      }
+    }
+
+    function saveRule() {
+      const name = document.getElementById('rule-name').value;
+      if (!name) { alert('Please enter a rule name.'); return; }
+      document.getElementById('form-title').textContent = 'Add Alert Rule';
+      resetForm();
+      // In real app: POST to API
+    }
+
+    function resetForm() {
+      document.getElementById('rule-name').value = '';
+      document.getElementById('rule-threshold').value = '';
+      document.getElementById('form-title').textContent = 'Add Alert Rule';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Follow the Money — Capital Flows</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface: '#0f172a',
+            panel: '#1e293b',
+            border: '#334155',
+            muted: '#64748b',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background: #0f172a; font-family: 'Inter', system-ui, sans-serif; }
+    .nav-item { transition: all 0.15s; }
+    .nav-item:hover { background: #1e293b; }
+    .nav-item.active { background: #1e3a5f; border-left: 3px solid #3b82f6; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+    .pulse { animation: pulse 2.5s ease-in-out infinite; }
+    .feature-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; }
+  </style>
+</head>
+<body class="text-slate-200 min-h-screen flex flex-col">
+
+  <!-- HEADER -->
+  <header class="bg-panel border-b border-border px-6 py-3 flex items-center justify-between shrink-0 z-10">
+    <div class="flex items-center gap-3">
+      <a href="dashboard.html" class="text-blue-400 text-lg font-bold tracking-tight hover:text-blue-300">📈 Follow the Money</a>
+      <span class="text-muted text-xs">local · single-user</span>
+    </div>
+
+    <div class="flex items-center gap-1 bg-surface rounded-lg p-1 text-sm">
+      <button id="tf-DAY"   class="tf-btn px-3 py-1 rounded-md text-muted transition-colors opacity-40 cursor-not-allowed">Day</button>
+      <button id="tf-WEEK"  class="tf-btn px-3 py-1 rounded-md text-muted transition-colors opacity-40 cursor-not-allowed">Week</button>
+      <button id="tf-MONTH" class="tf-btn px-3 py-1 rounded-md text-muted opacity-40 cursor-not-allowed">Month</button>
+      <button id="tf-QUARTER" class="tf-btn px-3 py-1 rounded-md text-muted transition-colors opacity-40 cursor-not-allowed">Quarter</button>
+      <button id="tf-YEAR"  class="tf-btn px-3 py-1 rounded-md text-muted transition-colors opacity-40 cursor-not-allowed">Year</button>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button class="flex items-center gap-2 text-sm text-muted bg-surface border border-border px-3 py-1.5 rounded-lg opacity-40 cursor-not-allowed">
+        <span>⟳</span> Refresh
+      </button>
+      <div class="flex items-center gap-1.5 text-xs">
+        <span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span>
+        <span class="text-green-400">Up to date</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- SIDEBAR -->
+    <nav class="w-52 bg-panel border-r border-border flex flex-col py-4 shrink-0">
+      <div class="px-3 mb-2">
+        <span class="text-muted text-xs font-semibold uppercase tracking-widest">Analysis</span>
+      </div>
+      <a href="dashboard.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>🔄</span> Rotation
+      </a>
+      <a href="rrg.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>🎯</span> RRG Chart
+      </a>
+      <a href="flows.html" class="nav-item active flex items-center gap-2.5 px-4 py-2.5 text-sm text-white">
+        <span>💰</span> Capital Flows
+      </a>
+      <a href="macro.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>🌍</span> Macro Regime
+      </a>
+
+      <div class="px-3 mt-4 mb-2">
+        <span class="text-muted text-xs font-semibold uppercase tracking-widest">Management</span>
+      </div>
+      <a href="portfolio.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>📁</span> Portfolio
+      </a>
+      <a href="alerts.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>🔔</span> Alerts
+      </a>
+      <a href="backtest.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>📈</span> Backtester
+      </a>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 overflow-auto p-6 flex flex-col items-center justify-start">
+
+      <!-- Coming Soon Hero -->
+      <div class="w-full max-w-3xl mx-auto">
+
+        <!-- Title row -->
+        <div class="flex items-center gap-3 mb-2">
+          <h1 class="text-xl font-semibold">Capital Flows</h1>
+          <span class="px-2.5 py-0.5 bg-slate-700 text-muted text-xs font-semibold rounded-full uppercase tracking-wider">Coming Soon</span>
+        </div>
+        <p class="text-sm text-muted mb-8">ETF AUM flow data, buy/sell pressure indicators, and institutional capital movement analysis.</p>
+
+        <!-- Illustration panel -->
+        <div class="bg-panel border border-border rounded-2xl p-8 mb-8 flex flex-col items-center text-center">
+
+          <!-- Animated pulse icon -->
+          <div class="relative mb-6">
+            <div class="pulse absolute inset-0 rounded-full bg-blue-500 opacity-10 scale-150"></div>
+            <div class="w-20 h-20 rounded-full bg-blue-900/40 border border-blue-600/30 flex items-center justify-center text-4xl">
+              💰
+            </div>
+          </div>
+
+          <h2 class="text-lg font-semibold mb-2">Capital Flows data is coming in the next milestone</h2>
+          <p class="text-sm text-muted max-w-lg mb-6">
+            This view will integrate ETF AUM (Assets Under Management) flow data from public sources, giving you a clearer picture of where institutional money is actually moving — not just price signals.
+          </p>
+
+          <!-- Horizontal timeline -->
+          <div class="flex items-center gap-0 w-full max-w-xl mb-6">
+            <div class="flex flex-col items-center flex-1">
+              <div class="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-white text-xs font-bold">✓</div>
+              <div class="text-[10px] text-green-400 mt-1 font-semibold">M1–M4</div>
+              <div class="text-[10px] text-muted text-center">Price ingestion, signals, macro, RRG</div>
+            </div>
+            <div class="h-0.5 flex-1 bg-green-700 opacity-60 mb-4"></div>
+            <div class="flex flex-col items-center flex-1">
+              <div class="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-white text-xs font-bold">✓</div>
+              <div class="text-[10px] text-green-400 mt-1 font-semibold">M5</div>
+              <div class="text-[10px] text-muted text-center">Portfolio, Alerts, Backtester</div>
+            </div>
+            <div class="h-0.5 flex-1 bg-blue-700 opacity-60 mb-4"></div>
+            <div class="flex flex-col items-center flex-1">
+              <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold pulse">6</div>
+              <div class="text-[10px] text-blue-400 mt-1 font-semibold">M6 — Next</div>
+              <div class="text-[10px] text-muted text-center">Capital Flows integration</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Feature preview cards -->
+        <div class="text-xs text-muted font-semibold uppercase tracking-widest mb-4">Planned Features</div>
+        <div class="grid grid-cols-2 gap-4 mb-8">
+
+          <div class="feature-card">
+            <div class="flex items-start gap-3">
+              <div class="text-2xl mt-0.5">📊</div>
+              <div>
+                <div class="font-semibold text-sm mb-1">AUM Flow per Category</div>
+                <div class="text-xs text-muted">Daily net inflow/outflow (AUM delta) for each ETF, sourced from public ETF data providers. Shows where institutional money is actually going, independent of price action.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="flex items-start gap-3">
+              <div class="text-2xl mt-0.5">📈</div>
+              <div>
+                <div class="font-semibold text-sm mb-1">Flow Momentum</div>
+                <div class="text-xs text-muted">Rolling 20-day cumulative net flows vs 60-day average — identifies when capital is accelerating into or out of a sector. A strong positive flow momentum alongside RS signal = conviction confirmation.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="flex items-start gap-3">
+              <div class="text-2xl mt-0.5">⚡</div>
+              <div>
+                <div class="font-semibold text-sm mb-1">Buy / Sell Pressure</div>
+                <div class="text-xs text-muted">Normalized buy/sell indicator combining flow direction, volume relative to 30-day average, and price confirmation. Displayed as a color-coded bar per category.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="flex items-start gap-3">
+              <div class="text-2xl mt-0.5">🔗</div>
+              <div>
+                <div class="font-semibold text-sm mb-1">Flow + Signal Composite</div>
+                <div class="text-xs text-muted">When AUM flows align with the existing RS and macro signals, the composite score will gain an additional flow-confirmation weight. Reduces false positives from price-only signals.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="flex items-start gap-3">
+              <div class="text-2xl mt-0.5">📅</div>
+              <div>
+                <div class="font-semibold text-sm mb-1">Flow History Timeline</div>
+                <div class="text-xs text-muted">12-month rolling chart of net AUM flows per category, with regime overlay. See how institutional allocation shifted across Risk On / Risk Off cycles.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="flex items-start gap-3">
+              <div class="text-2xl mt-0.5">🔔</div>
+              <div>
+                <div class="font-semibold text-sm mb-1">Flow-Based Alert Rules</div>
+                <div class="text-xs text-muted">New alert conditions: "net_inflow_7d crosses +$500M", "flow_momentum diverges from RS_60", or "consecutive outflow days &gt; 5". Available in the Alerts page once flows are live.</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Data source note -->
+        <div class="bg-slate-900/60 border border-border rounded-xl p-4 text-xs text-muted">
+          <div class="font-semibold text-slate-400 mb-1">Planned Data Sources</div>
+          <div class="flex flex-col gap-1">
+            <span>· ETF.com or VettaFi public AUM data (scraped or API)</span>
+            <span>· SSGA (State Street), Vanguard, iShares fund flow disclosures</span>
+            <span>· Ingestion pipeline extension: new <code class="bg-slate-800 px-1 rounded">FLOWS</code> ingestion job alongside existing PRICES + MACRO jobs</span>
+            <span>· Expected frequency: daily, with 1–2 day reporting lag from providers</span>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-panel border-t border-border px-6 py-2 flex items-center gap-6 text-xs text-muted shrink-0">
+    <span>Last ingestion: <span class="text-slate-300">Today 16:32 ET</span></span>
+    <span>PRICES: <span class="text-green-400">✓ success</span> · 1,840 rows</span>
+    <span>MACRO: <span class="text-green-400">✓ success</span> · 49 rows</span>
+    <span class="ml-auto">ftm-app :8080 · PostgreSQL :5432 · <a href="http://localhost:8080/swagger-ui.html" class="text-blue-400 hover:underline" target="_blank">OpenAPI ↗</a></span>
+  </footer>
+
+</body>
+</html>

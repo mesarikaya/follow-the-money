@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Follow the Money — Backtester</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface: '#0f172a',
+            panel: '#1e293b',
+            border: '#334155',
+            muted: '#64748b',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background: #0f172a; font-family: 'Inter', system-ui, sans-serif; }
+    .nav-item { transition: all 0.15s; }
+    .nav-item:hover { background: #1e293b; }
+    .nav-item.active { background: #1e3a5f; border-left: 3px solid #3b82f6; }
+    .tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+    input[type="date"], input[type="number"], select {
+      background: #0f172a; border: 1px solid #334155; border-radius: 6px;
+      padding: 6px 10px; color: #e2e8f0; font-size: 13px; width: 100%;
+    }
+    input:focus, select:focus { outline: none; border-color: #3b82f6; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .metric-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px; }
+    .metric-win  { color: #22c55e; }
+    .metric-loss { color: #ef4444; }
+    .metric-neutral { color: #94a3b8; }
+  </style>
+</head>
+<body class="text-slate-200 min-h-screen flex flex-col">
+
+  <!-- HEADER -->
+  <header class="bg-panel border-b border-border px-6 py-3 flex items-center justify-between shrink-0 z-10">
+    <div class="flex items-center gap-3">
+      <a href="dashboard.html" class="text-blue-400 text-lg font-bold tracking-tight hover:text-blue-300">📈 Follow the Money</a>
+      <span class="text-muted text-xs">local · single-user</span>
+    </div>
+
+    <div class="flex items-center gap-1 bg-surface rounded-lg p-1 text-sm">
+      <button onclick="setTimeframe('DAY')" id="tf-DAY"   class="tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors">Day</button>
+      <button onclick="setTimeframe('WEEK')" id="tf-WEEK"  class="tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors">Week</button>
+      <button onclick="setTimeframe('MONTH')" id="tf-MONTH" class="tf-btn px-3 py-1 rounded-md bg-blue-600 text-white">Month</button>
+      <button onclick="setTimeframe('QUARTER')" id="tf-QUARTER" class="tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors">Quarter</button>
+      <button onclick="setTimeframe('YEAR')" id="tf-YEAR"  class="tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors">Year</button>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button onclick="simulateRefresh()" class="flex items-center gap-2 text-sm text-slate-300 hover:text-white bg-surface border border-border px-3 py-1.5 rounded-lg transition-colors">
+        <span id="refresh-icon">⟳</span> Refresh
+      </button>
+      <div id="status-dot" class="flex items-center gap-1.5 text-xs">
+        <span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span>
+        <span class="text-green-400">Up to date</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- SIDEBAR -->
+    <nav class="w-52 bg-panel border-r border-border flex flex-col py-4 shrink-0">
+      <div class="px-3 mb-2">
+        <span class="text-muted text-xs font-semibold uppercase tracking-widest">Analysis</span>
+      </div>
+      <a href="dashboard.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>🔄</span> Rotation
+      </a>
+      <a href="rrg.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>🎯</span> RRG Chart
+      </a>
+      <a href="flows.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>💰</span> Capital Flows
+      </a>
+      <a href="macro.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>🌍</span> Macro Regime
+      </a>
+
+      <div class="px-3 mt-4 mb-2">
+        <span class="text-muted text-xs font-semibold uppercase tracking-widest">Management</span>
+      </div>
+      <a href="portfolio.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>📁</span> Portfolio
+      </a>
+      <a href="alerts.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>🔔</span> Alerts
+      </a>
+      <a href="backtest.html" class="nav-item active flex items-center gap-2.5 px-4 py-2.5 text-sm text-white">
+        <span>📈</span> Backtester
+      </a>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 overflow-auto p-6">
+
+      <div class="flex items-center gap-2 mb-5">
+        <h1 class="text-xl font-semibold">Backtester</h1>
+        <span class="text-muted cursor-help text-sm" title="Simulate a top-N composite score rotation strategy over a historical period. The strategy holds the N categories with the highest composite scores, rebalanced on your chosen frequency, equal-weighted. Compare performance vs SPY buy-and-hold.">(?)
+        </span>
+      </div>
+
+      <div class="grid grid-cols-4 gap-5">
+
+        <!-- Parameters panel (left column) -->
+        <div class="col-span-1">
+          <div class="bg-panel border border-border rounded-xl p-4">
+            <div class="text-sm font-medium mb-4">Strategy Parameters</div>
+
+            <div class="flex flex-col gap-4">
+
+              <div>
+                <label class="text-xs text-muted block mb-1 flex items-center gap-1">
+                  Start Date
+                  <span class="cursor-help" title="The backtest begins on this date. Historical price data must be available from this date forward.">(?)
+                  </span>
+                </label>
+                <input type="date" value="2020-01-01"/>
+              </div>
+
+              <div>
+                <label class="text-xs text-muted block mb-1 flex items-center gap-1">
+                  End Date
+                  <span class="cursor-help" title="The backtest ends on this date. Use today's date for most-recent-available results.">(?)
+                  </span>
+                </label>
+                <input type="date" value="2025-04-30"/>
+              </div>
+
+              <div>
+                <label class="text-xs text-muted block mb-1 flex items-center gap-1">
+                  Rebalance Frequency
+                  <span class="cursor-help" title="How often the strategy checks signals and reallocates. Weekly = every Monday, Monthly = first trading day of each month. More frequent rebalancing increases transaction costs in practice.">(?)
+                  </span>
+                </label>
+                <select>
+                  <option>Weekly</option>
+                  <option selected>Monthly</option>
+                  <option>Quarterly</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="text-xs text-muted block mb-1 flex items-center gap-1">
+                  Top-N Categories
+                  <span class="cursor-help" title="Hold this many categories with the highest composite scores. Equal weight applied. Lower N = more concentrated, higher N = more diversified. N=5 holds top 5 of 19 categories.">(?)
+                  </span>
+                </label>
+                <input type="number" value="5" min="1" max="19"/>
+              </div>
+
+              <div>
+                <label class="text-xs text-muted block mb-1 flex items-center gap-1">
+                  Min Composite Score
+                  <span class="cursor-help" title="If fewer than Top-N categories exceed this threshold, the remaining allocation goes to BIL (cash). Prevents holding weak signals. Range 0–100 (same scale as the dashboard score column).">(?)
+                  </span>
+                </label>
+                <input type="number" value="40" min="0" max="100" step="5"/>
+                <div class="text-[10px] text-muted mt-1">Categories below this score are skipped (cash instead)</div>
+              </div>
+
+              <div>
+                <label class="text-xs text-muted block mb-1 flex items-center gap-1">
+                  Benchmark
+                  <span class="cursor-help" title="SPY is the S&amp;P 500 ETF — the standard market benchmark. The strategy is compared to buying and holding SPY for the same period.">(?)
+                  </span>
+                </label>
+                <select>
+                  <option selected>SPY (S&amp;P 500)</option>
+                  <option>QQQ (Nasdaq 100)</option>
+                  <option>IWM (Russell 2000)</option>
+                </select>
+              </div>
+
+              <button onclick="runBacktest()" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
+                <span id="run-icon">▶</span> Run Backtest
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Results: chart + metrics (right 3 columns) -->
+        <div class="col-span-3 flex flex-col gap-5">
+
+          <!-- Equity Curve Chart -->
+          <div class="bg-panel border border-border rounded-xl p-4">
+            <div class="flex items-center justify-between mb-3">
+              <div class="text-sm font-medium">Equity Curve</div>
+              <div class="flex items-center gap-4 text-xs">
+                <span class="flex items-center gap-1.5"><span class="inline-block w-6 h-0.5 bg-blue-400"></span> Strategy (Top-5 monthly)</span>
+                <span class="flex items-center gap-1.5"><span class="inline-block w-6 h-0.5 bg-slate-400 opacity-60" style="border-top: 2px dashed #64748b; height:0"></span> SPY Benchmark</span>
+              </div>
+            </div>
+
+            <!-- SVG Equity Curve — Jan 2020 to Apr 2025 (63 months) -->
+            <svg viewBox="0 0 700 200" class="w-full" style="height:200px;">
+              <!-- Background grid lines -->
+              <line x1="50" y1="20" x2="690" y2="20" stroke="#334155" stroke-width="0.5"/>
+              <line x1="50" y1="60" x2="690" y2="60" stroke="#334155" stroke-width="0.5"/>
+              <line x1="50" y1="100" x2="690" y2="100" stroke="#334155" stroke-width="0.5"/>
+              <line x1="50" y1="140" x2="690" y2="140" stroke="#334155" stroke-width="0.5"/>
+              <line x1="50" y1="180" x2="690" y2="180" stroke="#334155" stroke-width="0.5"/>
+
+              <!-- Y-axis labels -->
+              <text x="44" y="23" fill="#64748b" font-size="9" text-anchor="end">+180%</text>
+              <text x="44" y="63" fill="#64748b" font-size="9" text-anchor="end">+130%</text>
+              <text x="44" y="103" fill="#64748b" font-size="9" text-anchor="end">+80%</text>
+              <text x="44" y="143" fill="#64748b" font-size="9" text-anchor="end">+30%</text>
+              <text x="44" y="183" fill="#64748b" font-size="9" text-anchor="end">0%</text>
+
+              <!-- X-axis labels -->
+              <text x="50" y="196" fill="#64748b" font-size="9" text-anchor="middle">Jan'20</text>
+              <text x="175" y="196" fill="#64748b" font-size="9" text-anchor="middle">Jan'21</text>
+              <text x="300" y="196" fill="#64748b" font-size="9" text-anchor="middle">Jan'22</text>
+              <text x="425" y="196" fill="#64748b" font-size="9" text-anchor="middle">Jan'23</text>
+              <text x="550" y="196" fill="#64748b" font-size="9" text-anchor="middle">Jan'24</text>
+              <text x="690" y="196" fill="#64748b" font-size="9" text-anchor="middle">Apr'25</text>
+
+              <!-- SPY benchmark curve (dashed, gray) — roughly +95% over period -->
+              <!-- Normalized: 0% at y=180, 180% at y=20. Scale: 1% = 160/180 = 0.889px -->
+              <!-- SPY path: starts at 180, covid dip to ~155 (Feb-Mar 2020), recovery, +30% end 2020 (154), 2021 run to 100, 2022 decline to 130, recovery 2023 to 100, 2024 run to 65, 2025 slightly up to 68 -->
+              <polyline
+                points="50,180 90,170 100,155 120,158 140,148 175,130 200,115 230,100 260,110 275,125 285,135 300,130 310,118 330,108 360,100 390,88 410,80 425,78 450,68 480,62 510,60 540,55 550,58 580,65 620,68 660,68 690,68"
+                fill="none" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5,3" opacity="0.7"/>
+
+              <!-- Strategy curve (solid, blue) — roughly +148% over period -->
+              <!-- Strategy: starts same, less covid damage (154), better recovery (148→110→65→50 end of 2021), 2022 less pain (85), 2023 strong (55), 2024 strong (35), 2025 (30) -->
+              <polyline
+                points="50,180 85,175 100,162 118,155 135,142 165,120 185,105 210,90 235,78 260,72 280,80 295,88 305,92 315,82 340,68 365,58 385,48 410,42 430,35 455,30 480,26 510,28 540,32 570,36 610,38 650,35 690,32"
+                fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+              <!-- Fill under strategy curve -->
+              <polygon
+                points="50,180 50,180 85,175 100,162 118,155 135,142 165,120 185,105 210,90 235,78 260,72 280,80 295,88 305,92 315,82 340,68 365,58 385,48 410,42 430,35 455,30 480,26 510,28 540,32 570,36 610,38 650,35 690,32 690,180"
+                fill="#3b82f6" fill-opacity="0.05"/>
+
+              <!-- COVID crash annotation -->
+              <line x1="100" y1="20" x2="100" y2="180" stroke="#ef4444" stroke-width="0.8" stroke-dasharray="3,2" opacity="0.4"/>
+              <text x="102" y="35" fill="#ef4444" font-size="8" opacity="0.7">COVID</text>
+
+              <!-- End value labels -->
+              <circle cx="690" cy="32" r="3" fill="#3b82f6"/>
+              <text x="688" y="28" fill="#93c5fd" font-size="9" text-anchor="end">+148%</text>
+              <circle cx="690" cy="68" r="3" fill="#64748b"/>
+              <text x="688" y="64" fill="#94a3b8" font-size="9" text-anchor="end">+95%</text>
+            </svg>
+
+            <div class="text-[10px] text-muted mt-1 text-center">
+              Hypothetical · Equal-weighted top-5 composite score categories · Monthly rebalance · No transaction costs modeled
+            </div>
+          </div>
+
+          <!-- Performance Metrics Grid -->
+          <div class="grid grid-cols-2 gap-4">
+
+            <!-- Strategy metrics -->
+            <div class="bg-panel border border-border rounded-xl p-4">
+              <div class="text-xs text-muted font-semibold uppercase tracking-wider mb-4 flex items-center gap-1.5">
+                <span class="w-3 h-3 rounded-sm bg-blue-500 inline-block"></span>
+                Strategy (Top-5 Monthly)
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+
+                <div>
+                  <div class="text-xs text-muted flex items-center gap-1">
+                    Total Return
+                    <span class="cursor-help" title="Cumulative percentage gain from start to end of backtest period, before fees.">(?)
+                    </span>
+                  </div>
+                  <div class="text-xl font-bold metric-win">+148.2%</div>
+                </div>
+
+                <div>
+                  <div class="text-xs text-muted flex items-center gap-1">
+                    Annualized Return
+                    <span class="cursor-help" title="Compound annual growth rate (CAGR): the constant annual return that would produce the same total return. CAGR = (ending_value / starting_value)^(1/years) − 1.">(?)
+                    </span>
+                  </div>
+                  <div class="text-xl font-bold metric-win">+18.7%</div>
+                </div>
+
+                <div>
+                  <div class="text-xs text-muted flex items-center gap-1">
+                    Max Drawdown
+                    <span class="cursor-help" title="The largest peak-to-trough decline in portfolio value during the period. Measures worst-case loss an investor would have experienced. Lower is better.">(?)
+                    </span>
+                  </div>
+                  <div class="text-xl font-bold metric-loss">−22.4%</div>
+                </div>
+
+                <div>
+                  <div class="text-xs text-muted flex items-center gap-1">
+                    Sharpe Ratio
+                    <span class="cursor-help" title="Annualized return divided by annualized volatility (standard deviation of monthly returns). Higher = better risk-adjusted return. &gt;1.0 = good, &gt;2.0 = excellent.">(?)
+                    </span>
+                  </div>
+                  <div class="text-xl font-bold metric-win">1.42</div>
+                </div>
+
+                <div>
+                  <div class="text-xs text-muted flex items-center gap-1">
+                    Volatility (Ann.)
+                    <span class="cursor-help" title="Annualized standard deviation of monthly returns. Measures portfolio risk — higher = more volatile price swings.">(?)
+                    </span>
+                  </div>
+                  <div class="text-xl font-bold metric-neutral">13.2%</div>
+                </div>
+
+                <div>
+                  <div class="text-xs text-muted flex items-center gap-1">
+                    Win Rate (months)
+                    <span class="cursor-help" title="Percentage of calendar months with a positive return. Does not account for magnitude — a strategy can have a low win rate but still be profitable if gains outsize losses.">(?)
+                    </span>
+                  </div>
+                  <div class="text-xl font-bold metric-win">64%</div>
+                </div>
+
+                <div>
+                  <div class="text-xs text-muted flex items-center gap-1">
+                    Best Month
+                    <span class="cursor-help" title="Highest single-month return in the backtest period.">(?)
+                    </span>
+                  </div>
+                  <div class="text-xl font-bold metric-win">+14.8%</div>
+                </div>
+
+                <div>
+                  <div class="text-xs text-muted flex items-center gap-1">
+                    Worst Month
+                    <span class="cursor-help" title="Lowest single-month return in the backtest period.">(?)
+                    </span>
+                  </div>
+                  <div class="text-xl font-bold metric-loss">−11.2%</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- SPY benchmark metrics -->
+            <div class="bg-panel border border-border rounded-xl p-4">
+              <div class="text-xs text-muted font-semibold uppercase tracking-wider mb-4 flex items-center gap-1.5">
+                <span class="w-3 h-3 rounded-sm bg-slate-500 inline-block opacity-70"></span>
+                SPY Benchmark (Buy &amp; Hold)
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+
+                <div>
+                  <div class="text-xs text-muted">Total Return</div>
+                  <div class="text-xl font-bold metric-neutral">+95.1%</div>
+                  <div class="text-xs text-green-400 mt-0.5">Strategy +53.1pp ahead</div>
+                </div>
+
+                <div>
+                  <div class="text-xs text-muted">Annualized Return</div>
+                  <div class="text-xl font-bold metric-neutral">+13.6%</div>
+                  <div class="text-xs text-green-400 mt-0.5">Strategy +5.1pp ahead</div>
+                </div>
+
+                <div>
+                  <div class="text-xs text-muted">Max Drawdown</div>
+                  <div class="text-xl font-bold metric-loss">−33.8%</div>
+                  <div class="text-xs text-green-400 mt-0.5">Strategy 11.4pp shallower</div>
+                </div>
+
+                <div>
+                  <div class="text-xs text-muted flex items-center gap-1">
+                    Sharpe Ratio
+                    <span class="cursor-help" title="SPY Sharpe Ratio for the same period. Compare to strategy Sharpe — a higher strategy Sharpe means better risk-adjusted outperformance.">(?)
+                    </span>
+                  </div>
+                  <div class="text-xl font-bold metric-neutral">0.98</div>
+                  <div class="text-xs text-green-400 mt-0.5">Strategy +0.44 better</div>
+                </div>
+
+                <div>
+                  <div class="text-xs text-muted">Volatility (Ann.)</div>
+                  <div class="text-xl font-bold metric-neutral">13.9%</div>
+                  <div class="text-xs text-muted mt-0.5">vs strategy 13.2%</div>
+                </div>
+
+                <div>
+                  <div class="text-xs text-muted">Win Rate (months)</div>
+                  <div class="text-xl font-bold metric-neutral">61%</div>
+                  <div class="text-xs text-muted mt-0.5">vs strategy 64%</div>
+                </div>
+
+                <div>
+                  <div class="text-xs text-muted">Best Month</div>
+                  <div class="text-xl font-bold metric-neutral">+12.7%</div>
+                </div>
+
+                <div>
+                  <div class="text-xs text-muted">Worst Month</div>
+                  <div class="text-xl font-bold metric-loss">−12.5%</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rebalance log -->
+          <div class="bg-panel border border-border rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-border flex items-center gap-2">
+              <span class="text-sm font-medium">Recent Rebalance Log</span>
+              <span class="text-muted cursor-help text-xs" title="Shows which categories were held in each rebalance period, ranked by composite score at the time of selection.">(?)
+              </span>
+            </div>
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-border text-muted text-xs uppercase tracking-wider">
+                  <th class="text-left px-4 py-2.5">Date</th>
+                  <th class="text-left px-4 py-2.5">Top-5 Holdings (by score)</th>
+                  <th class="text-right px-4 py-2.5">Period Return</th>
+                  <th class="text-right px-4 py-2.5">vs SPY</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border">
+                <tr>
+                  <td class="px-4 py-2.5 text-xs text-muted">May 2025</td>
+                  <td class="px-4 py-2.5 font-mono text-xs">GLD · XLK · XLF · QQQ · XLI</td>
+                  <td class="px-4 py-2.5 text-right font-mono text-green-400">+2.8%</td>
+                  <td class="px-4 py-2.5 text-right font-mono text-green-400">+1.1%</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-2.5 text-xs text-muted">Apr 2025</td>
+                  <td class="px-4 py-2.5 font-mono text-xs">GLD · XLK · XLF · XLI · SLV</td>
+                  <td class="px-4 py-2.5 text-right font-mono text-red-400">−1.4%</td>
+                  <td class="px-4 py-2.5 text-right font-mono text-red-400">−0.8%</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-2.5 text-xs text-muted">Mar 2025</td>
+                  <td class="px-4 py-2.5 font-mono text-xs">GLD · XLK · XLF · XLI · IWM</td>
+                  <td class="px-4 py-2.5 text-right font-mono text-green-400">+4.2%</td>
+                  <td class="px-4 py-2.5 text-right font-mono text-green-400">+2.6%</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-2.5 text-xs text-muted">Feb 2025</td>
+                  <td class="px-4 py-2.5 font-mono text-xs">GLD · XLK · QQQ · XLF · SLV</td>
+                  <td class="px-4 py-2.5 text-right font-mono text-green-400">+3.1%</td>
+                  <td class="px-4 py-2.5 text-right font-mono text-green-400">+1.9%</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-2.5 text-xs text-muted">Jan 2025</td>
+                  <td class="px-4 py-2.5 font-mono text-xs">GLD · XLK · QQQ · XLF · XLC</td>
+                  <td class="px-4 py-2.5 text-right font-mono text-green-400">+5.8%</td>
+                  <td class="px-4 py-2.5 text-right font-mono text-green-400">+3.4%</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="px-4 py-2 border-t border-border text-[10px] text-muted">
+              63 rebalance periods total · Showing 5 most recent · Transaction costs not included in returns
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-panel border-t border-border px-6 py-2 flex items-center gap-6 text-xs text-muted shrink-0">
+    <span>Last ingestion: <span class="text-slate-300">Today 16:32 ET</span></span>
+    <span>PRICES: <span class="text-green-400">✓ success</span> · 1,840 rows</span>
+    <span>MACRO: <span class="text-green-400">✓ success</span> · 49 rows</span>
+    <span class="ml-auto">ftm-app :8080 · PostgreSQL :5432 · <a href="http://localhost:8080/swagger-ui.html" class="text-blue-400 hover:underline" target="_blank">OpenAPI ↗</a></span>
+  </footer>
+
+  <script>
+    function setTimeframe(tf) {
+      document.querySelectorAll('.tf-btn').forEach(btn => {
+        btn.className = 'tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors';
+      });
+      const btn = document.getElementById('tf-' + tf);
+      if (btn) btn.className = 'tf-btn px-3 py-1 rounded-md bg-blue-600 text-white';
+    }
+
+    function simulateRefresh() {
+      const icon = document.getElementById('refresh-icon');
+      const dot = document.getElementById('status-dot');
+      icon.style.animation = 'spin 1s linear infinite';
+      dot.innerHTML = '<span class="w-2 h-2 rounded-full bg-yellow-400 inline-block"></span><span class="text-yellow-400">Refreshing…</span>';
+      setTimeout(() => {
+        icon.style.animation = '';
+        dot.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span><span class="text-green-400">Up to date</span>';
+      }, 2000);
+    }
+
+    function runBacktest() {
+      const icon = document.getElementById('run-icon');
+      icon.textContent = '⟳';
+      icon.style.animation = 'spin 1s linear infinite';
+      icon.style.display = 'inline-block';
+      setTimeout(() => {
+        icon.style.animation = '';
+        icon.textContent = '▶';
+      }, 1800);
+    }
+  </script>
+</body>
+</html>

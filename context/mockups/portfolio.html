@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Follow the Money — Portfolio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface: '#0f172a',
+            panel: '#1e293b',
+            border: '#334155',
+            muted: '#64748b',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background: #0f172a; font-family: 'Inter', system-ui, sans-serif; }
+    .score-bar { display: flex; gap: 2px; align-items: center; }
+    .score-cell { width: 8px; height: 14px; border-radius: 2px; }
+    .filled-green  { background: #22c55e; }
+    .filled-yellow { background: #eab308; }
+    .filled-red    { background: #ef4444; }
+    .empty-cell    { background: #334155; }
+    .nav-item { transition: all 0.15s; }
+    .nav-item:hover { background: #1e293b; }
+    .nav-item.active { background: #1e3a5f; border-left: 3px solid #3b82f6; }
+    .tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+    tr:hover td { background: #1e293b; }
+    .alloc-bar-bg { background: #334155; border-radius: 3px; height: 8px; position: relative; }
+    .alloc-bar-current { background: #3b82f6; border-radius: 3px; height: 8px; position: absolute; top: 0; left: 0; }
+    .alloc-bar-optimal { background: #22c55e; border-radius: 2px; width: 2px; height: 14px; position: absolute; top: -3px; }
+    input[type="number"] { background: #0f172a; border: 1px solid #334155; border-radius: 4px; padding: 2px 6px; width: 56px; text-align: right; font-size: 12px; font-family: monospace; color: #e2e8f0; }
+    input[type="number"]:focus { outline: none; border-color: #3b82f6; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="text-slate-200 min-h-screen flex flex-col">
+
+  <!-- HEADER -->
+  <header class="bg-panel border-b border-border px-6 py-3 flex items-center justify-between shrink-0 z-10">
+    <div class="flex items-center gap-3">
+      <a href="dashboard.html" class="text-blue-400 text-lg font-bold tracking-tight hover:text-blue-300">📈 Follow the Money</a>
+      <span class="text-muted text-xs">local · single-user</span>
+    </div>
+
+    <div class="flex items-center gap-1 bg-surface rounded-lg p-1 text-sm">
+      <button onclick="setTimeframe('DAY')" id="tf-DAY"   class="tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors">Day</button>
+      <button onclick="setTimeframe('WEEK')" id="tf-WEEK"  class="tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors">Week</button>
+      <button onclick="setTimeframe('MONTH')" id="tf-MONTH" class="tf-btn px-3 py-1 rounded-md bg-blue-600 text-white">Month</button>
+      <button onclick="setTimeframe('QUARTER')" id="tf-QUARTER" class="tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors">Quarter</button>
+      <button onclick="setTimeframe('YEAR')" id="tf-YEAR"  class="tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors">Year</button>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button onclick="simulateRefresh()" class="flex items-center gap-2 text-sm text-slate-300 hover:text-white bg-surface border border-border px-3 py-1.5 rounded-lg transition-colors">
+        <span id="refresh-icon">⟳</span> Refresh
+      </button>
+      <div id="status-dot" class="flex items-center gap-1.5 text-xs">
+        <span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span>
+        <span class="text-green-400">Up to date</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- SIDEBAR -->
+    <nav class="w-52 bg-panel border-r border-border flex flex-col py-4 shrink-0">
+      <div class="px-3 mb-2">
+        <span class="text-muted text-xs font-semibold uppercase tracking-widest">Analysis</span>
+      </div>
+      <a href="dashboard.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>🔄</span> Rotation
+      </a>
+      <a href="rrg.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>🎯</span> RRG Chart
+      </a>
+      <a href="flows.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>💰</span> Capital Flows
+      </a>
+      <a href="macro.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>🌍</span> Macro Regime
+      </a>
+
+      <div class="px-3 mt-4 mb-2">
+        <span class="text-muted text-xs font-semibold uppercase tracking-widest">Management</span>
+      </div>
+      <a href="portfolio.html" class="nav-item active flex items-center gap-2.5 px-4 py-2.5 text-sm text-white">
+        <span>📁</span> Portfolio
+      </a>
+      <a href="alerts.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>🔔</span> Alerts
+      </a>
+      <a href="backtest.html" class="nav-item flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:text-white">
+        <span>📈</span> Backtester
+      </a>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 overflow-auto p-6">
+
+      <!-- Alignment score hero -->
+      <div class="flex items-start justify-between mb-5">
+        <div>
+          <h1 class="text-xl font-semibold mb-1">Portfolio</h1>
+          <p class="text-sm text-muted">Enter your current allocations below. Compare to signal-optimal weights.</p>
+        </div>
+
+        <!-- Alignment Score Card -->
+        <div class="bg-panel border border-border rounded-xl px-5 py-4 flex items-center gap-5 min-w-[280px]">
+          <!-- Score ring (SVG) -->
+          <svg width="64" height="64" viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r="26" fill="none" stroke="#334155" stroke-width="6"/>
+            <!-- 47/100 = 47% of circumference = 0.47 * 2π * 26 ≈ 76.8; total = 163.4 -->
+            <circle cx="32" cy="32" r="26" fill="none" stroke="#eab308" stroke-width="6"
+              stroke-dasharray="76.8 163.4" stroke-dashoffset="40.85" stroke-linecap="round"/>
+            <text x="32" y="36" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="700" font-family="Inter, system-ui">47</text>
+          </svg>
+          <div>
+            <div class="text-lg font-bold text-yellow-400">47 / 100</div>
+            <div class="text-sm text-slate-300 font-medium">Partial alignment</div>
+            <div class="flex items-center gap-1 mt-0.5">
+              <span class="text-xs text-muted">What is this?</span>
+              <span class="text-muted cursor-help text-xs" title="Alignment score measures how closely your allocation % ranks match the signal-optimal weights. 100 = perfect alignment, 50 = random, 0 = inverted (holding the weakest signals). Based on Spearman rank correlation, scaled 0–100.">(?)
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Allocation Table -->
+      <div class="bg-panel border border-border rounded-xl overflow-hidden mb-5">
+        <div class="px-4 py-3 border-b border-border flex items-center gap-4">
+          <span class="text-sm font-medium">Allocations</span>
+          <div class="flex items-center gap-3 text-xs text-muted ml-4">
+            <span class="flex items-center gap-1.5">
+              <span class="inline-block w-8 h-2 rounded bg-blue-500 opacity-80"></span> Current %
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="inline-block w-0.5 h-3 rounded bg-green-400"></span>
+              <span class="text-muted cursor-help" title="If you distributed 100% proportional to composite scores, this is each category's target share. Green tick = signal-optimal weight.">Composite-optimal target</span>
+              <span class="text-muted cursor-help text-xs" title="If you distributed 100% proportional to composite scores, this is each category's target share.">(?)
+              </span>
+            </span>
+          </div>
+          <span class="ml-auto text-xs text-muted">Total entered: <span class="text-white font-mono">98.0%</span> <span class="text-yellow-400">(2.0% unallocated)</span></span>
+        </div>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-border text-muted text-xs uppercase tracking-wider">
+              <th class="text-left px-4 py-3">ETF</th>
+              <th class="text-left px-4 py-3">Name</th>
+              <th class="text-left px-4 py-3">Type</th>
+              <th class="text-left px-4 py-3 w-40">Allocation bar</th>
+              <th class="text-right px-4 py-3">Current %</th>
+              <th class="text-right px-4 py-3">
+                <span class="flex items-center justify-end gap-1">
+                  Composite Score
+                  <span class="text-muted cursor-help" title="Composite signal score 0–100: weighted combination of RS_60 (relative strength vs SPY), momentum, and macro-regime fit signals. Higher = stronger buy signal in current conditions.">(?)
+                  </span>
+                </span>
+              </th>
+              <th class="text-center px-4 py-3">Signal</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            <!-- Equity Sectors -->
+            <tr class="bg-slate-900/60"><td colspan="7" class="px-4 py-1.5 text-[10px] text-muted font-semibold uppercase tracking-widest">Equity Sectors</td></tr>
+
+            <!-- XLK: current=18%, optimal=21%, score=82 -->
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLK</td>
+              <td class="px-4 py-2.5">Info Technology</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5">
+                <div class="alloc-bar-bg w-full relative">
+                  <div class="alloc-bar-current" style="width:85.7%"></div><!-- 18/21*100 -->
+                  <div class="alloc-bar-optimal" style="left:100%"></div>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-right"><input type="number" value="18.0" min="0" max="100" step="0.5"/></td>
+              <td class="px-4 py-2.5 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <div class="score-bar"><div class="score-cell filled-green"></div><div class="score-cell filled-green"></div><div class="score-cell filled-green"></div><div class="score-cell filled-green"></div><div class="score-cell empty-cell"></div></div>
+                  <span class="font-mono text-xs text-green-400">82</span>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-center"><span class="text-green-400 text-xs">↗ Leading</span></td>
+            </tr>
+
+            <!-- XLF: current=12%, optimal=15%, score=74 -->
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLF</td>
+              <td class="px-4 py-2.5">Financials</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5">
+                <div class="alloc-bar-bg w-full relative">
+                  <div class="alloc-bar-current" style="width:80%"></div>
+                  <div class="alloc-bar-optimal" style="left:100%"></div>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-right"><input type="number" value="12.0" min="0" max="100" step="0.5"/></td>
+              <td class="px-4 py-2.5 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <div class="score-bar"><div class="score-cell filled-green"></div><div class="score-cell filled-green"></div><div class="score-cell filled-green"></div><div class="score-cell filled-green"></div><div class="score-cell empty-cell"></div></div>
+                  <span class="font-mono text-xs text-green-400">74</span>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-center"><span class="text-green-400 text-xs">↗ Improving</span></td>
+            </tr>
+
+            <!-- XLI: current=8%, optimal=12%, score=68 -->
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLI</td>
+              <td class="px-4 py-2.5">Industrials</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5">
+                <div class="alloc-bar-bg w-full relative">
+                  <div class="alloc-bar-current" style="width:66.7%"></div>
+                  <div class="alloc-bar-optimal" style="left:100%"></div>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-right"><input type="number" value="8.0" min="0" max="100" step="0.5"/></td>
+              <td class="px-4 py-2.5 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <div class="score-bar"><div class="score-cell filled-green"></div><div class="score-cell filled-green"></div><div class="score-cell filled-green"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div></div>
+                  <span class="font-mono text-xs text-green-400">68</span>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-center"><span class="text-green-400 text-xs">↗ Improving</span></td>
+            </tr>
+
+            <!-- XLY: current=10%, optimal=8%, score=55 -->
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLY</td>
+              <td class="px-4 py-2.5">Consumer Discr.</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5">
+                <div class="alloc-bar-bg w-full relative">
+                  <div class="alloc-bar-current" style="width:100%"></div>
+                  <div class="alloc-bar-optimal" style="left:80%"></div>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-right"><input type="number" value="10.0" min="0" max="100" step="0.5"/></td>
+              <td class="px-4 py-2.5 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <div class="score-bar"><div class="score-cell filled-yellow"></div><div class="score-cell filled-yellow"></div><div class="score-cell filled-yellow"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div></div>
+                  <span class="font-mono text-xs text-yellow-400">55</span>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-center"><span class="text-orange-400 text-xs">→ Weakening</span></td>
+            </tr>
+
+            <!-- XLC: current=5%, optimal=7%, score=58 -->
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLC</td>
+              <td class="px-4 py-2.5">Comm. Services</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5">
+                <div class="alloc-bar-bg w-full relative">
+                  <div class="alloc-bar-current" style="width:71.4%"></div>
+                  <div class="alloc-bar-optimal" style="left:100%"></div>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-right"><input type="number" value="5.0" min="0" max="100" step="0.5"/></td>
+              <td class="px-4 py-2.5 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <div class="score-bar"><div class="score-cell filled-yellow"></div><div class="score-cell filled-yellow"></div><div class="score-cell filled-yellow"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div></div>
+                  <span class="font-mono text-xs text-yellow-400">58</span>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-center"><span class="text-green-400 text-xs">↗ Improving</span></td>
+            </tr>
+
+            <!-- XLV: current=8%, optimal=4%, score=42 -->
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLV</td>
+              <td class="px-4 py-2.5">Health Care</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5">
+                <div class="alloc-bar-bg w-full relative">
+                  <div class="alloc-bar-current" style="width:100%"></div>
+                  <div class="alloc-bar-optimal" style="left:50%"></div>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-right"><input type="number" value="8.0" min="0" max="100" step="0.5"/></td>
+              <td class="px-4 py-2.5 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <div class="score-bar"><div class="score-cell filled-yellow"></div><div class="score-cell filled-yellow"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div></div>
+                  <span class="font-mono text-xs text-yellow-400">42</span>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-center"><span class="text-orange-400 text-xs">→ Weakening</span></td>
+            </tr>
+
+            <!-- XLB: current=2%, optimal=3%, score=44 -->
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLB</td>
+              <td class="px-4 py-2.5">Materials</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5">
+                <div class="alloc-bar-bg w-full relative">
+                  <div class="alloc-bar-current" style="width:66.7%"></div>
+                  <div class="alloc-bar-optimal" style="left:100%"></div>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-right"><input type="number" value="2.0" min="0" max="100" step="0.5"/></td>
+              <td class="px-4 py-2.5 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <div class="score-bar"><div class="score-cell filled-yellow"></div><div class="score-cell filled-yellow"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div></div>
+                  <span class="font-mono text-xs text-yellow-400">44</span>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-center"><span class="text-slate-400 text-xs">↘ Lagging</span></td>
+            </tr>
+
+            <!-- XLE: current=3%, optimal=2%, score=28 -->
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLE</td>
+              <td class="px-4 py-2.5">Energy</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5">
+                <div class="alloc-bar-bg w-full relative">
+                  <div class="alloc-bar-current" style="width:100%"></div>
+                  <div class="alloc-bar-optimal" style="left:66.7%"></div>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-right"><input type="number" value="3.0" min="0" max="100" step="0.5"/></td>
+              <td class="px-4 py-2.5 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <div class="score-bar"><div class="score-cell filled-red"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div></div>
+                  <span class="font-mono text-xs text-red-400">28</span>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-center"><span class="text-slate-400 text-xs">↘ Lagging</span></td>
+            </tr>
+
+            <!-- XLP: current=4%, optimal=2%, score=22 -->
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLP</td>
+              <td class="px-4 py-2.5">Consumer Staples</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5">
+                <div class="alloc-bar-bg w-full relative">
+                  <div class="alloc-bar-current" style="width:100%"></div>
+                  <div class="alloc-bar-optimal" style="left:50%"></div>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-right"><input type="number" value="4.0" min="0" max="100" step="0.5"/></td>
+              <td class="px-4 py-2.5 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <div class="score-bar"><div class="score-cell filled-red"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div></div>
+                  <span class="font-mono text-xs text-red-400">22</span>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-center"><span class="text-orange-400 text-xs">→ Weakening</span></td>
+            </tr>
+
+            <!-- XLU: current=2%, optimal=1%, score=18 -->
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLU</td>
+              <td class="px-4 py-2.5">Utilities</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5">
+                <div class="alloc-bar-bg w-full relative">
+                  <div class="alloc-bar-current" style="width:100%"></div>
+                  <div class="alloc-bar-optimal" style="left:50%"></div>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-right"><input type="number" value="2.0" min="0" max="100" step="0.5"/></td>
+              <td class="px-4 py-2.5 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <div class="score-bar"><div class="score-cell filled-red"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div></div>
+                  <span class="font-mono text-xs text-red-400">18</span>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-center"><span class="text-slate-400 text-xs">↘ Lagging</span></td>
+            </tr>
+
+            <!-- XLRE: current=2%, optimal=1%, score=16 -->
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLRE</td>
+              <td class="px-4 py-2.5">Real Estate</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5">
+                <div class="alloc-bar-bg w-full relative">
+                  <div class="alloc-bar-current" style="width:100%"></div>
+                  <div class="alloc-bar-optimal" style="left:50%"></div>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-right"><input type="number" value="2.0" min="0" max="100" step="0.5"/></td>
+              <td class="px-4 py-2.5 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <div class="score-bar"><div class="score-cell filled-red"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div></div>
+                  <span class="font-mono text-xs text-red-400">16</span>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-center"><span class="text-slate-400 text-xs">↘ Lagging</span></td>
+            </tr>
+
+            <!-- QQQ: current=6%, optimal=10%, score=71 -->
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">QQQ</td>
+              <td class="px-4 py-2.5">Nasdaq 100</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5">
+                <div class="alloc-bar-bg w-full relative">
+                  <div class="alloc-bar-current" style="width:60%"></div>
+                  <div class="alloc-bar-optimal" style="left:100%"></div>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-right"><input type="number" value="6.0" min="0" max="100" step="0.5"/></td>
+              <td class="px-4 py-2.5 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <div class="score-bar"><div class="score-cell filled-green"></div><div class="score-cell filled-green"></div><div class="score-cell filled-green"></div><div class="score-cell filled-green"></div><div class="score-cell empty-cell"></div></div>
+                  <span class="font-mono text-xs text-green-400">71</span>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-center"><span class="text-orange-400 text-xs">→ Weakening</span></td>
+            </tr>
+
+            <!-- IWM: current=3%, optimal=5%, score=52 -->
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">IWM</td>
+              <td class="px-4 py-2.5">Russell 2000</td>
+              <td class="px-4 py-2.5"><span class="tag bg-blue-900/50 text-blue-300">EQ</span></td>
+              <td class="px-4 py-2.5">
+                <div class="alloc-bar-bg w-full relative">
+                  <div class="alloc-bar-current" style="width:60%"></div>
+                  <div class="alloc-bar-optimal" style="left:100%"></div>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-right"><input type="number" value="3.0" min="0" max="100" step="0.5"/></td>
+              <td class="px-4 py-2.5 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <div class="score-bar"><div class="score-cell filled-yellow"></div><div class="score-cell filled-yellow"></div><div class="score-cell filled-yellow"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div></div>
+                  <span class="font-mono text-xs text-yellow-400">52</span>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-center"><span class="text-green-400 text-xs">↗ Improving</span></td>
+            </tr>
+
+            <!-- Precious Metals -->
+            <tr class="bg-slate-900/60"><td colspan="7" class="px-4 py-1.5 text-[10px] text-muted font-semibold uppercase tracking-widest">Precious Metals</td></tr>
+
+            <!-- GLD: current=8%, optimal=11%, score=79 -->
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-yellow-300 font-medium">GLD</td>
+              <td class="px-4 py-2.5">Gold</td>
+              <td class="px-4 py-2.5"><span class="tag bg-yellow-900/50 text-yellow-300">PM</span></td>
+              <td class="px-4 py-2.5">
+                <div class="alloc-bar-bg w-full relative">
+                  <div class="alloc-bar-current" style="width:72.7%"></div>
+                  <div class="alloc-bar-optimal" style="left:100%"></div>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-right"><input type="number" value="8.0" min="0" max="100" step="0.5"/></td>
+              <td class="px-4 py-2.5 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <div class="score-bar"><div class="score-cell filled-green"></div><div class="score-cell filled-green"></div><div class="score-cell filled-green"></div><div class="score-cell filled-green"></div><div class="score-cell empty-cell"></div></div>
+                  <span class="font-mono text-xs text-green-400">79</span>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-center"><span class="text-green-400 text-xs">↗ Leading</span></td>
+            </tr>
+
+            <!-- SLV: current=2%, optimal=3%, score=61 -->
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-yellow-300 font-medium">SLV</td>
+              <td class="px-4 py-2.5">Silver</td>
+              <td class="px-4 py-2.5"><span class="tag bg-yellow-900/50 text-yellow-300">PM</span></td>
+              <td class="px-4 py-2.5">
+                <div class="alloc-bar-bg w-full relative">
+                  <div class="alloc-bar-current" style="width:66.7%"></div>
+                  <div class="alloc-bar-optimal" style="left:100%"></div>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-right"><input type="number" value="2.0" min="0" max="100" step="0.5"/></td>
+              <td class="px-4 py-2.5 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <div class="score-bar"><div class="score-cell filled-yellow"></div><div class="score-cell filled-yellow"></div><div class="score-cell filled-yellow"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div></div>
+                  <span class="font-mono text-xs text-yellow-400">61</span>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-center"><span class="text-green-400 text-xs">↗ Improving</span></td>
+            </tr>
+
+            <!-- Fixed Income -->
+            <tr class="bg-slate-900/60"><td colspan="7" class="px-4 py-1.5 text-[10px] text-muted font-semibold uppercase tracking-widest">Fixed Income</td></tr>
+
+            <!-- TLT: current=3%, optimal=1%, score=15 -->
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-purple-300 font-medium">TLT</td>
+              <td class="px-4 py-2.5">Long Duration</td>
+              <td class="px-4 py-2.5"><span class="tag bg-purple-900/50 text-purple-300">FI</span></td>
+              <td class="px-4 py-2.5">
+                <div class="alloc-bar-bg w-full relative">
+                  <div class="alloc-bar-current" style="width:100%"></div>
+                  <div class="alloc-bar-optimal" style="left:33.3%"></div>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-right"><input type="number" value="3.0" min="0" max="100" step="0.5"/></td>
+              <td class="px-4 py-2.5 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <div class="score-bar"><div class="score-cell filled-red"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div></div>
+                  <span class="font-mono text-xs text-red-400">15</span>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-center"><span class="text-slate-400 text-xs">↘ Lagging</span></td>
+            </tr>
+
+            <!-- HYG: current=4%, optimal=5%, score=57 -->
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-purple-300 font-medium">HYG</td>
+              <td class="px-4 py-2.5">High Yield</td>
+              <td class="px-4 py-2.5"><span class="tag bg-purple-900/50 text-purple-300">FI</span></td>
+              <td class="px-4 py-2.5">
+                <div class="alloc-bar-bg w-full relative">
+                  <div class="alloc-bar-current" style="width:80%"></div>
+                  <div class="alloc-bar-optimal" style="left:100%"></div>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-right"><input type="number" value="4.0" min="0" max="100" step="0.5"/></td>
+              <td class="px-4 py-2.5 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <div class="score-bar"><div class="score-cell filled-yellow"></div><div class="score-cell filled-yellow"></div><div class="score-cell filled-yellow"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div></div>
+                  <span class="font-mono text-xs text-yellow-400">57</span>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-center"><span class="text-green-400 text-xs">↗ Improving</span></td>
+            </tr>
+
+            <!-- Cash -->
+            <tr class="bg-slate-900/60"><td colspan="7" class="px-4 py-1.5 text-[10px] text-muted font-semibold uppercase tracking-widest">Cash</td></tr>
+
+            <!-- BIL: current=3%, optimal=0%, score=8 -->
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-slate-300 font-medium">BIL</td>
+              <td class="px-4 py-2.5">Cash / Short-Term</td>
+              <td class="px-4 py-2.5"><span class="tag bg-slate-700 text-slate-300">CA</span></td>
+              <td class="px-4 py-2.5">
+                <div class="alloc-bar-bg w-full relative">
+                  <div class="alloc-bar-current" style="width:100%"></div>
+                  <div class="alloc-bar-optimal" style="left:0%"></div>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-right"><input type="number" value="3.0" min="0" max="100" step="0.5"/></td>
+              <td class="px-4 py-2.5 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <div class="score-bar"><div class="score-cell filled-red"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div><div class="score-cell empty-cell"></div></div>
+                  <span class="font-mono text-xs text-red-400">8</span>
+                </div>
+              </td>
+              <td class="px-4 py-2.5 text-center"><span class="text-slate-400 text-xs">↘ Lagging</span></td>
+            </tr>
+
+          </tbody>
+        </table>
+        <div class="px-4 py-2.5 border-t border-border flex items-center gap-6 text-xs text-muted">
+          <span><span class="inline-block w-6 h-2 rounded bg-blue-500 opacity-80 mr-1"></span>Blue bar = current allocation · <span class="inline-block w-0.5 h-3 bg-green-400 mr-1" style="vertical-align:middle"></span>Green tick = composite-optimal target</span>
+          <span class="ml-auto">
+            <span class="text-muted cursor-help" title="If you distributed 100% proportional to composite scores, this is each category's target share. Targets sum to 100% across all active categories.">
+              Composite-optimal weights shown as green tick marks (?)
+            </span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Rebalance Suggestions -->
+      <div class="bg-panel border border-amber-600/30 rounded-xl overflow-hidden">
+        <div class="px-4 py-3 border-b border-border flex items-center gap-2 bg-amber-900/10">
+          <span class="text-amber-400">⚡</span>
+          <span class="text-sm font-medium text-amber-300">Rebalance Suggestions</span>
+          <span class="text-muted cursor-help text-xs" title="Categories where |current% - optimal%| exceeds 0.5%. These targets sum to 100% across all active categories.">(?)
+          </span>
+          <span class="text-xs text-muted ml-1">— adjustments &gt; 0.5% from composite-optimal</span>
+          <span class="ml-auto text-xs text-muted">These targets sum to 100% across all active categories</span>
+        </div>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-border text-muted text-xs uppercase tracking-wider">
+              <th class="text-left px-4 py-2.5">ETF</th>
+              <th class="text-left px-4 py-2.5">Name</th>
+              <th class="text-right px-4 py-2.5">Current</th>
+              <th class="text-center px-4 py-2.5">Direction</th>
+              <th class="text-right px-4 py-2.5">Optimal</th>
+              <th class="text-right px-4 py-2.5">Delta</th>
+              <th class="text-left px-4 py-2.5">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLK</td>
+              <td class="px-4 py-2.5">Info Technology</td>
+              <td class="px-4 py-2.5 text-right font-mono">18.0%</td>
+              <td class="px-4 py-2.5 text-center text-green-400 text-lg">→</td>
+              <td class="px-4 py-2.5 text-right font-mono text-green-400 font-semibold">21.0%</td>
+              <td class="px-4 py-2.5 text-right font-mono text-green-400">+3.0%</td>
+              <td class="px-4 py-2.5 text-xs text-green-400">Increase — strong signal, underweighted</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">GLD</td>
+              <td class="px-4 py-2.5">Gold</td>
+              <td class="px-4 py-2.5 text-right font-mono">8.0%</td>
+              <td class="px-4 py-2.5 text-center text-green-400 text-lg">→</td>
+              <td class="px-4 py-2.5 text-right font-mono text-green-400 font-semibold">11.0%</td>
+              <td class="px-4 py-2.5 text-right font-mono text-green-400">+3.0%</td>
+              <td class="px-4 py-2.5 text-xs text-green-400">Increase — leading, underweighted</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLI</td>
+              <td class="px-4 py-2.5">Industrials</td>
+              <td class="px-4 py-2.5 text-right font-mono">8.0%</td>
+              <td class="px-4 py-2.5 text-center text-green-400 text-lg">→</td>
+              <td class="px-4 py-2.5 text-right font-mono text-green-400 font-semibold">12.0%</td>
+              <td class="px-4 py-2.5 text-right font-mono text-green-400">+4.0%</td>
+              <td class="px-4 py-2.5 text-xs text-green-400">Increase — improving signal, underweighted</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">QQQ</td>
+              <td class="px-4 py-2.5">Nasdaq 100</td>
+              <td class="px-4 py-2.5 text-right font-mono">6.0%</td>
+              <td class="px-4 py-2.5 text-center text-green-400 text-lg">→</td>
+              <td class="px-4 py-2.5 text-right font-mono text-green-400 font-semibold">10.0%</td>
+              <td class="px-4 py-2.5 text-right font-mono text-green-400">+4.0%</td>
+              <td class="px-4 py-2.5 text-xs text-green-400">Increase — high score, underweighted</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLV</td>
+              <td class="px-4 py-2.5">Health Care</td>
+              <td class="px-4 py-2.5 text-right font-mono">8.0%</td>
+              <td class="px-4 py-2.5 text-center text-red-400 text-lg">→</td>
+              <td class="px-4 py-2.5 text-right font-mono text-red-400 font-semibold">4.0%</td>
+              <td class="px-4 py-2.5 text-right font-mono text-red-400">−4.0%</td>
+              <td class="px-4 py-2.5 text-xs text-red-400">Reduce — weakening signal, overweighted</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-blue-300 font-medium">XLP</td>
+              <td class="px-4 py-2.5">Consumer Staples</td>
+              <td class="px-4 py-2.5 text-right font-mono">4.0%</td>
+              <td class="px-4 py-2.5 text-center text-red-400 text-lg">→</td>
+              <td class="px-4 py-2.5 text-right font-mono text-red-400 font-semibold">2.0%</td>
+              <td class="px-4 py-2.5 text-right font-mono text-red-400">−2.0%</td>
+              <td class="px-4 py-2.5 text-xs text-red-400">Reduce — poor regime fit, overweighted</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-purple-300 font-medium">TLT</td>
+              <td class="px-4 py-2.5">Long Duration</td>
+              <td class="px-4 py-2.5 text-right font-mono">3.0%</td>
+              <td class="px-4 py-2.5 text-center text-red-400 text-lg">→</td>
+              <td class="px-4 py-2.5 text-right font-mono text-red-400 font-semibold">1.0%</td>
+              <td class="px-4 py-2.5 text-right font-mono text-red-400">−2.0%</td>
+              <td class="px-4 py-2.5 text-xs text-red-400">Reduce — bonds lag in risk-on environment</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-slate-300 font-medium">BIL</td>
+              <td class="px-4 py-2.5">Cash / Short-Term</td>
+              <td class="px-4 py-2.5 text-right font-mono">3.0%</td>
+              <td class="px-4 py-2.5 text-center text-red-400 text-lg">→</td>
+              <td class="px-4 py-2.5 text-right font-mono text-red-400 font-semibold">0.0%</td>
+              <td class="px-4 py-2.5 text-right font-mono text-red-400">−3.0%</td>
+              <td class="px-4 py-2.5 text-xs text-red-400">Reduce — cash drag in bull market</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="px-4 py-2.5 border-t border-border text-xs text-muted">
+          Optimal weights derived from composite scores proportionally distributed to 100% · Rebalance suggestions do not constitute financial advice
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-panel border-t border-border px-6 py-2 flex items-center gap-6 text-xs text-muted shrink-0">
+    <span>Last ingestion: <span class="text-slate-300">Today 16:32 ET</span></span>
+    <span>PRICES: <span class="text-green-400">✓ success</span> · 1,840 rows</span>
+    <span>MACRO: <span class="text-green-400">✓ success</span> · 49 rows</span>
+    <span class="ml-auto">ftm-app :8080 · PostgreSQL :5432 · <a href="http://localhost:8080/swagger-ui.html" class="text-blue-400 hover:underline" target="_blank">OpenAPI ↗</a></span>
+  </footer>
+
+  <script>
+    function setTimeframe(tf) {
+      document.querySelectorAll('.tf-btn').forEach(btn => {
+        btn.className = 'tf-btn px-3 py-1 rounded-md text-muted hover:text-white transition-colors';
+      });
+      const btn = document.getElementById('tf-' + tf);
+      if (btn) btn.className = 'tf-btn px-3 py-1 rounded-md bg-blue-600 text-white';
+    }
+
+    function simulateRefresh() {
+      const icon = document.getElementById('refresh-icon');
+      const dot = document.getElementById('status-dot');
+      icon.style.animation = 'spin 1s linear infinite';
+      dot.innerHTML = '<span class="w-2 h-2 rounded-full bg-yellow-400 inline-block"></span><span class="text-yellow-400">Refreshing…</span>';
+      setTimeout(() => {
+        icon.style.animation = '';
+        dot.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span><span class="text-green-400">Up to date</span>';
+      }, 2000);
+    }
+  </script>
+</body>
+</html>

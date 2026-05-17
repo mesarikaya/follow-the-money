@@ -79,9 +79,9 @@ Dashboard available at **http://localhost:3000**
 
 ---
 
-## Current milestone: M7 — Complete
+## Current milestone: M8 — Complete
 
-All 7 milestones are delivered.
+All 8 milestones are delivered.
 
 | Milestone | Epics | Status |
 |-----------|-------|--------|
@@ -92,6 +92,7 @@ All 7 milestones are delivered.
 | M5 — Portfolio Intelligence | EP-009, EP-010 | ✓ Complete |
 | M6 — Backtester | EP-011 | ✓ Complete |
 | M7 — Investment Holdings | EP-012 | ✓ Complete |
+| M8 — Advanced Signals | EP-013, EP-014, EP-015 | ✓ Complete |
 
 ### What each milestone delivers
 
@@ -137,6 +138,20 @@ All 7 milestones are delivered.
 - Results persisted to `backtest_results` table; retrievable by run ID
 - Equity curve chart comparing strategy vs SPY
 
+**M8 — Advanced Signals**
+- Technology sub-sector hierarchy: SEMI (SMH), AIRO (BOTZ), CLOD (WCLD), SOFT (IGV) seeded as child categories of TECH
+- Sub-sectors benchmark vs XLK (not SPY) — shows rotation *within* Technology
+- V7 migration: `parent_id` column on categories; `parent_id IS NULL` filter protects heatmap, portfolio, backtester
+- `/api/v1/sub-sectors?parent=TECH` endpoint returning RS_20/60/120, MOM, RRG quadrant per sub-sector
+- Factor ETFs: MTUM, QUAL, USMV, VLUE seeded as children of virtual FTRS parent
+- `/api/v1/sub-sectors?parent=FTRS` endpoint returning factor RS signals vs SPY
+- V8 migration: FTRS virtual parent (inactive) + 4 factor ETF rows
+- Frontend: `/sub-sectors` page (Tech drill-down), `/factors` page (factor rotation)
+- Sidebar links: Tech Sub-Sectors (🔬) and Factor Flows (⚖️) under Analysis group
+- WTI Crude Oil (DCOILWTICO) as 9th FRED series — cross-asset signal
+- Macro page: WTI oil card added to Indicators grid
+- NYSE A/D breadth and 52W high/low deferred (require Alpha Vantage API key)
+
 **M7 — Investment Holdings**
 - Upload current stock/ETF positions via CSV template (download from portfolio page)
 - Columns: ticker, name, quantity, currency (USD or EUR), avg_cost_local
@@ -176,7 +191,9 @@ pnpm next build
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/v1/categories?timeframe=MONTH` | All 19 categories with latest prices and signals |
-| `GET` | `/api/v1/macro` | Current macro regime + 8 FRED indicators |
+| `GET` | `/api/v1/macro` | Current macro regime + 9 FRED indicators |
+| `GET` | `/api/v1/sub-sectors?parent=TECH` | Technology sub-sector RS signals vs XLK |
+| `GET` | `/api/v1/sub-sectors?parent=FTRS` | Factor ETF RS signals vs SPY |
 | `GET` | `/api/v1/rrg` | RRG trail data for all categories (last 42 trading days) |
 | `GET` | `/api/v1/rotation` | Top-3 leaders, bottom-3 laggards, recent rotation events |
 | `GET` | `/api/v1/portfolio` | Current portfolio allocations with alignment score |
@@ -214,13 +231,15 @@ follow-the-money/
       domain/           Domain records (Category, Alert, Signal, Holding, ...)
       config/           Caffeine cache (6 caches, 1h TTL), async executor
     src/main/resources/db/migration/
-      V1__initial_schema.sql     All tables + indexes
-      V2__seed_categories.sql    19 categories (ETF tickers, display order)
-      V3__seed_alert_rules.sql   9 alert rules (Balanced profile defaults)
-      V4__backtest_schema.sql    backtest_results table
-      V6__holdings_schema.sql    holdings table + indexes
+      V1__initial_schema.sql          All tables + indexes
+      V2__seed_categories.sql         19 categories (ETF tickers, display order)
+      V3__seed_alert_rules.sql        9 alert rules (Balanced profile defaults)
+      V4__backtest_schema.sql         backtest_results table
+      V6__holdings_schema.sql         holdings table + indexes
+      V7__sub_sector_hierarchy.sql    parent_id column + SEMI/AIRO/CLOD/SOFT sub-sectors
+      V8__factor_etfs.sql             FTRS virtual parent + MTUM/QUAL/USMV/VLUE factors
   ftm-frontend/         Next.js 15 (TypeScript, Tailwind CSS, App Router)
-    src/app/            Pages: /, /rrg, /flows, /macro, /portfolio, /alerts, /backtest
+    src/app/            Pages: /, /rrg, /sub-sectors, /factors, /flows, /macro, /portfolio, /alerts, /backtest
     src/components/     CategoryTable, MacroPanel, RRGSection, RotationHeatmap, RotationPanel, ...
     src/lib/api.ts      Typed fetch client (no React Query — pure RSC + client components)
   context/              Spec, decisions, roadmap (session context for AI)

@@ -108,11 +108,21 @@ export default async function FactorFlowsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center px-6 py-3 border-b border-slate-700 bg-slate-800 sticky top-0 z-10 shrink-0">
-        <div>
-          <h1 className="text-sm font-semibold text-slate-200">Factor Flows</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Smart-money rotation across factor ETFs vs SPY</p>
+      <header className="px-6 py-4 border-b border-slate-700 shrink-0">
+        <div className="flex items-baseline justify-between">
+          <h1
+            className="text-slate-100 font-bold"
+            style={{ fontFamily: "var(--font-rajdhani)", fontSize: "22px", letterSpacing: "0.02em" }}
+          >
+            Factor Flows
+          </h1>
+          <span className="text-[11px] text-slate-500" style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+            4 factor ETFs · MTUM · QUAL · USMV · VLUE
+          </span>
         </div>
+        <p className="text-xs text-slate-500 mt-1">
+          Smart-money rotation across factor ETFs vs SPY. MTUM leading = risk-on; USMV leading = risk-off.
+        </p>
       </header>
       <main className="flex-1 p-6 overflow-auto">
         {error && (

@@ -1,56 +1,249 @@
-import ComingSoonPage from "@/components/ComingSoonPage";
+import {
+  fetchRotation,
+  fetchCategories,
+  RotationLeaderEntry,
+  RotationEventEntry,
+  CategorySummary,
+} from "@/lib/api";
 
-const MOCK_FLOW_DATA = [
-  { categoryName: "Technology",        flowZScore: 2.4,  flowMillionUsd:  830, trend: "inflow"  },
-  { categoryName: "Financial",         flowZScore: 1.8,  flowMillionUsd:  540, trend: "inflow"  },
-  { categoryName: "Energy",            flowZScore: 1.2,  flowMillionUsd:  290, trend: "inflow"  },
-  { categoryName: "Healthcare",        flowZScore: 0.6,  flowMillionUsd:  120, trend: "inflow"  },
-  { categoryName: "Real Estate",       flowZScore: -0.3, flowMillionUsd: -60,  trend: "outflow" },
-  { categoryName: "Utilities",         flowZScore: -1.1, flowMillionUsd: -220, trend: "outflow" },
-  { categoryName: "Consumer Staples",  flowZScore: -1.9, flowMillionUsd: -410, trend: "outflow" },
-  { categoryName: "Bonds (Long-Term)", flowZScore: -2.6, flowMillionUsd: -670, trend: "outflow" },
-];
+const QUADRANT_CONFIG: Record<string, { label: string; colorClass: string; badgeClass: string }> = {
+  "1": { label: "↗ Leading",   colorClass: "text-green-400",  badgeClass: "bg-green-500/10 text-green-400 border border-green-500/25" },
+  "2": { label: "↖ Improving", colorClass: "text-cyan-400",   badgeClass: "bg-cyan-500/10 text-cyan-400 border border-cyan-500/25" },
+  "3": { label: "↘ Weakening", colorClass: "text-orange-400", badgeClass: "bg-orange-500/10 text-orange-400 border border-orange-500/25" },
+  "4": { label: "↙ Lagging",   colorClass: "text-slate-400",  badgeClass: "bg-slate-500/15 text-slate-400 border border-slate-500/30" },
+};
 
-export default function CapitalFlowsPage() {
+const EVENT_LABELS: Record<string, { label: string; colorClass: string }> = {
+  RRG_TRANSITION_IMPROVING_TO_LEADING:  { label: "↗ Improving→Leading",  colorClass: "text-green-400" },
+  RRG_TRANSITION_LAGGING_TO_IMPROVING:  { label: "↑ Lagging→Improving",  colorClass: "text-cyan-400" },
+  RRG_TRANSITION_LEADING_TO_WEAKENING:  { label: "↘ Leading→Weakening",  colorClass: "text-orange-400" },
+  RRG_TRANSITION_WEAKENING_TO_LAGGING:  { label: "↙ Weakening→Lagging",  colorClass: "text-slate-400" },
+  COMPOSITE_BREAKOUT:                   { label: "★ Composite Breakout",  colorClass: "text-yellow-400" },
+  FLOW_SURGE:                           { label: "⚡ Flow Surge",          colorClass: "text-blue-400" },
+};
+
+function formatRs(value: number | null): string {
+  if (value === null) return "—";
+  const pct = (value * 100).toFixed(1);
+  return value >= 0 ? `+${pct}%` : `${pct}%`;
+}
+
+function LeaderRow({ entry, isLeader }: { entry: RotationLeaderEntry; isLeader: boolean }) {
+  const qKey = entry.relativeRotationGraphQuadrant?.toString() ?? null;
+  const qConfig = qKey ? QUADRANT_CONFIG[qKey] : null;
   return (
-    <ComingSoonPage
-      title="Capital Flows"
-      milestone="M4"
-      description="Flow z-scores and ranked inflow / outflow leaders for all 19 categories."
-    >
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs text-slate-500 px-3 mb-3">
-          <span>Category</span>
-          <span>Flow z-score / 20-day flow (USD)</span>
+    <div className="flex items-center gap-2 py-2 border-b border-slate-700/30 last:border-0">
+      <span className="flex-1 text-sm text-slate-200 truncate">{entry.categoryName}</span>
+      {qConfig && (
+        <span
+          className={`text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0 ${qConfig.badgeClass}`}
+          style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.02em" }}
+        >
+          {qConfig.label}
+        </span>
+      )}
+      <span
+        className={`text-xs tabular-nums shrink-0 w-14 text-right ${
+          entry.relativeStrength60Day === null
+            ? "text-slate-600"
+            : isLeader
+            ? "text-green-400"
+            : "text-red-400"
+        }`}
+        style={{ fontFamily: "var(--font-jetbrains-mono)" }}
+      >
+        {formatRs(entry.relativeStrength60Day)}
+      </span>
+    </div>
+  );
+}
+
+function RsBarRow({ category, maxAbs }: { category: CategorySummary; maxAbs: number }) {
+  const pct = category.rs60 !== null ? category.rs60 * 100 : null;
+  const barWidth = pct !== null && maxAbs > 0 ? Math.min(Math.abs(pct) / maxAbs, 1) * 100 : 0;
+  const isPositive = pct !== null && pct > 0;
+  const qConfig = category.rrgQuadrant ? QUADRANT_CONFIG[category.rrgQuadrant] : null;
+
+  return (
+    <div className="flex items-center gap-3 py-1.5 border-b border-slate-700/20 last:border-0">
+      <div className="w-44 shrink-0">
+        <span className="text-sm text-slate-300 truncate block">{category.name}</span>
+      </div>
+      <span
+        className="text-[10px] text-cyan-400 w-10 shrink-0"
+        style={{ fontFamily: "var(--font-jetbrains-mono)" }}
+      >
+        {category.etfTicker}
+      </span>
+      <div className="flex-1 flex items-center gap-2">
+        <div className="flex-1 h-1.5 bg-slate-700/50 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full ${
+              pct === null ? "bg-slate-600" : isPositive ? "bg-emerald-500" : "bg-red-500"
+            }`}
+            style={{ width: `${barWidth}%` }}
+          />
         </div>
-        {MOCK_FLOW_DATA.map((row) => {
-          const barWidth = Math.min(Math.abs(row.flowZScore) / 3, 1) * 100;
-          const isInflow = row.trend === "inflow";
-          return (
-            <div key={row.categoryName} className="flex items-center gap-3 bg-slate-800/40 border border-slate-700/50 rounded-md px-3 py-2">
-              <span className="w-40 text-sm text-slate-300 shrink-0">{row.categoryName}</span>
-              <div className="flex-1 flex items-center gap-2">
-                <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${isInflow ? "bg-emerald-500" : "bg-red-500"}`}
-                    style={{ width: `${barWidth}%` }}
-                  />
-                </div>
-                <span className={`text-xs w-12 text-right font-mono ${isInflow ? "text-emerald-400" : "text-red-400"}`}>
-                  {isInflow ? "+" : ""}{row.flowZScore.toFixed(1)}σ
-                </span>
-              </div>
-              <span className={`text-xs w-20 text-right font-mono shrink-0 ${isInflow ? "text-emerald-400/70" : "text-red-400/70"}`}>
-                {isInflow ? "+" : ""}{row.flowMillionUsd}M
+        <span
+          className={`text-xs tabular-nums w-14 text-right shrink-0 ${
+            pct === null ? "text-slate-600" : isPositive ? "text-emerald-400" : "text-red-400"
+          }`}
+          style={{ fontFamily: "var(--font-jetbrains-mono)" }}
+        >
+          {pct === null ? "—" : `${isPositive ? "+" : ""}${pct.toFixed(1)}%`}
+        </span>
+      </div>
+      {qConfig && (
+        <span
+          className={`text-[10px] shrink-0 w-24 text-right ${qConfig.colorClass}`}
+          style={{ fontFamily: "var(--font-rajdhani)" }}
+        >
+          {qConfig.label}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function EventRow({ event }: { event: RotationEventEntry }) {
+  const config = EVENT_LABELS[event.eventType];
+  return (
+    <div className="flex items-start gap-3 py-2 border-b border-slate-700/30 last:border-0">
+      <span
+        className="text-slate-500 text-[11px] tabular-nums shrink-0 pt-0.5 w-24"
+        style={{ fontFamily: "var(--font-jetbrains-mono)" }}
+      >
+        {event.detectedDate}
+      </span>
+      <span
+        className={`text-[11px] shrink-0 font-semibold ${config?.colorClass ?? "text-slate-400"}`}
+        style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.02em" }}
+      >
+        {config?.label ?? event.eventType}
+      </span>
+      <span className="text-sm text-slate-300 shrink-0">{event.categoryName}</span>
+      {event.notes && (
+        <span className="text-xs text-slate-500 ml-auto text-right max-w-xs">{event.notes}</span>
+      )}
+    </div>
+  );
+}
+
+export default async function CapitalFlowsPage() {
+  const [rotation, categories] = await Promise.all([
+    fetchRotation().catch(() => null),
+    fetchCategories("MONTH").catch(() => null),
+  ]);
+
+  const allRanked = (categories?.categories ?? [])
+    .filter((c) => c.rs60 !== null)
+    .sort((a, b) => (b.rs60 ?? -999) - (a.rs60 ?? -999));
+
+  const maxAbs = allRanked.reduce((m, c) => Math.max(m, Math.abs(c.rs60 ?? 0) * 100), 0) || 10;
+
+  const hasData = allRanked.length > 0 || (rotation?.topLeaders.length ?? 0) > 0;
+
+  return (
+    <div className="flex flex-col h-full">
+      <header className="px-6 py-4 border-b border-slate-700 shrink-0">
+        <div className="flex items-baseline justify-between">
+          <h1
+            className="text-slate-100 font-bold"
+            style={{ fontFamily: "var(--font-rajdhani)", fontSize: "22px", letterSpacing: "0.02em" }}
+          >
+            Capital Flows
+          </h1>
+          <span
+            className="text-[11px] text-slate-500"
+            style={{ fontFamily: "var(--font-jetbrains-mono)" }}
+          >
+            {rotation?.asOfDate ?? categories?.asOfDate ?? "—"}
+          </span>
+        </div>
+        <p className="text-xs text-slate-500 mt-1 max-w-xl">
+          60-day relative strength vs SPY — a proxy for capital rotation. Positive = money flowing
+          into a sector relative to the broad market. Leaders and laggards derived from composite
+          rotation signals.
+        </p>
+      </header>
+
+      <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        {!hasData && (
+          <div className="text-center py-16 text-slate-500">
+            <p className="text-sm">No data yet — trigger ingestion to populate signals.</p>
+          </div>
+        )}
+
+        {rotation && (rotation.topLeaders.length > 0 || rotation.bottomLaggards.length > 0) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-gradient-to-br from-emerald-900/20 to-slate-900/40 border border-emerald-700/25 rounded-xl p-4">
+              <h2
+                className="text-emerald-400 text-[10px] font-semibold uppercase tracking-widest mb-3"
+                style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.1em" }}
+              >
+                ↑ Top Leaders
+              </h2>
+              {rotation.topLeaders.map((e) => (
+                <LeaderRow key={e.categoryId} entry={e} isLeader={true} />
+              ))}
+            </div>
+            <div className="bg-gradient-to-br from-red-900/20 to-slate-900/40 border border-red-700/25 rounded-xl p-4">
+              <h2
+                className="text-red-400 text-[10px] font-semibold uppercase tracking-widest mb-3"
+                style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.1em" }}
+              >
+                ↓ Bottom Laggards
+              </h2>
+              {rotation.bottomLaggards.map((e) => (
+                <LeaderRow key={e.categoryId} entry={e} isLeader={false} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {allRanked.length > 0 && (
+          <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+            <div className="flex items-baseline justify-between mb-3">
+              <h2
+                className="text-slate-300 text-[10px] font-semibold uppercase tracking-widest"
+                style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.1em" }}
+              >
+                All categories — RS 60d vs SPY
+              </h2>
+              <span
+                className="text-[10px] text-slate-500"
+                style={{ fontFamily: "var(--font-jetbrains-mono)" }}
+              >
+                bars scaled to ±{maxAbs.toFixed(1)}%
               </span>
             </div>
-          );
-        })}
-        <div className="flex items-center gap-2 pt-2 text-xs text-slate-600">
-          <div className="w-3 h-1 bg-slate-600 rounded" />
-          <span>±1.5σ threshold for alerts</span>
+            {allRanked.map((c) => (
+              <RsBarRow key={c.id} category={c} maxAbs={maxAbs} />
+            ))}
+          </div>
+        )}
+
+        {rotation?.recentEvents && rotation.recentEvents.length > 0 && (
+          <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+            <h2
+              className="text-slate-300 text-[10px] font-semibold uppercase tracking-widest mb-3"
+              style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.1em" }}
+            >
+              Recent Rotation Events
+            </h2>
+            {rotation.recentEvents.map((evt, i) => (
+              <EventRow key={i} event={evt} />
+            ))}
+          </div>
+        )}
+
+        <div className="mt-2 p-4 bg-slate-800/40 border border-slate-700/40 rounded-lg text-xs text-slate-500">
+          <span className="font-semibold text-slate-400">Note on flow data:</span>{" "}
+          AUM-weighted dollar flows (million USD) require real-time ETF.com or VettaFi data, which is
+          not yet integrated. RS-60 relative strength is a reliable price-based proxy for institutional
+          capital rotation — rising RS means a sector is attracting more buying pressure than SPY.
         </div>
-      </div>
-    </ComingSoonPage>
+      </main>
+    </div>
   );
 }

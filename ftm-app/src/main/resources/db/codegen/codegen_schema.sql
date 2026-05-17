@@ -139,6 +139,10 @@ CREATE TABLE backtest_results (
     metadata                JSONB
 );
 
+-- V7: sub-sector hierarchy (parent_id already added above in categories)
+
+-- V8: factor ETFs (no schema change needed; uses parent_id from V7)
+
 -- V6: investment holdings
 CREATE TABLE holdings (
     id                  BIGSERIAL       PRIMARY KEY,

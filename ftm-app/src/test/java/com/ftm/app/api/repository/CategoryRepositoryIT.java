@@ -29,15 +29,15 @@ class CategoryRepositoryIT {
 
     @BeforeEach
     void resetCategories() {
-        jdbcTemplate.update("UPDATE categories SET active = true");
+        jdbcTemplate.update("UPDATE categories SET active = true WHERE id <> 'FTRS'");
     }
 
     @Test
-    @DisplayName("findAllByActiveTrueOrderByDisplayOrderAsc returns all 23 seeded categories including sub-sectors")
+    @DisplayName("findAllByActiveTrueOrderByDisplayOrderAsc returns all 27 active categories including sub-sectors and factor ETFs")
     void shouldReturnAllActiveSeededCategories() {
         List<Category> categories = repository.findAllByActiveTrueOrderByDisplayOrderAsc();
 
-        assertThat(categories).hasSize(23);
+        assertThat(categories).hasSize(27);
     }
 
     @Test
@@ -70,7 +70,7 @@ class CategoryRepositoryIT {
 
         List<Category> categories = repository.findAllByActiveTrueOrderByDisplayOrderAsc();
 
-        assertThat(categories).hasSize(22);
+        assertThat(categories).hasSize(26);
         assertThat(categories).extracting(Category::id).doesNotContain(CategoryId.CASH);
     }
 

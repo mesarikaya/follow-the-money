@@ -6,7 +6,8 @@ import { usePathname } from "next/navigation";
 const ANALYSIS_ITEMS = [
   { href: "/",             label: "Sector Rotation", icon: "🔄" },
   { href: "/rrg",          label: "RRG Chart",       icon: "🎯" },
-  { href: "/sub-sectors",  label: "Sub-Sectors",     icon: "🔬" },
+  { href: "/sub-sectors",  label: "Tech Sub-Sectors", icon: "🔬" },
+  { href: "/factors",      label: "Factor Flows",    icon: "⚖️" },
   { href: "/flows",        label: "Capital Flows",   icon: "💰" },
   { href: "/macro",        label: "Macro Regime",    icon: "🌍" },
 ];

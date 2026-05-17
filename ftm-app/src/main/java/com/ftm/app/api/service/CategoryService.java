@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -37,10 +38,19 @@ public class CategoryService {
     public CategoriesResponse getCategoriesResponse(String timeframe) {
         log.debug("Loading categories for timeframe={}", timeframe);
         var rows = categoryRepository.findAllWithLatestPrice();
-        Map<String, BigDecimal> rs60ByCategoryId = signalRepository.findLatestByType(SignalType.RS_60);
+        Map<String, BigDecimal> rs60ByCategoryId        = signalRepository.findLatestByType(SignalType.RS_60);
+        Map<String, BigDecimal> compositeByCategoryId   = signalRepository.findLatestByType(SignalType.COMPOSITE);
+        Map<String, BigDecimal> rrgQuadrantByCategoryId = signalRepository.findLatestByType(SignalType.RRG_QUADRANT);
+
+        var sortedRows = rows.stream()
+                .sorted(Comparator.comparing(
+                        row -> compositeByCategoryId.getOrDefault(row.category().id().name(), BigDecimal.ZERO),
+                        Comparator.reverseOrder()))
+                .toList();
+
         AtomicInteger rank = new AtomicInteger(1);
-        var categorySummaryDtos = rows.stream()
-                .map(row -> categoryMapper.toDto(row, rank.getAndIncrement(), rs60ByCategoryId))
+        var categorySummaryDtos = sortedRows.stream()
+                .map(row -> categoryMapper.toDto(row, rank.getAndIncrement(), rs60ByCategoryId, compositeByCategoryId, rrgQuadrantByCategoryId))
                 .toList();
         return new CategoriesResponse(LocalDate.now(), timeframe, categorySummaryDtos);
     }

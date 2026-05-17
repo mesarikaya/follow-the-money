@@ -30,6 +30,7 @@ export type MacroIndicators = {
   fedFundsRate: number | null;
   tenYearYield: number | null;
   twoYearYield: number | null;
+  wtiCrudeOilPrice: number | null;
 };
 
 export type MacroResponse = {

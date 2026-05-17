@@ -52,7 +52,8 @@ public class MacroService {
                 latestBySeriesId.get("T10YIE"),
                 latestBySeriesId.get("FEDFUNDS"),
                 latestBySeriesId.get("DGS10"),
-                latestBySeriesId.get("DGS2")
+                latestBySeriesId.get("DGS2"),
+                latestBySeriesId.get("DCOILWTICO")
         );
 
         MacroRegime currentRegime = macroRegimeService.classifyCurrentRegime();

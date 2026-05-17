@@ -40,7 +40,7 @@ class MacroControllerTest {
     @Test
     @DisplayName("GET /macro returns 200 OK with regime and indicators")
     void shouldReturn200WithMacroResponse() throws Exception {
-        var indicators = new MacroIndicatorsDto(null, null, null, null, null, null, null);
+        var indicators = new MacroIndicatorsDto(null, null, null, null, null, null, null, null);
         var history = List.of(new MacroRegimeHistoryEntry(LocalDate.now(), "RISK_ON_GROWTH"));
         when(macroService.getMacroResponse())
                 .thenReturn(new MacroResponse(LocalDate.now(), "RISK_ON_GROWTH", indicators, history));

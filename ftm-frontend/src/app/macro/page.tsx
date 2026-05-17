@@ -25,6 +25,7 @@ const INDICATOR_LABELS: Record<string, { label: string; format: (v: number | nul
   breakevenInflation: { label: "Breakeven Inflation",format: v => v == null ? "—" : `${v.toFixed(2)}%`, tooltip: "5Y breakeven inflation rate (FRED T5YIE) — market's inflation expectation" },
   fedFundsRate:       { label: "Fed Funds Rate",     format: v => v == null ? "—" : `${v.toFixed(2)}%`, tooltip: "Effective Federal Funds Rate (FRED FEDFUNDS)" },
   usdIndex:           { label: "USD Index",          format: v => v == null ? "—" : v.toFixed(2),        tooltip: "US Dollar Index — DXY proxy. Rising = USD strengthening" },
+  wtiCrudeOilPrice:   { label: "WTI Crude Oil",      format: v => v == null ? "—" : `$${v.toFixed(2)}`, tooltip: "WTI crude oil price USD/barrel (FRED DCOILWTICO). Key cross-asset inflation signal" },
 };
 
 function IndicatorCard({ indicatorKey, value }: { indicatorKey: string; value: number | null }) {

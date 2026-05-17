@@ -20,7 +20,7 @@ public class MacroIngestionHandler {
     private static final int BACKFILL_YEARS = 7;
 
     private static final Set<String> FRED_SERIES =
-            Set.of("T10Y2Y", "T10YIE", "VIXCLS", "DTWEXBGS", "FEDFUNDS", "DGS10", "DGS2", "DEXUSEU");
+            Set.of("T10Y2Y", "T10YIE", "VIXCLS", "DTWEXBGS", "FEDFUNDS", "DGS10", "DGS2", "DEXUSEU", "DCOILWTICO");
 
     private final FredClient fredClient;
     private final MacroIndicatorRepository macroRepo;

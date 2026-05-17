@@ -9,7 +9,8 @@ CREATE TABLE categories (
     etf_ticker       VARCHAR(10)  NOT NULL,
     benchmark_ticker VARCHAR(10)  NOT NULL,
     display_order    INTEGER      NOT NULL,
-    active           BOOLEAN      NOT NULL DEFAULT TRUE
+    active           BOOLEAN      NOT NULL DEFAULT TRUE,
+    parent_id        VARCHAR(10)  REFERENCES categories(id)
 );
 
 CREATE TABLE raw_prices (

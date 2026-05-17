@@ -1,5 +1,6 @@
 package com.ftm.app.signals.service;
 
+import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.domain.RotationEvent;
 import com.ftm.app.domain.RotationEventType;
 import com.ftm.app.domain.SignalType;
@@ -15,6 +16,8 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Detects meaningful rotation events after each signal computation run.
@@ -38,11 +41,14 @@ public class RotationEventDetector {
 
     private final SignalRepository signalRepository;
     private final RotationEventRepository rotationEventRepository;
+    private final CategoryRepository categoryRepository;
 
     public RotationEventDetector(SignalRepository signalRepository,
-                                 RotationEventRepository rotationEventRepository) {
+                                 RotationEventRepository rotationEventRepository,
+                                 CategoryRepository categoryRepository) {
         this.signalRepository = signalRepository;
         this.rotationEventRepository = rotationEventRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     @EventListener
@@ -50,6 +56,12 @@ public class RotationEventDetector {
     public void onSignalsUpdated(SignalsUpdatedEvent event) {
         LocalDate currentSignalDate = event.signalDate();
         log.info("Detecting rotation events for signal_date={}", currentSignalDate);
+
+        Set<String> topLevelCategoryIds = categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc()
+                .stream()
+                .filter(c -> c.parentId() == null)
+                .map(c -> c.id().name())
+                .collect(Collectors.toSet());
 
         Map<String, BigDecimal> currentQuadrants  = signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, currentSignalDate);
         Map<String, BigDecimal> currentComposites = signalRepository.findByTypeAndDate(SignalType.COMPOSITE,    currentSignalDate);
@@ -67,6 +79,7 @@ public class RotationEventDetector {
         int eventsDetected = 0;
 
         for (String categoryId : currentQuadrants.keySet()) {
+            if (!topLevelCategoryIds.contains(categoryId)) continue;
             BigDecimal currentQuadrant  = currentQuadrants.get(categoryId);
             BigDecimal previousQuadrant = previousQuadrants.get(categoryId);
             BigDecimal currentComposite  = currentComposites.get(categoryId);

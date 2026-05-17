@@ -49,6 +49,7 @@ public class PortfolioService {
     public PortfolioResponse getPortfolio() {
         Map<String, Category> categoriesById = categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc()
                 .stream()
+                .filter(c -> c.parentId() == null)
                 .collect(Collectors.toMap(c -> c.id().name(), c -> c));
 
         Map<String, BigDecimal> currentAllocationByCategoryId = portfolioRepository.findAll()

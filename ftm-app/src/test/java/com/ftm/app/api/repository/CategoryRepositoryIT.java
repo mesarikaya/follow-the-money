@@ -33,11 +33,11 @@ class CategoryRepositoryIT {
     }
 
     @Test
-    @DisplayName("findAllByActiveTrueOrderByDisplayOrderAsc returns all 19 seeded categories")
+    @DisplayName("findAllByActiveTrueOrderByDisplayOrderAsc returns all 23 seeded categories including sub-sectors")
     void shouldReturnAllActiveSeededCategories() {
         List<Category> categories = repository.findAllByActiveTrueOrderByDisplayOrderAsc();
 
-        assertThat(categories).hasSize(19);
+        assertThat(categories).hasSize(23);
     }
 
     @Test
@@ -70,7 +70,7 @@ class CategoryRepositoryIT {
 
         List<Category> categories = repository.findAllByActiveTrueOrderByDisplayOrderAsc();
 
-        assertThat(categories).hasSize(18);
+        assertThat(categories).hasSize(22);
         assertThat(categories).extracting(Category::id).doesNotContain(CategoryId.CASH);
     }
 

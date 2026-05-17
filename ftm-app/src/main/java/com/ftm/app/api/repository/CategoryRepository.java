@@ -37,7 +37,8 @@ public class CategoryRepository {
                         r.getEtfTicker(),
                         r.getBenchmarkTicker(),
                         r.getDisplayOrder(),
-                        r.getActive()
+                        r.getActive(),
+                        r.getParentId()
                 ));
     }
 
@@ -57,6 +58,7 @@ public class CategoryRepository {
                         .on(RAW_PRICES.CATEGORY_ID.eq(CATEGORIES.ID)
                                 .and(RAW_PRICES.TRADE_DATE.eq(maxDates.field("max_trade_date", LocalDate.class))))
                 .where(CATEGORIES.ACTIVE.isTrue())
+                .and(CATEGORIES.PARENT_ID.isNull())
                 .orderBy(CATEGORIES.DISPLAY_ORDER.asc())
                 .fetch()
                 .map(r -> new CategoryPriceRow(
@@ -67,10 +69,29 @@ public class CategoryRepository {
                                 r.get(CATEGORIES.ETF_TICKER),
                                 r.get(CATEGORIES.BENCHMARK_TICKER),
                                 r.get(CATEGORIES.DISPLAY_ORDER),
-                                r.get(CATEGORIES.ACTIVE)
+                                r.get(CATEGORIES.ACTIVE),
+                                null
                         ),
                         r.get(RAW_PRICES.CLOSE),
                         r.get(RAW_PRICES.TRADE_DATE)
+                ));
+    }
+
+    public List<Category> findSubCategoriesByParentId(String parentId) {
+        return dsl.selectFrom(CATEGORIES)
+                .where(CATEGORIES.PARENT_ID.eq(parentId))
+                .and(CATEGORIES.ACTIVE.isTrue())
+                .orderBy(CATEGORIES.DISPLAY_ORDER.asc())
+                .fetch()
+                .map(r -> new Category(
+                        CategoryId.valueOf(r.getId()),
+                        r.getName(),
+                        CategoryType.valueOf(r.getType()),
+                        r.getEtfTicker(),
+                        r.getBenchmarkTicker(),
+                        r.getDisplayOrder(),
+                        r.getActive(),
+                        r.getParentId()
                 ));
     }
 }

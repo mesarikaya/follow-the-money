@@ -26,7 +26,7 @@ Phase 3 — Intelligence (M5 + M6)
   M6: Backtester (historical validation, Sharpe vs SPY, weight optimization)
 ```
 
-**Current status:** M1–M6 complete (all 135 tests pass; EP-008–EP-011 delivered). M7 (investment upload) planned as EP-012.
+**Current status:** M1–M7 complete (all 141 tests pass; EP-008–EP-012 delivered). M8 (advanced signals) planned as EP-013/014/015.
 
 ---
 
@@ -52,7 +52,7 @@ Phase 3 — Intelligence (M5 + M6)
 | M4 | Rotation Detection | 2 | Complete |
 | M5 | Portfolio Intelligence | 3 | Complete |
 | M6 | Backtester | 3 | Complete |
-| M7 | Investment Holdings Upload | 4 | Planned |
+| M7 | Investment Holdings Upload | 4 | Complete |
 | M8 | Advanced Signals | 4 | Planned |
 
 ---

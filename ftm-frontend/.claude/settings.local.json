@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-Command *)",
+      "PowerShell(nvm version *)",
+      "PowerShell(& \"C:\\\\Users\\\\mesar\\\\AppData\\\\Local\\\\nvm\\\\nvm.exe\" list)",
+      "Bash(rtk read *)",
+      "PowerShell($PROFILE)"
+    ]
+  }
+}

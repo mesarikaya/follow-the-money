@@ -58,6 +58,18 @@ export type RrgResponse = {
   categories: RrgCategoryEntry[];
 };
 
+export type SubSectorSummary = {
+  id: string;
+  name: string;
+  parentId: string;
+  etfTicker: string;
+  rs20: number | null;
+  rs60: number | null;
+  rs120: number | null;
+  momentum: number | null;
+  rrgQuadrant: string | null;
+};
+
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BACKEND}${path}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
@@ -281,3 +293,6 @@ export const acknowledgeAlert = (alertId: number) =>
     if (!res.ok) throw new Error(`POST /api/v1/alerts/${alertId}/acknowledge → ${res.status}`);
     return res.json() as Promise<AlertDto>;
   });
+
+export const fetchSubSectors = (parent = "TECH") =>
+  get<SubSectorSummary[]>(`/api/v1/sub-sectors?parent=${parent}`);

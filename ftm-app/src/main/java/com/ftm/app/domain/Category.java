@@ -7,5 +7,6 @@ public record Category(
         String etfTicker,
         String benchmarkTicker,
         Integer displayOrder,
-        Boolean active
+        Boolean active,
+        String parentId
 ) {}

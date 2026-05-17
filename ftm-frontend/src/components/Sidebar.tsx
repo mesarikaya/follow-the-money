@@ -4,10 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const ANALYSIS_ITEMS = [
-  { href: "/",          label: "Sector Rotation", icon: "🔄" },
-  { href: "/rrg",       label: "RRG Chart",       icon: "🎯" },
-  { href: "/flows",     label: "Capital Flows",   icon: "💰" },
-  { href: "/macro",     label: "Macro Regime",    icon: "🌍" },
+  { href: "/",             label: "Sector Rotation", icon: "🔄" },
+  { href: "/rrg",          label: "RRG Chart",       icon: "🎯" },
+  { href: "/sub-sectors",  label: "Sub-Sectors",     icon: "🔬" },
+  { href: "/flows",        label: "Capital Flows",   icon: "💰" },
+  { href: "/macro",        label: "Macro Regime",    icon: "🌍" },
 ];
 
 const MANAGEMENT_ITEMS = [

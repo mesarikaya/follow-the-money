@@ -10,9 +10,9 @@ type Props = {
 export default function ComingSoonPage({ title, milestone, description, children }: Props) {
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center gap-3 px-6 py-4 border-b border-slate-800 bg-slate-900 sticky top-0 z-10">
-        <h1 className="text-sm font-semibold text-slate-300">{title}</h1>
-        <span className="text-xs text-slate-600 bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">
+      <header className="flex items-center gap-3 px-6 py-3 border-b border-slate-700 bg-slate-800 sticky top-0 z-10 shrink-0">
+        <h1 className="text-sm font-semibold text-slate-200">{title}</h1>
+        <span className="text-xs text-slate-500 bg-slate-700 px-2 py-0.5 rounded-full border border-slate-600">
           {milestone} — Preview
         </span>
       </header>

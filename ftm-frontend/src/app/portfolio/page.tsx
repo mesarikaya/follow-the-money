@@ -119,7 +119,7 @@ export default function PortfolioPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900 sticky top-0 z-10">
+      <header className="flex items-center justify-between px-6 py-3 border-b border-slate-700 bg-slate-800 sticky top-0 z-10 shrink-0">
         <h1 className="text-sm font-semibold text-slate-300">Portfolio</h1>
         {portfolio && (
           <div className="flex items-center gap-4" title={ALIGNMENT_TOOLTIP}>

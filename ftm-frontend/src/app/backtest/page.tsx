@@ -90,8 +90,8 @@ export default function BacktesterPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center px-6 py-4 border-b border-slate-800 bg-slate-900 sticky top-0 z-10">
-        <h1 className="text-sm font-semibold text-slate-300">Backtester</h1>
+      <header className="flex items-center px-6 py-3 border-b border-slate-700 bg-slate-800 sticky top-0 z-10 shrink-0">
+        <h1 className="text-sm font-semibold text-slate-200">Backtester</h1>
       </header>
 
       <main className="flex-1 p-6 space-y-6 overflow-auto">

@@ -14,6 +14,42 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 
 ---
 
+## 2026-05-17 (session 13 — M12: CI/CD gate, CategoryId bug fix, spec drift elimination)
+
+- `NEW` EP-019 (M12) complete: GitHub Actions CI + branch protection
+  - `.github/workflows/ci.yml`: two required jobs — Backend Tests (Maven + Testcontainers, JDK 25) + Frontend E2E Tests (Playwright chromium)
+  - `ftm-frontend/playwright.config.ci.ts`: Linux-compatible webServer commands for CI (replaces Windows .cmd wrappers)
+  - Branch protection applied to `main` and `develop` via GitHub API: both CI jobs must pass before any PR can merge
+  - Playwright report uploaded as artifact on failure (7-day retention)
+  - ✅ `.github/workflows/ci.yml` (new)
+  - ✅ `ftm-frontend/playwright.config.ci.ts` (new)
+
+- `UPDATED` CategoryId enum: added all 58 V9 sub-sector constants
+  - Root cause: V9 migration seeded TECH_CYBR, HLTH_BIOT, FINL_BANK, etc. to DB but CategoryId enum was never updated; CategoryRepository.valueOf() threw IllegalArgumentException at runtime
+  - Fix: added all sector-prefixed IDs (TECH_CYBR/HACK/ROBO/AIQQ, HLTH_BIOT/BIOI/MDEV/PROV/PHAR/GNOM, FINL_BANK/REGI/INSR/BROK/FINT/KBWB, DISR_RETL/HOME/AIRL/HOTL/REST/AUTO, INDU_ADEF/TRAN/PAVE/AIRR/ROAD, ENRG_OILS/EXPL/SOLR/CLEN/WIND/DRIV/NUCL/URAN, MATL_STEE/LITH/COPP/RING/WOOD/AGRI/RARE, UTIL_WATR/FIWA/UTES, REIT_RESI/MORT/DATA/INDS/RETL, STPL_FOOD/GROC/PRDT, COMM_SOCL/ESPO/NERD/BETZ/FIVG)
+  - CategoryRepositoryIT: updated hardcoded counts 27→85 (active) and 26→84 (with CASH excluded)
+  - Result: 141 backend tests pass (was 0/141 with 9 errors)
+  - ✅ `ftm-app/src/main/java/com/ftm/app/domain/CategoryId.java`
+  - ✅ `ftm-app/src/test/java/com/ftm/app/api/repository/CategoryRepositoryIT.java`
+
+- `UPDATED` roadmap.md: comprehensive spec drift elimination
+  - M1–M11 all acceptance criteria ticked [x]
+  - M9/M10/M11 milestone table rows updated to Complete
+  - M10 status line In Progress → Complete
+  - M8: NYSE A/D marked deferred (requires Alpha Vantage API key)
+  - M9: E2E count 25 → 32; badge label text corrected
+  - M10: sub-sector E2E count corrected (9 new tests, not 2)
+  - M12 + EP-019 section added
+  - ✅ `context/roadmap.md`
+
+- `UPDATED` conventions.md: SPEC DRIFT IS A BUG section added (zero-tolerance rule)
+  - Prominent non-negotiable obligations at session end
+  - Drift detection checklist (scan for stale checkboxes, test counts, milestone status)
+  - AI must NEVER list expanded: explicit spec drift prohibitions at the top
+  - ✅ `context/.ai/conventions.md`
+
+---
+
 ## 2026-05-17 (session 12 — M9/M10/M11: UI redesign, structural sub-sectors, conventions)
 
 - `NEW` EP-018 (M11) complete: mockup-first workflow rule added to `context/.ai/conventions.md`

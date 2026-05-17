@@ -14,6 +14,27 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 
 ---
 
+## 2026-05-17 (session 14 — EP-020: sector visual polish; EP-021: /sub-sectors redirect cleanup)
+
+- `UPDATED` EP-020: Sector pages visual upgrade to match redesigned mockups
+  - Added Rajdhani (display) + JetBrains Mono (data) fonts via `next/font/google`; exposed as `--font-rajdhani` / `--font-jetbrains-mono` CSS variables
+  - `sectors/page.tsx`: gradient card backgrounds, 3-stat grid (Score/RS60d/Flow20d), Rajdhani headings, styled quadrant badges with colored borders, cyan ticker badge, hover "→ drill down" hint
+  - `sectors/[id]/page.tsx`: prominent sector banner with blue left-border accent, styled quadrant badges as colored boxes, Rajdhani table headers, JetBrains Mono for all numeric cells
+  - Matches approved mockups in `context/mockups/sectors-index.html` and `context/mockups/sector-drilldown.html`
+  - ✅ `ftm-frontend/src/app/layout.tsx` (Rajdhani + JetBrains Mono fonts added)
+  - ✅ `ftm-frontend/src/app/globals.css` (--font-display, --font-data CSS vars)
+  - ✅ `ftm-frontend/src/app/sectors/page.tsx`
+  - ✅ `ftm-frontend/src/app/sectors/[id]/page.tsx`
+
+- `UPDATED` EP-021: `/sub-sectors` redirect + E2E cleanup
+  - `/sub-sectors` now permanently redirects (307) to `/sectors/TECH`
+  - Removed 3 "Tech Sub-Sectors page" E2E tests (fully covered by "Sector drilldown page" group)
+  - Added 1 redirect smoke-test; net E2E count: **30 tests** (was 32)
+  - ✅ `ftm-frontend/src/app/sub-sectors/page.tsx` (redirect only)
+  - ✅ `ftm-frontend/e2e/pages.spec.ts` (3 removed, 1 added)
+
+---
+
 ## 2026-05-17 (session 13 — M12: CI/CD gate, CategoryId bug fix, spec drift elimination)
 
 - `NEW` EP-019 (M12) complete: GitHub Actions CI + branch protection

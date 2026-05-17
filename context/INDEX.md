@@ -1,5 +1,5 @@
 ---
-last-updated: 2026-05-17
+last-updated: 2026-05-17 (session 14)
 ---
 
 # Follow the Money — AI Context
@@ -21,7 +21,7 @@ A local-first investment dashboard that tracks capital flows across 19 investabl
 
 ## Current phase
 
-**All 12 milestones delivered.** 141 backend tests + 32 E2E tests pass.
+**All 12 milestones delivered.** 141 backend tests + 30 E2E tests pass.
 
 | Area | Status |
 |------|--------|

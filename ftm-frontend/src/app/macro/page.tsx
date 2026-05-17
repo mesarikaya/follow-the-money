@@ -1,72 +1,147 @@
-import ComingSoonPage from "@/components/ComingSoonPage";
+import { fetchMacro } from "@/lib/api";
+import type { MacroResponse } from "@/lib/api";
 
-const MOCK_REGIME_HISTORY = [
-  { date: "2026-05-16", regime: "RISK_ON_GROWTH",   days: 14 },
-  { date: "2026-05-02", regime: "RISK_ON_DEFENSIVE", days: 21 },
-  { date: "2026-04-11", regime: "RISK_OFF_FLIGHT",   days: 9  },
-  { date: "2026-04-02", regime: "RISK_ON_GROWTH",    days: 45 },
-  { date: "2026-02-16", regime: "STAGFLATION",       days: 18 },
-];
-
-const REGIME_STYLES: Record<string, { label: string; color: string; bg: string }> = {
-  RISK_ON_GROWTH:    { label: "Risk On — Growth",    color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/30" },
-  RISK_ON_DEFENSIVE: { label: "Risk On — Defensive", color: "text-blue-400",    bg: "bg-blue-500/10 border-blue-500/30"    },
-  RISK_OFF_FLIGHT:   { label: "Risk Off — Flight",   color: "text-red-400",     bg: "bg-red-500/10 border-red-500/30"     },
-  STAGFLATION:       { label: "Stagflation",          color: "text-amber-400",   bg: "bg-amber-500/10 border-amber-500/30" },
+const REGIME_STYLES: Record<string, { label: string; color: string; ring: string; bg: string }> = {
+  RISK_ON_GROWTH:     { label: "Risk On — Growth",     color: "text-emerald-300", ring: "border-emerald-600", bg: "bg-emerald-900/30" },
+  RISK_ON_DEFENSIVE:  { label: "Risk On — Defensive",  color: "text-blue-300",    ring: "border-blue-600",    bg: "bg-blue-900/30"    },
+  RISK_OFF_DEFENSIVE: { label: "Risk Off — Defensive", color: "text-orange-300",  ring: "border-orange-600",  bg: "bg-orange-900/30"  },
+  RISK_OFF_FLIGHT:    { label: "Risk Off — Flight",    color: "text-red-300",     ring: "border-red-600",     bg: "bg-red-900/30"     },
+  STAGFLATION:        { label: "Stagflation",           color: "text-amber-300",   ring: "border-amber-600",   bg: "bg-amber-900/30"   },
 };
 
-export default function MacroRegimePage() {
-  return (
-    <ComingSoonPage
-      title="Macro Regime"
-      milestone="M3"
-      description="Full regime history, indicator trend charts, and MACRO_FIT win-rates per category."
-    >
-      <div className="space-y-6">
-        <div>
-          <h3 className="text-sm font-medium text-zinc-400 mb-3">Regime History (last 90 days)</h3>
-          <div className="space-y-2">
-            {MOCK_REGIME_HISTORY.map((entry) => {
-              const style = REGIME_STYLES[entry.regime] ?? { label: entry.regime, color: "text-zinc-400", bg: "bg-zinc-700/30 border-zinc-600/30" };
-              return (
-                <div key={entry.date} className={`flex items-center justify-between px-3 py-2 rounded-md border ${style.bg}`}>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-zinc-500 w-24">{entry.date}</span>
-                    <span className={`text-sm font-medium ${style.color}`}>{style.label}</span>
-                  </div>
-                  <span className="text-xs text-zinc-500">{entry.days}d</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+const REGIME_DESCRIPTIONS: Record<string, string> = {
+  RISK_ON_GROWTH:     "Spread positive, VIX low, inflation contained. Equities and cyclicals favored.",
+  RISK_ON_DEFENSIVE:  "Spread narrow or flat, VIX moderate. Rotate toward quality and dividend sectors.",
+  RISK_OFF_DEFENSIVE: "Spread inverted, VIX elevated. Shift toward bonds, utilities, staples.",
+  RISK_OFF_FLIGHT:    "Spread deeply inverted, VIX spiking, USD surging. Gold and Treasuries lead.",
+  STAGFLATION:        "Inflation above 3%, breakeven rising, growth slowing. Commodities and energy.",
+};
 
-        <div>
-          <h3 className="text-sm font-medium text-zinc-400 mb-3">MACRO_FIT Win-Rates — Current Regime</h3>
-          <p className="text-xs text-zinc-600 mb-3">
-            Fraction of historical RISK_ON_GROWTH days where RS_60 was positive per category.
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { name: "Technology",        winRate: 0.78 },
-              { name: "Financial",         winRate: 0.72 },
-              { name: "Energy",            winRate: 0.65 },
-              { name: "Healthcare",        winRate: 0.61 },
-              { name: "Consumer Disc.",    winRate: 0.58 },
-              { name: "Industrials",       winRate: 0.54 },
-              { name: "Bonds (Long-Term)", winRate: 0.31 },
-              { name: "Gold",              winRate: 0.28 },
-            ].map((row) => (
-              <div key={row.name} className="flex items-center gap-2 bg-zinc-800/40 border border-zinc-700/50 rounded px-3 py-2">
-                <span className="text-xs text-zinc-400 flex-1">{row.name}</span>
-                <span className={`text-xs font-mono font-medium ${row.winRate >= 0.6 ? "text-emerald-400" : row.winRate >= 0.4 ? "text-zinc-300" : "text-red-400"}`}>
-                  {Math.round(row.winRate * 100)}%
-                </span>
+const INDICATOR_LABELS: Record<string, { label: string; format: (v: number | null) => string; tooltip: string }> = {
+  vix:                { label: "VIX",               format: v => v == null ? "—" : v.toFixed(2),        tooltip: "CBOE Volatility Index — market fear gauge. <20 = calm, >30 = stress" },
+  tenYearYield:       { label: "10Y Yield",          format: v => v == null ? "—" : `${v.toFixed(2)}%`, tooltip: "US 10-year Treasury yield (FRED DGS10)" },
+  twoYearYield:       { label: "2Y Yield",           format: v => v == null ? "—" : `${v.toFixed(2)}%`, tooltip: "US 2-year Treasury yield (FRED DGS2)" },
+  yieldSpread10y2y:   { label: "10Y–2Y Spread",     format: v => v == null ? "—" : `${v.toFixed(2)}%`, tooltip: "10Y minus 2Y Treasury spread. Negative = inverted yield curve = recession signal" },
+  breakevenInflation: { label: "Breakeven Inflation",format: v => v == null ? "—" : `${v.toFixed(2)}%`, tooltip: "5Y breakeven inflation rate (FRED T5YIE) — market's inflation expectation" },
+  fedFundsRate:       { label: "Fed Funds Rate",     format: v => v == null ? "—" : `${v.toFixed(2)}%`, tooltip: "Effective Federal Funds Rate (FRED FEDFUNDS)" },
+  usdIndex:           { label: "USD Index",          format: v => v == null ? "—" : v.toFixed(2),        tooltip: "US Dollar Index — DXY proxy. Rising = USD strengthening" },
+};
+
+function IndicatorCard({ indicatorKey, value }: { indicatorKey: string; value: number | null }) {
+  const config = INDICATOR_LABELS[indicatorKey];
+  if (!config) return null;
+  return (
+    <div
+      className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 space-y-1"
+      title={config.tooltip}
+    >
+      <div className="text-xs text-slate-500">{config.label}</div>
+      <div className="text-2xl font-semibold tabular-nums text-slate-100">{config.format(value)}</div>
+    </div>
+  );
+}
+
+function RegimeTimeline({ history }: { history: MacroResponse["regimeHistory"] }) {
+  if (!history || history.length === 0) return null;
+
+  const entries = [...history].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12);
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-semibold text-slate-300">Regime History</h2>
+      <div className="space-y-1.5">
+        {entries.map((entry, i) => {
+          const style = REGIME_STYLES[entry.regime] ?? { label: entry.regime, color: "text-slate-400", ring: "border-slate-600", bg: "bg-slate-800/50" };
+          const nextEntry = entries[i + 1];
+          const start = new Date(entry.date);
+          const end = nextEntry ? new Date(nextEntry.date) : null;
+          const days = end ? Math.round((start.getTime() - end.getTime()) / 86_400_000) : null;
+          return (
+            <div
+              key={entry.date}
+              className={`flex items-center justify-between px-3 py-2 rounded-lg border ${style.ring} ${style.bg}`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-500 w-24 tabular-nums">{entry.date}</span>
+                <span className={`text-sm font-medium ${style.color}`}>{style.label}</span>
               </div>
-            ))}
-          </div>
-        </div>
+              {days != null && (
+                <span className="text-xs text-slate-500">{days}d</span>
+              )}
+            </div>
+          );
+        })}
       </div>
-    </ComingSoonPage>
+    </section>
+  );
+}
+
+export default async function MacroRegimePage() {
+  let macro: MacroResponse | null = null;
+  let error: string | null = null;
+
+  try {
+    macro = await fetchMacro();
+  } catch (e) {
+    error = String(e);
+  }
+
+  const regime = macro?.regime ?? "UNKNOWN";
+  const style = REGIME_STYLES[regime] ?? { label: regime, color: "text-slate-400", ring: "border-slate-600", bg: "bg-slate-800/50" };
+
+  return (
+    <div className="flex flex-col h-full">
+      <header className="flex items-center justify-between px-6 py-3 border-b border-slate-700 bg-slate-800 sticky top-0 z-10 shrink-0">
+        <div className="flex items-center gap-3">
+          <h1 className="text-sm font-semibold text-slate-200">Macro Regime</h1>
+          {macro && (
+            <span className={`inline-block px-2.5 py-0.5 rounded-full border text-xs font-semibold ${style.ring} ${style.color} ${style.bg}`}>
+              {style.label}
+            </span>
+          )}
+        </div>
+        {macro?.asOfDate && (
+          <span className="text-xs text-slate-500">Data as of {macro.asOfDate}</span>
+        )}
+      </header>
+
+      <main className="flex-1 p-6 space-y-6 overflow-auto">
+        {error && (
+          <div className="bg-red-900/40 border border-red-700 text-red-300 px-4 py-3 rounded-md text-sm">
+            Failed to load macro data: {error}
+          </div>
+        )}
+
+        {macro && (
+          <>
+            <section className="space-y-3">
+              <div className={`flex items-start gap-4 px-4 py-4 rounded-xl border ${style.ring} ${style.bg}`}>
+                <div className="flex-1">
+                  <div className={`text-lg font-semibold ${style.color}`}>{style.label}</div>
+                  <p className="text-sm text-slate-400 mt-1">
+                    {REGIME_DESCRIPTIONS[regime] ?? "No description available for this regime."}
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-sm font-semibold text-slate-300">Indicators</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {Object.keys(INDICATOR_LABELS).map((key) => (
+                  <IndicatorCard
+                    key={key}
+                    indicatorKey={key}
+                    value={macro!.indicators[key as keyof typeof macro.indicators] ?? null}
+                  />
+                ))}
+              </div>
+            </section>
+
+            <RegimeTimeline history={macro.regimeHistory} />
+          </>
+        )}
+      </main>
+    </div>
   );
 }

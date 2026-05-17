@@ -1,5 +1,5 @@
 ---
-last-updated: 2026-05-15
+last-updated: 2026-05-17
 ---
 
 # Roadmap — Follow the Money
@@ -26,7 +26,7 @@ Phase 3 — Intelligence (M5 + M6)
   M6: Backtester (historical validation, Sharpe vs SPY, weight optimization)
 ```
 
-**Current status:** M1 complete (merged to develop). M2 in progress (EP-004 PR open).
+**Current status:** M1–M6 complete (all 135 tests pass; EP-008–EP-011 delivered). M7 (investment upload) planned as EP-012.
 
 ---
 
@@ -46,12 +46,14 @@ Phase 3 — Intelligence (M5 + M6)
 
 | ID | Name | Phase | Status |
 |----|------|-------|--------|
-| M1 | Data Foundation | 1 | Not started |
-| M2 | Basic Dashboard | 1 | Not started |
-| M3 | Full Signal Engine | 2 | Not started |
-| M4 | Rotation Detection | 2 | Not started |
-| M5 | Portfolio Intelligence | 3 | Not started |
-| M6 | Backtester | 3 | Not started |
+| M1 | Data Foundation | 1 | Complete |
+| M2 | Basic Dashboard | 1 | Complete |
+| M3 | Full Signal Engine | 2 | Complete |
+| M4 | Rotation Detection | 2 | Complete |
+| M5 | Portfolio Intelligence | 3 | Complete |
+| M6 | Backtester | 3 | Complete |
+| M7 | Investment Holdings Upload | 4 | Planned |
+| M8 | Advanced Signals | 4 | Planned |
 
 ---
 
@@ -631,6 +633,111 @@ curl -X POST http://localhost:8080/api/v1/ingest/trigger
 
 ---
 
+---
+
+## M7 — Investment Holdings Upload
+
+**Epics:** EP-012  
+**Blocked by:** M5
+
+**Goal:** User can upload their actual investment holdings (stocks, ETFs) in EUR or USD, have them auto-categorized to segments, and see them reflected in the portfolio page.
+
+**Context:** Defense/Aerospace stocks (e.g., Rheinmetall, BAES, LMT) fall under **Industrials (XLI)** per GICS classification. Semiconductor stocks fall under **Technology (XLK)**. All holdings are mapped to one of the 19 categories.
+
+**Acceptance criteria:**
+- [ ] CSV template available for download: columns `ticker, name, currency(EUR|USD), quantity, avg_cost`
+- [ ] Upload endpoint `POST /api/v1/portfolio/upload` accepts CSV; auto-classifies each holding to a category via ticker lookup
+- [ ] EUR holdings converted to USD using the latest USD/EUR rate from FRED (DEXUSEU series) at upload time
+- [ ] Upload overrides the full portfolio allocation (bulk replace)
+- [ ] Per-holding partial update: `PATCH /api/v1/portfolio/holdings/{ticker}` for small changes (quantity, avg cost) without full re-upload
+- [ ] Portfolio page shows individual holdings table (ticker, name, segment, market value USD, % of total) in addition to segment allocation view
+- [ ] Holdings not matching any category are flagged as "Unclassified" and surfaced in a warning banner
+
+**Out of scope for M7:** Real-time prices per holding (mark-to-market). That requires per-holding Yahoo Finance calls and is deferred to M8.
+
+**Enables:** M8
+
+---
+
+### EP-012 — Investment Holdings Upload + Classification
+
+**Milestone:** M7  
+**Goal:** CSV upload pipeline that classifies holdings to segments and powers the portfolio page.
+
+**Technical tasks:**
+
+**T-012-1: CSV template endpoint** — `GET /api/v1/portfolio/template` returns a CSV file with headers and example rows for each supported category; includes EUR/USD column
+
+**T-012-2: Ticker→category classification service** — `HoldingClassificationService` with a curated ticker→CategoryId map (seeded in V5 migration) covering major US + European ETFs and large-cap stocks; unrecognized tickers flagged as UNCLASSIFIED
+
+**T-012-3: V5 migration — `holdings` table**
+```sql
+CREATE TABLE holdings (
+    id BIGSERIAL PRIMARY KEY,
+    ticker VARCHAR(20) NOT NULL,
+    name VARCHAR(200),
+    category_id VARCHAR(50) REFERENCES categories(id),
+    currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+    quantity NUMERIC(18,6) NOT NULL,
+    avg_cost_local NUMERIC(18,4),
+    usd_fx_rate NUMERIC(18,6),
+    uploaded_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+**T-012-4: EUR→USD conversion** — fetch `DEXUSEU` from FRED at upload time; store rate in `holdings.usd_fx_rate`; compute USD market value as `quantity × avg_cost_local × usd_fx_rate`
+
+**T-012-5: Upload endpoint** — `POST /api/v1/portfolio/upload` (multipart/form-data); parses CSV, classifies, converts FX, persists; returns `HoldingsUploadResponse` with count, unclassified list, total USD value
+
+**T-012-6: Partial update endpoint** — `PATCH /api/v1/portfolio/holdings/{ticker}` accepting `{quantity, avg_cost_local}` JSON body
+
+**T-012-7: Portfolio page holdings view** — holdings table below the segment allocation view; "Unclassified holdings" warning banner if any; "Download template" button
+
+---
+
+## M8 — Advanced Signals (Post-MVP)
+
+**Epics:** EP-013, EP-014, EP-015  
+**Blocked by:** M6
+
+**Goal:** Richer signal universe for more precise rotation detection.
+
+**Acceptance criteria:**
+- [ ] Sub-sector hierarchy: Technology split into Semiconductors/AI Infra/Cloud/Software (based on constituent ETFs SMH, BOTZ, WCLD, IGV)
+- [ ] Factor flows: MTUM (momentum), QUAL (quality), USMV (low-vol), VLUE (value) ingested and signaled
+- [ ] Market internals: NYSE advance/decline ratio, new 52W highs/lows as breadth indicators
+- [ ] MACRO_FIT historical win-rates per category displayed on macro page (requires MACRO_REGIME signal history)
+- [ ] Cross-asset: DXY, WTI/Brent oil, VIX futures term structure as auxiliary signals
+
+---
+
+### EP-013 — Sub-sector Hierarchy
+
+**Milestone:** M8  
+**Goal:** Decompose Technology category into 4 sub-sectors; surface in dashboard.
+
+**Tasks:** New `sub_categories` table linking to parent category; ingest SMH/BOTZ/WCLD/IGV; compute RS and COMPOSITE at sub-sector level; sub-sector drill-down in dashboard sidebar.
+
+---
+
+### EP-014 — Factor Flows
+
+**Milestone:** M8  
+**Goal:** Track smart-money rotation across factor ETFs.
+
+**Tasks:** Ingest MTUM/QUAL/USMV/VLUE; compute RS_60 and FLOW signals; Factor Flow panel in dashboard showing factor rotation signals alongside sector rotation.
+
+---
+
+### EP-015 — Market Internals + Cross-Asset
+
+**Milestone:** M8  
+**Goal:** Breadth indicators and cross-asset signals as macro confirmation.
+
+**Tasks:** Ingest NYSE A/D data (Alpha Vantage or FRED proxy); 52W high/low ratio; DXY/oil/VIX term structure as additional macro indicators; Market Internals panel on macro page.
+
+---
+
 ## Epic dependency map
 
 ```
@@ -645,6 +752,8 @@ EP-000 (scaffolding)
                                                   → EP-009 (portfolio)
                                                     → EP-010 (alerts)
                                                       → EP-011 (backtester)
+                                                        → EP-012 (holdings upload)
+                                                          → EP-013/014/015 (advanced signals)
 ```
 
 ---
@@ -654,6 +763,6 @@ EP-000 (scaffolding)
 - Mobile app
 - Multi-user / auth
 - Brokerage integration
-- Real-time intraday data
-- Options flow data (consider after M4 if institutional signals prove valuable)
+- Real-time intraday data / mark-to-market per holding (M8+ if feasible)
+- Options flow / derivatives data (consider after M8 if institutional signals prove valuable)
 - Social / community features

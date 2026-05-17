@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Follow the Money — Sub-Sectors Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface: '#080f1e',
+            panel:   '#0d1829',
+            border:  '#1e2d45',
+            muted:   '#4a6080',
+            cyan:    '#06b6d4',
+          },
+          fontFamily: {
+            display: ['Rajdhani', 'sans-serif'],
+            mono:    ['JetBrains Mono', 'monospace'],
+            body:    ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background: radial-gradient(ellipse at 20% 0%, #0d1f3a 0%, #080f1e 50%);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+    }
+    .nav-item { transition: all 0.12s ease; border-left: 2px solid transparent; }
+    .nav-item:hover { background: rgba(6,182,212,0.06); border-left-color: rgba(6,182,212,0.3); }
+    .nav-item.active { background: rgba(6,182,212,0.1); border-left-color: #06b6d4; }
+    .sector-card {
+      border-left: 3px solid transparent;
+      transition: all 0.15s ease;
+      background: linear-gradient(135deg, #0d1829 0%, #0a1520 100%);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    .sector-card::before {
+      content: '';
+      position: absolute;
+      top: 0; right: 0;
+      width: 60px; height: 60px;
+      border-radius: 0 0 0 60px;
+      opacity: 0.04;
+    }
+    .sector-card.leading { border-left-color: #22c55e; }
+    .sector-card.leading::before { background: #22c55e; }
+    .sector-card.improving { border-left-color: #06b6d4; }
+    .sector-card.improving::before { background: #06b6d4; }
+    .sector-card.weakening { border-left-color: #f97316; }
+    .sector-card.weakening::before { background: #f97316; }
+    .sector-card.lagging { border-left-color: #475569; }
+    .sector-card.lagging::before { background: #475569; }
+    .sector-card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); border-top-color: rgba(6,182,212,0.15); }
+    .sector-card:hover .card-arrow { opacity: 1; transform: translateX(0); }
+    .card-arrow { opacity: 0; transform: translateX(-4px); transition: all 0.15s; }
+    .rs-positive { color: #4ade80; font-family: 'JetBrains Mono', monospace; }
+    .rs-negative { color: #f87171; font-family: 'JetBrains Mono', monospace; }
+    .rs-null     { color: #4a6080; font-family: 'JetBrains Mono', monospace; }
+    .quadrant-badge {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      font-size: 11px;
+      letter-spacing: 0.02em;
+      padding: 3px 8px;
+      border-radius: 3px;
+    }
+    .q-leading   { background: rgba(34,197,94,0.12);  color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+    .q-improving { background: rgba(6,182,212,0.12);  color: #22d3ee; border: 1px solid rgba(6,182,212,0.25); }
+    .q-weakening { background: rgba(249,115,22,0.12); color: #fb923c; border: 1px solid rgba(249,115,22,0.25); }
+    .q-lagging   { background: rgba(71,85,105,0.2);   color: #94a3b8; border: 1px solid rgba(71,85,105,0.3); }
+    .rs-stat-label { color: #4a6080; font-size: 10px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em; }
+    .sub-count { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #4a6080; }
+    .ticker-badge { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #06b6d4; background: rgba(6,182,212,0.08); border: 1px solid rgba(6,182,212,0.15); padding: 1px 6px; border-radius: 3px; }
+    .header-brand { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 17px; letter-spacing: 0.04em; color: #e2e8f0; }
+    .section-heading { font-family: 'Rajdhani', sans-serif; font-weight: 600; letter-spacing: 0.08em; font-size: 11px; color: #4a6080; text-transform: uppercase; }
+    .page-title { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: 0.02em; color: #f1f5f9; }
+    .tf-btn { font-family: 'Rajdhani', sans-serif; font-weight: 600; letter-spacing: 0.04em; }
+  </style>
+</head>
+<body class="text-slate-300 flex flex-col" style="min-height:100vh;">
+
+  <!-- GLOBAL HEADER -->
+  <header style="background: linear-gradient(180deg, #0d1829 0%, #0a1520 100%); border-bottom: 1px solid #1e2d45;"
+          class="px-6 py-3 flex items-center justify-between shrink-0 z-10">
+    <div class="flex items-center gap-3">
+      <span class="text-cyan-400 text-xl">📈</span>
+      <span class="header-brand">Follow the Money</span>
+      <span class="text-xs" style="color:#4a6080;">local · single-user</span>
+    </div>
+
+    <!-- Timeframe selector -->
+    <div class="flex items-center gap-0.5 rounded-lg p-1" style="background:#060d18;">
+      <button class="tf-btn px-3 py-1 rounded-md transition-colors" style="color:#4a6080;">Day</button>
+      <button class="tf-btn px-3 py-1 rounded-md transition-colors" style="color:#4a6080;">Week</button>
+      <button class="tf-btn px-3 py-1 rounded-md" style="background:#06b6d4; color:#000; font-weight:700;">Month</button>
+      <button class="tf-btn px-3 py-1 rounded-md transition-colors" style="color:#4a6080;">Quarter</button>
+      <button class="tf-btn px-3 py-1 rounded-md transition-colors" style="color:#4a6080;">Year</button>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button style="background:#060d18; border:1px solid #1e2d45; color:#94a3b8;" class="flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg hover:border-cyan-500/40 transition-colors">
+        <span>⟳</span> Refresh Data
+      </button>
+      <div class="flex items-center gap-2 text-xs">
+        <span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block"></span>
+        <span class="text-green-400" style="font-family:'JetBrains Mono'; font-size:11px;">LIVE</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- SIDEBAR -->
+    <nav class="w-52 flex flex-col py-5 shrink-0" style="background:#060d18; border-right:1px solid #1e2d45;">
+      <div class="px-4 mb-3">
+        <span class="section-heading">Analysis</span>
+      </div>
+      <a href="#" class="nav-item flex items-center gap-3 px-4 py-2.5 text-sm" style="color:#4a6080;">
+        <span class="text-base w-5 text-center">🔄</span>
+        <span>Sector Rotation</span>
+      </a>
+      <a href="#" class="nav-item flex items-center gap-3 px-4 py-2.5 text-sm" style="color:#4a6080;">
+        <span class="text-base w-5 text-center">🎯</span>
+        <span>RRG Chart</span>
+      </a>
+      <a href="#" class="nav-item active flex items-center gap-3 px-4 py-2.5 text-sm" style="color:#22d3ee;">
+        <span class="text-base w-5 text-center">🔬</span>
+        <span>Sub-Sectors</span>
+      </a>
+      <a href="#" class="nav-item flex items-center gap-3 px-4 py-2.5 text-sm" style="color:#4a6080;">
+        <span class="text-base w-5 text-center">⚖️</span>
+        <span>Factor Flows</span>
+      </a>
+      <a href="#" class="nav-item flex items-center gap-3 px-4 py-2.5 text-sm" style="color:#4a6080;">
+        <span class="text-base w-5 text-center">💰</span>
+        <span>Capital Flows</span>
+      </a>
+      <a href="#" class="nav-item flex items-center gap-3 px-4 py-2.5 text-sm" style="color:#4a6080;">
+        <span class="text-base w-5 text-center">🌍</span>
+        <span>Macro Regime</span>
+      </a>
+      <div class="px-4 mt-5 mb-3">
+        <span class="section-heading">Management</span>
+      </div>
+      <a href="#" class="nav-item flex items-center gap-3 px-4 py-2.5 text-sm" style="color:#4a6080;">
+        <span class="text-base w-5 text-center">📁</span>
+        <span>Portfolio</span>
+      </a>
+      <a href="#" class="nav-item flex items-center gap-3 px-4 py-2.5 text-sm" style="color:#4a6080;">
+        <span class="text-base w-5 text-center">🔔</span>
+        <span>Alerts</span>
+      </a>
+      <a href="#" class="nav-item flex items-center gap-3 px-4 py-2.5 text-sm" style="color:#4a6080;">
+        <span class="text-base w-5 text-center">📈</span>
+        <span>Backtester</span>
+      </a>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 p-6 overflow-auto">
+
+      <!-- Page heading -->
+      <div class="flex items-baseline justify-between mb-1">
+        <h1 class="page-title">Sector Sub-Sectors</h1>
+        <span class="sub-count">11 GICS sectors · ~85 sub-sector ETFs</span>
+      </div>
+      <p class="text-sm mb-5" style="color:#4a6080; max-width:640px;">
+        Each sub-sector is benchmarked against its parent sector ETF — not the S&P 500.
+        A positive RS score indicates that sub-sector is gaining capital <em>within</em> its sector,
+        even if the overall sector is lagging the market.
+      </p>
+
+      <!-- Sector grid -->
+      <div class="grid grid-cols-3 gap-3" style="grid-template-columns: repeat(3, 1fr);">
+
+        <!-- TECH — Leading -->
+        <div class="sector-card leading rounded-xl p-4 border" style="border-color:#1e2d45;" onclick="location.href='sector-drilldown.html'">
+          <div class="flex items-start justify-between mb-2">
+            <div>
+              <div class="font-display font-600 text-white text-base leading-tight" style="font-family:'Rajdhani'; font-weight:600;">Information Technology</div>
+              <span class="ticker-badge mt-1 inline-block">XLK</span>
+            </div>
+            <span class="quadrant-badge q-leading">↗ Leading</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mt-3 mb-3">
+            <div class="text-center">
+              <div class="rs-stat-label">RS 20d</div>
+              <div class="rs-positive text-sm font-medium">+3.2%</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">RS 60d</div>
+              <div class="rs-positive text-sm font-medium">+7.8%</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">Momentum</div>
+              <div class="rs-positive text-sm font-medium">+4.6%</div>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="sub-count">9 sub-sectors</span>
+            <span class="card-arrow text-cyan-400 text-xs" style="font-family:'JetBrains Mono';">→ drill down</span>
+          </div>
+        </div>
+
+        <!-- COMM — Leading -->
+        <div class="sector-card leading rounded-xl p-4 border" style="border-color:#1e2d45;" onclick="location.href='sector-drilldown.html'">
+          <div class="flex items-start justify-between mb-2">
+            <div>
+              <div style="font-family:'Rajdhani'; font-weight:600;" class="text-white text-base leading-tight">Communication Services</div>
+              <span class="ticker-badge mt-1 inline-block">XLC</span>
+            </div>
+            <span class="quadrant-badge q-leading">↗ Leading</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mt-3 mb-3">
+            <div class="text-center">
+              <div class="rs-stat-label">RS 20d</div>
+              <div class="rs-positive text-sm font-medium">+2.5%</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">RS 60d</div>
+              <div class="rs-positive text-sm font-medium">+5.1%</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">Momentum</div>
+              <div class="rs-positive text-sm font-medium">+2.6%</div>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="sub-count">6 sub-sectors</span>
+            <span class="card-arrow text-cyan-400 text-xs" style="font-family:'JetBrains Mono';">→ drill down</span>
+          </div>
+        </div>
+
+        <!-- MATL — Leading -->
+        <div class="sector-card leading rounded-xl p-4 border" style="border-color:#1e2d45;" onclick="location.href='sector-drilldown.html'">
+          <div class="flex items-start justify-between mb-2">
+            <div>
+              <div style="font-family:'Rajdhani'; font-weight:600;" class="text-white text-base leading-tight">Materials</div>
+              <span class="ticker-badge mt-1 inline-block">XLB</span>
+            </div>
+            <span class="quadrant-badge q-leading">↗ Leading</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mt-3 mb-3">
+            <div class="text-center">
+              <div class="rs-stat-label">RS 20d</div>
+              <div class="rs-positive text-sm font-medium">+4.1%</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">RS 60d</div>
+              <div class="rs-positive text-sm font-medium">+8.3%</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">Momentum</div>
+              <div class="rs-positive text-sm font-medium">+4.2%</div>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="sub-count">8 sub-sectors</span>
+            <span class="card-arrow text-cyan-400 text-xs" style="font-family:'JetBrains Mono';">→ drill down</span>
+          </div>
+        </div>
+
+        <!-- FINL — Improving -->
+        <div class="sector-card improving rounded-xl p-4 border" style="border-color:#1e2d45;" onclick="location.href='sector-drilldown.html'">
+          <div class="flex items-start justify-between mb-2">
+            <div>
+              <div style="font-family:'Rajdhani'; font-weight:600;" class="text-white text-base leading-tight">Financials</div>
+              <span class="ticker-badge mt-1 inline-block">XLF</span>
+            </div>
+            <span class="quadrant-badge q-improving">↖ Improving</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mt-3 mb-3">
+            <div class="text-center">
+              <div class="rs-stat-label">RS 20d</div>
+              <div class="rs-positive text-sm font-medium">+1.4%</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">RS 60d</div>
+              <div class="rs-negative text-sm font-medium">-0.8%</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">Momentum</div>
+              <div class="rs-positive text-sm font-medium">+2.2%</div>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="sub-count">6 sub-sectors</span>
+            <span class="card-arrow text-cyan-400 text-xs" style="font-family:'JetBrains Mono';">→ drill down</span>
+          </div>
+        </div>
+
+        <!-- INDU — Improving -->
+        <div class="sector-card improving rounded-xl p-4 border" style="border-color:#1e2d45;" onclick="location.href='sector-drilldown.html'">
+          <div class="flex items-start justify-between mb-2">
+            <div>
+              <div style="font-family:'Rajdhani'; font-weight:600;" class="text-white text-base leading-tight">Industrials</div>
+              <span class="ticker-badge mt-1 inline-block">XLI</span>
+            </div>
+            <span class="quadrant-badge q-improving">↖ Improving</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mt-3 mb-3">
+            <div class="text-center">
+              <div class="rs-stat-label">RS 20d</div>
+              <div class="rs-positive text-sm font-medium">+0.9%</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">RS 60d</div>
+              <div class="rs-negative text-sm font-medium">-1.2%</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">Momentum</div>
+              <div class="rs-positive text-sm font-medium">+2.1%</div>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="sub-count">6 sub-sectors</span>
+            <span class="card-arrow text-cyan-400 text-xs" style="font-family:'JetBrains Mono';">→ drill down</span>
+          </div>
+        </div>
+
+        <!-- REIT — Improving -->
+        <div class="sector-card improving rounded-xl p-4 border" style="border-color:#1e2d45;" onclick="location.href='sector-drilldown.html'">
+          <div class="flex items-start justify-between mb-2">
+            <div>
+              <div style="font-family:'Rajdhani'; font-weight:600;" class="text-white text-base leading-tight">Real Estate</div>
+              <span class="ticker-badge mt-1 inline-block">XLRE</span>
+            </div>
+            <span class="quadrant-badge q-improving">↖ Improving</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mt-3 mb-3">
+            <div class="text-center">
+              <div class="rs-stat-label">RS 20d</div>
+              <div class="rs-positive text-sm font-medium">+1.1%</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">RS 60d</div>
+              <div class="rs-negative text-sm font-medium">-0.5%</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">Momentum</div>
+              <div class="rs-positive text-sm font-medium">+1.6%</div>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="sub-count">6 sub-sectors</span>
+            <span class="card-arrow text-cyan-400 text-xs" style="font-family:'JetBrains Mono';">→ drill down</span>
+          </div>
+        </div>
+
+        <!-- HLTH — Weakening -->
+        <div class="sector-card weakening rounded-xl p-4 border" style="border-color:#1e2d45;" onclick="location.href='sector-drilldown.html'">
+          <div class="flex items-start justify-between mb-2">
+            <div>
+              <div style="font-family:'Rajdhani'; font-weight:600;" class="text-white text-base leading-tight">Health Care</div>
+              <span class="ticker-badge mt-1 inline-block">XLV</span>
+            </div>
+            <span class="quadrant-badge q-weakening">↘ Weakening</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mt-3 mb-3">
+            <div class="text-center">
+              <div class="rs-stat-label">RS 20d</div>
+              <div class="rs-negative text-sm font-medium">-2.1%</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">RS 60d</div>
+              <div class="rs-negative text-sm font-medium">-3.5%</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">Momentum</div>
+              <div class="rs-negative text-sm font-medium">-1.4%</div>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="sub-count">7 sub-sectors</span>
+            <span class="card-arrow text-cyan-400 text-xs" style="font-family:'JetBrains Mono';">→ drill down</span>
+          </div>
+        </div>
+
+        <!-- ENRG — Weakening -->
+        <div class="sector-card weakening rounded-xl p-4 border" style="border-color:#1e2d45;" onclick="location.href='sector-drilldown.html'">
+          <div class="flex items-start justify-between mb-2">
+            <div>
+              <div style="font-family:'Rajdhani'; font-weight:600;" class="text-white text-base leading-tight">Energy</div>
+              <span class="ticker-badge mt-1 inline-block">XLE</span>
+            </div>
+            <span class="quadrant-badge q-weakening">↘ Weakening</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mt-3 mb-3">
+            <div class="text-center">
+              <div class="rs-stat-label">RS 20d</div>
+              <div class="rs-negative text-sm font-medium">-1.8%</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">RS 60d</div>
+              <div class="rs-negative text-sm font-medium">-4.2%</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">Momentum</div>
+              <div class="rs-negative text-sm font-medium">-2.4%</div>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="sub-count">8 sub-sectors</span>
+            <span class="card-arrow text-cyan-400 text-xs" style="font-family:'JetBrains Mono';">→ drill down</span>
+          </div>
+        </div>
+
+        <!-- DISR — Lagging (no data yet) -->
+        <div class="sector-card lagging rounded-xl p-4 border" style="border-color:#1e2d45;" onclick="location.href='sector-drilldown.html'">
+          <div class="flex items-start justify-between mb-2">
+            <div>
+              <div style="font-family:'Rajdhani'; font-weight:600;" class="text-white text-base leading-tight">Consumer Discretionary</div>
+              <span class="ticker-badge mt-1 inline-block">XLY</span>
+            </div>
+            <span class="quadrant-badge q-lagging">↙ Lagging</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mt-3 mb-3">
+            <div class="text-center">
+              <div class="rs-stat-label">RS 20d</div>
+              <div class="rs-null text-sm">—</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">RS 60d</div>
+              <div class="rs-null text-sm">—</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">Momentum</div>
+              <div class="rs-null text-sm">—</div>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="sub-count">7 sub-sectors</span>
+            <span class="card-arrow text-cyan-400 text-xs" style="font-family:'JetBrains Mono';">→ drill down</span>
+          </div>
+        </div>
+
+        <!-- UTIL — Lagging -->
+        <div class="sector-card lagging rounded-xl p-4 border" style="border-color:#1e2d45;" onclick="location.href='sector-drilldown.html'">
+          <div class="flex items-start justify-between mb-2">
+            <div>
+              <div style="font-family:'Rajdhani'; font-weight:600;" class="text-white text-base leading-tight">Utilities</div>
+              <span class="ticker-badge mt-1 inline-block">XLU</span>
+            </div>
+            <span class="quadrant-badge q-lagging">↙ Lagging</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mt-3 mb-3">
+            <div class="text-center">
+              <div class="rs-stat-label">RS 20d</div>
+              <div class="rs-null text-sm">—</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">RS 60d</div>
+              <div class="rs-null text-sm">—</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">Momentum</div>
+              <div class="rs-null text-sm">—</div>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="sub-count">4 sub-sectors</span>
+            <span class="card-arrow text-cyan-400 text-xs" style="font-family:'JetBrains Mono';">→ drill down</span>
+          </div>
+        </div>
+
+        <!-- STPL — Lagging -->
+        <div class="sector-card lagging rounded-xl p-4 border" style="border-color:#1e2d45;" onclick="location.href='sector-drilldown.html'">
+          <div class="flex items-start justify-between mb-2">
+            <div>
+              <div style="font-family:'Rajdhani'; font-weight:600;" class="text-white text-base leading-tight">Consumer Staples</div>
+              <span class="ticker-badge mt-1 inline-block">XLP</span>
+            </div>
+            <span class="quadrant-badge q-lagging">↙ Lagging</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mt-3 mb-3">
+            <div class="text-center">
+              <div class="rs-stat-label">RS 20d</div>
+              <div class="rs-null text-sm">—</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">RS 60d</div>
+              <div class="rs-null text-sm">—</div>
+            </div>
+            <div class="text-center">
+              <div class="rs-stat-label">Momentum</div>
+              <div class="rs-null text-sm">—</div>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="sub-count">4 sub-sectors</span>
+            <span class="card-arrow text-cyan-400 text-xs" style="font-family:'JetBrains Mono';">→ drill down</span>
+          </div>
+        </div>
+
+      </div><!-- end grid -->
+
+      <div class="mt-4 text-xs" style="color:#4a6080;">
+        Signals appear after first data ingestion. Signals that read "—" await ingestion of new sub-sector ETF data.
+        Data as of 2026-05-17.
+      </div>
+
+    </main>
+  </div>
+
+  <!-- STATUS BAR -->
+  <footer class="px-6 py-2 flex items-center gap-6 text-xs shrink-0" style="background:#060d18; border-top:1px solid #1e2d45; color:#4a6080; font-family:'JetBrains Mono'; font-size:11px;">
+    <span>Last ingestion: <span style="color:#94a3b8;">Today 18:30 ET</span></span>
+    <span>PRICES: <span class="text-green-400">✓ success</span> · 4,284 rows</span>
+    <span>MACRO: <span class="text-green-400">✓ success</span> · 72 rows</span>
+    <span class="ml-auto flex items-center gap-4">
+      <span>ftm-app :8080</span>
+      <span>·</span>
+      <span>PostgreSQL :5432</span>
+      <span>·</span>
+      <a href="#" class="text-cyan-400 hover:underline">OpenAPI ↗</a>
+    </span>
+  </footer>
+
+</body>
+</html>

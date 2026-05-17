@@ -240,12 +240,17 @@ const server = http.createServer((req, res) => {
   } else if (path === "/api/v1/rrg") {
     res.writeHead(200);
     res.end(JSON.stringify(RRG_RESPONSE));
-  } else if (path === "/api/v1/sub-sectors" && parent === "TECH") {
-    res.writeHead(200);
-    res.end(JSON.stringify(TECH_SUB_SECTORS_RESPONSE));
-  } else if (path === "/api/v1/sub-sectors" && parent === "FTRS") {
-    res.writeHead(200);
-    res.end(JSON.stringify(FACTOR_ETF_RESPONSE));
+  } else if (path === "/api/v1/sub-sectors") {
+    if (parent === "TECH") {
+      res.writeHead(200);
+      res.end(JSON.stringify(TECH_SUB_SECTORS_RESPONSE));
+    } else if (parent === "FTRS") {
+      res.writeHead(200);
+      res.end(JSON.stringify(FACTOR_ETF_RESPONSE));
+    } else {
+      res.writeHead(200);
+      res.end(JSON.stringify([]));
+    }
   } else if (path === "/api/v1/portfolio" && req.method === "GET") {
     res.writeHead(200);
     res.end(JSON.stringify(PORTFOLIO_RESPONSE));

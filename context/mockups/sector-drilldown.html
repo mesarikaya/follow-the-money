@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Follow the Money — Financials Sub-Sectors</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface: '#080f1e',
+            panel:   '#0d1829',
+            border:  '#1e2d45',
+            muted:   '#4a6080',
+            cyan:    '#06b6d4',
+          },
+          fontFamily: {
+            display: ['Rajdhani', 'sans-serif'],
+            mono:    ['JetBrains Mono', 'monospace'],
+            body:    ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background: radial-gradient(ellipse at 20% 0%, #0d1f3a 0%, #080f1e 50%);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+    }
+    .nav-item { transition: all 0.12s ease; border-left: 2px solid transparent; }
+    .nav-item:hover { background: rgba(6,182,212,0.06); border-left-color: rgba(6,182,212,0.3); }
+    .nav-item.active { background: rgba(6,182,212,0.1); border-left-color: #06b6d4; }
+
+    /* Sub-sector table rows */
+    .sub-row { transition: background 0.1s; border-left: 3px solid transparent; }
+    .sub-row:hover { background: rgba(6,182,212,0.04); }
+    .sub-row.leading   { border-left-color: #22c55e; }
+    .sub-row.improving { border-left-color: #06b6d4; }
+    .sub-row.weakening { border-left-color: #f97316; }
+    .sub-row.lagging   { border-left-color: #475569; }
+
+    /* Score bar */
+    .score-cell { font-family: 'JetBrains Mono', monospace; }
+
+    .quadrant-badge {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      font-size: 11px;
+      letter-spacing: 0.02em;
+      padding: 3px 8px;
+      border-radius: 3px;
+    }
+    .q-leading   { background: rgba(34,197,94,0.12);  color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+    .q-improving { background: rgba(6,182,212,0.12);  color: #22d3ee; border: 1px solid rgba(6,182,212,0.25); }
+    .q-weakening { background: rgba(249,115,22,0.12); color: #fb923c; border: 1px solid rgba(249,115,22,0.25); }
+    .q-lagging   { background: rgba(71,85,105,0.18);  color: #94a3b8; border: 1px solid rgba(71,85,105,0.35); }
+
+    .rs-positive { color: #4ade80; font-family: 'JetBrains Mono', monospace; }
+    .rs-negative { color: #f87171; font-family: 'JetBrains Mono', monospace; }
+    .rs-null     { color: #4a6080; font-family: 'JetBrains Mono', monospace; }
+
+    /* Score bar blocks */
+    .bar-block { width: 8px; height: 14px; border-radius: 2px; display: inline-block; }
+    .bar-filled-strong   { background: #22c55e; }
+    .bar-filled-moderate { background: #eab308; }
+    .bar-filled-weak     { background: #ef4444; }
+    .bar-empty           { background: #1e2d45; }
+
+    /* Insight panel */
+    .insight-panel {
+      background: linear-gradient(135deg, rgba(6,182,212,0.06) 0%, rgba(13,24,41,0.8) 100%);
+      border: 1px solid rgba(6,182,212,0.15);
+    }
+
+    /* Parent sector banner */
+    .sector-banner {
+      background: linear-gradient(135deg, #0d1829 0%, #0a1520 100%);
+      border-left: 4px solid #3b82f6;
+    }
+
+    /* Breadcrumb */
+    .breadcrumb-link { color: #4a6080; transition: color 0.12s; }
+    .breadcrumb-link:hover { color: #06b6d4; }
+
+    /* Column sort indicator */
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { color: #cbd5e1; }
+    th.sort-active { color: #06b6d4; }
+  </style>
+</head>
+<body class="text-slate-200 min-h-screen flex flex-col">
+
+  <!-- GLOBAL HEADER -->
+  <header style="background: #0d1829; border-bottom: 1px solid #1e2d45;" class="px-6 py-3 flex items-center justify-between shrink-0 z-10">
+    <div class="flex items-center gap-3">
+      <span class="text-base">📈</span>
+      <span style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:16px; letter-spacing:0.03em;" class="text-white">Follow the Money</span>
+      <span class="text-xs" style="color:#4a6080;">local · single-user</span>
+    </div>
+
+    <!-- Timeframe selector -->
+    <div class="flex items-center gap-1 rounded-lg p-1 text-sm" style="background:#080f1e;">
+      <button class="px-3 py-1 rounded-md transition-colors" style="color:#4a6080;" onmouseover="this.style.color='#cbd5e1'" onmouseout="this.style.color='#4a6080'">Day</button>
+      <button class="px-3 py-1 rounded-md transition-colors" style="color:#4a6080;" onmouseover="this.style.color='#cbd5e1'" onmouseout="this.style.color='#4a6080'">Week</button>
+      <button class="px-3 py-1 rounded-md text-white" style="background:#1d4ed8;">Month</button>
+      <button class="px-3 py-1 rounded-md transition-colors" style="color:#4a6080;" onmouseover="this.style.color='#cbd5e1'" onmouseout="this.style.color='#4a6080'">Quarter</button>
+      <button class="px-3 py-1 rounded-md transition-colors" style="color:#4a6080;" onmouseover="this.style.color='#cbd5e1'" onmouseout="this.style.color='#4a6080'">Year</button>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
+        <div class="w-1.5 h-1.5 rounded-full bg-green-400"></div>
+        <span class="text-xs" style="color:#4a6080;">as of May 16</span>
+      </div>
+      <button class="flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg transition-colors" style="background:#1e2d45; color:#94a3b8;" onmouseover="this.style.background='#253548'" onmouseout="this.style.background='#1e2d45'">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Refresh
+      </button>
+    </div>
+  </header>
+
+  <div class="flex flex-1 min-h-0">
+
+    <!-- SIDEBAR -->
+    <aside class="flex flex-col w-52 shrink-0" style="background:#0d1829; border-right:1px solid #1e2d45;">
+      <nav class="flex-1 py-4 overflow-y-auto">
+        <!-- Group: Analysis -->
+        <div class="px-4 mb-2">
+          <span class="text-[10px] font-semibold uppercase tracking-widest" style="color:#4a6080; font-family:'Rajdhani',sans-serif; letter-spacing:0.1em;">Analysis</span>
+        </div>
+
+        <a href="#" class="nav-item flex items-center gap-2.5 px-4 py-2 text-sm" style="color:#94a3b8;">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 6h18M3 14h18M3 18h18"/></svg>
+          Rotation
+        </a>
+        <a href="#" class="nav-item flex items-center gap-2.5 px-4 py-2 text-sm active" style="color:#22d3ee;">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+          Sub-Sectors
+        </a>
+        <a href="#" class="nav-item flex items-center gap-2.5 px-4 py-2 text-sm" style="color:#94a3b8;">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/></svg>
+          Macro
+        </a>
+        <a href="#" class="nav-item flex items-center gap-2.5 px-4 py-2 text-sm" style="color:#94a3b8;">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+          Relative Rotation Graph
+        </a>
+      </nav>
+
+      <!-- Sidebar footer -->
+      <div class="px-4 py-3" style="border-top:1px solid #1e2d45;">
+        <span class="text-xs" style="color:#4a6080; font-family:'JetBrains Mono',monospace;">v0.9.0-dev</span>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 overflow-y-auto">
+      <div class="max-w-6xl mx-auto px-6 py-6 space-y-5">
+
+        <!-- BREADCRUMB -->
+        <nav class="flex items-center gap-2 text-sm">
+          <a href="#" class="breadcrumb-link">Sub-Sectors</a>
+          <svg class="w-3.5 h-3.5" style="color:#1e2d45;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          <span style="color:#cbd5e1; font-family:'Rajdhani',sans-serif; font-weight:600; letter-spacing:0.03em;">Financials</span>
+        </nav>
+
+        <!-- SECTOR BANNER -->
+        <div class="sector-banner rounded-xl px-6 py-4 flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <div>
+              <div class="flex items-center gap-3 mb-1">
+                <span style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:24px; letter-spacing:0.02em;" class="text-white">Financials</span>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:500; background:rgba(59,130,246,0.12); color:#60a5fa; border:1px solid rgba(59,130,246,0.25); padding:2px 8px; border-radius:4px;">XLF</span>
+                <span class="quadrant-badge q-improving">↖ Improving</span>
+              </div>
+              <div class="flex items-center gap-4 text-xs" style="color:#4a6080;">
+                <span>6 sub-sectors tracked</span>
+                <span>·</span>
+                <span>Ranked by 60-day relative strength vs XLF</span>
+              </div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-xs mb-1" style="color:#4a6080;">XLF Close</div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:600;" class="text-white">$47.82</div>
+            <div class="text-xs" style="color:#4ade80; font-family:'JetBrains Mono',monospace;">+1.24%</div>
+          </div>
+        </div>
+
+        <!-- ROTATION INSIGHT PANEL -->
+        <div class="insight-panel rounded-xl px-5 py-4">
+          <div class="flex items-start gap-3">
+            <div class="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5" style="background:rgba(6,182,212,0.15); border:1px solid rgba(6,182,212,0.3);">
+              <svg class="w-3 h-3" style="color:#06b6d4;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div>
+              <div class="text-xs font-semibold mb-1" style="color:#06b6d4; font-family:'Rajdhani',sans-serif; letter-spacing:0.05em; text-transform:uppercase;">Rotation Insight</div>
+              <p class="text-sm" style="color:#94a3b8; line-height:1.6;">
+                Banks (<span style="font-family:'JetBrains Mono',monospace; color:#93c5fd;">KBE</span>) and Regional Banks (<span style="font-family:'JetBrains Mono',monospace; color:#93c5fd;">KRE</span>) are leading within Financials, benefiting from steepening yield curve dynamics. Fintech (<span style="font-family:'JetBrains Mono',monospace; color:#93c5fd;">FINX</span>) is lagging — typical when rates are elevated.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-SECTOR TABLE -->
+        <div class="rounded-xl overflow-hidden" style="border:1px solid #1e2d45;">
+          <table class="w-full text-sm text-left">
+            <thead>
+              <tr style="background:#0d1829; border-bottom:1px solid #1e2d45;">
+                <th class="px-4 py-3 text-[10px] font-semibold uppercase tracking-widest w-8" style="color:#4a6080; font-family:'Rajdhani',sans-serif;">#</th>
+                <th class="sortable px-4 py-3 text-[10px] font-semibold uppercase tracking-widest" style="color:#4a6080; font-family:'Rajdhani',sans-serif;">ETF</th>
+                <th class="sortable px-4 py-3 text-[10px] font-semibold uppercase tracking-widest" style="color:#4a6080; font-family:'Rajdhani',sans-serif;">Name</th>
+                <th class="sortable px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-right" style="color:#4a6080; font-family:'Rajdhani',sans-serif;" title="Latest closing price">Close</th>
+                <th class="sortable sort-active px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-center" style="font-family:'Rajdhani',sans-serif;" title="Composite signal score">Score ↓</th>
+                <th class="sortable px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-right" style="color:#4a6080; font-family:'Rajdhani',sans-serif;" title="60-day relative strength vs parent sector ETF (XLF)">vs XLF (60d)</th>
+                <th class="sortable px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-center" style="color:#4a6080; font-family:'Rajdhani',sans-serif;" title="Relative Rotation Graph quadrant">Signal</th>
+              </tr>
+            </thead>
+            <tbody style="border-top:0;">
+
+              <!-- Row 1: KBE — Leading -->
+              <tr class="sub-row leading">
+                <td class="px-4 py-3 tabular-nums text-xs" style="color:#4a6080; font-family:'JetBrains Mono',monospace;">1</td>
+                <td class="px-4 py-3">
+                  <span style="font-family:'JetBrains Mono',monospace; font-weight:600; color:#93c5fd; font-size:13px;">KBE</span>
+                </td>
+                <td class="px-4 py-3 font-medium" style="color:#e2e8f0;">Banks</td>
+                <td class="px-4 py-3 text-right tabular-nums" style="color:#94a3b8; font-family:'JetBrains Mono',monospace;">$52.40</td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center justify-center gap-1.5">
+                    <div class="flex gap-0.5">
+                      <div class="bar-block bar-filled-strong"></div>
+                      <div class="bar-block bar-filled-strong"></div>
+                      <div class="bar-block bar-filled-strong"></div>
+                      <div class="bar-block bar-filled-strong"></div>
+                      <div class="bar-block bar-empty"></div>
+                    </div>
+                    <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; color:#4ade80;">76</span>
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-right rs-positive">+4.8%</td>
+                <td class="px-4 py-3 text-center"><span class="quadrant-badge q-leading">↗ Leading</span></td>
+              </tr>
+
+              <!-- Row 2: KRE — Leading -->
+              <tr class="sub-row leading" style="border-top:1px solid #1e2d45;">
+                <td class="px-4 py-3 tabular-nums text-xs" style="color:#4a6080; font-family:'JetBrains Mono',monospace;">2</td>
+                <td class="px-4 py-3">
+                  <span style="font-family:'JetBrains Mono',monospace; font-weight:600; color:#93c5fd; font-size:13px;">KRE</span>
+                </td>
+                <td class="px-4 py-3 font-medium" style="color:#e2e8f0;">Regional Banks</td>
+                <td class="px-4 py-3 text-right tabular-nums" style="color:#94a3b8; font-family:'JetBrains Mono',monospace;">$61.15</td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center justify-center gap-1.5">
+                    <div class="flex gap-0.5">
+                      <div class="bar-block bar-filled-strong"></div>
+                      <div class="bar-block bar-filled-strong"></div>
+                      <div class="bar-block bar-filled-strong"></div>
+                      <div class="bar-block bar-empty"></div>
+                      <div class="bar-block bar-empty"></div>
+                    </div>
+                    <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; color:#4ade80;">64</span>
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-right rs-positive">+3.2%</td>
+                <td class="px-4 py-3 text-center"><span class="quadrant-badge q-leading">↗ Leading</span></td>
+              </tr>
+
+              <!-- Row 3: KIE — Improving -->
+              <tr class="sub-row improving" style="border-top:1px solid #1e2d45;">
+                <td class="px-4 py-3 tabular-nums text-xs" style="color:#4a6080; font-family:'JetBrains Mono',monospace;">3</td>
+                <td class="px-4 py-3">
+                  <span style="font-family:'JetBrains Mono',monospace; font-weight:600; color:#93c5fd; font-size:13px;">KIE</span>
+                </td>
+                <td class="px-4 py-3 font-medium" style="color:#e2e8f0;">Insurance</td>
+                <td class="px-4 py-3 text-right tabular-nums" style="color:#94a3b8; font-family:'JetBrains Mono',monospace;">$83.29</td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center justify-center gap-1.5">
+                    <div class="flex gap-0.5">
+                      <div class="bar-block bar-filled-moderate"></div>
+                      <div class="bar-block bar-filled-moderate"></div>
+                      <div class="bar-block bar-empty"></div>
+                      <div class="bar-block bar-empty"></div>
+                      <div class="bar-block bar-empty"></div>
+                    </div>
+                    <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; color:#facc15;">42</span>
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-right rs-positive">+0.9%</td>
+                <td class="px-4 py-3 text-center"><span class="quadrant-badge q-improving">↖ Improving</span></td>
+              </tr>
+
+              <!-- Row 4: IAI — Improving -->
+              <tr class="sub-row improving" style="border-top:1px solid #1e2d45;">
+                <td class="px-4 py-3 tabular-nums text-xs" style="color:#4a6080; font-family:'JetBrains Mono',monospace;">4</td>
+                <td class="px-4 py-3">
+                  <span style="font-family:'JetBrains Mono',monospace; font-weight:600; color:#93c5fd; font-size:13px;">IAI</span>
+                </td>
+                <td class="px-4 py-3 font-medium" style="color:#e2e8f0;">Broker-Dealers</td>
+                <td class="px-4 py-3 text-right tabular-nums" style="color:#94a3b8; font-family:'JetBrains Mono',monospace;">$104.73</td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center justify-center gap-1.5">
+                    <div class="flex gap-0.5">
+                      <div class="bar-block bar-filled-moderate"></div>
+                      <div class="bar-block bar-filled-moderate"></div>
+                      <div class="bar-block bar-empty"></div>
+                      <div class="bar-block bar-empty"></div>
+                      <div class="bar-block bar-empty"></div>
+                    </div>
+                    <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; color:#facc15;">38</span>
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-right rs-positive">+0.4%</td>
+                <td class="px-4 py-3 text-center"><span class="quadrant-badge q-improving">↖ Improving</span></td>
+              </tr>
+
+              <!-- Row 5: KBWB — Weakening -->
+              <tr class="sub-row weakening" style="border-top:1px solid #1e2d45;">
+                <td class="px-4 py-3 tabular-nums text-xs" style="color:#4a6080; font-family:'JetBrains Mono',monospace;">5</td>
+                <td class="px-4 py-3">
+                  <span style="font-family:'JetBrains Mono',monospace; font-weight:600; color:#93c5fd; font-size:13px;">KBWB</span>
+                </td>
+                <td class="px-4 py-3 font-medium" style="color:#e2e8f0;">Banking (Alternative)</td>
+                <td class="px-4 py-3 text-right tabular-nums" style="color:#94a3b8; font-family:'JetBrains Mono',monospace;">$73.58</td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center justify-center gap-1.5">
+                    <div class="flex gap-0.5">
+                      <div class="bar-block bar-filled-weak"></div>
+                      <div class="bar-block bar-empty"></div>
+                      <div class="bar-block bar-empty"></div>
+                      <div class="bar-block bar-empty"></div>
+                      <div class="bar-block bar-empty"></div>
+                    </div>
+                    <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; color:#f87171;">22</span>
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-right rs-negative">−1.7%</td>
+                <td class="px-4 py-3 text-center"><span class="quadrant-badge q-weakening">↘ Weakening</span></td>
+              </tr>
+
+              <!-- Row 6: FINX — Lagging -->
+              <tr class="sub-row lagging" style="border-top:1px solid #1e2d45;">
+                <td class="px-4 py-3 tabular-nums text-xs" style="color:#4a6080; font-family:'JetBrains Mono',monospace;">6</td>
+                <td class="px-4 py-3">
+                  <span style="font-family:'JetBrains Mono',monospace; font-weight:600; color:#93c5fd; font-size:13px;">FINX</span>
+                </td>
+                <td class="px-4 py-3 font-medium" style="color:#e2e8f0;">Fintech</td>
+                <td class="px-4 py-3 text-right tabular-nums" style="color:#94a3b8; font-family:'JetBrains Mono',monospace;">$37.11</td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center justify-center gap-1.5">
+                    <div class="flex gap-0.5">
+                      <div class="bar-block bar-filled-weak"></div>
+                      <div class="bar-block bar-empty"></div>
+                      <div class="bar-block bar-empty"></div>
+                      <div class="bar-block bar-empty"></div>
+                      <div class="bar-block bar-empty"></div>
+                    </div>
+                    <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; color:#f87171;">14</span>
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-right rs-negative">−3.9%</td>
+                <td class="px-4 py-3 text-center"><span class="quadrant-badge q-lagging">↙ Lagging</span></td>
+              </tr>
+
+            </tbody>
+          </table>
+
+          <!-- Table footer legend -->
+          <div class="px-5 py-3 flex items-center gap-6 text-xs flex-wrap" style="border-top:1px solid #1e2d45; background:#0d1829;">
+            <div class="flex items-center gap-2">
+              <div style="width:10px; height:14px; border-radius:2px; background:#22c55e;"></div>
+              <span style="color:#4a6080;">Score ≥ 70 — Strong momentum</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div style="width:10px; height:14px; border-radius:2px; background:#eab308;"></div>
+              <span style="color:#4a6080;">Score 40–69 — Moderate</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div style="width:10px; height:14px; border-radius:2px; background:#ef4444;"></div>
+              <span style="color:#4a6080;">Score &lt; 40 — Weak</span>
+            </div>
+            <div class="ml-auto flex items-center gap-1.5" style="color:#4a6080;">
+              <span>Relative strength vs</span>
+              <span style="font-family:'JetBrains Mono',monospace; color:#93c5fd;">XLF</span>
+              <span>over 60 trading days</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- QUADRANT DISTRIBUTION -->
+        <div class="grid grid-cols-4 gap-3">
+          <div class="rounded-lg px-4 py-3" style="background:#0d1829; border:1px solid rgba(34,197,94,0.2);">
+            <div class="text-xs font-semibold mb-1" style="color:#4ade80; font-family:'Rajdhani',sans-serif; letter-spacing:0.05em; text-transform:uppercase;">↗ Leading</div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:24px; font-weight:600;" class="text-white">2</div>
+            <div class="text-xs" style="color:#4a6080;">KBE · KRE</div>
+          </div>
+          <div class="rounded-lg px-4 py-3" style="background:#0d1829; border:1px solid rgba(6,182,212,0.2);">
+            <div class="text-xs font-semibold mb-1" style="color:#22d3ee; font-family:'Rajdhani',sans-serif; letter-spacing:0.05em; text-transform:uppercase;">↖ Improving</div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:24px; font-weight:600;" class="text-white">2</div>
+            <div class="text-xs" style="color:#4a6080;">KIE · IAI</div>
+          </div>
+          <div class="rounded-lg px-4 py-3" style="background:#0d1829; border:1px solid rgba(249,115,22,0.2);">
+            <div class="text-xs font-semibold mb-1" style="color:#fb923c; font-family:'Rajdhani',sans-serif; letter-spacing:0.05em; text-transform:uppercase;">↘ Weakening</div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:24px; font-weight:600;" class="text-white">1</div>
+            <div class="text-xs" style="color:#4a6080;">KBWB</div>
+          </div>
+          <div class="rounded-lg px-4 py-3" style="background:#0d1829; border:1px solid rgba(71,85,105,0.3);">
+            <div class="text-xs font-semibold mb-1" style="color:#94a3b8; font-family:'Rajdhani',sans-serif; letter-spacing:0.05em; text-transform:uppercase;">↙ Lagging</div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:24px; font-weight:600;" class="text-white">1</div>
+            <div class="text-xs" style="color:#4a6080;">FINX</div>
+          </div>
+        </div>
+
+        <!-- FOOTER: back link -->
+        <div class="flex items-center justify-between text-xs" style="color:#4a6080; padding-bottom: 1.5rem;">
+          <a href="#" class="breadcrumb-link flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            Back to all sectors
+          </a>
+          <span style="font-family:'JetBrains Mono',monospace;">60-day window · daily close prices · Yahoo Finance</span>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+</body>
+</html>

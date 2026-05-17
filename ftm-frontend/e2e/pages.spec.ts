@@ -126,11 +126,74 @@ test.describe("Backtester page", () => {
   });
 });
 
+test.describe("Sectors hub page", () => {
+  test("loads with sector cards for all equity sectors in the mock", async ({ page }) => {
+    await page.goto("/sectors");
+    // Mock backend returns TECH, HLTH, ENRG as EQUITY_SECTOR categories
+    await expect(page.getByText("Information Technology")).toBeVisible();
+    await expect(page.getByText("Health Care")).toBeVisible();
+    await expect(page.getByRole("link", { name: /Sub-Sectors/ })).toBeVisible();
+  });
+
+  test("shows sub-sector counts in sector cards", async ({ page }) => {
+    await page.goto("/sectors");
+    // TECH has 8 sub-sectors per SUB_SECTOR_COUNTS constant
+    await expect(page.getByText("8").first()).toBeVisible();
+  });
+
+  test("navigates to sector drilldown on card click", async ({ page }) => {
+    await page.goto("/sectors");
+    await page.getByText("Information Technology").click();
+    await expect(page).toHaveURL(/\/sectors\/TECH/);
+  });
+});
+
+test.describe("Sector drilldown page", () => {
+  test("loads TECH drilldown with heading and breadcrumb", async ({ page }) => {
+    await page.goto("/sectors/TECH");
+    await expect(page.getByText("Information Technology").first()).toBeVisible();
+    await expect(page.getByText("XLK").first()).toBeVisible();
+    // Breadcrumb
+    await expect(page.getByRole("link", { name: "Sub-Sectors", exact: true })).toBeVisible();
+  });
+
+  test("renders all four TECH sub-sector ETF tickers in table", async ({ page }) => {
+    await page.goto("/sectors/TECH");
+    await expect(page.getByText("SMH").first()).toBeVisible();
+    await expect(page.getByText("BOTZ").first()).toBeVisible();
+    await expect(page.getByText("WCLD").first()).toBeVisible();
+    await expect(page.getByText("IGV").first()).toBeVisible();
+  });
+
+  test("renders sub-sector names in the drilldown table", async ({ page }) => {
+    await page.goto("/sectors/TECH");
+    await expect(page.getByText("Semiconductors")).toBeVisible();
+    await expect(page.getByText("AI & Robotics")).toBeVisible();
+    await expect(page.getByText("Cloud Computing")).toBeVisible();
+    await expect(page.getByText("Software").first()).toBeVisible();
+  });
+
+  test("shows rotation signal quadrant labels", async ({ page }) => {
+    await page.goto("/sectors/TECH");
+    // Mock data has quadrants 1-4; at least one of the labels should appear
+    const signals = page.getByText(/Leading|Improving|Weakening|Lagging/);
+    await expect(signals.first()).toBeVisible();
+  });
+
+  test("shows quadrant distribution summary cards", async ({ page }) => {
+    await page.goto("/sectors/TECH");
+    await expect(page.getByText("↗ Leading").first()).toBeVisible();
+    await expect(page.getByText("↖ Improving").first()).toBeVisible();
+    await expect(page.getByText("↘ Weakening").first()).toBeVisible();
+    await expect(page.getByText("↙ Lagging").first()).toBeVisible();
+  });
+});
+
 test.describe("Sidebar navigation", () => {
   test("sidebar contains all main section links", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("link", { name: /Macro/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Tech Sub/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Sub-Sectors/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Factor/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Portfolio/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Alerts/ })).toBeVisible();

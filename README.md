@@ -177,6 +177,12 @@ cd ftm-app
 
 Requires Docker (Testcontainers spins up PostgreSQL for integration tests). ~90 seconds. 141 tests.
 
+> **Java 25 required.** The class files are compiled to Java 25 bytecode. If `JAVA_HOME` points to an older JDK the forked test process will fail with `class file version 69.0` errors. Set the correct JVM before running:
+> ```bash
+> export JAVA_HOME="/c/Program Files/Eclipse Adoptium/jdk-25.0.3.9-hotspot"
+> ./mvnw test
+> ```
+
 ### Frontend type check + build
 
 ```bash

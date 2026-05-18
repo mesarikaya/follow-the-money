@@ -4,87 +4,103 @@ import com.ftm.app.api.dto.HoldingDto;
 import com.ftm.app.api.dto.HoldingUpdateRequest;
 import com.ftm.app.api.dto.HoldingsUploadResponse;
 import com.ftm.app.domain.Holding;
-import com.ftm.app.ingestion.client.FredClient;
+import com.ftm.app.portfolio.domain.HoldingCsvRow;
 import com.ftm.app.portfolio.repository.HoldingRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDate;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.NoSuchElementException;
 
 @Service
 public class HoldingUploadService {
 
     private static final Logger log = LoggerFactory.getLogger(HoldingUploadService.class);
-    private static final BigDecimal FALLBACK_USD_PER_EUR = new BigDecimal("1.08");
-    private static final String DEXUSEU = "DEXUSEU";
 
     private final HoldingRepository holdingRepository;
     private final HoldingClassificationService classificationService;
-    private final FredClient fredClient;
+    private final HoldingCsvParser csvParser;
+    private final HoldingPriceService holdingPriceService;
 
-    public HoldingUploadService(HoldingRepository holdingRepository,
-                                HoldingClassificationService classificationService,
-                                FredClient fredClient) {
+    public HoldingUploadService(
+            HoldingRepository holdingRepository,
+            HoldingClassificationService classificationService,
+            HoldingCsvParser csvParser,
+            HoldingPriceService holdingPriceService) {
         this.holdingRepository = holdingRepository;
         this.classificationService = classificationService;
-        this.fredClient = fredClient;
+        this.csvParser = csvParser;
+        this.holdingPriceService = holdingPriceService;
     }
 
-    public HoldingsUploadResponse upload(String csvContent) {
-        List<String[]> rows = parseCsv(csvContent);
-        boolean hasEurHoldings = rows.stream().anyMatch(r -> "EUR".equalsIgnoreCase(safeGet(r, 3)));
-
-        BigDecimal usdPerEurRate = hasEurHoldings ? fetchUsdPerEurRate() : null;
+    public HoldingsUploadResponse upload(String csvContent) throws IOException {
+        List<HoldingCsvRow> rows = csvParser.parse(csvContent);
 
         List<Holding> holdings = new ArrayList<>();
         List<String> unclassifiedTickers = new ArrayList<>();
 
-        for (String[] row : rows) {
-            if (row.length < 4) continue;
-            String ticker    = safeGet(row, 0).toUpperCase();
-            String name      = safeGet(row, 1);
-            String currency  = safeGet(row, 3).toUpperCase();
-            String quantityRaw  = safeGet(row, 2);
-            String avgCostRaw   = safeGet(row, 4);
-
+        for (HoldingCsvRow row : rows) {
+            String ticker = row.ticker().toUpperCase();
             if (ticker.isBlank()) continue;
 
-            BigDecimal quantity  = parseDecimal(quantityRaw);
-            BigDecimal avgCost   = parseDecimal(avgCostRaw);
-            String categoryId    = classificationService.classifyOrUnknown(ticker);
+            String currency = row.currency().toUpperCase();
+            String categoryId = classificationService.classifyOrUnknown(ticker);
 
             if (categoryId == null) {
                 unclassifiedTickers.add(ticker);
             }
 
-            BigDecimal fxRate = "EUR".equals(currency) ? usdPerEurRate : null;
-
-            holdings.add(new Holding(null, ticker, name.isBlank() ? null : name,
-                    categoryId, currency, quantity, avgCost, fxRate, null));
+            holdings.add(
+                    new Holding(
+                            null,
+                            ticker,
+                            row.name().isBlank() ? null : row.name(),
+                            categoryId,
+                            currency,
+                            parseDecimal(row.quantity()),
+                            parseDecimal(row.avgCost()),
+                            null,
+                            null,
+                            null,
+                            null,
+                            null));
         }
 
         holdingRepository.replaceAll(holdings);
         log.info("Holdings upload: {} accepted, {} unclassified", holdings.size(), unclassifiedTickers.size());
 
-        List<HoldingDto> holdingDtos = holdings.stream().map(h -> toDto(h, usdPerEurRate)).toList();
-        BigDecimal totalMarketValueUsd = computeTotalMarketValueUsd(holdingDtos);
+        // Fetch live prices immediately after upload
+        holdingPriceService.refreshPricesForAllHoldings();
 
-        return new HoldingsUploadResponse(holdings.size(), unclassifiedTickers, totalMarketValueUsd, usdPerEurRate, holdingDtos);
+        BigDecimal usdPerEurRate = holdingPriceService.fetchUsdPerEurRate();
+        List<Holding> enrichedHoldings = holdingRepository.findAll();
+        List<HoldingDto> holdingDtos = enrichedHoldings.stream()
+                .map(h -> toDto(h, usdPerEurRate))
+                .toList();
+
+        BigDecimal totalMarketValueUsd = computeTotalMarketValueUsd(holdingDtos);
+        BigDecimal totalMarketValueEur = computeTotalMarketValueEur(holdingDtos);
+
+        return new HoldingsUploadResponse(
+                holdings.size(), unclassifiedTickers, totalMarketValueUsd, usdPerEurRate, totalMarketValueEur, holdingDtos);
     }
 
     public List<HoldingDto> getHoldings() {
-        return holdingRepository.findAll().stream().map(h -> toDto(h, null)).toList();
+        BigDecimal usdPerEurRate = holdingPriceService.fetchUsdPerEurRate();
+        return holdingRepository.findAll().stream().map(h -> toDto(h, usdPerEurRate)).toList();
     }
 
     public HoldingDto updateHolding(String ticker, HoldingUpdateRequest request) {
         String upperTicker = ticker.toUpperCase();
-        BigDecimal newAvgCost = request.avgCostLocal() != null
-                ? request.avgCostLocal()
-                : holdingRepository.findAll().stream()
+        BigDecimal newAvgCost =
+                request.avgCostLocal() != null
+                        ? request.avgCostLocal()
+                        : holdingRepository.findAll().stream()
                         .filter(h -> h.ticker().equals(upperTicker))
                         .findFirst()
                         .map(Holding::avgCostLocal)
@@ -94,11 +110,13 @@ public class HoldingUploadService {
         if (updated == 0) {
             throw new NoSuchElementException("No holding found for ticker: " + upperTicker);
         }
+
+        BigDecimal usdPerEurRate = holdingPriceService.fetchUsdPerEurRate();
         Holding holding = holdingRepository.findAll().stream()
                 .filter(h -> h.ticker().equals(upperTicker))
                 .findFirst()
                 .orElseThrow();
-        return toDto(holding, null);
+        return toDto(holding, usdPerEurRate);
     }
 
     public String generateCsvTemplate() {
@@ -112,42 +130,52 @@ public class HoldingUploadService {
                 """;
     }
 
-    private BigDecimal fetchUsdPerEurRate() {
-        try {
-            LocalDate today = LocalDate.now();
-            LocalDate from = today.minusDays(7);
-            var observations = fredClient.fetchObservations(DEXUSEU, from, today);
-            if (!observations.isEmpty()) {
-                String valueStr = observations.getLast().value();
-                BigDecimal rate = new BigDecimal(valueStr);
-                log.info("USD/EUR rate from FRED: {}", rate);
-                return rate;
-            }
-        } catch (Exception e) {
-            log.warn("Could not fetch USD/EUR rate from FRED, using fallback {}: {}", FALLBACK_USD_PER_EUR, e.getMessage());
-        }
-        return FALLBACK_USD_PER_EUR;
+    private HoldingDto toDto(Holding holding, BigDecimal usdPerEurRate) {
+        BigDecimal effectiveFxRate = holding.usdFxRate() != null ? holding.usdFxRate() : usdPerEurRate;
+
+        BigDecimal priceForValue = holding.currentPriceLocal() != null
+                ? holding.currentPriceLocal()
+                : holding.avgCostLocal();
+
+        BigDecimal marketValueUsd = computeMarketValueUsd(holding, priceForValue, effectiveFxRate);
+        BigDecimal marketValueEur = computeMarketValueEur(holding, priceForValue, usdPerEurRate);
+
+        return new HoldingDto(
+                holding.ticker(),
+                holding.name(),
+                holding.categoryId(),
+                holding.currency(),
+                holding.quantity(),
+                holding.avgCostLocal(),
+                holding.usdFxRate(),
+                marketValueUsd,
+                holding.currentPriceLocal(),
+                holding.priceDate(),
+                holding.priceSource(),
+                marketValueEur);
     }
 
-    private HoldingDto toDto(Holding holding, BigDecimal usdPerEurRateFallback) {
-        BigDecimal fxRate = holding.usdFxRate() != null ? holding.usdFxRate() : usdPerEurRateFallback;
-        BigDecimal marketValueUsd = null;
-        if (holding.avgCostLocal() != null && holding.quantity() != null) {
-            if ("EUR".equals(holding.currency()) && fxRate != null) {
-                marketValueUsd = holding.quantity()
-                        .multiply(holding.avgCostLocal())
-                        .multiply(fxRate)
-                        .setScale(2, RoundingMode.HALF_UP);
-            } else if ("USD".equals(holding.currency())) {
-                marketValueUsd = holding.quantity()
-                        .multiply(holding.avgCostLocal())
-                        .setScale(2, RoundingMode.HALF_UP);
-            }
+    private BigDecimal computeMarketValueUsd(Holding holding, BigDecimal priceForValue, BigDecimal fxRate) {
+        if (priceForValue == null || holding.quantity() == null) return null;
+        if ("EUR".equals(holding.currency()) && fxRate != null) {
+            return holding.quantity().multiply(priceForValue).multiply(fxRate).setScale(2, RoundingMode.HALF_UP);
         }
-        return new com.ftm.app.api.dto.HoldingDto(
-                holding.ticker(), holding.name(), holding.categoryId(),
-                holding.currency(), holding.quantity(), holding.avgCostLocal(),
-                holding.usdFxRate(), marketValueUsd);
+        if ("USD".equals(holding.currency())) {
+            return holding.quantity().multiply(priceForValue).setScale(2, RoundingMode.HALF_UP);
+        }
+        return null;
+    }
+
+    private BigDecimal computeMarketValueEur(Holding holding, BigDecimal priceForValue, BigDecimal usdPerEurRate) {
+        if (priceForValue == null || holding.quantity() == null) return null;
+        if ("EUR".equals(holding.currency())) {
+            return holding.quantity().multiply(priceForValue).setScale(2, RoundingMode.HALF_UP);
+        }
+        if ("USD".equals(holding.currency()) && usdPerEurRate != null) {
+            return holding.quantity().multiply(priceForValue)
+                    .divide(usdPerEurRate, 2, RoundingMode.HALF_UP);
+        }
+        return null;
     }
 
     private BigDecimal computeTotalMarketValueUsd(List<HoldingDto> holdings) {
@@ -156,24 +184,18 @@ public class HoldingUploadService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    private List<String[]> parseCsv(String csv) {
-        List<String[]> rows = new ArrayList<>();
-        boolean firstLine = true;
-        for (String line : csv.split("\\r?\\n")) {
-            if (firstLine) { firstLine = false; continue; } // skip header
-            if (line.isBlank()) continue;
-            rows.add(line.split(",", -1));
-        }
-        return rows;
-    }
-
-    private String safeGet(String[] row, int index) {
-        return index < row.length ? row[index].trim() : "";
+    private BigDecimal computeTotalMarketValueEur(List<HoldingDto> holdings) {
+        return holdings.stream()
+                .map(h -> h.marketValueEur() != null ? h.marketValueEur() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private BigDecimal parseDecimal(String raw) {
         if (raw == null || raw.isBlank()) return BigDecimal.ZERO;
-        try { return new BigDecimal(raw.trim()); }
-        catch (NumberFormatException e) { return BigDecimal.ZERO; }
+        try {
+            return new BigDecimal(raw.trim());
+        } catch (NumberFormatException e) {
+            return BigDecimal.ZERO;
+        }
     }
 }

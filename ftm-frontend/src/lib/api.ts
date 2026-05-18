@@ -239,6 +239,10 @@ export type HoldingDto = {
   avgCostLocal: number | null;
   usdFxRate: number | null;
   marketValueUsd: number | null;
+  currentPriceLocal: number | null;
+  priceDate: string | null;
+  priceSource: string | null;
+  marketValueEur: number | null;
 };
 
 export type HoldingsUploadResponse = {
@@ -246,6 +250,7 @@ export type HoldingsUploadResponse = {
   unclassifiedTickers: string[];
   totalMarketValueUsd: number | null;
   usdPerEurRateUsed: number | null;
+  totalMarketValueEur: number | null;
   holdings: HoldingDto[];
 };
 
@@ -275,6 +280,15 @@ export const uploadHoldings = (file: File): Promise<HoldingsUploadResponse> => {
   });
 };
 
+export const refreshHoldingPrices = (): Promise<HoldingDto[]> =>
+  fetch(`${BACKEND}/api/v1/portfolio/holdings/refresh-prices`, {
+    method: "POST",
+    cache: "no-store",
+  }).then(async (res) => {
+    if (!res.ok) throw new Error(`POST /portfolio/holdings/refresh-prices → ${res.status}`);
+    return res.json() as Promise<HoldingDto[]>;
+  });
+
 export const updateHolding = (ticker: string, request: HoldingUpdateRequest): Promise<HoldingDto> =>
   fetch(`${BACKEND}/api/v1/portfolio/holdings/${ticker}`, {
     method: "PATCH",
@@ -297,3 +311,41 @@ export const acknowledgeAlert = (alertId: number) =>
 
 export const fetchSubSectors = (parent = "TECH") =>
   get<SubSectorSummary[]>(`/api/v1/sub-sectors?parent=${parent}`);
+
+export type TickerMappingDto = {
+  ticker: string;
+  categoryId: string;
+  notes: string | null;
+  updatedAt: string;
+};
+
+export type TickerMappingRequest = {
+  ticker: string;
+  categoryId: string;
+  notes?: string;
+};
+
+export const fetchTickerMappings = () =>
+  get<TickerMappingDto[]>("/api/v1/admin/ticker-mappings");
+
+export const upsertTickerMapping = (request: TickerMappingRequest): Promise<TickerMappingDto> =>
+  fetch(`${BACKEND}/api/v1/admin/ticker-mappings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+    cache: "no-store",
+  }).then(async (res) => {
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(body.detail ?? `POST /api/v1/admin/ticker-mappings → ${res.status}`);
+    }
+    return res.json() as Promise<TickerMappingDto>;
+  });
+
+export const deleteTickerMapping = (ticker: string): Promise<void> =>
+  fetch(`${BACKEND}/api/v1/admin/ticker-mappings/${encodeURIComponent(ticker)}`, {
+    method: "DELETE",
+    cache: "no-store",
+  }).then(async (res) => {
+    if (!res.ok) throw new Error(`DELETE /api/v1/admin/ticker-mappings/${ticker} → ${res.status}`);
+  });

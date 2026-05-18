@@ -99,9 +99,13 @@ CREATE TABLE alerts (
     status           VARCHAR(10)  NOT NULL DEFAULT 'ACTIVE'
                                   CHECK (status IN ('ACTIVE','RESOLVED','ACKNOWLEDGED')),
     resolved_at      TIMESTAMPTZ,
-    acknowledged_at  TIMESTAMPTZ,
-    UNIQUE (category_id, rule_id, status)
+    acknowledged_at  TIMESTAMPTZ
 );
+
+-- V12: partial unique index — only one ACTIVE alert per (category_id, rule_id)
+CREATE UNIQUE INDEX uix_alerts_one_active_per_rule
+    ON alerts (COALESCE(category_id, '__global__'), rule_id)
+    WHERE status = 'ACTIVE';
 
 CREATE INDEX idx_alerts_active   ON alerts (created_at DESC) WHERE status = 'ACTIVE';
 CREATE INDEX idx_alerts_severity ON alerts (severity, created_at DESC) WHERE status = 'ACTIVE';
@@ -155,3 +159,17 @@ CREATE TABLE holdings (
     usd_fx_rate         NUMERIC(18,6),
     uploaded_at         TIMESTAMPTZ     NOT NULL DEFAULT NOW()
 );
+
+-- V11: ticker-category mapping
+CREATE TABLE ticker_category_map (
+    ticker      VARCHAR(20)  PRIMARY KEY,
+    category_id VARCHAR(10)  NOT NULL REFERENCES categories(id),
+    notes       VARCHAR(200),
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+-- V13: live price columns on holdings
+ALTER TABLE holdings
+    ADD COLUMN current_price_local NUMERIC(18,4),
+    ADD COLUMN price_date          DATE,
+    ADD COLUMN price_source        VARCHAR(20);

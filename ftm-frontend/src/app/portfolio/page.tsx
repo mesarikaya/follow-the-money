@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   fetchPortfolio, savePortfolio, PortfolioResponse, PortfolioAllocationEntry,
-  fetchHoldings, uploadHoldings, downloadHoldingsTemplate, HoldingDto, HoldingsUploadResponse,
+  fetchHoldings, uploadHoldings, downloadHoldingsTemplate, refreshHoldingPrices,
+  HoldingDto, HoldingsUploadResponse, updateHolding,
 } from "@/lib/api";
 
 const ALIGNMENT_CONFIG = {
@@ -26,6 +27,16 @@ const COMPOSITE_SCORE_TOOLTIP =
   "Composite signal score (0–100): a weighted combination of relative-strength, momentum, " +
   "and macro-regime signals for this category. Higher = stronger current signal.";
 
+type SortField = "ticker" | "categoryId" | "quantity" | "avgCostLocal" | "currentPriceLocal" | "marketValueEur";
+type SortDir = "asc" | "desc";
+
+function isStale(holding: HoldingDto): boolean {
+  if (!holding.priceSource) return true;
+  if (!holding.priceDate) return true;
+  const priceAge = Date.now() - new Date(holding.priceDate).getTime();
+  return priceAge > 3 * 24 * 60 * 60 * 1000; // older than 3 days
+}
+
 function AllocationBar({ currentPct, optimalPct, maxPct }: { currentPct: number; optimalPct: number | null; maxPct: number }) {
   const currentWidth = maxPct > 0 ? (currentPct / maxPct) * 100 : 0;
   const optimalWidth = maxPct > 0 && optimalPct != null ? (optimalPct / maxPct) * 100 : 0;
@@ -44,6 +55,11 @@ function AllocationBar({ currentPct, optimalPct, maxPct }: { currentPct: number;
   );
 }
 
+function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: SortField; sortDir: SortDir }) {
+  if (field !== sortField) return <span className="text-slate-600 ml-1">↕</span>;
+  return <span className="text-blue-400 ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>;
+}
+
 export default function PortfolioPage() {
   const [portfolio, setPortfolio] = useState<PortfolioResponse | null>(null);
   const [editedAllocations, setEditedAllocations] = useState<Record<string, string>>({});
@@ -55,6 +71,13 @@ export default function PortfolioPage() {
   const [uploadResult, setUploadResult] = useState<HoldingsUploadResponse | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
+  const [sortField, setSortField] = useState<SortField>("marketValueEur");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [editingTicker, setEditingTicker] = useState<string | null>(null);
+  const [editQty, setEditQty] = useState("");
+  const [editPrice, setEditPrice] = useState("");
+  const [isSavingHolding, setIsSavingHolding] = useState(false);
 
   const loadPortfolio = useCallback(async () => {
     try {
@@ -126,10 +149,24 @@ export default function PortfolioPage() {
       const result = await uploadHoldings(file);
       setUploadResult(result);
       setHoldings(result.holdings);
+      // Reload portfolio allocations since holdings changed
+      await loadPortfolio();
     } catch (error) {
       setUploadError(String(error));
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleRefreshPrices = async () => {
+    setIsRefreshingPrices(true);
+    try {
+      const updated = await refreshHoldingPrices();
+      setHoldings(updated);
+    } catch (error) {
+      setUploadError(String(error));
+    } finally {
+      setIsRefreshingPrices(false);
     }
   };
 
@@ -145,12 +182,66 @@ export default function PortfolioPage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleSort = (field: SortField) => {
+    if (field === sortField) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir("desc");
+    }
+  };
+
+  const sortedHoldings = holdings ? [...holdings].sort((a, b) => {
+    const aVal = a[sortField] ?? (sortDir === "asc" ? Infinity : -Infinity);
+    const bVal = b[sortField] ?? (sortDir === "asc" ? Infinity : -Infinity);
+    if (typeof aVal === "string" && typeof bVal === "string") {
+      return sortDir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    }
+    const aNum = Number(aVal);
+    const bNum = Number(bVal);
+    return sortDir === "asc" ? aNum - bNum : bNum - aNum;
+  }) : null;
+
+  const startEdit = (h: HoldingDto) => {
+    setEditingTicker(h.ticker);
+    setEditQty(String(h.quantity));
+    setEditPrice(h.avgCostLocal != null ? String(h.avgCostLocal) : "");
+  };
+
+  const cancelEdit = () => {
+    setEditingTicker(null);
+    setEditQty("");
+    setEditPrice("");
+  };
+
+  const saveEdit = async (ticker: string) => {
+    setIsSavingHolding(true);
+    try {
+      const updated = await updateHolding(ticker, {
+        quantity: parseFloat(editQty),
+        avgCostLocal: editPrice ? parseFloat(editPrice) : undefined,
+      });
+      setHoldings((prev) => prev ? prev.map((h) => h.ticker === ticker ? updated : h) : prev);
+      setEditingTicker(null);
+    } catch (error) {
+      setUploadError(String(error));
+    } finally {
+      setIsSavingHolding(false);
+    }
+  };
+
   const isValidTotal = Math.abs(totalAllocation - 100) <= 0.5;
   const maxAllocationPct = portfolio
     ? Math.max(...portfolio.allocations.map((a) => Math.max(a.allocationPct, a.optimalAllocationPct ?? 0)), 1)
     : 100;
 
   const alignmentScorePercent = portfolio ? Math.round(portfolio.alignmentScore * 100) : 0;
+
+  const totalEur = holdings
+    ? holdings.reduce((sum, h) => sum + (h.marketValueEur ?? 0), 0)
+    : null;
+
+  const staleCount = holdings ? holdings.filter(isStale).length : 0;
 
   return (
     <div className="flex flex-col h-full">
@@ -328,13 +419,35 @@ export default function PortfolioPage() {
 
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-200">
-              Holdings
-              {holdings && holdings.length > 0 && (
-                <span className="text-slate-500 font-normal ml-2">({holdings.length})</span>
+            <div className="flex items-center gap-3">
+              <h2 className="text-sm font-semibold text-slate-200">
+                Holdings
+                {holdings && holdings.length > 0 && (
+                  <span className="text-slate-500 font-normal ml-2">({holdings.length})</span>
+                )}
+              </h2>
+              {totalEur != null && totalEur > 0 && (
+                <span className="text-sm font-mono text-emerald-400">
+                  €{totalEur.toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </span>
               )}
-            </h2>
+              {staleCount > 0 && (
+                <span className="text-xs text-amber-400" title={`${staleCount} holding(s) have no live price — click refresh or edit manually`}>
+                  ⚠ {staleCount} stale
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-2">
+              {holdings && holdings.length > 0 && (
+                <button
+                  onClick={handleRefreshPrices}
+                  disabled={isRefreshingPrices}
+                  className="text-xs px-2 py-1 border border-slate-600 text-slate-400 rounded hover:text-slate-200 hover:border-slate-500 transition-colors disabled:opacity-50"
+                  title="Fetch latest prices from Yahoo Finance for all holdings"
+                >
+                  {isRefreshingPrices ? "Refreshing…" : "↻ Refresh Prices"}
+                </button>
+              )}
               <button
                 onClick={handleTemplateDownload}
                 className="text-xs px-2 py-1 border border-slate-600 text-slate-400 rounded hover:text-slate-200 hover:border-slate-500 transition-colors"
@@ -370,8 +483,8 @@ export default function PortfolioPage() {
             <div className="text-xs text-emerald-400 bg-emerald-900/20 border border-emerald-800 rounded px-3 py-2 flex items-center justify-between">
               <span>
                 Uploaded {uploadResult.totalAccepted} holdings
-                {uploadResult.totalMarketValueUsd != null && ` · Total: $${Number(uploadResult.totalMarketValueUsd).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-                {uploadResult.usdPerEurRateUsed != null && ` (EUR→USD @ ${Number(uploadResult.usdPerEurRateUsed).toFixed(4)})`}
+                {uploadResult.totalMarketValueEur != null && ` · Total: €${Number(uploadResult.totalMarketValueEur).toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+                {uploadResult.usdPerEurRateUsed != null && ` (rate: ${Number(uploadResult.usdPerEurRateUsed).toFixed(4)})`}
               </span>
               {uploadResult.unclassifiedTickers.length > 0 && (
                 <span className="text-amber-400 ml-2" title="These tickers were not mapped to a category">
@@ -381,42 +494,135 @@ export default function PortfolioPage() {
             </div>
           )}
 
-          {holdings && holdings.length > 0 ? (
+          {sortedHoldings && sortedHoldings.length > 0 ? (
             <div className="overflow-x-auto rounded-xl border border-slate-700">
               <table className="w-full text-sm text-left">
                 <thead>
                   <tr className="border-b border-slate-700 bg-slate-800/80 text-slate-400 text-xs uppercase tracking-wider">
-                    <th className="px-4 py-2">Ticker</th>
+                    <th className="px-4 py-2 cursor-pointer select-none hover:text-slate-200 transition-colors" onClick={() => handleSort("ticker")}>
+                      Ticker <SortIcon field="ticker" sortField={sortField} sortDir={sortDir} />
+                    </th>
                     <th className="px-4 py-2">Name</th>
-                    <th className="px-4 py-2">Segment</th>
-                    <th className="px-4 py-2 text-right">Qty</th>
-                    <th className="px-4 py-2 text-right">Avg Cost</th>
-                    <th className="px-4 py-2 text-right">Market Value USD</th>
+                    <th className="px-4 py-2 cursor-pointer select-none hover:text-slate-200 transition-colors" onClick={() => handleSort("categoryId")}>
+                      Segment <SortIcon field="categoryId" sortField={sortField} sortDir={sortDir} />
+                    </th>
+                    <th className="px-4 py-2 text-right cursor-pointer select-none hover:text-slate-200 transition-colors" onClick={() => handleSort("quantity")}>
+                      Qty <SortIcon field="quantity" sortField={sortField} sortDir={sortDir} />
+                    </th>
+                    <th className="px-4 py-2 text-right cursor-pointer select-none hover:text-slate-200 transition-colors" onClick={() => handleSort("avgCostLocal")}>
+                      Avg Cost <SortIcon field="avgCostLocal" sortField={sortField} sortDir={sortDir} />
+                    </th>
+                    <th className="px-4 py-2 text-right cursor-pointer select-none hover:text-slate-200 transition-colors" onClick={() => handleSort("currentPriceLocal")}>
+                      Price <SortIcon field="currentPriceLocal" sortField={sortField} sortDir={sortDir} />
+                    </th>
+                    <th className="px-4 py-2 text-right cursor-pointer select-none hover:text-slate-200 transition-colors" onClick={() => handleSort("marketValueEur")}>
+                      Value (€) <SortIcon field="marketValueEur" sortField={sortField} sortDir={sortDir} />
+                    </th>
+                    <th className="px-4 py-2 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
-                  {holdings.map((h) => (
-                    <tr key={h.ticker} className="hover:bg-slate-800/50 transition-colors text-slate-200">
-                      <td className="px-4 py-2 font-mono text-blue-300 font-medium">{h.ticker}</td>
-                      <td className="px-4 py-2 text-slate-400 text-xs">{h.name ?? "—"}</td>
-                      <td className="px-4 py-2 text-xs">
-                        {h.categoryId ? (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-900/50 text-blue-300 border border-blue-800/40">
-                            {h.categoryId}
-                          </span>
-                        ) : (
-                          <span className="text-amber-400 text-[10px]">Unclassified</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums">{Number(h.quantity).toFixed(2)}</td>
-                      <td className="px-4 py-2 text-right tabular-nums text-slate-400">
-                        {h.avgCostLocal != null ? `${h.currency === "EUR" ? "€" : "$"}${Number(h.avgCostLocal).toFixed(2)}` : "—"}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums">
-                        {h.marketValueUsd != null ? `$${Number(h.marketValueUsd).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
-                      </td>
-                    </tr>
-                  ))}
+                  {sortedHoldings.map((h) => {
+                    const stale = isStale(h);
+                    const isEditing = editingTicker === h.ticker;
+                    return (
+                      <tr
+                        key={h.ticker}
+                        className={`hover:bg-slate-800/50 transition-colors ${stale ? "bg-amber-950/10" : ""}`}
+                      >
+                        <td className="px-4 py-2 font-mono text-blue-300 font-medium">
+                          {h.ticker}
+                          {stale && (
+                            <span className="ml-1 text-[10px] text-amber-500" title="Price not available or older than 3 days">●</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-slate-400 text-xs">{h.name ?? "—"}</td>
+                        <td className="px-4 py-2 text-xs">
+                          {h.categoryId ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-900/50 text-blue-300 border border-blue-800/40">
+                              {h.categoryId}
+                            </span>
+                          ) : (
+                            <span className="text-amber-400 text-[10px]">Unclassified</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums text-slate-200">
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              value={editQty}
+                              onChange={(e) => setEditQty(e.target.value)}
+                              className="w-20 text-xs font-mono text-right bg-slate-700 border border-blue-500 rounded px-1 py-0.5 text-slate-200 focus:outline-none"
+                            />
+                          ) : (
+                            Number(h.quantity).toFixed(2)
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums text-slate-400">
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              value={editPrice}
+                              onChange={(e) => setEditPrice(e.target.value)}
+                              placeholder="avg cost"
+                              className="w-24 text-xs font-mono text-right bg-slate-700 border border-blue-500 rounded px-1 py-0.5 text-slate-200 focus:outline-none"
+                            />
+                          ) : (
+                            h.avgCostLocal != null
+                              ? `${h.currency === "EUR" ? "€" : "$"}${Number(h.avgCostLocal).toFixed(2)}`
+                              : "—"
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          {h.currentPriceLocal != null ? (
+                            <span className="text-slate-200">
+                              {h.currency === "EUR" ? "€" : "$"}{Number(h.currentPriceLocal).toFixed(2)}
+                              {h.priceDate && (
+                                <span className="text-slate-600 text-[10px] ml-1">{h.priceDate}</span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-amber-500 text-xs" title="No live price — click Edit to enter manually">n/a</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums font-semibold">
+                          {h.marketValueEur != null ? (
+                            <span className="text-emerald-400">
+                              €{Number(h.marketValueEur).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          ) : (
+                            <span className="text-slate-600">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          {isEditing ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => saveEdit(h.ticker)}
+                                disabled={isSavingHolding}
+                                className="text-[10px] px-2 py-0.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                {isSavingHolding ? "…" : "Save"}
+                              </button>
+                              <button
+                                onClick={cancelEdit}
+                                className="text-[10px] px-2 py-0.5 border border-slate-600 text-slate-400 rounded hover:text-slate-200"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => startEdit(h)}
+                              className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+                            >
+                              Edit
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

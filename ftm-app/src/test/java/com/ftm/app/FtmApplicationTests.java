@@ -8,9 +8,9 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 class FtmApplicationTests {
 
-    @Test
-    void contextLoads() {
-        // Validates: Spring context starts, Flyway runs, JPA validates schema, Caffeine wires up.
-        // Uses Testcontainers (jdbc:tc:postgresql:16:///ftm) — no local PostgreSQL needed.
-    }
+  @Test
+  void contextLoads() {
+    // Validates: Spring context starts, Flyway runs, JPA validates schema, Caffeine wires up.
+    // Uses Testcontainers (jdbc:tc:postgresql:16:///ftm) — no local PostgreSQL needed.
+  }
 }

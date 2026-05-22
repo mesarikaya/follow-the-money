@@ -18,7 +18,6 @@ import com.ftm.app.api.dto.HoldingDto;
 import com.ftm.app.api.dto.HoldingUpdateRequest;
 import com.ftm.app.api.dto.HoldingsUploadResponse;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
-import com.ftm.app.portfolio.service.HoldingPriceService;
 import com.ftm.app.portfolio.service.HoldingUploadService;
 import java.math.BigDecimal;
 import java.util.List;
@@ -38,7 +37,6 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 class HoldingControllerTest {
 
   @Mock HoldingUploadService holdingUploadService;
-  @Mock HoldingPriceService holdingPriceService;
 
   MockMvc mockMvc;
   ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
@@ -46,7 +44,7 @@ class HoldingControllerTest {
   @BeforeEach
   void setUp() {
     mockMvc =
-        MockMvcBuilders.standaloneSetup(new HoldingController(holdingUploadService, holdingPriceService))
+        MockMvcBuilders.standaloneSetup(new HoldingController(holdingUploadService))
             .setControllerAdvice(new GlobalExceptionHandler())
             .build();
   }
@@ -107,7 +105,7 @@ class HoldingControllerTest {
   @DisplayName("PATCH /portfolio/holdings/{ticker} updates holding and returns 200")
   void shouldUpdateHolding() throws Exception {
     HoldingUpdateRequest request =
-        new HoldingUpdateRequest(new BigDecimal("15.0"), new BigDecimal("200.00"));
+        new HoldingUpdateRequest(new BigDecimal("15.0"), new BigDecimal("200.00"), null);
     HoldingDto updated = sampleHolding("XLK", "TECH");
     when(holdingUploadService.updateHolding(eq("XLK"), any(HoldingUpdateRequest.class)))
         .thenReturn(updated);
@@ -123,7 +121,7 @@ class HoldingControllerTest {
   @Test
   @DisplayName("PATCH /portfolio/holdings/{ticker} returns 404 for unknown ticker")
   void shouldReturn404ForUnknownTicker() throws Exception {
-    HoldingUpdateRequest request = new HoldingUpdateRequest(new BigDecimal("5.0"), null);
+    HoldingUpdateRequest request = new HoldingUpdateRequest(new BigDecimal("5.0"), null, null);
     when(holdingUploadService.updateHolding(eq("UNKNOWN"), any()))
         .thenThrow(new NoSuchElementException("No holding found for ticker: UNKNOWN"));
 

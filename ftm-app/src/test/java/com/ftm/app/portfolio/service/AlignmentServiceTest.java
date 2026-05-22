@@ -1,131 +1,157 @@
 package com.ftm.app.portfolio.service;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import java.math.BigDecimal;
-import java.util.Map;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
+import java.math.BigDecimal;
+import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 class AlignmentServiceTest {
 
-    private AlignmentService alignmentService;
+  private AlignmentService alignmentService;
 
-    @BeforeEach
-    void setUp() {
-        alignmentService = new AlignmentService();
-    }
+  @BeforeEach
+  void setUp() {
+    alignmentService = new AlignmentService();
+  }
 
-    @Test
-    void perfectlyAlignedPortfolioReturnsMaxAlignmentScore() {
-        // Allocation ranks match composite ranks exactly
-        Map<String, BigDecimal> allocations = Map.of(
-                "XLK", new BigDecimal("50"),
-                "XLF", new BigDecimal("30"),
-                "XLE", new BigDecimal("20"));
-        Map<String, BigDecimal> compositeScores = Map.of(
-                "XLK", new BigDecimal("0.80"),
-                "XLF", new BigDecimal("0.60"),
-                "XLE", new BigDecimal("0.40"));
+  @Test
+  void portfolioExactlyMatchingOptimalReturnsMaxScore() {
+    // composites sum to 1.0 → optimal = [50%, 30%, 20%]; actual matches exactly
+    Map<String, BigDecimal> allocations =
+        Map.of(
+            "XLK", new BigDecimal("50"),
+            "XLF", new BigDecimal("30"),
+            "XLE", new BigDecimal("20"));
+    Map<String, BigDecimal> compositeScores =
+        Map.of(
+            "XLK", new BigDecimal("0.50"),
+            "XLF", new BigDecimal("0.30"),
+            "XLE", new BigDecimal("0.20"));
 
-        BigDecimal score = alignmentService.computeAlignmentScore(allocations, compositeScores);
+    BigDecimal score = alignmentService.computeAlignmentScore(allocations, compositeScores);
 
-        assertThat(score).isEqualByComparingTo(BigDecimal.ONE);
-    }
+    assertThat(score).isEqualByComparingTo(BigDecimal.ONE);
+  }
 
-    @Test
-    void perfectlyInversePortfolioReturnsMinAlignmentScore() {
-        // Allocation ranks are exactly reversed vs composite ranks
-        Map<String, BigDecimal> allocations = Map.of(
-                "XLK", new BigDecimal("50"),
-                "XLF", new BigDecimal("30"),
-                "XLE", new BigDecimal("20"));
-        Map<String, BigDecimal> compositeScores = Map.of(
-                "XLK", new BigDecimal("0.20"),  // lowest composite, highest allocation
-                "XLF", new BigDecimal("0.60"),
-                "XLE", new BigDecimal("0.80"));  // highest composite, lowest allocation
+  @Test
+  void portfolioWithNoTrackedCategoriesReturnsZeroScore() {
+    // 100% cash — no overlap with the composite universe
+    Map<String, BigDecimal> allocations = Map.of("CASH", new BigDecimal("100"));
+    Map<String, BigDecimal> compositeScores =
+        Map.of(
+            "XLK", new BigDecimal("0.80"),
+            "XLF", new BigDecimal("0.60"),
+            "XLE", new BigDecimal("0.40"));
 
-        BigDecimal score = alignmentService.computeAlignmentScore(allocations, compositeScores);
+    BigDecimal score = alignmentService.computeAlignmentScore(allocations, compositeScores);
 
-        assertThat(score).isEqualByComparingTo(BigDecimal.ZERO);
-    }
+    assertThat(score).isEqualByComparingTo(BigDecimal.ZERO);
+  }
 
-    @Test
-    void partiallyAlignedPortfolioReturnsExpectedAlignmentScore() {
-        // Allocation ranks [XLK=1, XLF=2, XLE=3, XLV=4]
-        // Composite ranks  [XLK=1, XLF=2, XLV=3, XLE=4] → adjacent swap in positions 3+4
-        // d = [0, 0, -1, 1], Σd² = 2
-        // Spearman ρ = 1 - 6*2/(4*15) = 1 - 12/60 = 0.8
-        // Alignment = (0.8 + 1) / 2 = 0.9
-        Map<String, BigDecimal> allocations = Map.of(
-                "XLK", new BigDecimal("40"),
-                "XLF", new BigDecimal("30"),
-                "XLE", new BigDecimal("20"),
-                "XLV", new BigDecimal("10"));
-        Map<String, BigDecimal> compositeScores = Map.of(
-                "XLK", new BigDecimal("0.80"),
-                "XLF", new BigDecimal("0.60"),
-                "XLV", new BigDecimal("0.40"),
-                "XLE", new BigDecimal("0.20"));
+  @Test
+  void partiallyMisalignedPortfolioReturnsExpectedScore() {
+    // Universe optimal: XLK=40%, XLF=30%, XLV=20%, XLE=10% (composites sum to 2.00)
+    // Actual swaps XLV/XLE positions:
+    // overlap = min(40,40)+min(30,30)+min(20,10)+min(10,20) = 40+30+10+10 = 90 → 0.90
+    Map<String, BigDecimal> allocations =
+        Map.of(
+            "XLK", new BigDecimal("40"),
+            "XLF", new BigDecimal("30"),
+            "XLE", new BigDecimal("20"),
+            "XLV", new BigDecimal("10"));
+    Map<String, BigDecimal> compositeScores =
+        Map.of(
+            "XLK", new BigDecimal("0.80"),
+            "XLF", new BigDecimal("0.60"),
+            "XLV", new BigDecimal("0.40"),
+            "XLE", new BigDecimal("0.20"));
 
-        BigDecimal score = alignmentService.computeAlignmentScore(allocations, compositeScores);
+    BigDecimal score = alignmentService.computeAlignmentScore(allocations, compositeScores);
 
-        assertThat(score.doubleValue()).isCloseTo(0.9, within(0.001));
-    }
+    assertThat(score.doubleValue()).isCloseTo(0.9, within(0.001));
+  }
 
-    @Test
-    void categoriesWithNullCompositeScoreAreExcluded() {
-        Map<String, BigDecimal> allocations = Map.of(
-                "XLK", new BigDecimal("60"),
-                "XLF", new BigDecimal("30"),
-                "XLE", new BigDecimal("10"));
-        Map<String, BigDecimal> compositeScoresWithNull = new java.util.HashMap<>();
-        compositeScoresWithNull.put("XLK", new BigDecimal("0.80"));
-        compositeScoresWithNull.put("XLF", new BigDecimal("0.50"));
-        compositeScoresWithNull.put("XLE", null);  // excluded
+  @Test
+  void categoriesWithNullCompositeScoreAreExcludedFromUniverse() {
+    // Universe: XLK and XLF only (XLE null → excluded).
+    // total=1.30; optimal: XLK≈61.5%, XLF≈38.5%.
+    // actual: XLK=60, XLF=30 — overlap = min(60,61.5)+min(30,38.5) = 60+30 = 90 → 0.90.
+    // XLE's 10% contributes 0 — correct cash-drag effect.
+    Map<String, BigDecimal> allocations =
+        Map.of(
+            "XLK", new BigDecimal("60"),
+            "XLF", new BigDecimal("30"),
+            "XLE", new BigDecimal("10"));
+    Map<String, BigDecimal> compositeScoresWithNull = new java.util.HashMap<>();
+    compositeScoresWithNull.put("XLK", new BigDecimal("0.80"));
+    compositeScoresWithNull.put("XLF", new BigDecimal("0.50"));
+    compositeScoresWithNull.put("XLE", null);
 
-        // Only XLK and XLF participate; their relative allocation ranks match composite ranks
-        BigDecimal score = alignmentService.computeAlignmentScore(allocations, compositeScoresWithNull);
+    BigDecimal score = alignmentService.computeAlignmentScore(allocations, compositeScoresWithNull);
 
-        assertThat(score).isEqualByComparingTo(BigDecimal.ONE);
-    }
+    assertThat(score.doubleValue()).isCloseTo(0.9, within(0.001));
+  }
 
-    @Test
-    void fewerThanTwoCategoriesReturnsZero() {
-        Map<String, BigDecimal> allocations = Map.of("XLK", new BigDecimal("100"));
-        Map<String, BigDecimal> compositeScores = Map.of("XLK", new BigDecimal("0.80"));
+  @Test
+  void fewerThanTwoUniverseCategoriesReturnsZero() {
+    Map<String, BigDecimal> allocations = Map.of("XLK", new BigDecimal("100"));
+    Map<String, BigDecimal> compositeScores = Map.of("XLK", new BigDecimal("0.80"));
 
-        BigDecimal score = alignmentService.computeAlignmentScore(allocations, compositeScores);
+    BigDecimal score = alignmentService.computeAlignmentScore(allocations, compositeScores);
 
-        assertThat(score).isEqualByComparingTo(BigDecimal.ZERO);
-    }
+    assertThat(score).isEqualByComparingTo(BigDecimal.ZERO);
+  }
 
-    @Test
-    void optimalAllocationIsProportionalToCompositeScore() {
-        Map<String, BigDecimal> compositeScores = Map.of(
-                "XLK", new BigDecimal("0.80"),
-                "XLF", new BigDecimal("0.20"));
+  @Test
+  void heavyCashPositionReducesAlignmentScore() {
+    // Universe: XLK, XLF; total=1.30; optimal: XLK≈61.5%, XLF≈38.5%.
+    // actual: XLK=30, XLF=15, CASH=55 (CASH not in universe → contributes 0).
+    // overlap = min(30,61.5)+min(15,38.5) = 30+15 = 45 → score = 0.45 → PARTIAL.
+    Map<String, BigDecimal> allocations = new java.util.HashMap<>();
+    allocations.put("XLK", new BigDecimal("30"));
+    allocations.put("XLF", new BigDecimal("15"));
+    allocations.put("CASH", new BigDecimal("55"));
 
-        Map<String, BigDecimal> optimal = alignmentService.computeCompositeOptimalAllocation(compositeScores);
+    Map<String, BigDecimal> compositeScores =
+        Map.of(
+            "XLK", new BigDecimal("0.80"),
+            "XLF", new BigDecimal("0.50"));
 
-        // XLK = 0.80/(0.80+0.20)*100 = 80%
-        // XLF = 0.20/(0.80+0.20)*100 = 20%
-        assertThat(optimal.get("XLK")).isEqualByComparingTo(new BigDecimal("80.00"));
-        assertThat(optimal.get("XLF")).isEqualByComparingTo(new BigDecimal("20.00"));
-    }
+    BigDecimal score = alignmentService.computeAlignmentScore(allocations, compositeScores);
 
-    @Test
-    void optimalAllocationExcludesNullAndZeroCompositeScores() {
-        Map<String, BigDecimal> compositeScoresWithNullAndZero = new java.util.HashMap<>();
-        compositeScoresWithNullAndZero.put("XLK", new BigDecimal("0.80"));
-        compositeScoresWithNullAndZero.put("XLF", null);
-        compositeScoresWithNullAndZero.put("XLE", BigDecimal.ZERO);
+    assertThat(score.doubleValue()).isCloseTo(0.45, within(0.001));
+  }
 
-        Map<String, BigDecimal> optimal = alignmentService.computeCompositeOptimalAllocation(compositeScoresWithNullAndZero);
+  @Test
+  void optimalAllocationIsProportionalToCompositeScore() {
+    Map<String, BigDecimal> compositeScores =
+        Map.of(
+            "XLK", new BigDecimal("0.80"),
+            "XLF", new BigDecimal("0.20"));
 
-        assertThat(optimal).containsOnlyKeys("XLK");
-        assertThat(optimal.get("XLK")).isEqualByComparingTo(new BigDecimal("100.00"));
-    }
+    Map<String, BigDecimal> optimal =
+        alignmentService.computeCompositeOptimalAllocation(compositeScores);
+
+    // XLK = 0.80/(0.80+0.20)*100 = 80%
+    // XLF = 0.20/(0.80+0.20)*100 = 20%
+    assertThat(optimal.get("XLK")).isEqualByComparingTo(new BigDecimal("80.00"));
+    assertThat(optimal.get("XLF")).isEqualByComparingTo(new BigDecimal("20.00"));
+  }
+
+  @Test
+  void optimalAllocationExcludesNullAndZeroCompositeScores() {
+    Map<String, BigDecimal> compositeScoresWithNullAndZero = new java.util.HashMap<>();
+    compositeScoresWithNullAndZero.put("XLK", new BigDecimal("0.80"));
+    compositeScoresWithNullAndZero.put("XLF", null);
+    compositeScoresWithNullAndZero.put("XLE", BigDecimal.ZERO);
+
+    Map<String, BigDecimal> optimal =
+        alignmentService.computeCompositeOptimalAllocation(compositeScoresWithNullAndZero);
+
+    assertThat(optimal).containsOnlyKeys("XLK");
+    assertThat(optimal.get("XLK")).isEqualByComparingTo(new BigDecimal("100.00"));
+  }
 }

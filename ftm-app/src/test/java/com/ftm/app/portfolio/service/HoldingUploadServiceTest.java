@@ -11,6 +11,7 @@ import com.ftm.app.api.dto.HoldingUpdateRequest;
 import com.ftm.app.api.dto.HoldingsUploadResponse;
 import com.ftm.app.domain.Holding;
 import com.ftm.app.portfolio.repository.HoldingRepository;
+import com.ftm.app.portfolio.repository.PortfolioRepository;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -26,12 +27,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class HoldingUploadServiceTest {
 
   @Mock HoldingRepository holdingRepository;
+  @Mock PortfolioRepository portfolioRepository;
   @Mock HoldingClassificationService classificationService;
   @Spy HoldingCsvParser csvParser = new HoldingCsvParser();
   @Mock HoldingPriceService holdingPriceService;
   @InjectMocks HoldingUploadService holdingUploadService;
 
   private static final BigDecimal USD_PER_EUR = new BigDecimal("1.085");
+  private static final BigDecimal GBP_USD_RATE = new BigDecimal("1.27");
 
   private static final String USD_CSV =
       """
@@ -69,8 +72,9 @@ class HoldingUploadServiceTest {
     when(classificationService.classifyOrUnknown("GLD")).thenReturn("GOLD");
     doNothing().when(holdingPriceService).refreshPricesForAllHoldings();
     when(holdingPriceService.fetchUsdPerEurRate()).thenReturn(USD_PER_EUR);
-    when(holdingRepository.findAll()).thenReturn(List.of(
-        storedHolding("XLK", "TECH"), storedHolding("GLD", "GOLD")));
+    when(holdingPriceService.fetchGbpUsdRate()).thenReturn(GBP_USD_RATE);
+    when(holdingRepository.findAll())
+        .thenReturn(List.of(storedHolding("XLK", "TECH"), storedHolding("GLD", "GOLD")));
 
     HoldingsUploadResponse response = holdingUploadService.upload(USD_CSV);
 
@@ -87,8 +91,9 @@ class HoldingUploadServiceTest {
     when(classificationService.classifyOrUnknown("GLD")).thenReturn(null);
     doNothing().when(holdingPriceService).refreshPricesForAllHoldings();
     when(holdingPriceService.fetchUsdPerEurRate()).thenReturn(USD_PER_EUR);
-    when(holdingRepository.findAll()).thenReturn(List.of(
-        storedHolding("XLK", "TECH"), storedHolding("GLD", null)));
+    when(holdingPriceService.fetchGbpUsdRate()).thenReturn(GBP_USD_RATE);
+    when(holdingRepository.findAll())
+        .thenReturn(List.of(storedHolding("XLK", "TECH"), storedHolding("GLD", null)));
 
     HoldingsUploadResponse response = holdingUploadService.upload(USD_CSV);
 
@@ -101,6 +106,7 @@ class HoldingUploadServiceTest {
     when(classificationService.classifyOrUnknown("RHM")).thenReturn("INDU");
     doNothing().when(holdingPriceService).refreshPricesForAllHoldings();
     when(holdingPriceService.fetchUsdPerEurRate()).thenReturn(USD_PER_EUR);
+    when(holdingPriceService.fetchGbpUsdRate()).thenReturn(GBP_USD_RATE);
     when(holdingRepository.findAll()).thenReturn(List.of(storedHolding("RHM", "INDU")));
 
     holdingUploadService.upload(EUR_CSV);
@@ -114,6 +120,7 @@ class HoldingUploadServiceTest {
     when(holdingRepository.findAll())
         .thenReturn(List.of(storedHolding("XLK", "TECH"), storedHolding("GLD", "GOLD")));
     when(holdingPriceService.fetchUsdPerEurRate()).thenReturn(USD_PER_EUR);
+    when(holdingPriceService.fetchGbpUsdRate()).thenReturn(GBP_USD_RATE);
 
     List<HoldingDto> holdings = holdingUploadService.getHoldings();
 
@@ -129,10 +136,12 @@ class HoldingUploadServiceTest {
         .thenReturn(1);
     when(holdingRepository.findAll()).thenReturn(List.of(existing));
     when(holdingPriceService.fetchUsdPerEurRate()).thenReturn(USD_PER_EUR);
+    when(holdingPriceService.fetchGbpUsdRate()).thenReturn(GBP_USD_RATE);
 
     HoldingDto result =
         holdingUploadService.updateHolding(
-            "XLK", new HoldingUpdateRequest(new BigDecimal("15.0"), new BigDecimal("200.00")));
+            "XLK",
+            new HoldingUpdateRequest(new BigDecimal("15.0"), new BigDecimal("200.00"), null));
 
     assertThat(result.ticker()).isEqualTo("XLK");
     verify(holdingRepository)

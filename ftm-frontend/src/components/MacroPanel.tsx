@@ -60,6 +60,12 @@ const CARD_CONFIGS: CardConfig[] = [
     format: v => v == null ? "—" : v.toFixed(1),
     tooltip: "Trade-weighted US Dollar index (DTWEXBGS). Rising = USD strengthening",
   },
+  {
+    label: "WTI Crude",
+    key: "wtiCrudeOilPrice",
+    format: v => v == null ? "—" : `$${v.toFixed(1)}`,
+    tooltip: "WTI crude oil spot price (USD/bbl). Rising = inflationary pressure on energy costs",
+  },
 ];
 
 function trendArrow(
@@ -126,7 +132,7 @@ export default function MacroPanel({ macro }: { macro: MacroResponse }) {
           <span className="text-xs text-slate-500">as of {asOfDate}</span>
         )}
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3">
         {CARD_CONFIGS.map((config) => (
           <MacroCard
             key={config.key}

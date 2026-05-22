@@ -72,7 +72,21 @@ function RsStat({ label, value }: { label: string; value: number | null }) {
   );
 }
 
-function ScoreStat({ value }: { value: number | null }) {
+function TrendPip({ value, label }: { value: number | null; label: string }) {
+  if (value == null) return null;
+  const delta = Math.round(Math.abs(value * 100));
+  const isUp = value > 0.005;
+  const isDown = value < -0.005;
+  const arrow = isUp ? "↑" : isDown ? "↓" : "→";
+  const colorClass = isUp ? "text-emerald-400" : isDown ? "text-red-400" : "text-slate-500";
+  return (
+    <span className={`text-[9px] ${colorClass} tabular-nums`} style={{ fontFamily: "var(--font-jetbrains-mono)" }} title={`${label}: ${value > 0 ? "+" : ""}${(value * 100).toFixed(1)}pt`}>
+      {arrow}{delta > 0 ? delta : ""}
+    </span>
+  );
+}
+
+function ScoreStat({ value, trend5d, trend20d }: { value: number | null; trend5d: number | null; trend20d: number | null }) {
   if (value == null) {
     return (
       <div className="text-center">
@@ -92,6 +106,10 @@ function ScoreStat({ value }: { value: number | null }) {
       </div>
       <div className={`text-sm font-medium tabular-nums ${colorClass}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
         {score}/100
+      </div>
+      <div className="flex items-center justify-center gap-1.5 mt-0.5">
+        <TrendPip value={trend5d} label="5d trend" />
+        <TrendPip value={trend20d} label="20d trend" />
       </div>
     </div>
   );
@@ -152,7 +170,7 @@ function SectorCard({ sector, history }: { sector: CategorySummary; history: num
 
       {/* Signal stats row */}
       <div className="grid grid-cols-3 gap-2 mb-3 py-2 border-y border-slate-700/40">
-        <ScoreStat value={sector.compositeScore} />
+        <ScoreStat value={sector.compositeScore} trend5d={sector.compositeTrend5d} trend20d={sector.compositeTrend20d} />
         <RsStat label="RS 60d" value={sector.rs60} />
         <RankStat rank={sector.rank} />
       </div>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const ANALYSIS_ITEMS = [
   { href: "/",             label: "Sector Rotation", icon: "🔄" },
@@ -19,7 +20,19 @@ const MANAGEMENT_ITEMS = [
   { href: "/admin/ticker-mappings",   label: "Ticker Mappings", icon: "🗂️" },
 ];
 
-function NavItem({ href, label, icon }: { href: string; label: string; icon: string }) {
+function useActiveAlertCount(): number {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    const backend = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8080";
+    fetch(`${backend}/api/v1/alerts`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.activeCount) setCount(data.activeCount); })
+      .catch(() => {});
+  }, []);
+  return count;
+}
+
+function NavItem({ href, label, icon, badge }: { href: string; label: string; icon: string; badge?: number }) {
   const pathname = usePathname();
   const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
 
@@ -33,12 +46,18 @@ function NavItem({ href, label, icon }: { href: string; label: string; icon: str
       }`}
     >
       <span className="text-base w-5 text-center shrink-0">{icon}</span>
-      <span className="hidden md:block">{label}</span>
+      <span className="hidden md:block flex-1">{label}</span>
+      {badge != null && badge > 0 && (
+        <span className="hidden md:inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold shrink-0">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </Link>
   );
 }
 
 export default function Sidebar() {
+  const activeAlertCount = useActiveAlertCount();
   return (
     <aside className="flex flex-col w-14 md:w-52 bg-slate-800 border-r border-slate-700 text-slate-100 shrink-0">
       <nav className="flex-1 py-3 overflow-y-auto">
@@ -53,7 +72,11 @@ export default function Sidebar() {
           <span className="text-slate-500 text-[10px] font-semibold uppercase tracking-widest" style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.1em" }}>Management</span>
         </div>
         {MANAGEMENT_ITEMS.map((item) => (
-          <NavItem key={item.href} {...item} />
+          <NavItem
+            key={item.href}
+            {...item}
+            badge={item.href === "/alerts" ? activeAlertCount : undefined}
+          />
         ))}
       </nav>
     </aside>

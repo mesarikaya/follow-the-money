@@ -1,6 +1,11 @@
 import { Fragment } from "react";
+import Link from "next/link";
 import { CategorySummary } from "@/lib/api";
 import Sparkline from "@/components/Sparkline";
+
+const SECTOR_DRILLDOWN_IDS = new Set([
+  "TECH", "HLTH", "FINL", "DISR", "INDU", "ENRG", "MATL", "UTIL", "REIT", "STPL", "COMM",
+]);
 
 const TYPE_CONFIG: Record<string, { label: string; className: string }> = {
   EQUITY_SECTOR:  { label: "Equity",         className: "bg-blue-900/50 text-blue-300 border border-blue-800/40" },
@@ -153,8 +158,20 @@ export default function CategoryTable({
                 )}
                 <tr className={`hover:bg-slate-800/50 transition-colors text-slate-200 border-l-[3px] ${rowBorderClass}`}>
                   <td className="px-4 py-2.5 text-slate-500 tabular-nums text-xs">{cat.rank}</td>
-                  <td className="px-4 py-2.5 font-mono text-blue-300 font-medium">{cat.etfTicker}</td>
-                  <td className="px-4 py-2.5 font-medium">{cat.name}</td>
+                  <td className="px-4 py-2.5 font-mono text-blue-300 font-medium">
+                    {SECTOR_DRILLDOWN_IDS.has(cat.id) ? (
+                      <Link href={`/sectors/${cat.id}`} className="hover:text-cyan-300 transition-colors underline decoration-blue-700/50 hover:decoration-cyan-400/70">
+                        {cat.etfTicker}
+                      </Link>
+                    ) : cat.etfTicker}
+                  </td>
+                  <td className="px-4 py-2.5 font-medium">
+                    {SECTOR_DRILLDOWN_IDS.has(cat.id) ? (
+                      <Link href={`/sectors/${cat.id}`} className="hover:text-cyan-300 transition-colors">
+                        {cat.name}
+                      </Link>
+                    ) : cat.name}
+                  </td>
                   <td className="px-4 py-2.5">
                     <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${typeConfig.className}`}>
                       {typeConfig.label}

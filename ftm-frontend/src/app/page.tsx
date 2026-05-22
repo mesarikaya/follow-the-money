@@ -9,6 +9,7 @@ import RotationPhaseIndicator from "@/components/RotationPhaseIndicator";
 import ScoreExtremesPanel from "@/components/ScoreExtremesPanel";
 import SignalDivergencePanel from "@/components/SignalDivergencePanel";
 import StaleDataBanner from "@/components/StaleDataBanner";
+import SectorCorrelationMatrix from "@/components/SectorCorrelationMatrix";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +81,10 @@ export default async function Home({ searchParams }: Props) {
             <h2 className="text-base font-semibold text-slate-200">Composite Score Heatmap</h2>
             <RotationHeatmap categories={categories} />
           </section>
+        )}
+
+        {categories.length > 0 && Object.keys(scoreHistory).length > 0 && (
+          <SectorCorrelationMatrix categories={categories} scoreHistory={scoreHistory} />
         )}
 
         {asOfDate && (

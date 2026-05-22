@@ -1,4 +1,9 @@
+import Link from "next/link";
 import { CategorySummary } from "@/lib/api";
+
+const SECTOR_DRILLDOWN_IDS = new Set([
+  "TECH", "HLTH", "FINL", "DISR", "INDU", "ENRG", "MATL", "UTIL", "REIT", "STPL", "COMM",
+]);
 
 const QUADRANT_CONFIG: Record<string, { label: string; dot: string }> = {
   "1": { label: "Leading",   dot: "bg-green-400"  },
@@ -62,8 +67,20 @@ export default function RotationHeatmap({ categories }: Props) {
       score >= 0.5 ? "bg-blue-500" :
       score >= 0.3 ? "bg-amber-500" : "bg-red-500";
 
+    const hasDrilldown = SECTOR_DRILLDOWN_IDS.has(cat.id);
+    const Wrapper = ({ children }: { children: React.ReactNode }) =>
+      hasDrilldown ? (
+        <Link href={`/sectors/${cat.id}`} key={cat.id} className={`border rounded-lg p-3 flex flex-col gap-2 ${colorClass} hover:brightness-110 transition-all`}>
+          {children}
+        </Link>
+      ) : (
+        <div key={cat.id} className={`border rounded-lg p-3 flex flex-col gap-2 ${colorClass}`}>
+          {children}
+        </div>
+      );
+
     return (
-      <div key={cat.id} className={`border rounded-lg p-3 flex flex-col gap-2 ${colorClass}`}>
+      <Wrapper>
         <div className="flex items-start justify-between">
           <div className="flex flex-col gap-0.5">
             <span className="text-[10px] font-mono text-slate-500">{cat.etfTicker}</span>
@@ -88,7 +105,7 @@ export default function RotationHeatmap({ categories }: Props) {
             </span>
           )}
         </div>
-      </div>
+      </Wrapper>
     );
   };
 

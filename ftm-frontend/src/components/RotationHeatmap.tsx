@@ -1,9 +1,6 @@
 import Link from "next/link";
 import { CategorySummary } from "@/lib/api";
-
-const SECTOR_DRILLDOWN_IDS = new Set([
-  "TECH", "HLTH", "FINL", "DISR", "INDU", "ENRG", "MATL", "UTIL", "REIT", "STPL", "COMM",
-]);
+import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 
 const QUADRANT_CONFIG: Record<string, { label: string; dot: string }> = {
   "1": { label: "Leading",   dot: "bg-green-400"  },

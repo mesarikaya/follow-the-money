@@ -20,6 +20,8 @@ public record CategorySummaryDto(
     @Schema(description = "RRG quadrant; null until signals computed") String rrgQuadrant,
     @Schema(description = "60-day relative strength vs benchmark; null until signals computed")
         BigDecimal rs60,
+    @Schema(description = "120-day relative strength vs benchmark; null until signals computed")
+        BigDecimal rs120,
     @Schema(description = "20-day flow z-score; null until signals computed") BigDecimal flow20d,
     @Schema(description = "Count of positive-flow days in last 20; null until signals computed")
         Integer persistence20d,

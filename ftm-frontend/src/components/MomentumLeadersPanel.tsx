@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { CategorySummary } from "@/lib/api";
+import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 
 function TrendChip({
   label,
@@ -24,6 +26,26 @@ function TrendChip({
   );
 }
 
+function RsConfirmBadge({ rs60, rs120, trendPositive }: { rs60: number | null; rs120: number | null; trendPositive: boolean }) {
+  if (rs60 == null || rs120 == null) return null;
+  const rsAccel = rs60 - rs120;
+  const rsAccelPositive = rsAccel > 0.001;
+  const rsAccelNegative = rsAccel < -0.001;
+  if (!rsAccelPositive && !rsAccelNegative) return null;
+
+  const confirms = (trendPositive && rsAccelPositive) || (!trendPositive && rsAccelNegative);
+  const ptsAbs = Math.round(Math.abs(rsAccel) * 100);
+
+  return (
+    <span
+      className={`text-[9px] px-1 py-0.5 rounded tabular-nums font-semibold ${confirms ? "bg-emerald-900/40 text-emerald-400 border border-emerald-700/30" : "bg-amber-900/40 text-amber-400 border border-amber-700/30"}`}
+      title={`RS acceleration (60d vs 120d): ${rsAccelPositive ? "+" : ""}${Math.round(rsAccel * 100)} pts. ${confirms ? "Confirms" : "Diverges from"} score trend.`}
+    >
+      {rsAccelPositive ? "↗" : "↘"}RS{ptsAbs > 0 ? ptsAbs : ""}
+    </span>
+  );
+}
+
 function MomentumRow({ cat, isLast }: { cat: CategorySummary; isLast: boolean }) {
   const score = cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : null;
   const barColor =
@@ -37,12 +59,20 @@ function MomentumRow({ cat, isLast }: { cat: CategorySummary; isLast: boolean })
 
   const t20 = cat.compositeTrend20d;
   const t5 = cat.compositeTrend5d;
+  const trendPositive = (t20 ?? 0) >= 0;
+  const hasDrilldown = SECTOR_DRILLDOWN_IDS.has(cat.id);
 
   return (
     <div
       className={`flex items-center gap-3 py-2 ${!isLast ? "border-b border-slate-700/50" : ""}`}
     >
-      <span className="font-mono text-xs text-blue-300 w-9 shrink-0">{cat.etfTicker}</span>
+      {hasDrilldown ? (
+        <Link href={`/sectors/${cat.id}`} className="font-mono text-xs text-blue-300 hover:text-cyan-300 transition-colors w-9 shrink-0">
+          {cat.etfTicker}
+        </Link>
+      ) : (
+        <span className="font-mono text-xs text-blue-300 w-9 shrink-0">{cat.etfTicker}</span>
+      )}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <div className="h-1.5 rounded-full overflow-hidden bg-slate-700 flex-1 max-w-[64px]">
@@ -61,6 +91,7 @@ function MomentumRow({ cat, isLast }: { cat: CategorySummary; isLast: boolean })
         {t20 != null && Math.abs(Math.round(t20 * 100)) >= 2 && (
           <TrendChip label="20d" value={t20} positive={t20 >= 0} />
         )}
+        <RsConfirmBadge rs60={cat.rs60} rs120={cat.rs120} trendPositive={trendPositive} />
       </div>
     </div>
   );

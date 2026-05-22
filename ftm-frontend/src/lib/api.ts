@@ -13,6 +13,7 @@ export type CategorySummary = {
   compositeTrend20d: number | null;
   rrgQuadrant: string | null;
   rs60: number | null;
+  rs120: number | null;
   flow20d: number | null;
   persistence20d: number | null;
   rank: number;

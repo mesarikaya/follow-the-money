@@ -62,9 +62,13 @@ function LeaderRow({ entry, isLeader }: { entry: RotationLeaderEntry; isLeader: 
 
 function RsBarRow({ category, maxAbs }: { category: CategorySummary; maxAbs: number }) {
   const pct = category.rs60 !== null ? category.rs60 * 100 : null;
+  const pct120 = category.rs120 !== null ? category.rs120 * 100 : null;
   const barWidth = pct !== null && maxAbs > 0 ? Math.min(Math.abs(pct) / maxAbs, 1) * 100 : 0;
+  const bar120Width = pct120 !== null && maxAbs > 0 ? Math.min(Math.abs(pct120) / maxAbs, 1) * 100 : null;
   const isPositive = pct !== null && pct > 0;
   const qConfig = category.rrgQuadrant ? QUADRANT_CONFIG[category.rrgQuadrant] : null;
+  const accel = pct !== null && pct120 !== null ? pct - pct120 : null;
+  const accelClass = accel === null ? "" : accel > 0.1 ? "text-emerald-400" : accel < -0.1 ? "text-red-400" : "text-slate-500";
 
   return (
     <div className="flex items-center gap-3 py-1.5 border-b border-slate-700/20 last:border-0">
@@ -78,13 +82,22 @@ function RsBarRow({ category, maxAbs }: { category: CategorySummary; maxAbs: num
         {category.etfTicker}
       </span>
       <div className="flex-1 flex items-center gap-2">
-        <div className="flex-1 h-1.5 bg-slate-700/50 rounded-full overflow-hidden">
+        <div className="relative flex-1 h-2 bg-slate-700/50 rounded-full overflow-hidden"
+          title={`RS-60: ${pct != null ? (pct > 0 ? "+" : "") + pct.toFixed(1) + "%" : "—"}${pct120 != null ? " · RS-120: " + (pct120 > 0 ? "+" : "") + pct120.toFixed(1) + "%" : ""}${accel != null ? " · Accel: " + (accel > 0 ? "+" : "") + accel.toFixed(1) + "pts" : ""}`}>
+          {/* RS-60 primary bar */}
           <div
-            className={`h-full rounded-full ${
+            className={`absolute inset-y-0 left-0 rounded-full ${
               pct === null ? "bg-slate-600" : isPositive ? "bg-emerald-500" : "bg-red-500"
             }`}
             style={{ width: `${barWidth}%` }}
           />
+          {/* RS-120 reference tick */}
+          {bar120Width !== null && (
+            <div
+              className="absolute inset-y-0 w-0.5 bg-white/30 rounded-full"
+              style={{ left: `${bar120Width}%` }}
+            />
+          )}
         </div>
         <span
           className={`text-xs tabular-nums w-14 text-right shrink-0 ${
@@ -94,6 +107,13 @@ function RsBarRow({ category, maxAbs }: { category: CategorySummary; maxAbs: num
         >
           {pct === null ? "—" : `${isPositive ? "+" : ""}${pct.toFixed(1)}%`}
         </span>
+        {accel !== null && (
+          <span className={`text-[9px] tabular-nums w-10 text-right shrink-0 ${accelClass}`}
+            title="RS acceleration: RS-60 minus RS-120 (positive = improving vs long-term)"
+            style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+            {accel > 0 ? "↗" : accel < 0 ? "↘" : "→"}{Math.abs(accel) >= 0.1 ? Math.abs(accel).toFixed(1) : ""}
+          </span>
+        )}
       </div>
       {qConfig && (
         <span

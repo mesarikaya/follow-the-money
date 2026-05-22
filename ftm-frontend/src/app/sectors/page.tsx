@@ -1,10 +1,7 @@
 import Link from "next/link";
 import { fetchCategories, fetchCategoryScoreHistory, CategorySummary } from "@/lib/api";
+import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import Sparkline from "@/components/Sparkline";
-
-const EQUITY_SECTOR_IDS = new Set([
-  "TECH", "HLTH", "FINL", "DISR", "INDU", "ENRG", "MATL", "UTIL", "REIT", "STPL", "COMM",
-]);
 
 const SUB_SECTOR_COUNTS: Record<string, number> = {
   TECH: 8,
@@ -47,7 +44,7 @@ const QUADRANT_CONFIG: Record<string, {
   },
 };
 
-function RsStat({ label, value }: { label: string; value: number | null }) {
+function RsStat({ label, value, rs120 }: { label: string; value: number | null; rs120?: number | null }) {
   if (value == null) {
     return (
       <div className="text-center">
@@ -60,13 +57,23 @@ function RsStat({ label, value }: { label: string; value: number | null }) {
   }
   const pct = (value * 100).toFixed(1);
   const colorClass = value > 0 ? "text-green-400" : value < 0 ? "text-red-400" : "text-slate-400";
+  const accel = rs120 != null ? value - rs120 : null;
+  const accelClass = accel == null ? "" : accel > 0.001 ? "text-emerald-400" : accel < -0.001 ? "text-red-400" : "text-slate-500";
+  const accelArrow = accel == null ? "" : accel > 0.001 ? "↗" : accel < -0.001 ? "↘" : "→";
   return (
     <div className="text-center">
       <div className="text-[10px] text-slate-500 mb-0.5 uppercase tracking-widest" style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
         {label}
       </div>
-      <div className={`text-sm font-medium tabular-nums ${colorClass}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
-        {value > 0 ? "+" : ""}{pct}%
+      <div className="flex items-center justify-center gap-1">
+        <span className={`text-sm font-medium tabular-nums ${colorClass}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+          {value > 0 ? "+" : ""}{pct}%
+        </span>
+        {accel != null && Math.abs(accel) > 0.001 && (
+          <span className={`text-[10px] ${accelClass}`} title={`RS acceleration vs 120d: ${accel > 0 ? "+" : ""}${(accel * 100).toFixed(1)}pts`}>
+            {accelArrow}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -171,11 +178,11 @@ function SectorCard({ sector, history }: { sector: CategorySummary; history: num
       {/* Signal stats row */}
       <div className="grid grid-cols-3 gap-2 mb-3 py-2 border-y border-slate-700/40">
         <ScoreStat value={sector.compositeScore} trend5d={sector.compositeTrend5d} trend20d={sector.compositeTrend20d} />
-        <RsStat label="RS 60d" value={sector.rs60} />
+        <RsStat label="RS 60d" value={sector.rs60} rs120={sector.rs120} />
         <RankStat rank={sector.rank} />
       </div>
 
-      {/* Footer: sparkline + sub-sector count + drill-down hint */}
+      {/* Footer: sparkline + sub-sector count + flow indicator + drill-down hint */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           {history.length >= 2 && (
@@ -187,6 +194,15 @@ function SectorCard({ sector, history }: { sector: CategorySummary; history: num
           >
             {subSectorCount} sub-sectors
           </span>
+          {sector.flow20d != null && (
+            <span
+              className={`text-[10px] tabular-nums px-1 py-0.5 rounded ${Math.abs(sector.flow20d) < 0.5 ? "text-slate-500" : sector.flow20d > 0 ? "text-emerald-400 bg-emerald-900/20" : "text-red-400 bg-red-900/20"}`}
+              title={`Flow z-score (20d): ${sector.flow20d > 0 ? "+" : ""}${sector.flow20d.toFixed(2)}σ`}
+              style={{ fontFamily: "var(--font-jetbrains-mono)" }}
+            >
+              {sector.flow20d > 0 ? "⊕" : "⊖"}{Math.abs(sector.flow20d).toFixed(1)}σ
+            </span>
+          )}
         </div>
         <span
           className="text-[11px] text-slate-600 group-hover:text-cyan-400 transition-colors"
@@ -209,7 +225,7 @@ export default async function SectorsHubPage() {
       fetchCategories("MONTH"),
       fetchCategoryScoreHistory(30).catch(() => ({})),
     ]);
-    sectors = categoriesResponse.categories.filter((c) => EQUITY_SECTOR_IDS.has(c.id));
+    sectors = categoriesResponse.categories.filter((c) => SECTOR_DRILLDOWN_IDS.has(c.id));
     scoreHistory = historyResponse;
   } catch (err) {
     error = err instanceof Error ? err.message : "Failed to load sectors";

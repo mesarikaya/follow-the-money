@@ -28,8 +28,16 @@ public interface CategoryMapper {
       expression =
           "java(rrgQuadrantByCategoryId.containsKey(row.category().id().name()) ? String.valueOf(rrgQuadrantByCategoryId.get(row.category().id().name()).intValue()) : null)")
   @Mapping(target = "rs60", expression = "java(rs60ByCategoryId.get(row.category().id().name()))")
-  @Mapping(target = "flow20d", ignore = true)
-  @Mapping(target = "persistence20d", ignore = true)
+  @Mapping(
+      target = "rs120",
+      expression = "java(rs120ByCategoryId.get(row.category().id().name()))")
+  @Mapping(
+      target = "flow20d",
+      expression = "java(flow20dByCategoryId.get(row.category().id().name()))")
+  @Mapping(
+      target = "persistence20d",
+      expression =
+          "java(persistence20dByCategoryId.containsKey(row.category().id().name()) ? persistence20dByCategoryId.get(row.category().id().name()).intValue() : null)")
   @Mapping(target = "rank", source = "rank")
   @Mapping(target = "latestClose", source = "row.latestClose")
   @Mapping(target = "priceDate", source = "row.priceDate")
@@ -40,5 +48,8 @@ public interface CategoryMapper {
       Map<String, BigDecimal> compositeByCategoryId,
       Map<String, BigDecimal> rrgQuadrantByCategoryId,
       Map<String, BigDecimal> compositeTrend5dByCategoryId,
-      Map<String, BigDecimal> compositeTrend20dByCategoryId);
+      Map<String, BigDecimal> compositeTrend20dByCategoryId,
+      Map<String, BigDecimal> rs120ByCategoryId,
+      Map<String, BigDecimal> flow20dByCategoryId,
+      Map<String, BigDecimal> persistence20dByCategoryId);
 }

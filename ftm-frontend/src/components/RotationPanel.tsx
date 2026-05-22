@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { RotationResponse } from "@/lib/api";
-
-const SECTOR_DRILLDOWN_IDS = new Set(["TECH","HLTH","FINL","DISR","INDU","ENRG","MATL","UTIL","REIT","STPL","COMM"]);
+import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 
 const QUADRANT_LABELS: Record<number, string> = {
   1: "↗ Leading",

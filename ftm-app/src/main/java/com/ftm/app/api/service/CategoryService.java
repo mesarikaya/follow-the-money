@@ -49,6 +49,12 @@ public class CategoryService {
         signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_5D);
     Map<String, BigDecimal> compositeTrend20dByCategoryId =
         signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_20D);
+    Map<String, BigDecimal> rs120ByCategoryId =
+        signalRepository.findLatestByType(SignalType.RS_120);
+    Map<String, BigDecimal> flow20dByCategoryId =
+        signalRepository.findLatestByType(SignalType.FLOW_20D);
+    Map<String, BigDecimal> persistence20dByCategoryId =
+        signalRepository.findLatestByType(SignalType.PERSISTENCE_20D);
 
     // Primary sort: timeframe RS signal; secondary: composite score (tiebreaker)
     var sortedRows =
@@ -77,7 +83,10 @@ public class CategoryService {
                         compositeByCategoryId,
                         rrgQuadrantByCategoryId,
                         compositeTrend5dByCategoryId,
-                        compositeTrend20dByCategoryId))
+                        compositeTrend20dByCategoryId,
+                        rs120ByCategoryId,
+                        flow20dByCategoryId,
+                        persistence20dByCategoryId))
             .toList();
 
     LocalDate asOfDate =

@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import TimeframeSelector from "@/components/TimeframeSelector";
 import RefreshButton from "@/components/RefreshButton";
+import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 
 type SignalChip = { id: string; etfTicker: string; score: number; quadrant: string | null };
 
@@ -14,8 +15,6 @@ const QUADRANT_SHORT: Record<string, { label: string; color: string }> = {
   "4": { label: "↙",  color: "text-slate-400"   },
 };
 
-const SECTOR_IDS = new Set(["TECH","HLTH","FINL","DISR","INDU","ENRG","MATL","UTIL","REIT","STPL","COMM"]);
-
 function MarketSignalStrip() {
   const [chips, setChips] = useState<SignalChip[]>([]);
   useEffect(() => {
@@ -24,7 +23,7 @@ function MarketSignalStrip() {
       .then(data => {
         if (!data?.categories) return;
         const sectors = (data.categories as Array<{id: string; etfTicker: string; compositeScore: number | null; rrgQuadrant: string | null; type: string}>)
-          .filter(c => c.type === "EQUITY_SECTOR" && c.compositeScore != null && SECTOR_IDS.has(c.id))
+          .filter(c => c.type === "EQUITY_SECTOR" && c.compositeScore != null && SECTOR_DRILLDOWN_IDS.has(c.id))
           .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0))
           .slice(0, 4)
           .map(c => ({ id: c.id, etfTicker: c.etfTicker, score: Math.round((c.compositeScore ?? 0) * 100), quadrant: c.rrgQuadrant }));

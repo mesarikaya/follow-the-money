@@ -1,11 +1,8 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import { CategorySummary } from "@/lib/api";
+import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import Sparkline from "@/components/Sparkline";
-
-const SECTOR_DRILLDOWN_IDS = new Set([
-  "TECH", "HLTH", "FINL", "DISR", "INDU", "ENRG", "MATL", "UTIL", "REIT", "STPL", "COMM",
-]);
 
 const TYPE_CONFIG: Record<string, { label: string; className: string }> = {
   EQUITY_SECTOR:  { label: "Equity",         className: "bg-blue-900/50 text-blue-300 border border-blue-800/40" },
@@ -110,13 +107,20 @@ const RS_LABEL: Record<string, string> = {
   YEAR:    "120d",
 };
 
-function RsCell({ value, period }: { value: number | null; period: string }) {
+function RsCell({ value, rs120, period }: { value: number | null; rs120?: number | null; period: string }) {
   if (value == null) return <span className="text-slate-600">—</span>;
   const pct = (value * 100).toFixed(1);
   const color = value > 0 ? "text-green-400" : value < 0 ? "text-red-400" : "text-slate-400";
+  const accel = rs120 != null ? value - rs120 : null;
+  const accelPts = accel != null ? Math.round(accel * 100) : null;
+  const accelColor = accelPts != null && accelPts > 0 ? "text-emerald-400" : "text-red-400";
+  const accelArrow = accelPts != null && accelPts > 0 ? "↗" : "↘";
   return (
-    <span className={`tabular-nums ${color}`} title={`${period}-day relative strength vs benchmark. Positive = outperforming.`}>
-      {value > 0 ? "+" : ""}{pct}%
+    <span className="inline-flex items-center gap-1" title={`${period}-day relative strength vs benchmark. Positive = outperforming.${accelPts != null ? `\nAcceleration vs 120d: ${accelPts > 0 ? "+" : ""}${accelPts} pts` : ""}`}>
+      <span className={`tabular-nums ${color}`}>{value > 0 ? "+" : ""}{pct}%</span>
+      {accelPts != null && Math.abs(accelPts) >= 1 && (
+        <span className={`text-[9px] tabular-nums ${accelColor}`}>{accelArrow}</span>
+      )}
     </span>
   );
 }
@@ -209,7 +213,7 @@ export default function CategoryTable({
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-right">
-                    <RsCell value={cat.rs60} period={rsLabel.replace("d", "")} />
+                    <RsCell value={cat.rs60} rs120={cat.rs120} period={rsLabel.replace("d", "")} />
                   </td>
                   <td className="px-4 py-2.5 text-center text-xs">
                     {quadrantInfo ? (

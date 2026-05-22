@@ -47,10 +47,10 @@ function FactorComparisonStrip({ factors }: { factors: SubSectorSummary[] }) {
   const sorted = [...withRs].sort((a, b) => (b.rs60 ?? 0) - (a.rs60 ?? 0));
 
   return (
-    <div className="mb-6 bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-2.5">
+    <div className="mb-4 bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-2.5">
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">RS-60 Ranking vs SPY</span>
-        <span className="text-[10px] text-slate-600">Par = 1.000 · positive deviation = outperforming</span>
+        <span className="text-[10px] text-slate-600">Par = 1.000 · positive deviation = outperforming · ↗↘ = accel vs 120d</span>
       </div>
       {sorted.map((factor, idx) => {
         const rs = factor.rs60 ?? 0;
@@ -61,19 +61,26 @@ function FactorComparisonStrip({ factors }: { factors: SubSectorSummary[] }) {
         const rankColor = rank === 1 ? "text-emerald-400" : rank === sorted.length ? "text-red-400" : "text-slate-500";
         const barColor = isAbove ? "bg-emerald-500/60" : "bg-red-500/60";
         const valColor = isAbove ? "text-emerald-400" : "text-red-400";
+        const accel = factor.rs120 != null ? rs - factor.rs120 : null;
+        const accelPositive = accel !== null && accel > 0.002;
+        const accelNegative = accel !== null && accel < -0.002;
 
         return (
           <div key={factor.id} className="flex items-center gap-3">
             <span className={`text-[11px] font-bold tabular-nums w-5 ${rankColor}`}>#{rank}</span>
             <span className="text-xs font-mono font-semibold text-slate-200 w-12 shrink-0">{factor.etfTicker}</span>
             <div className="flex-1 bg-slate-700/40 rounded-full h-2 overflow-hidden">
-              <div
-                className={`h-full rounded-full ${barColor}`}
-                style={{ width: `${barPct}%` }}
-              />
+              <div className={`h-full rounded-full ${barColor}`} style={{ width: `${barPct}%` }} />
             </div>
-            <span className={`text-xs font-mono tabular-nums w-14 text-right ${valColor}`}>
+            <span
+              className={`text-xs font-mono tabular-nums w-14 text-right ${valColor}`}
+              title={accel != null ? `RS-60: ${rs.toFixed(4)} | vs 120d: ${accel >= 0 ? "+" : ""}${(accel * 100).toFixed(2)}%` : undefined}
+            >
               {rs.toFixed(3)}
+            </span>
+            <span className="w-4 text-center shrink-0">
+              {accelPositive && <span className="text-[10px] text-emerald-400">↗</span>}
+              {accelNegative && <span className="text-[10px] text-red-400">↘</span>}
             </span>
             <span className="text-[10px] text-slate-500 w-14 text-right tabular-nums">
               {deviation >= 0 ? "+" : ""}{(deviation * 100).toFixed(2)}%
@@ -111,9 +118,16 @@ function FactorCard({ factor }: { factor: SubSectorSummary }) {
               <span className="text-slate-400">20d</span>
               <span className={`font-mono ${rs60Color(factor.rs20)}`}>{formatRs(factor.rs20)}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className="text-slate-400">60d</span>
-              <span className={`font-mono font-bold ${rs60Class}`}>{formatRs(factor.rs60)}</span>
+              <span className="flex items-center gap-1">
+                <span className={`font-mono font-bold ${rs60Class}`}>{formatRs(factor.rs60)}</span>
+                {factor.rs120 !== null && factor.rs60 !== null && Math.abs(factor.rs60 - factor.rs120) >= 0.002 && (
+                  <span className={`text-[9px] ${factor.rs60 > factor.rs120 ? "text-emerald-400" : "text-red-400"}`}>
+                    {factor.rs60 > factor.rs120 ? "↗" : "↘"}
+                  </span>
+                )}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400">120d</span>
@@ -141,6 +155,32 @@ function FactorCard({ factor }: { factor: SubSectorSummary }) {
   );
 }
 
+type RegimeSignal = {
+  label: string;
+  description: string;
+  colorClass: string;
+  borderClass: string;
+  bgClass: string;
+};
+
+function deriveFactorRegime(factors: SubSectorSummary[]): RegimeSignal | null {
+  const withRs = factors.filter(f => f.rs60 !== null);
+  if (withRs.length < 2) return null;
+  const sorted = [...withRs].sort((a, b) => (b.rs60 ?? 0) - (a.rs60 ?? 0));
+  const rankOf = (id: string) => sorted.findIndex(f => f.id === id) + 1 || 99;
+  const mtum = rankOf("MTUM");
+  const usmv = rankOf("USMV");
+  const qual = rankOf("QUAL");
+  const n = sorted.length;
+
+  if (mtum === 1 && usmv === n) return { label: "Strong Risk-On", description: "Momentum dominant, low-vol at bottom — market in high-conviction risk-on phase", colorClass: "text-emerald-300", borderClass: "border-emerald-700/50", bgClass: "bg-emerald-900/20" };
+  if (usmv === 1 && mtum === n) return { label: "Strong Risk-Off", description: "Low-vol dominant, momentum at bottom — capital rotating to defensives", colorClass: "text-amber-300", borderClass: "border-amber-700/50", bgClass: "bg-amber-900/20" };
+  if (mtum <= 2 && usmv >= 3)  return { label: "Risk-On",         description: "Momentum in top half — market favoring growth and higher-beta exposure", colorClass: "text-emerald-400", borderClass: "border-emerald-800/40", bgClass: "bg-emerald-900/15" };
+  if (usmv <= 2 && mtum >= 3)  return { label: "Risk-Off",        description: "Low-vol in top half — defensive rotation underway, monitor breadth", colorClass: "text-amber-400",   borderClass: "border-amber-800/40",  bgClass: "bg-amber-900/15"  };
+  if (qual === 1 && mtum <= 2) return { label: "Late Cycle / Quality", description: "Quality momentum leads — often signals late-cycle selectivity with narrowing leadership", colorClass: "text-blue-300", borderClass: "border-blue-700/40", bgClass: "bg-blue-900/20" };
+  return { label: "Transitional", description: "No clear factor dominance — factors in mixed rotation, await confirmation", colorClass: "text-slate-300", borderClass: "border-slate-700/40", bgClass: "bg-slate-800/40" };
+}
+
 export default async function FactorFlowsPage() {
   let factors: SubSectorSummary[] = [];
   let error: string | null = null;
@@ -150,6 +190,8 @@ export default async function FactorFlowsPage() {
   } catch (err) {
     error = err instanceof Error ? err.message : "Failed to load factor data";
   }
+
+  const regime = factors.length > 0 ? deriveFactorRegime(factors) : null;
 
   return (
     <div className="flex flex-col h-full">
@@ -179,6 +221,14 @@ export default async function FactorFlowsPage() {
         {factors.length === 0 && !error && (
           <div className="text-slate-500 text-sm">
             No factor data yet. Trigger ingestion to compute signals for MTUM, QUAL, USMV, VLUE.
+          </div>
+        )}
+
+        {regime && (
+          <div className={`mb-4 flex items-center gap-3 px-4 py-2.5 rounded-lg border ${regime.bgClass} ${regime.borderClass}`}>
+            <span className={`text-sm font-bold ${regime.colorClass}`}>{regime.label}</span>
+            <span className="text-slate-700">·</span>
+            <span className="text-xs text-slate-400">{regime.description}</span>
           </div>
         )}
 

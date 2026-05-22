@@ -191,6 +191,15 @@ test.describe("Capital Flows page", () => {
     await expect(page.getByText("↓ Bottom Laggards")).toBeVisible();
     await expect(page.getByText("Utilities")).toBeVisible();
   });
+
+  test("shows flow z-score panel when flow20d data is available", async ({ page }) => {
+    await page.goto("/flows");
+    // Mock has TECH flow20d=1.42, ENRG flow20d=-1.18 — panel should render
+    await expect(page.getByText("Flow Z-Score (20d)")).toBeVisible();
+    // XLK has positive z-score, XLE has negative — both ETF tickers should appear in flow panel
+    await expect(page.getByText("XLK").first()).toBeVisible();
+    await expect(page.getByText("XLE").first()).toBeVisible();
+  });
 });
 
 test.describe("Sidebar navigation", () => {

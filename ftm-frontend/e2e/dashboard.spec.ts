@@ -53,6 +53,15 @@ test.describe("Dashboard shell", () => {
     await expect(page.getByText("Cash", { exact: true }).first()).toBeVisible();
   });
 
+  test("equity sector ETF tickers in category table link to sector drilldown", async ({ page }) => {
+    await page.goto("/");
+    // XLK is an equity sector — its ETF ticker cell should be a link to /sectors/TECH
+    const xlkLink = page.getByRole("link", { name: "XLK", exact: true });
+    await expect(xlkLink).toBeVisible();
+    await xlkLink.click();
+    await expect(page).toHaveURL(/\/sectors\/TECH/);
+  });
+
   test("null signal values display as dash", async ({ page }) => {
     await page.goto("/");
     // All scores are null in the fixture — table cells show "—"

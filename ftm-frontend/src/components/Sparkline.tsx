@@ -12,7 +12,7 @@ export default function Sparkline({
   const max = Math.max(...values);
   const range = max - min || 0.001;
   const toX = (i: number) => (i / (values.length - 1)) * width;
-  const toY = (v: number) => height - ((v - min) / range) * height;
+  const toY = (v: number) => height - ((v - min) / range) * (height - 2) - 1;
   const points = values
     .map((v, i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`)
     .join(" ");
@@ -21,8 +21,18 @@ export default function Sparkline({
   const trending = last > first + 0.01 ? "up" : last < first - 0.01 ? "down" : "flat";
   const stroke =
     trending === "up" ? "#34d399" : trending === "down" ? "#f87171" : "#64748b";
+  const fillColor =
+    trending === "up" ? "#34d39918" : trending === "down" ? "#f8717118" : "#64748b12";
   const endX = toX(values.length - 1);
   const endY = toY(last);
+
+  const fillPath = [
+    `M ${toX(0).toFixed(1)},${height}`,
+    ...values.map((v, i) => `L ${toX(i).toFixed(1)},${toY(v).toFixed(1)}`),
+    `L ${toX(values.length - 1).toFixed(1)},${height}`,
+    "Z",
+  ].join(" ");
+
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
@@ -31,6 +41,7 @@ export default function Sparkline({
       className="overflow-visible"
       title={`30-day composite score trend. Latest: ${Math.round(last * 100)}`}
     >
+      <path d={fillPath} fill={fillColor} />
       <polyline
         points={points}
         fill="none"
@@ -38,7 +49,7 @@ export default function Sparkline({
         strokeWidth="1.2"
         strokeLinejoin="round"
         strokeLinecap="round"
-        opacity="0.8"
+        opacity="0.9"
       />
       <circle cx={endX.toFixed(1)} cy={endY.toFixed(1)} r="1.5" fill={stroke} />
     </svg>

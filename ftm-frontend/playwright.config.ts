@@ -34,7 +34,10 @@ export default defineConfig({
       command: "cmd /c e2e\\run-next.cmd",
       url: "http://localhost:3001",
       reuseExistingServer: !process.env.CI,
-      env: { BACKEND_URL: "http://127.0.0.1:9999" },
+      env: {
+        BACKEND_URL: "http://127.0.0.1:9999",
+        NEXT_PUBLIC_BACKEND_URL: "http://127.0.0.1:9999",
+      },
       timeout: 60000,
       stdout: "pipe",
       stderr: "pipe",

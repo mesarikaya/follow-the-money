@@ -6,6 +6,8 @@ import {
   CategorySummary,
 } from "@/lib/api";
 
+export const dynamic = "force-dynamic";
+
 const QUADRANT_CONFIG: Record<string, { label: string; colorClass: string; badgeClass: string }> = {
   "1": { label: "↗ Leading",   colorClass: "text-green-400",  badgeClass: "bg-green-500/10 text-green-400 border border-green-500/25" },
   "2": { label: "↖ Improving", colorClass: "text-cyan-400",   badgeClass: "bg-cyan-500/10 text-cyan-400 border border-cyan-500/25" },
@@ -129,10 +131,15 @@ function EventRow({ event }: { event: RotationEventEntry }) {
   );
 }
 
-export default async function CapitalFlowsPage() {
+type Props = {
+  searchParams: Promise<{ timeframe?: string }>;
+};
+
+export default async function CapitalFlowsPage({ searchParams }: Props) {
+  const { timeframe = "MONTH" } = await searchParams;
   const [rotation, categories] = await Promise.all([
     fetchRotation().catch(() => null),
-    fetchCategories("MONTH").catch(() => null),
+    fetchCategories(timeframe).catch(() => null),
   ]);
 
   const allRanked = (categories?.categories ?? [])
@@ -161,7 +168,7 @@ export default async function CapitalFlowsPage() {
           </span>
         </div>
         <p className="text-xs text-slate-500 mt-1 max-w-xl">
-          60-day relative strength vs SPY — a proxy for capital rotation. Positive = money flowing
+          {timeframe === "DAY" || timeframe === "WEEK" ? "20" : timeframe === "QUARTER" || timeframe === "YEAR" ? "120" : "60"}-day relative strength vs SPY — a proxy for capital rotation. Positive = money flowing
           into a sector relative to the broad market. Leaders and laggards derived from composite
           rotation signals.
         </p>
@@ -208,7 +215,7 @@ export default async function CapitalFlowsPage() {
                 className="text-slate-300 text-[10px] font-semibold uppercase tracking-widest"
                 style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.1em" }}
               >
-                All categories — RS 60d vs SPY
+                All categories — RS {timeframe === "DAY" || timeframe === "WEEK" ? "20d" : timeframe === "QUARTER" || timeframe === "YEAR" ? "120d" : "60d"} vs SPY
               </h2>
               <span
                 className="text-[10px] text-slate-500"

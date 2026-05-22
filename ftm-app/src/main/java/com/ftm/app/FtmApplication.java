@@ -17,7 +17,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableConfigurationProperties(FtmProperties.class)
 public class FtmApplication {
 
-    static void main(String[] args) {
-        SpringApplication.run(FtmApplication.class, args);
-    }
+  static void main(String[] args) {
+    SpringApplication.run(FtmApplication.class, args);
+  }
 }

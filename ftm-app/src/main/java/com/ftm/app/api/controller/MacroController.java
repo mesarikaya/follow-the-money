@@ -14,15 +14,15 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Macro", description = "Macro indicators and regime classification")
 public class MacroController {
 
-    private final MacroService macroService;
+  private final MacroService macroService;
 
-    public MacroController(MacroService macroService) {
-        this.macroService = macroService;
-    }
+  public MacroController(MacroService macroService) {
+    this.macroService = macroService;
+  }
 
-    @GetMapping
-    @Operation(summary = "Latest FRED macro indicators and regime classification")
-    public ResponseEntity<MacroResponse> getMacro() {
-        return ResponseEntity.ok(macroService.getMacroResponse());
-    }
+  @GetMapping
+  @Operation(summary = "Latest FRED macro indicators and regime classification")
+  public ResponseEntity<MacroResponse> getMacro() {
+    return ResponseEntity.ok(macroService.getMacroResponse());
+  }
 }

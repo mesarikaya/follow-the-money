@@ -6,5 +6,5 @@ import org.mapstruct.Mapper;
 
 @Mapper(componentModel = "spring")
 public interface SignalHistoryMapper {
-    SignalHistoryDto toDto(SignalRepository.HistoryRow row);
+  SignalHistoryDto toDto(SignalRepository.HistoryRow row);
 }

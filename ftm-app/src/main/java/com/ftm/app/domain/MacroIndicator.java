@@ -4,8 +4,4 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public record MacroIndicator(
-        LocalDate observationDate,
-        String seriesId,
-        BigDecimal value,
-        String source
-) {}
+    LocalDate observationDate, String seriesId, BigDecimal value, String source) {}

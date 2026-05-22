@@ -8,9 +8,10 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface AlertMapper {
 
-    @Mapping(target = "categoryId",
-             expression = "java(alert.categoryId() != null ? alert.categoryId().name() : null)")
-    @Mapping(target = "severity", expression = "java(alert.severity().name())")
-    @Mapping(target = "status",   expression = "java(alert.status().name())")
-    AlertDto toDto(Alert alert);
+  @Mapping(
+      target = "categoryId",
+      expression = "java(alert.categoryId() != null ? alert.categoryId().name() : null)")
+  @Mapping(target = "severity", expression = "java(alert.severity().name())")
+  @Mapping(target = "status", expression = "java(alert.status().name())")
+  AlertDto toDto(Alert alert);
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { fetchCategories, CategorySummary } from "@/lib/api";
+import { fetchCategories, fetchCategoryScoreHistory, CategorySummary } from "@/lib/api";
+import Sparkline from "@/components/Sparkline";
 
 const EQUITY_SECTOR_IDS = new Set([
   "TECH", "HLTH", "FINL", "DISR", "INDU", "ENRG", "MATL", "UTIL", "REIT", "STPL", "COMM",
@@ -110,7 +111,7 @@ function RankStat({ rank }: { rank: number }) {
   );
 }
 
-function SectorCard({ sector }: { sector: CategorySummary }) {
+function SectorCard({ sector, history }: { sector: CategorySummary; history: number[] }) {
   const quadrant = sector.rrgQuadrant ?? null;
   const qConfig = quadrant ? QUADRANT_CONFIG[quadrant] : null;
   const leftBorderClass = qConfig?.leftBorderClass ?? "border-l-slate-700";
@@ -156,14 +157,19 @@ function SectorCard({ sector }: { sector: CategorySummary }) {
         <RankStat rank={sector.rank} />
       </div>
 
-      {/* Footer: sub-sector count + drill-down hint */}
-      <div className="flex items-center justify-between">
-        <span
-          className="text-[11px] text-slate-500"
-          style={{ fontFamily: "var(--font-jetbrains-mono)" }}
-        >
-          {subSectorCount} sub-sectors
-        </span>
+      {/* Footer: sparkline + sub-sector count + drill-down hint */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {history.length >= 2 && (
+            <Sparkline values={history} width={48} height={16} />
+          )}
+          <span
+            className="text-[11px] text-slate-500"
+            style={{ fontFamily: "var(--font-jetbrains-mono)" }}
+          >
+            {subSectorCount} sub-sectors
+          </span>
+        </div>
         <span
           className="text-[11px] text-slate-600 group-hover:text-cyan-400 transition-colors"
           style={{ fontFamily: "var(--font-jetbrains-mono)" }}
@@ -177,11 +183,16 @@ function SectorCard({ sector }: { sector: CategorySummary }) {
 
 export default async function SectorsHubPage() {
   let sectors: CategorySummary[] = [];
+  let scoreHistory: Record<string, number[]> = {};
   let error: string | null = null;
 
   try {
-    const response = await fetchCategories("MONTH");
-    sectors = response.categories.filter((c) => EQUITY_SECTOR_IDS.has(c.id));
+    const [categoriesResponse, historyResponse] = await Promise.all([
+      fetchCategories("MONTH"),
+      fetchCategoryScoreHistory(30).catch(() => ({})),
+    ]);
+    sectors = categoriesResponse.categories.filter((c) => EQUITY_SECTOR_IDS.has(c.id));
+    scoreHistory = historyResponse;
   } catch (err) {
     error = err instanceof Error ? err.message : "Failed to load sectors";
   }
@@ -218,7 +229,7 @@ export default async function SectorsHubPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {sectors.map((sector) => (
-            <SectorCard key={sector.id} sector={sector} />
+            <SectorCard key={sector.id} sector={sector} history={scoreHistory[sector.id] ?? []} />
           ))}
         </div>
 

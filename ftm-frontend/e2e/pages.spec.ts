@@ -213,3 +213,26 @@ test.describe("Sidebar navigation", () => {
     await expect(page).toHaveURL(/\/portfolio/);
   });
 });
+
+
+test.describe("Ticker Mappings admin page", () => {
+  test("loads ticker mappings table", async ({ page }) => {
+    await page.goto("/admin/ticker-mappings");
+    await expect(page.getByRole("heading", { name: "Ticker Mappings" })).toBeVisible();
+    await expect(page.getByText("3 entries")).toBeVisible();
+    await expect(page.getByText("XLK")).toBeVisible();
+    await expect(page.getByText("GLD")).toBeVisible();
+  });
+
+  test("filter narrows visible rows", async ({ page }) => {
+    await page.goto("/admin/ticker-mappings");
+    await page.getByPlaceholder(/Filter/).fill("TECH");
+    await expect(page.getByText("XLK")).toBeVisible();
+    await expect(page.getByText("GLD")).not.toBeVisible();
+  });
+
+  test("sidebar shows Ticker Mappings link", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("link", { name: /Ticker Mappings/ })).toBeVisible();
+  });
+});

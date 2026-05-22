@@ -9,13 +9,13 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class WebClientConfig {
 
-    @Bean
-    public YahooFinanceClient yahooFinanceClient(FtmProperties props) {
-        return new YahooFinanceClient(RestClient.builder(), props.yahoo().baseUrl());
-    }
+  @Bean
+  public YahooFinanceClient yahooFinanceClient(FtmProperties props) {
+    return new YahooFinanceClient(RestClient.builder(), props.yahoo().baseUrl());
+  }
 
-    @Bean
-    public FredClient fredClient(FtmProperties props) {
-        return new FredClient(RestClient.builder(), props.fred().baseUrl(), props.fred().apiKey());
-    }
+  @Bean
+  public FredClient fredClient(FtmProperties props) {
+    return new FredClient(RestClient.builder(), props.fred().baseUrl(), props.fred().apiKey());
+  }
 }

@@ -1,4 +1,7 @@
-const BACKEND = process.env.BACKEND_URL ?? "http://localhost:8080";
+const BACKEND =
+  process.env.NEXT_PUBLIC_BACKEND_URL ??
+  process.env.BACKEND_URL ??
+  "http://localhost:8080";
 
 export type CategorySummary = {
   id: string;
@@ -6,6 +9,7 @@ export type CategorySummary = {
   type: string;
   etfTicker: string;
   compositeScore: number | null;
+  compositeTrend5d: number | null;
   compositeTrend20d: number | null;
   rrgQuadrant: string | null;
   rs60: number | null;
@@ -37,7 +41,9 @@ export type MacroResponse = {
   asOfDate: string | null;
   regime: string;
   indicators: MacroIndicators;
+  previousIndicators: MacroIndicators | null;
   regimeHistory: { date: string; regime: string }[];
+  macroFitByCategory: Record<string, number> | null;
 };
 
 export type RrgTrailPoint = {
@@ -69,6 +75,7 @@ export type SubSectorSummary = {
   rs120: number | null;
   momentum: number | null;
   rrgQuadrant: string | null;
+  compositeScore: number | null;
 };
 
 async function get<T>(path: string): Promise<T> {
@@ -104,6 +111,7 @@ export type RotationResponse = {
 export type PortfolioAllocationEntry = {
   categoryId: string;
   categoryName: string;
+  categoryType: string;
   allocationPct: number;
   compositeScore: number | null;
   optimalAllocationPct: number | null;
@@ -132,6 +140,9 @@ export type PortfolioSaveRequest = {
 
 export const fetchCategories = (timeframe = "MONTH") =>
   get<CategoriesResponse>(`/api/v1/categories?timeframe=${timeframe}`);
+
+export const fetchCategoryScoreHistory = (days = 30) =>
+  get<Record<string, number[]>>(`/api/v1/categories/score-history?days=${days}`);
 
 export const fetchMacro = () => get<MacroResponse>("/api/v1/macro");
 
@@ -175,6 +186,12 @@ export type EquityCurvePoint = {
   spyValue: number;
 };
 
+export type RebalanceEvent = {
+  date: string;
+  categoryIds: string[];
+  portfolioValue: number;
+};
+
 export type BacktestResult = {
   runId: string;
   runAt: string;
@@ -188,9 +205,12 @@ export type BacktestResult = {
   maxDrawdownPct: number;
   sharpeRatio: number;
   spyTotalReturnPct: number;
+  spyAnnualizedReturnPct: number | null;
+  spyMaxDrawdownPct: number | null;
   spySharpeRatio: number;
   tradingDays: number;
   equityCurve: EquityCurvePoint[];
+  rebalanceHistory: RebalanceEvent[];
 };
 
 export type BacktestRequest = {
@@ -257,9 +277,33 @@ export type HoldingsUploadResponse = {
 export type HoldingUpdateRequest = {
   quantity: number;
   avgCostLocal?: number;
+  currentPriceLocal?: number;
+};
+
+export type CreateHoldingRequest = {
+  ticker: string;
+  name?: string;
+  categoryId?: string;
+  currency: string;
+  quantity: number;
+  avgCostLocal?: number;
 };
 
 export const fetchHoldings = () => get<HoldingDto[]>("/api/v1/portfolio/holdings");
+
+export const createHolding = (request: CreateHoldingRequest): Promise<HoldingDto> =>
+  fetch(`${BACKEND}/api/v1/portfolio/holdings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+    cache: "no-store",
+  }).then(async (res) => {
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(body.detail ?? body.message ?? `POST /portfolio/holdings → ${res.status}`);
+    }
+    return res.json() as Promise<HoldingDto>;
+  });
 
 export const downloadHoldingsTemplate = () =>
   fetch(`${BACKEND}/api/v1/portfolio/holdings/template`, { cache: "no-store" });
@@ -289,8 +333,9 @@ export const refreshHoldingPrices = (): Promise<HoldingDto[]> =>
     return res.json() as Promise<HoldingDto[]>;
   });
 
-export const updateHolding = (ticker: string, request: HoldingUpdateRequest): Promise<HoldingDto> =>
-  fetch(`${BACKEND}/api/v1/portfolio/holdings/${ticker}`, {
+export const updateHolding = (ticker: string, request: HoldingUpdateRequest): Promise<HoldingDto> => {
+  const encoded = encodeURIComponent(ticker);
+  return fetch(`${BACKEND}/api/v1/portfolio/holdings/${encoded}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
@@ -299,6 +344,17 @@ export const updateHolding = (ticker: string, request: HoldingUpdateRequest): Pr
     if (!res.ok) throw new Error(`PATCH /portfolio/holdings/${ticker} → ${res.status}`);
     return res.json() as Promise<HoldingDto>;
   });
+};
+
+export const deleteHolding = (ticker: string): Promise<void> => {
+  const encoded = encodeURIComponent(ticker);
+  return fetch(`${BACKEND}/api/v1/portfolio/holdings/${encoded}`, {
+    method: "DELETE",
+    cache: "no-store",
+  }).then(async (res) => {
+    if (!res.ok) throw new Error(`DELETE /portfolio/holdings/${ticker} → ${res.status}`);
+  });
+};
 
 export const acknowledgeAlert = (alertId: number) =>
   fetch(`${BACKEND}/api/v1/alerts/${alertId}/acknowledge`, {

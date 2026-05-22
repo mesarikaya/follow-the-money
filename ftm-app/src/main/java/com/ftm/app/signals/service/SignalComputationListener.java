@@ -12,21 +12,21 @@ import org.springframework.stereotype.Component;
 @Component
 public class SignalComputationListener {
 
-    private static final Logger log = LoggerFactory.getLogger(SignalComputationListener.class);
+  private static final Logger log = LoggerFactory.getLogger(SignalComputationListener.class);
 
-    private final SignalComputationService computationService;
+  private final SignalComputationService computationService;
 
-    public SignalComputationListener(SignalComputationService computationService) {
-        this.computationService = computationService;
+  public SignalComputationListener(SignalComputationService computationService) {
+    this.computationService = computationService;
+  }
+
+  @EventListener
+  @Async("asyncExecutor")
+  public void onIngestionComplete(IngestionCompleteEvent event) {
+    if (event.source() != IngestSource.PRICES || event.status() == IngestStatus.FAILED) {
+      return;
     }
-
-    @EventListener
-    @Async("asyncExecutor")
-    public void onIngestionComplete(IngestionCompleteEvent event) {
-        if (event.source() != IngestSource.PRICES || event.status() == IngestStatus.FAILED) {
-            return;
-        }
-        log.info("Prices ingestion complete (runId={}); triggering signal computation", event.runId());
-        computationService.computeAndStore();
-    }
+    log.info("Prices ingestion complete (runId={}); triggering signal computation", event.runId());
+    computationService.computeAndStore();
+  }
 }

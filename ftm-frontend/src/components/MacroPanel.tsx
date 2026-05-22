@@ -1,4 +1,4 @@
-import { MacroResponse } from "@/lib/api";
+import { MacroResponse, MacroIndicators } from "@/lib/api";
 
 const REGIME_COLORS: Record<string, string> = {
   RISK_ON_GROWTH:     "bg-emerald-900/50 text-emerald-300 border-emerald-700",
@@ -8,21 +8,111 @@ const REGIME_COLORS: Record<string, string> = {
   STAGFLATION:        "bg-amber-900/50 text-amber-300 border-amber-700",
 };
 
-function fmt(v: number | null, decimals = 2, suffix = ""): string {
-  return v == null ? "—" : `${Number(v).toFixed(decimals)}${suffix}`;
+type CardConfig = {
+  label: string;
+  key: keyof MacroIndicators;
+  format: (v: number | null) => string;
+  tooltip: string;
+  lowerIsBetter?: boolean;
+};
+
+const CARD_CONFIGS: CardConfig[] = [
+  {
+    label: "VIX",
+    key: "vix",
+    format: v => v == null ? "—" : v.toFixed(1),
+    tooltip: "CBOE Volatility Index — fear gauge. <20 = calm, >30 = stress",
+    lowerIsBetter: true,
+  },
+  {
+    label: "10Y–2Y Spread",
+    key: "yieldSpread10y2y",
+    format: v => v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`,
+    tooltip: "10Y minus 2Y Treasury yield spread. Positive = normal curve, negative = inversion (recession signal)",
+  },
+  {
+    label: "10Y Yield",
+    key: "tenYearYield",
+    format: v => v == null ? "—" : `${v.toFixed(2)}%`,
+    tooltip: "US 10-year Treasury yield (FRED DGS10)",
+  },
+  {
+    label: "2Y Yield",
+    key: "twoYearYield",
+    format: v => v == null ? "—" : `${v.toFixed(2)}%`,
+    tooltip: "US 2-year Treasury yield (FRED DGS2)",
+  },
+  {
+    label: "Breakeven Infl.",
+    key: "breakevenInflation",
+    format: v => v == null ? "—" : `${v.toFixed(2)}%`,
+    tooltip: "10Y breakeven inflation rate (T10YIE) — market's inflation expectation",
+  },
+  {
+    label: "Fed Funds Rate",
+    key: "fedFundsRate",
+    format: v => v == null ? "—" : `${v.toFixed(2)}%`,
+    tooltip: "Effective Federal Funds Rate (FEDFUNDS)",
+  },
+  {
+    label: "USD Index",
+    key: "usdIndex",
+    format: v => v == null ? "—" : v.toFixed(1),
+    tooltip: "Trade-weighted US Dollar index (DTWEXBGS). Rising = USD strengthening",
+  },
+];
+
+function trendArrow(
+  current: number | null,
+  previous: number | null,
+  lowerIsBetter = false
+): { arrow: string; colorClass: string; deltaStr: string } | null {
+  if (current == null || previous == null) return null;
+  const delta = current - previous;
+  const threshold = Math.abs(previous) * 0.002;
+  if (Math.abs(delta) <= threshold) {
+    return { arrow: "→", colorClass: "text-slate-500", deltaStr: "" };
+  }
+  const up = delta > 0;
+  const improving = lowerIsBetter ? !up : up;
+  return {
+    arrow: up ? "↑" : "↓",
+    colorClass: improving ? "text-emerald-400" : "text-red-400",
+    deltaStr: `${up ? "+" : ""}${delta.toFixed(2)}`,
+  };
 }
 
-function MacroCard({ label, value }: { label: string; value: string }) {
+function MacroCard({
+  config,
+  value,
+  previousValue,
+}: {
+  config: CardConfig;
+  value: number | null;
+  previousValue: number | null;
+}) {
+  const trend = trendArrow(value, previousValue, config.lowerIsBetter);
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3">
-      <div className="text-xs text-slate-500 mb-1">{label}</div>
-      <div className="text-lg font-semibold tabular-nums text-slate-100">{value}</div>
+    <div
+      className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3"
+      title={config.tooltip}
+    >
+      <div className="text-xs text-slate-500 mb-1">{config.label}</div>
+      <div className="text-lg font-semibold tabular-nums text-slate-100 leading-tight">
+        {config.format(value)}
+      </div>
+      {trend && (
+        <div className={`flex items-center gap-1 text-[11px] mt-0.5 ${trend.colorClass}`}>
+          <span>{trend.arrow}</span>
+          {trend.deltaStr && <span className="tabular-nums">{trend.deltaStr}</span>}
+        </div>
+      )}
     </div>
   );
 }
 
 export default function MacroPanel({ macro }: { macro: MacroResponse }) {
-  const { indicators, regime, asOfDate } = macro;
+  const { indicators, previousIndicators, regime, asOfDate } = macro;
   const regimeClass = REGIME_COLORS[regime] ?? "bg-slate-700 text-slate-300 border-slate-600";
 
   return (
@@ -37,13 +127,14 @@ export default function MacroPanel({ macro }: { macro: MacroResponse }) {
         )}
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <MacroCard label="VIX" value={fmt(indicators.vix, 2)} />
-        <MacroCard label="10Y Yield" value={fmt(indicators.tenYearYield, 2, "%")} />
-        <MacroCard label="2Y Yield" value={fmt(indicators.twoYearYield, 2, "%")} />
-        <MacroCard label="10Y–2Y Spread" value={fmt(indicators.yieldSpread10y2y, 2, "%")} />
-        <MacroCard label="Breakeven Inflation" value={fmt(indicators.breakevenInflation, 2, "%")} />
-        <MacroCard label="Fed Funds Rate" value={fmt(indicators.fedFundsRate, 2, "%")} />
-        <MacroCard label="USD Index" value={fmt(indicators.usdIndex, 2)} />
+        {CARD_CONFIGS.map((config) => (
+          <MacroCard
+            key={config.key}
+            config={config}
+            value={indicators[config.key] ?? null}
+            previousValue={previousIndicators?.[config.key] ?? null}
+          />
+        ))}
       </div>
     </section>
   );

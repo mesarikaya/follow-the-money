@@ -8,18 +8,18 @@ import org.springframework.stereotype.Component;
 @Component
 public class IngestionScheduler {
 
-    private static final Logger log = LoggerFactory.getLogger(IngestionScheduler.class);
+  private static final Logger log = LoggerFactory.getLogger(IngestionScheduler.class);
 
-    private final IngestTriggerService ingestTriggerService;
+  private final IngestTriggerService ingestTriggerService;
 
-    public IngestionScheduler(IngestTriggerService ingestTriggerService) {
-        this.ingestTriggerService = ingestTriggerService;
-    }
+  public IngestionScheduler(IngestTriggerService ingestTriggerService) {
+    this.ingestTriggerService = ingestTriggerService;
+  }
 
-    // Market close + 30 min buffer, weekdays only (Eastern Time)
-    @Scheduled(cron = "0 30 16 * * MON-FRI", zone = "America/New_York")
-    public void runDailyIngestion() {
-        log.info("Scheduled daily ingestion triggered");
-        ingestTriggerService.trigger();
-    }
+  // Market close + 30 min buffer, weekdays only (Eastern Time)
+  @Scheduled(cron = "0 30 16 * * MON-FRI", zone = "America/New_York")
+  public void runDailyIngestion() {
+    log.info("Scheduled daily ingestion triggered");
+    ingestTriggerService.trigger();
+  }
 }

@@ -14,10 +14,11 @@ const CATEGORIES_RESPONSE = {
       name: "Information Technology",
       type: "EQUITY_SECTOR",
       etfTicker: "XLK",
-      compositeScore: null,
-      compositeTrend20d: null,
-      rrgQuadrant: null,
-      rs60: null,
+      compositeScore: 0.82,
+      compositeTrend5d: 0.04,
+      compositeTrend20d: 0.08,
+      rrgQuadrant: "1",
+      rs60: 0.031,
       flow20d: null,
       persistence20d: null,
       rank: 1,
@@ -29,10 +30,11 @@ const CATEGORIES_RESPONSE = {
       name: "Health Care",
       type: "EQUITY_SECTOR",
       etfTicker: "XLV",
-      compositeScore: null,
-      compositeTrend20d: null,
-      rrgQuadrant: null,
-      rs60: null,
+      compositeScore: 0.64,
+      compositeTrend5d: 0.01,
+      compositeTrend20d: 0.03,
+      rrgQuadrant: "2",
+      rs60: 0.015,
       flow20d: null,
       persistence20d: null,
       rank: 2,
@@ -44,10 +46,11 @@ const CATEGORIES_RESPONSE = {
       name: "Energy",
       type: "EQUITY_SECTOR",
       etfTicker: "XLE",
-      compositeScore: null,
-      compositeTrend20d: null,
-      rrgQuadrant: null,
-      rs60: null,
+      compositeScore: 0.31,
+      compositeTrend5d: -0.05,
+      compositeTrend20d: -0.12,
+      rrgQuadrant: "4",
+      rs60: -0.042,
       flow20d: null,
       persistence20d: null,
       rank: 3,
@@ -59,10 +62,11 @@ const CATEGORIES_RESPONSE = {
       name: "Gold",
       type: "PRECIOUS_METAL",
       etfTicker: "GLD",
-      compositeScore: null,
-      compositeTrend20d: null,
-      rrgQuadrant: null,
-      rs60: null,
+      compositeScore: 0.71,
+      compositeTrend5d: 0.02,
+      compositeTrend20d: 0.05,
+      rrgQuadrant: "1",
+      rs60: 0.028,
       flow20d: null,
       persistence20d: null,
       rank: 4,
@@ -74,10 +78,11 @@ const CATEGORIES_RESPONSE = {
       name: "Long-Duration Treasuries",
       type: "FIXED_INCOME",
       etfTicker: "TLT",
-      compositeScore: null,
-      compositeTrend20d: null,
-      rrgQuadrant: null,
-      rs60: null,
+      compositeScore: 0.38,
+      compositeTrend5d: -0.02,
+      compositeTrend20d: -0.04,
+      rrgQuadrant: "3",
+      rs60: -0.018,
       flow20d: null,
       persistence20d: null,
       rank: 5,
@@ -90,6 +95,7 @@ const CATEGORIES_RESPONSE = {
       type: "CASH",
       etfTicker: "BIL",
       compositeScore: null,
+      compositeTrend5d: null,
       compositeTrend20d: null,
       rrgQuadrant: null,
       rs60: null,
@@ -115,10 +121,47 @@ const MACRO_RESPONSE = {
     twoYearYield: 4.8,
     wtiCrudeOilPrice: 78.5,
   },
+  previousIndicators: {
+    yieldSpread10y2y: -0.5,
+    vix: 18.1,
+    usdIndex: 105.2,
+    breakevenInflation: 2.25,
+    fedFundsRate: 5.25,
+    tenYearYield: 4.65,
+    twoYearYield: 4.95,
+    wtiCrudeOilPrice: 81.2,
+  },
   regimeHistory: [
-    { date: "2026-04-01", regime: "RISK_ON_GROWTH" },
-    { date: "2026-02-01", regime: "RISK_OFF_DEFENSIVE" },
+    { date: "2026-02-28", regime: "RISK_OFF_DEFENSIVE" },
+    { date: "2026-03-07", regime: "RISK_OFF_DEFENSIVE" },
+    { date: "2026-03-14", regime: "RISK_ON_GROWTH" },
+    { date: "2026-03-21", regime: "RISK_ON_GROWTH" },
+    { date: "2026-03-28", regime: "RISK_ON_GROWTH" },
+    { date: "2026-04-04", regime: "RISK_OFF_FLIGHT" },
+    { date: "2026-04-11", regime: "RISK_OFF_FLIGHT" },
+    { date: "2026-04-18", regime: "RISK_ON_DEFENSIVE" },
+    { date: "2026-04-25", regime: "RISK_ON_GROWTH" },
+    { date: "2026-05-02", regime: "RISK_ON_GROWTH" },
+    { date: "2026-05-09", regime: "RISK_ON_GROWTH" },
+    { date: "2026-05-15", regime: "RISK_ON_GROWTH" },
   ],
+  macroFitByCategory: {
+    TECH: 0.78,
+    FINL: 0.71,
+    HLTH: 0.63,
+    DISR: 0.59,
+    INDU: 0.55,
+    ENRG: 0.48,
+    MATL: 0.44,
+    UTIL: 0.32,
+    REIT: 0.39,
+    STPL: 0.41,
+    COMM: 0.62,
+    GLD: 0.35,
+    SLV: 0.31,
+    TLT: 0.28,
+    BIL: 0.22,
+  },
 };
 
 const ROTATION_RESPONSE = {
@@ -160,25 +203,25 @@ const RRG_RESPONSE = {
 };
 
 const TECH_SUB_SECTORS_RESPONSE = [
-  { id: "SEMI", name: "Semiconductors",  parentId: "TECH", etfTicker: "SMH",  rs20: 1.08, rs60: 1.12, rs120: 1.15, momentum: 0.03, rrgQuadrant: "4" },
-  { id: "AIRO", name: "AI & Robotics",   parentId: "TECH", etfTicker: "BOTZ", rs20: 1.05, rs60: 1.08, rs120: 1.10, momentum: 0.01, rrgQuadrant: "3" },
-  { id: "CLOD", name: "Cloud Computing", parentId: "TECH", etfTicker: "WCLD", rs20: 0.98, rs60: 1.02, rs120: 1.04, momentum: -0.01, rrgQuadrant: "2" },
-  { id: "SOFT", name: "Software",        parentId: "TECH", etfTicker: "IGV",  rs20: 0.95, rs60: 0.97, rs120: 0.99, momentum: -0.02, rrgQuadrant: "1" },
+  { id: "SEMI", name: "Semiconductors",  parentId: "TECH", etfTicker: "SMH",  rs20: 1.08, rs60: 1.12, rs120: 1.15, momentum: 0.03, rrgQuadrant: "4", compositeScore: 0.84 },
+  { id: "AIRO", name: "AI & Robotics",   parentId: "TECH", etfTicker: "BOTZ", rs20: 1.05, rs60: 1.08, rs120: 1.10, momentum: 0.01, rrgQuadrant: "3", compositeScore: 0.71 },
+  { id: "CLOD", name: "Cloud Computing", parentId: "TECH", etfTicker: "WCLD", rs20: 0.98, rs60: 1.02, rs120: 1.04, momentum: -0.01, rrgQuadrant: "2", compositeScore: 0.55 },
+  { id: "SOFT", name: "Software",        parentId: "TECH", etfTicker: "IGV",  rs20: 0.95, rs60: 0.97, rs120: 0.99, momentum: -0.02, rrgQuadrant: "1", compositeScore: 0.38 },
 ];
 
 const FACTOR_ETF_RESPONSE = [
-  { id: "MTUM", name: "Momentum Factor",       parentId: "FTRS", etfTicker: "MTUM", rs20: 1.04, rs60: 1.07, rs120: 1.09, momentum: 0.02, rrgQuadrant: "4" },
-  { id: "QUAL", name: "Quality Factor",        parentId: "FTRS", etfTicker: "QUAL", rs20: 1.02, rs60: 1.04, rs120: 1.06, momentum: 0.01, rrgQuadrant: "3" },
-  { id: "USMV", name: "Low Volatility Factor", parentId: "FTRS", etfTicker: "USMV", rs20: 0.99, rs60: 1.01, rs120: 1.02, momentum: -0.01, rrgQuadrant: "2" },
-  { id: "VLUE", name: "Value Factor",          parentId: "FTRS", etfTicker: "VLUE", rs20: 0.97, rs60: 0.99, rs120: 1.00, momentum: -0.02, rrgQuadrant: "1" },
+  { id: "MTUM", name: "Momentum Factor",       parentId: "FTRS", etfTicker: "MTUM", rs20: 1.04, rs60: 1.07, rs120: 1.09, momentum: 0.02, rrgQuadrant: "4", compositeScore: 0.78 },
+  { id: "QUAL", name: "Quality Factor",        parentId: "FTRS", etfTicker: "QUAL", rs20: 1.02, rs60: 1.04, rs120: 1.06, momentum: 0.01, rrgQuadrant: "3", compositeScore: 0.65 },
+  { id: "USMV", name: "Low Volatility Factor", parentId: "FTRS", etfTicker: "USMV", rs20: 0.99, rs60: 1.01, rs120: 1.02, momentum: -0.01, rrgQuadrant: "2", compositeScore: 0.51 },
+  { id: "VLUE", name: "Value Factor",          parentId: "FTRS", etfTicker: "VLUE", rs20: 0.97, rs60: 0.99, rs120: 1.00, momentum: -0.02, rrgQuadrant: "1", compositeScore: 0.43 },
 ];
 
 const PORTFOLIO_RESPONSE = {
   allocations: [
-    { categoryId: "TECH", categoryName: "Information Technology", allocationPct: 30, compositeScore: 0.82, optimalAllocationPct: 35 },
-    { categoryId: "HLTH", categoryName: "Health Care",            allocationPct: 20, compositeScore: 0.71, optimalAllocationPct: 18 },
-    { categoryId: "GOLD", categoryName: "Gold",                   allocationPct: 10, compositeScore: null, optimalAllocationPct: null },
-    { categoryId: "CASH", categoryName: "Cash & Short-Term",      allocationPct: 40, compositeScore: null, optimalAllocationPct: null },
+    { categoryId: "TECH", categoryName: "Information Technology", categoryType: "EQUITY_SECTOR",  allocationPct: 30, compositeScore: 0.82, optimalAllocationPct: 35 },
+    { categoryId: "HLTH", categoryName: "Health Care",            categoryType: "EQUITY_SECTOR",  allocationPct: 20, compositeScore: 0.71, optimalAllocationPct: 18 },
+    { categoryId: "GOLD", categoryName: "Gold",                   categoryType: "PRECIOUS_METAL", allocationPct: 10, compositeScore: null, optimalAllocationPct: null },
+    { categoryId: "CASH", categoryName: "Cash & Short-Term",      categoryType: "CASH",           allocationPct: 40, compositeScore: null, optimalAllocationPct: null },
   ],
   alignmentScore: 0.74,
   alignmentLabel: "ALIGNED",
@@ -188,7 +231,20 @@ const PORTFOLIO_RESPONSE = {
 };
 
 const HOLDINGS_RESPONSE = [
-  { ticker: "AAPL", name: "Apple Inc.", categoryId: "TECH", currency: "USD", quantity: 10, avgCostLocal: 175.0, usdFxRate: 1.0, marketValueUsd: 1925.0 },
+  {
+    ticker: "AAPL", name: "Apple Inc.", categoryId: "TECH", currency: "USD",
+    quantity: 10, avgCostLocal: 175.0, usdFxRate: 1.08,
+    marketValueUsd: 1925.0, currentPriceLocal: 192.5,
+    priceDate: "2026-05-15", priceSource: "YAHOO",
+    marketValueEur: 1782.41,
+  },
+  {
+    ticker: "XLK", name: "Technology Select SPDR", categoryId: "TECH", currency: "USD",
+    quantity: 5, avgCostLocal: 185.0, usdFxRate: 1.08,
+    marketValueUsd: 962.5, currentPriceLocal: 192.5,
+    priceDate: "2026-05-15", priceSource: "YAHOO",
+    marketValueEur: 891.2,
+  },
 ];
 
 const ALERTS_RESPONSE = {
@@ -214,7 +270,7 @@ const INGEST_RESPONSE = {
   message: "Ingestion started",
 };
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Access-Control-Allow-Origin", "*");
 
@@ -228,7 +284,16 @@ const server = http.createServer((req, res) => {
   const path = url.pathname;
   const parent = url.searchParams.get("parent");
 
-  if (path === "/api/v1/categories") {
+  if (path === "/api/v1/categories/score-history") {
+    const scores30 = [0.55,0.57,0.58,0.61,0.63,0.65,0.67,0.68,0.70,0.71,0.72,0.73,0.74,0.75,0.76,0.77,0.78,0.79,0.80,0.81,0.81,0.82,0.83,0.83,0.84,0.84,0.83,0.82,0.82,0.82];
+    res.writeHead(200);
+    res.end(JSON.stringify({
+      TECH: scores30,
+      HLTH: scores30.map(v => v * 0.78),
+      ENRG: scores30.map(v => v * 0.38),
+      GOLD: scores30.map(v => v * 0.55),
+    }));
+  } else if (path === "/api/v1/categories") {
     res.writeHead(200);
     res.end(JSON.stringify(CATEGORIES_RESPONSE));
   } else if (path === "/api/v1/macro") {
@@ -276,24 +341,63 @@ const server = http.createServer((req, res) => {
   } else if (path === "/api/v1/backtest/recent") {
     res.writeHead(200);
     res.end(JSON.stringify([]));
+  } else if (path === "/api/v1/admin/ticker-mappings" && req.method === "GET") {
+    res.writeHead(200);
+    res.end(JSON.stringify([
+      { ticker: "XLK", categoryId: "TECH", notes: "Technology Select Sector SPDR", updatedAt: "2026-05-17T00:00:00Z" },
+      { ticker: "XLF", categoryId: "FINL", notes: "Financial Select Sector SPDR", updatedAt: "2026-05-17T00:00:00Z" },
+      { ticker: "GLD", categoryId: "GOLD", notes: "SPDR Gold Shares", updatedAt: "2026-05-17T00:00:00Z" },
+    ]));
+  } else if (path === "/api/v1/admin/ticker-mappings" && req.method === "POST") {
+    const body = await new Promise((resolve) => {
+      let data = ""; req.on("data", (c) => { data += c; }); req.on("end", () => resolve(JSON.parse(data)));
+    });
+    res.writeHead(200);
+    res.end(JSON.stringify({ ticker: body.ticker, categoryId: body.categoryId, notes: body.notes ?? null, updatedAt: "2026-05-17T00:00:00Z" }));
+  } else if (/^\/api\/v1\/admin\/ticker-mappings\/[^/]+$/.test(path) && req.method === "DELETE") {
+    res.writeHead(204);
+    res.end();
+  } else if (path === "/api/v1/ingest/status/latest") {
+    res.writeHead(200);
+    res.end(JSON.stringify([
+      { runId: "aaa-111", source: "PRICES", status: "SUCCESS", startedAt: "2026-05-15T06:00:00Z", finishedAt: "2026-05-15T06:05:30Z", rowsInserted: 1842 },
+      { runId: "aaa-112", source: "MACRO",  status: "SUCCESS", startedAt: "2026-05-15T06:00:05Z", finishedAt: "2026-05-15T06:00:48Z", rowsInserted: 8 },
+    ]));
   } else if (path === "/api/v1/backtest/run" && req.method === "POST") {
+    const curve = [];
+    for (let i = 0; i < 252; i++) {
+      const date = new Date("2025-01-02");
+      date.setDate(date.getDate() + i);
+      curve.push({
+        date: date.toISOString().split("T")[0],
+        portfolioValue: 10000 * (1 + 0.185 * i / 252),
+        spyValue: 10000 * (1 + 0.143 * i / 252),
+      });
+    }
     res.writeHead(200);
     res.end(JSON.stringify({
       runId: "00000000-0000-0000-0000-000000000002",
       runAt: "2026-05-15T10:00:00Z",
-      startDate: "2025-01-01",
-      endDate: "2026-01-01",
+      startDate: "2025-01-02",
+      endDate: "2026-01-02",
       rebalanceFrequency: "MONTHLY",
       topN: 3,
       signalThreshold: null,
       totalReturnPct: 18.5,
       annualizedReturnPct: 18.5,
-      maxDrawdownPct: -8.2,
+      maxDrawdownPct: 8.2,
       sharpeRatio: 1.42,
       spyTotalReturnPct: 14.3,
+      spyAnnualizedReturnPct: 14.3,
+      spyMaxDrawdownPct: 11.5,
       spySharpeRatio: 1.05,
       tradingDays: 252,
-      equityCurve: [],
+      equityCurve: curve,
+      rebalanceHistory: [
+        { date: "2025-02-03", categoryIds: ["TECH", "HLTH", "FINL"], portfolioValue: 10150 },
+        { date: "2025-03-03", categoryIds: ["TECH", "COMM", "FINL"], portfolioValue: 10320 },
+        { date: "2025-04-01", categoryIds: ["TECH", "HLTH", "COMM"], portfolioValue: 10580 },
+      ],
     }));
   } else {
     res.writeHead(404);

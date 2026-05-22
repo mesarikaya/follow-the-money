@@ -11,15 +11,16 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Rotation", description = "Sector rotation leaders, laggards, and detected events")
 public class RotationController {
 
-    private final RotationService rotationService;
+  private final RotationService rotationService;
 
-    public RotationController(RotationService rotationService) {
-        this.rotationService = rotationService;
-    }
+  public RotationController(RotationService rotationService) {
+    this.rotationService = rotationService;
+  }
 
-    @GetMapping("/rotation")
-    @Operation(summary = "Top rotation leaders and laggards with recent rotation events (last 90 days)")
-    public RotationResponse getLatest() {
-        return rotationService.getLatest();
-    }
+  @GetMapping("/rotation")
+  @Operation(
+      summary = "Top rotation leaders and laggards with recent rotation events (last 90 days)")
+  public RotationResponse getLatest() {
+    return rotationService.getLatest();
+  }
 }

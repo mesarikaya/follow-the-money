@@ -59,4 +59,22 @@ test.describe("Dashboard shell", () => {
     const dashes = page.getByText("—");
     await expect(dashes.first()).toBeVisible();
   });
+
+  test("shows momentum leaders panel with accelerating and decelerating sections", async ({ page }) => {
+    await page.goto("/");
+    // Mock data has TECH (+8 pts trend), HLTH (+3 pts), ENRG (-12 pts)
+    await expect(page.getByText("Accelerating")).toBeVisible();
+    await expect(page.getByText("Decelerating")).toBeVisible();
+    // TECH should be in the accelerating column (highest positive trend)
+    await expect(page.getByText("XLK").first()).toBeVisible();
+    // ENRG should appear as a decelerator (largest negative trend)
+    await expect(page.getByText("XLE").first()).toBeVisible();
+  });
+
+  test("market breadth bar shows sector breadth signal", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Market Breadth")).toBeVisible();
+    // Mock data has TECH (bullish), HLTH (moderate), ENRG (bearish) — Mixed signal
+    await expect(page.getByText(/Risk-On|Risk-Off|Mixed/).first()).toBeVisible();
+  });
 });

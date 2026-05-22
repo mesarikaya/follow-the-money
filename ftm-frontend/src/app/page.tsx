@@ -1,9 +1,14 @@
-import { fetchCategories, fetchMacro, fetchRotation } from "@/lib/api";
+import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory } from "@/lib/api";
 import CategoryTable from "@/components/CategoryTable";
 import MacroPanel from "@/components/MacroPanel";
+import MarketBreadthBar from "@/components/MarketBreadthBar";
+import MomentumLeadersPanel from "@/components/MomentumLeadersPanel";
 import RotationHeatmap from "@/components/RotationHeatmap";
 import RotationPanel from "@/components/RotationPanel";
+import ScoreExtremesPanel from "@/components/ScoreExtremesPanel";
 import StaleDataBanner from "@/components/StaleDataBanner";
+
+export const dynamic = "force-dynamic";
 
 type Props = {
   searchParams: Promise<{ timeframe?: string }>;
@@ -12,10 +17,11 @@ type Props = {
 export default async function Home({ searchParams }: Props) {
   const { timeframe = "MONTH" } = await searchParams;
 
-  const [categoriesResult, macroResult, rotationResult] = await Promise.allSettled([
+  const [categoriesResult, macroResult, rotationResult, scoreHistoryResult] = await Promise.allSettled([
     fetchCategories(timeframe),
     fetchMacro(),
     fetchRotation(),
+    fetchCategoryScoreHistory(30),
   ]);
 
   const categories =
@@ -24,6 +30,8 @@ export default async function Home({ searchParams }: Props) {
     categoriesResult.status === "fulfilled" ? categoriesResult.value.asOfDate : null;
   const macro = macroResult.status === "fulfilled" ? macroResult.value : null;
   const rotation = rotationResult.status === "fulfilled" ? rotationResult.value : null;
+  const scoreHistory =
+    scoreHistoryResult.status === "fulfilled" ? scoreHistoryResult.value : {};
 
   return (
     <div className="flex flex-col h-full">
@@ -36,6 +44,14 @@ export default async function Home({ searchParams }: Props) {
         )}
 
         {categories.length > 0 && <StaleDataBanner categories={categories} />}
+
+        {categories.length > 0 && <MarketBreadthBar categories={categories} />}
+
+        {categories.length > 0 && <MomentumLeadersPanel categories={categories} />}
+
+        {categories.length > 0 && Object.keys(scoreHistory).length > 0 && (
+          <ScoreExtremesPanel categories={categories} scoreHistory={scoreHistory} />
+        )}
 
         {macro && <MacroPanel macro={macro} />}
 
@@ -72,7 +88,7 @@ export default async function Home({ searchParams }: Props) {
             </span>
           </h2>
           {categories.length > 0 ? (
-            <CategoryTable categories={categories} />
+            <CategoryTable categories={categories} timeframe={timeframe} scoreHistory={scoreHistory} />
           ) : (
             <div className="text-slate-500 text-sm py-8 text-center">
               No categories loaded.

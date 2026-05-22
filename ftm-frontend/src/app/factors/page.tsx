@@ -40,6 +40,51 @@ function formatMom(value: number | null): string {
   return value >= 0 ? `+${pct}%` : `${pct}%`;
 }
 
+function FactorComparisonStrip({ factors }: { factors: SubSectorSummary[] }) {
+  const withRs = factors.filter((f) => f.rs60 !== null);
+  if (withRs.length === 0) return null;
+
+  const sorted = [...withRs].sort((a, b) => (b.rs60 ?? 0) - (a.rs60 ?? 0));
+
+  return (
+    <div className="mb-6 bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-2.5">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">RS-60 Ranking vs SPY</span>
+        <span className="text-[10px] text-slate-600">Par = 1.000 · positive deviation = outperforming</span>
+      </div>
+      {sorted.map((factor, idx) => {
+        const rs = factor.rs60 ?? 0;
+        const deviation = rs - 1.0;
+        const barPct = Math.min(Math.abs(deviation) / 0.12 * 100, 100);
+        const isAbove = rs >= 1.0;
+        const rank = idx + 1;
+        const rankColor = rank === 1 ? "text-emerald-400" : rank === sorted.length ? "text-red-400" : "text-slate-500";
+        const barColor = isAbove ? "bg-emerald-500/60" : "bg-red-500/60";
+        const valColor = isAbove ? "text-emerald-400" : "text-red-400";
+
+        return (
+          <div key={factor.id} className="flex items-center gap-3">
+            <span className={`text-[11px] font-bold tabular-nums w-5 ${rankColor}`}>#{rank}</span>
+            <span className="text-xs font-mono font-semibold text-slate-200 w-12 shrink-0">{factor.etfTicker}</span>
+            <div className="flex-1 bg-slate-700/40 rounded-full h-2 overflow-hidden">
+              <div
+                className={`h-full rounded-full ${barColor}`}
+                style={{ width: `${barPct}%` }}
+              />
+            </div>
+            <span className={`text-xs font-mono tabular-nums w-14 text-right ${valColor}`}>
+              {rs.toFixed(3)}
+            </span>
+            <span className="text-[10px] text-slate-500 w-14 text-right tabular-nums">
+              {deviation >= 0 ? "+" : ""}{(deviation * 100).toFixed(2)}%
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function FactorCard({ factor }: { factor: SubSectorSummary }) {
   const quadrantLabel = factor.rrgQuadrant ? QUADRANT_LABELS[factor.rrgQuadrant] : "—";
   const quadrantColor = factor.rrgQuadrant ? QUADRANT_COLORS[factor.rrgQuadrant] : "text-slate-500";
@@ -136,6 +181,8 @@ export default async function FactorFlowsPage() {
             No factor data yet. Trigger ingestion to compute signals for MTUM, QUAL, USMV, VLUE.
           </div>
         )}
+
+        <FactorComparisonStrip factors={factors} />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           {factors.map((factor) => (

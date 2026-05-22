@@ -13,9 +13,10 @@ const ANALYSIS_ITEMS = [
 ];
 
 const MANAGEMENT_ITEMS = [
-  { href: "/portfolio", label: "Portfolio",  icon: "📁" },
-  { href: "/alerts",    label: "Alerts",     icon: "🔔" },
-  { href: "/backtest",  label: "Backtester", icon: "📈" },
+  { href: "/portfolio",               label: "Portfolio",       icon: "📁" },
+  { href: "/alerts",                  label: "Alerts",          icon: "🔔" },
+  { href: "/backtest",                label: "Backtester",      icon: "📈" },
+  { href: "/admin/ticker-mappings",   label: "Ticker Mappings", icon: "🗂️" },
 ];
 
 function NavItem({ href, label, icon }: { href: string; label: string; icon: string }) {

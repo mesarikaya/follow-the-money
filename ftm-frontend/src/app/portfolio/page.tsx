@@ -4,8 +4,9 @@ import { useEffect, useState, useCallback } from "react";
 import {
   fetchPortfolio, savePortfolio, PortfolioResponse, PortfolioAllocationEntry,
   fetchHoldings, uploadHoldings, downloadHoldingsTemplate, refreshHoldingPrices,
-  HoldingDto, HoldingsUploadResponse, updateHolding,
+  HoldingDto, HoldingsUploadResponse, updateHolding, deleteHolding, createHolding,
 } from "@/lib/api";
+import AllocationDonutChart from "@/components/AllocationDonutChart";
 
 const ALIGNMENT_CONFIG = {
   ALIGNED:    { label: "Aligned",    colorClass: "text-emerald-400", barClass: "bg-emerald-500" },
@@ -14,10 +15,10 @@ const ALIGNMENT_CONFIG = {
 } as const;
 
 const ALIGNMENT_TOOLTIP =
-  "Alignment score: how closely your current allocation percentages match the signal-optimal weights " +
-  "(Spearman rank correlation, scaled 0–100). " +
-  "100 = perfect match · 50 = random · 0 = fully inverted.\n" +
-  "ALIGNED ≥ 70 · PARTIAL 40–69 · MISALIGNED < 40";
+  "Alignment score: fraction of your portfolio that is correctly placed relative to signal-optimal weights. " +
+  "Formula: Σ min(actual%, optimal%) / 100 across all signal-tracked categories. " +
+  "Cash and untracked positions contribute 0 — they reduce your score proportionally.\n" +
+  "100 = fully invested matching signal proportions exactly · ALIGNED ≥ 70 · PARTIAL 40–69 · MISALIGNED < 40";
 
 const COMPOSITE_OPTIMAL_TOOLTIP =
   "Composite-optimal target: if you invested 100% proportionally to each category's composite signal score, " +
@@ -27,14 +28,21 @@ const COMPOSITE_SCORE_TOOLTIP =
   "Composite signal score (0–100): a weighted combination of relative-strength, momentum, " +
   "and macro-regime signals for this category. Higher = stronger current signal.";
 
-type SortField = "ticker" | "categoryId" | "quantity" | "avgCostLocal" | "currentPriceLocal" | "marketValueEur";
+type SortField = "ticker" | "categoryId" | "quantity" | "avgCostLocal" | "currentPriceLocal" | "marketValueEur" | "unrealizedPnlPct";
 type SortDir = "asc" | "desc";
 
 function isStale(holding: HoldingDto): boolean {
   if (!holding.priceSource) return true;
   if (!holding.priceDate) return true;
   const priceAge = Date.now() - new Date(holding.priceDate).getTime();
-  return priceAge > 3 * 24 * 60 * 60 * 1000; // older than 3 days
+  return priceAge > 3 * 24 * 60 * 60 * 1000;
+}
+
+function unrealizedPnl(h: HoldingDto): { pct: number; absLocal: number } | null {
+  if (h.currentPriceLocal == null || h.avgCostLocal == null || h.avgCostLocal === 0) return null;
+  const pct = (h.currentPriceLocal - h.avgCostLocal) / h.avgCostLocal;
+  const absLocal = (h.currentPriceLocal - h.avgCostLocal) * h.quantity;
+  return { pct, absLocal };
 }
 
 function AllocationBar({ currentPct, optimalPct, maxPct }: { currentPct: number; optimalPct: number | null; maxPct: number }) {
@@ -77,7 +85,18 @@ export default function PortfolioPage() {
   const [editingTicker, setEditingTicker] = useState<string | null>(null);
   const [editQty, setEditQty] = useState("");
   const [editPrice, setEditPrice] = useState("");
+  const [editManualPrice, setEditManualPrice] = useState("");
   const [isSavingHolding, setIsSavingHolding] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [deletingTicker, setDeletingTicker] = useState<string | null>(null);
+  const [confirmDeleteTicker, setConfirmDeleteTicker] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addTicker, setAddTicker] = useState("");
+  const [addCurrency, setAddCurrency] = useState("USD");
+  const [addQty, setAddQty] = useState("");
+  const [addAvgCost, setAddAvgCost] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
   const loadPortfolio = useCallback(async () => {
     try {
@@ -163,10 +182,33 @@ export default function PortfolioPage() {
     try {
       const updated = await refreshHoldingPrices();
       setHoldings(updated);
+      await loadPortfolio();
     } catch (error) {
       setUploadError(String(error));
     } finally {
       setIsRefreshingPrices(false);
+    }
+  };
+
+  const handleAddHolding = async () => {
+    if (!addTicker.trim() || !addQty) return;
+    setIsAdding(true);
+    setAddError(null);
+    try {
+      const created = await createHolding({
+        ticker: addTicker.trim().toUpperCase(),
+        currency: addCurrency,
+        quantity: parseFloat(addQty),
+        avgCostLocal: addAvgCost ? parseFloat(addAvgCost) : undefined,
+      });
+      setHoldings((prev) => prev ? [...prev, created] : [created]);
+      setShowAddForm(false);
+      setAddTicker(""); setAddCurrency("USD"); setAddQty(""); setAddAvgCost("");
+      await loadPortfolio();
+    } catch (error) {
+      setAddError(String(error));
+    } finally {
+      setIsAdding(false);
     }
   };
 
@@ -192,6 +234,11 @@ export default function PortfolioPage() {
   };
 
   const sortedHoldings = holdings ? [...holdings].sort((a, b) => {
+    if (sortField === "unrealizedPnlPct") {
+      const aP = unrealizedPnl(a)?.pct ?? (sortDir === "asc" ? Infinity : -Infinity);
+      const bP = unrealizedPnl(b)?.pct ?? (sortDir === "asc" ? Infinity : -Infinity);
+      return sortDir === "asc" ? aP - bP : bP - aP;
+    }
     const aVal = a[sortField] ?? (sortDir === "asc" ? Infinity : -Infinity);
     const bVal = b[sortField] ?? (sortDir === "asc" ? Infinity : -Infinity);
     if (typeof aVal === "string" && typeof bVal === "string") {
@@ -206,27 +253,47 @@ export default function PortfolioPage() {
     setEditingTicker(h.ticker);
     setEditQty(String(h.quantity));
     setEditPrice(h.avgCostLocal != null ? String(h.avgCostLocal) : "");
+    setEditManualPrice(h.currentPriceLocal != null ? String(h.currentPriceLocal) : "");
   };
 
   const cancelEdit = () => {
     setEditingTicker(null);
     setEditQty("");
     setEditPrice("");
+    setEditManualPrice("");
   };
 
   const saveEdit = async (ticker: string) => {
     setIsSavingHolding(true);
+    setEditError(null);
     try {
       const updated = await updateHolding(ticker, {
         quantity: parseFloat(editQty),
         avgCostLocal: editPrice ? parseFloat(editPrice) : undefined,
+        currentPriceLocal: editManualPrice ? parseFloat(editManualPrice) : undefined,
       });
-      setHoldings((prev) => prev ? prev.map((h) => h.ticker === ticker ? updated : h) : prev);
       setEditingTicker(null);
+      setHoldings((prev) => prev ? prev.map((h) => h.ticker === ticker ? updated : h) : prev);
+      Promise.all([loadPortfolio(), fetchHoldings()]).then(([, fresh]) => setHoldings(fresh));
     } catch (error) {
-      setUploadError(String(error));
+      setEditError(String(error));
     } finally {
       setIsSavingHolding(false);
+    }
+  };
+
+  const handleDelete = async (ticker: string) => {
+    setDeletingTicker(ticker);
+    setEditError(null);
+    try {
+      await deleteHolding(ticker);
+      setHoldings((prev) => prev ? prev.filter((h) => h.ticker !== ticker) : prev);
+      setConfirmDeleteTicker(null);
+      loadPortfolio();
+    } catch (error) {
+      setEditError(String(error));
+    } finally {
+      setDeletingTicker(null);
     }
   };
 
@@ -237,11 +304,42 @@ export default function PortfolioPage() {
 
   const alignmentScorePercent = portfolio ? Math.round(portfolio.alignmentScore * 100) : 0;
 
+  const portfolioSignalScore = portfolio
+    ? Math.round(
+        portfolio.allocations.reduce((sum, entry) => {
+          const allocation = parseFloat(editedAllocations[entry.categoryId] ?? "0") || 0;
+          return sum + (allocation / 100) * (entry.compositeScore ?? 0) * 100;
+        }, 0)
+      )
+    : null;
+
+  const optimalSignalScore = portfolio
+    ? Math.round(
+        portfolio.allocations.reduce((sum, entry) => {
+          const optimal = entry.optimalAllocationPct ?? 0;
+          return sum + (optimal / 100) * (entry.compositeScore ?? 0) * 100;
+        }, 0)
+      )
+    : null;
+
   const totalEur = holdings
     ? holdings.reduce((sum, h) => sum + (h.marketValueEur ?? 0), 0)
     : null;
 
   const staleCount = holdings ? holdings.filter(isStale).length : 0;
+
+  const holdingsSummary = holdings && holdings.length > 0 ? (() => {
+    let totalPnlEur = 0;
+    let totalCostEur = 0;
+    for (const h of holdings) {
+      if (h.currentPriceLocal == null || h.avgCostLocal == null || h.avgCostLocal === 0 || h.marketValueEur == null) continue;
+      const pnlPct = (h.currentPriceLocal - h.avgCostLocal) / h.currentPriceLocal;
+      totalPnlEur += h.marketValueEur * pnlPct;
+      totalCostEur += h.marketValueEur * (h.avgCostLocal / h.currentPriceLocal);
+    }
+    const totalPnlPct = totalCostEur > 0 ? totalPnlEur / totalCostEur : null;
+    return { totalPnlEur, totalPnlPct };
+  })() : null;
 
   return (
     <div className="flex flex-col h-full">
@@ -253,21 +351,43 @@ export default function PortfolioPage() {
           Portfolio
         </h1>
         {portfolio && (
-          <div className="flex items-center gap-4" title={ALIGNMENT_TOOLTIP}>
-            <span className={`text-sm font-semibold ${ALIGNMENT_CONFIG[portfolio.alignmentLabel].colorClass}`}>
-              {ALIGNMENT_CONFIG[portfolio.alignmentLabel].label}
-            </span>
-            <div className="flex items-center gap-2">
-              <div className="w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${ALIGNMENT_CONFIG[portfolio.alignmentLabel].barClass}`}
-                  style={{ width: `${alignmentScorePercent}%` }}
-                />
+          <div className="flex items-center gap-6">
+            {portfolioSignalScore !== null && portfolioSignalScore > 0 && (
+              <div
+                className="flex items-center gap-2"
+                title={`Portfolio Signal Strength: weighted-average composite score of your current allocation.\nFormula: Σ(allocationPct × categoryCompositeScore) / 100.\nOptimal target: ${optimalSignalScore}/100 (if perfectly allocated by composite score).`}
+              >
+                <span className="text-[10px] text-slate-500 uppercase tracking-widest" style={{ fontFamily: "var(--font-rajdhani)", fontWeight: 600 }}>
+                  Signal
+                </span>
+                <span
+                  className={`text-sm font-mono font-semibold ${portfolioSignalScore >= 65 ? "text-green-400" : portfolioSignalScore >= 45 ? "text-yellow-400" : "text-red-400"}`}
+                >
+                  {portfolioSignalScore}
+                </span>
+                {optimalSignalScore !== null && optimalSignalScore > 0 && (
+                  <span className="text-[10px] text-slate-600">
+                    / <span className="text-slate-500">{optimalSignalScore} opt</span>
+                  </span>
+                )}
               </div>
-              <span className="text-xs font-mono text-slate-300">
-                {alignmentScorePercent}<span className="text-slate-600">/100</span>
+            )}
+            <div className="flex items-center gap-4" title={ALIGNMENT_TOOLTIP}>
+              <span className={`text-sm font-semibold ${ALIGNMENT_CONFIG[portfolio.alignmentLabel].colorClass}`}>
+                {ALIGNMENT_CONFIG[portfolio.alignmentLabel].label}
               </span>
-              <span className="text-[10px] text-slate-600 cursor-help" title={ALIGNMENT_TOOLTIP}>(?)</span>
+              <div className="flex items-center gap-2">
+                <div className="w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${ALIGNMENT_CONFIG[portfolio.alignmentLabel].barClass}`}
+                    style={{ width: `${alignmentScorePercent}%` }}
+                  />
+                </div>
+                <span className="text-xs font-mono text-slate-300">
+                  {alignmentScorePercent}<span className="text-slate-600">/100</span>
+                </span>
+                <span className="text-[10px] text-slate-600 cursor-help" title={ALIGNMENT_TOOLTIP}>(?)</span>
+              </div>
             </div>
           </div>
         )}
@@ -368,7 +488,17 @@ export default function PortfolioPage() {
               </ul>
             </div>
 
-            <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
+            <div className="flex flex-col gap-4">
+              <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4 flex flex-col items-center">
+                <h2 className="text-sm font-semibold text-slate-200 w-full mb-3">Allocation Overview</h2>
+                <AllocationDonutChart
+                  allocations={portfolio.allocations}
+                  alignmentScore={portfolio.alignmentScore}
+                  alignmentLabel={portfolio.alignmentLabel}
+                />
+              </div>
+
+              <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-1">
                 <h2 className="text-sm font-semibold text-slate-200">Rebalance Suggestions</h2>
                 <span
@@ -379,7 +509,7 @@ export default function PortfolioPage() {
                 </span>
               </div>
               <p className="text-[10px] text-slate-600 mb-3">
-                Shows categories where |current − optimal| &gt; 0.5%. Optimal targets sum to 100% across all categories.
+                Shows categories where |current − optimal| &gt; 0.5%. Untracked positions (cash, BIL) appear as DECREASE to 0%.
               </p>
               {portfolio.rebalanceSuggestions.length === 0 ? (
                 <p className="text-xs text-slate-500">
@@ -407,6 +537,7 @@ export default function PortfolioPage() {
                   })}
                 </ul>
               )}
+              </div>
             </div>
           </div>
         )}
@@ -470,12 +601,100 @@ export default function PortfolioPage() {
                   {isUploading ? "Uploading…" : "↑ Upload CSV"}
                 </span>
               </label>
+              <button
+                onClick={() => { setShowAddForm((v) => !v); setAddError(null); }}
+                className="text-xs px-3 py-1 border border-emerald-700 text-emerald-400 rounded hover:bg-emerald-900/30 hover:text-emerald-300 transition-colors"
+              >
+                + Add Holding
+              </button>
             </div>
           </div>
 
           {uploadError && (
             <div className="text-xs text-red-400 bg-red-900/20 border border-red-800 rounded px-3 py-2">
               {uploadError}
+            </div>
+          )}
+
+          {editError && (
+            <div className="text-xs text-red-400 bg-red-900/20 border border-red-800 rounded px-3 py-2 flex items-center justify-between">
+              <span>Failed to save: {editError}</span>
+              <button onClick={() => setEditError(null)} className="ml-3 text-red-500 hover:text-red-300">✕</button>
+            </div>
+          )}
+
+          {showAddForm && (
+            <div className="bg-slate-800/60 border border-emerald-800/50 rounded-xl p-4">
+              <div className="text-sm font-semibold text-slate-200 mb-3">Add New Holding</div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-1">Ticker *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. AAPL"
+                    value={addTicker}
+                    onChange={(e) => setAddTicker(e.target.value.toUpperCase())}
+                    className="w-full text-xs font-mono bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-slate-200 focus:border-emerald-500 focus:outline-none uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-1">Currency *</label>
+                  <select
+                    value={addCurrency}
+                    onChange={(e) => setAddCurrency(e.target.value)}
+                    className="w-full text-xs bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-slate-200 focus:border-emerald-500 focus:outline-none"
+                  >
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-1">Quantity *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="10.00"
+                    value={addQty}
+                    onChange={(e) => setAddQty(e.target.value)}
+                    className="w-full text-xs font-mono bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-slate-200 focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-1">Avg Cost (optional)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="e.g. 195.00"
+                    value={addAvgCost}
+                    onChange={(e) => setAddAvgCost(e.target.value)}
+                    className="w-full text-xs font-mono bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-slate-200 focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+              {addError && (
+                <p className="text-xs text-red-400 mt-2">{addError}</p>
+              )}
+              <div className="flex items-center gap-2 mt-3">
+                <button
+                  onClick={handleAddHolding}
+                  disabled={isAdding || !addTicker.trim() || !addQty}
+                  className="text-xs px-4 py-1.5 bg-emerald-700 text-white rounded hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isAdding ? "Adding…" : "Add"}
+                </button>
+                <button
+                  onClick={() => { setShowAddForm(false); setAddError(null); }}
+                  className="text-xs px-3 py-1.5 border border-slate-600 text-slate-400 rounded hover:text-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <span className="text-[10px] text-slate-600 ml-1">
+                  Name and category are auto-detected from Yahoo Finance and ticker mappings.
+                </span>
+              </div>
             </div>
           )}
 
@@ -514,6 +733,9 @@ export default function PortfolioPage() {
                     </th>
                     <th className="px-4 py-2 text-right cursor-pointer select-none hover:text-slate-200 transition-colors" onClick={() => handleSort("currentPriceLocal")}>
                       Price <SortIcon field="currentPriceLocal" sortField={sortField} sortDir={sortDir} />
+                    </th>
+                    <th className="px-4 py-2 text-right cursor-pointer select-none hover:text-slate-200 transition-colors" onClick={() => handleSort("unrealizedPnlPct")} title="Unrealized P&L: (current price − avg cost) / avg cost">
+                      P&amp;L <SortIcon field="unrealizedPnlPct" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th className="px-4 py-2 text-right cursor-pointer select-none hover:text-slate-200 transition-colors" onClick={() => handleSort("marketValueEur")}>
                       Value (€) <SortIcon field="marketValueEur" sortField={sortField} sortDir={sortDir} />
@@ -574,7 +796,15 @@ export default function PortfolioPage() {
                           )}
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums">
-                          {h.currentPriceLocal != null ? (
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              value={editManualPrice}
+                              onChange={(e) => setEditManualPrice(e.target.value)}
+                              placeholder="price override"
+                              className="w-28 text-xs font-mono text-right bg-slate-700 border border-blue-500 rounded px-1 py-0.5 text-slate-200 focus:outline-none"
+                            />
+                          ) : h.currentPriceLocal != null ? (
                             <span className="text-slate-200">
                               {h.currency === "EUR" ? "€" : "$"}{Number(h.currentPriceLocal).toFixed(2)}
                               {h.priceDate && (
@@ -584,6 +814,23 @@ export default function PortfolioPage() {
                           ) : (
                             <span className="text-amber-500 text-xs" title="No live price — click Edit to enter manually">n/a</span>
                           )}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          {(() => {
+                            const pnl = unrealizedPnl(h);
+                            if (!pnl) return <span className="text-slate-600 text-xs">—</span>;
+                            const pctStr = `${pnl.pct >= 0 ? "+" : ""}${(pnl.pct * 100).toFixed(1)}%`;
+                            const absStr = `${pnl.absLocal >= 0 ? "+" : ""}${Math.abs(pnl.absLocal) < 1000
+                              ? (h.currency === "EUR" ? "€" : "$") + Math.abs(pnl.absLocal).toFixed(0)
+                              : (h.currency === "EUR" ? "€" : "$") + (Math.abs(pnl.absLocal) / 1000).toFixed(1) + "k"}`;
+                            const color = pnl.pct >= 0 ? "text-emerald-400" : "text-red-400";
+                            return (
+                              <div className={`flex flex-col items-end ${color}`} title={`Unrealized: ${pnl.pct >= 0 ? "+" : ""}${(pnl.pct * 100).toFixed(2)}% · ${absStr} in local currency`}>
+                                <span className="text-xs font-semibold">{pctStr}</span>
+                                <span className="text-[10px] opacity-70">{pnl.absLocal >= 0 ? "+" : ""}{h.currency === "EUR" ? "€" : "$"}{Math.abs(pnl.absLocal).toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums font-semibold">
                           {h.marketValueEur != null ? (
@@ -611,13 +858,38 @@ export default function PortfolioPage() {
                                 Cancel
                               </button>
                             </div>
+                          ) : confirmDeleteTicker === h.ticker ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="text-[10px] text-red-400">Delete?</span>
+                              <button
+                                onClick={() => handleDelete(h.ticker)}
+                                disabled={deletingTicker === h.ticker}
+                                className="text-[10px] px-2 py-0.5 bg-red-700 text-white rounded hover:bg-red-600 disabled:opacity-50"
+                              >
+                                {deletingTicker === h.ticker ? "…" : "Yes"}
+                              </button>
+                              <button
+                                onClick={() => setConfirmDeleteTicker(null)}
+                                className="text-[10px] px-2 py-0.5 border border-slate-600 text-slate-400 rounded hover:text-slate-200"
+                              >
+                                No
+                              </button>
+                            </div>
                           ) : (
-                            <button
-                              onClick={() => startEdit(h)}
-                              className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
-                            >
-                              Edit
-                            </button>
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => startEdit(h)}
+                                className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => setConfirmDeleteTicker(h.ticker)}
+                                className="text-[10px] text-red-700 hover:text-red-400 transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -625,6 +897,33 @@ export default function PortfolioPage() {
                   })}
                 </tbody>
               </table>
+
+              {holdingsSummary && (
+                <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-700 bg-slate-800/40 text-xs">
+                  <span className="text-slate-400 font-medium">Portfolio Summary</span>
+                  <div className="flex items-center gap-6">
+                    {totalEur != null && totalEur > 0 && (
+                      <span className="text-slate-300 font-mono">
+                        <span className="text-slate-500 mr-1">Total value</span>
+                        <span className="font-semibold text-emerald-400">
+                          €{totalEur.toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </span>
+                      </span>
+                    )}
+                    {holdingsSummary.totalPnlPct != null && (
+                      <span className="font-mono flex items-center gap-1">
+                        <span className="text-slate-500">Unrealized P&L</span>
+                        <span className={`font-semibold ${holdingsSummary.totalPnlEur >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                          {holdingsSummary.totalPnlEur >= 0 ? "+" : ""}€{Math.abs(holdingsSummary.totalPnlEur).toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </span>
+                        <span className={`text-[10px] ${holdingsSummary.totalPnlEur >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                          ({holdingsSummary.totalPnlPct >= 0 ? "+" : ""}{(holdingsSummary.totalPnlPct * 100).toFixed(1)}%)
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ) : holdings !== null && holdings.length === 0 ? (
             <div className="text-slate-500 text-sm text-center py-8">

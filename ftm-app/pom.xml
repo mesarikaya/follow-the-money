@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
@@ -27,6 +27,7 @@
         <spring-ai.version>1.0.0</spring-ai.version>
         <!-- JaCoCo 0.8.12 does not support Java 25 class files; skip report until JaCoCo supports it -->
         <jacoco.skip>true</jacoco.skip>
+        <commons-csv.version>1.14.0</commons-csv.version>
     </properties>
 
     <dependencyManagement>
@@ -125,6 +126,13 @@
             <version>${mapstruct.version}</version>
         </dependency>
 
+        <!-- ── Apache Commons (csc read) ──────────────────────────── -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-csv</artifactId>
+            <version>${commons-csv.version}</version>
+        </dependency>
+
         <!--
         ── Spring AI — add in EP-003 once correct artifact name confirmed.
            Check: https://docs.spring.io/spring-ai/reference/getting-started.html
@@ -188,7 +196,9 @@
                     <execution>
                         <id>jooq-codegen</id>
                         <phase>generate-sources</phase>
-                        <goals><goal>generate</goal></goals>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
                     </execution>
                 </executions>
                 <dependencies>
@@ -216,7 +226,9 @@
                 <configuration>
                     <jdbc>
                         <driver>org.testcontainers.jdbc.ContainerDatabaseDriver</driver>
-                        <url>jdbc:tc:postgresql:16-alpine:///codegen?TC_INITSCRIPT=file:src/main/resources/db/codegen/codegen_schema.sql</url>
+                        <url>
+                            jdbc:tc:postgresql:16-alpine:///codegen?TC_INITSCRIPT=file:src/main/resources/db/codegen/codegen_schema.sql
+                        </url>
                         <user>test</user>
                         <password>test</password>
                     </jdbc>
@@ -256,12 +268,36 @@
                 <executions>
                     <execution>
                         <id>prepare-agent</id>
-                        <goals><goal>prepare-agent</goal></goals>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
                     </execution>
                     <execution>
                         <id>report</id>
                         <phase>test</phase>
-                        <goals><goal>report</goal></goals>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>com.spotify.fmt</groupId>
+                <artifactId>fmt-maven-plugin</artifactId>
+                <version>2.29</version>
+                <dependencies>
+                    <!-- Override bundled version: 1.28.0 adds Java 25 support -->
+                    <dependency>
+                        <groupId>com.google.googlejavaformat</groupId>
+                        <artifactId>google-java-format</artifactId>
+                        <version>1.28.0</version>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>
@@ -286,7 +322,9 @@
             <id>spring-milestones</id>
             <name>Spring Milestones</name>
             <url>https://repo.spring.io/milestone</url>
-            <snapshots><enabled>false</enabled></snapshots>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
         </repository>
     </repositories>
 

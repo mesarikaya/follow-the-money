@@ -14,38 +14,38 @@ import org.springframework.stereotype.Component;
 @Component
 public class CacheEvictionListener {
 
-    private static final Logger log = LoggerFactory.getLogger(CacheEvictionListener.class);
+  private static final Logger log = LoggerFactory.getLogger(CacheEvictionListener.class);
 
-    private final CacheManager cacheManager;
+  private final CacheManager cacheManager;
 
-    public CacheEvictionListener(CacheManager cacheManager) {
-        this.cacheManager = cacheManager;
+  public CacheEvictionListener(CacheManager cacheManager) {
+    this.cacheManager = cacheManager;
+  }
+
+  @EventListener
+  @Async("asyncExecutor")
+  public void onIngestionComplete(IngestionCompleteEvent event) {
+    if (event.status() == IngestStatus.FAILED) {
+      return;
     }
-
-    @EventListener
-    @Async("asyncExecutor")
-    public void onIngestionComplete(IngestionCompleteEvent event) {
-        if (event.status() == IngestStatus.FAILED) {
-            return;
-        }
-        if (event.source() == IngestSource.MACRO) {
-            evict("macro-latest");
-        }
+    if (event.source() == IngestSource.MACRO) {
+      evict("macro-latest");
     }
+  }
 
-    @EventListener
-    @Async("asyncExecutor")
-    public void onSignalsUpdated(SignalsUpdatedEvent event) {
-        evict("signals-latest");
-        evict("rrg-latest");
-        evict("rotation-latest");
-    }
+  @EventListener
+  @Async("asyncExecutor")
+  public void onSignalsUpdated(SignalsUpdatedEvent event) {
+    evict("signals-latest");
+    evict("rrg-latest");
+    evict("rotation-latest");
+  }
 
-    private void evict(String cacheName) {
-        var cache = cacheManager.getCache(cacheName);
-        if (cache != null) {
-            cache.clear();
-            log.info("Evicted cache '{}'", cacheName);
-        }
+  private void evict(String cacheName) {
+    var cache = cacheManager.getCache(cacheName);
+    if (cache != null) {
+      cache.clear();
+      log.info("Evicted cache '{}'", cacheName);
     }
+  }
 }

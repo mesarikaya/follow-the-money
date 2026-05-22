@@ -140,6 +140,26 @@ Do NOT make propagations silently for significant changes — present the impact
 
 ---
 
+## Frontend workflow (mandatory)
+
+### Mockup-first rule
+
+Every new frontend page must follow this sequence — no exceptions:
+
+1. Create an HTML mockup in `context/mockups/<page-name>.html` using the same
+   Tailwind CDN + design tokens as existing mockups (surface #0f172a, panel #1e293b,
+   border #334155, muted #64748b; dark mode; identical header/sidebar structure).
+2. Present the mockup to the user and get approval before writing any React/Next.js code.
+3. Implement the page to match the approved mockup exactly.
+4. Add at least one Playwright E2E test for the new page in `pages.spec.ts`.
+5. Visually compare the implementation vs the mockup in the browser before marking the epic done.
+
+Rationale: The HTML mockups in context/mockups/ produced a more professional and explanatory
+design than direct React implementations. The mockup step catches design divergence before it
+is baked into code.
+
+---
+
 ## Development workflow (mandatory for all code changes)
 
 ### Branch strategy

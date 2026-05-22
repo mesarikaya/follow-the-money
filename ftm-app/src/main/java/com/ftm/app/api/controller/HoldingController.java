@@ -1,9 +1,9 @@
 package com.ftm.app.api.controller;
 
+import com.ftm.app.api.dto.CreateHoldingRequest;
 import com.ftm.app.api.dto.HoldingDto;
 import com.ftm.app.api.dto.HoldingUpdateRequest;
 import com.ftm.app.api.dto.HoldingsUploadResponse;
-import com.ftm.app.portfolio.service.HoldingPriceService;
 import com.ftm.app.portfolio.service.HoldingUploadService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
@@ -22,11 +22,9 @@ import org.springframework.web.multipart.MultipartFile;
 public class HoldingController {
 
   private final HoldingUploadService holdingUploadService;
-  private final HoldingPriceService holdingPriceService;
 
-  public HoldingController(HoldingUploadService holdingUploadService, HoldingPriceService holdingPriceService) {
+  public HoldingController(HoldingUploadService holdingUploadService) {
     this.holdingUploadService = holdingUploadService;
-    this.holdingPriceService = holdingPriceService;
   }
 
   @Operation(summary = "Download CSV template for bulk holdings upload")
@@ -55,6 +53,14 @@ public class HoldingController {
     return holdingUploadService.getHoldings();
   }
 
+  @Operation(summary = "Add a single new holding")
+  @PostMapping
+  public ResponseEntity<HoldingDto> createHolding(
+      @Valid @RequestBody CreateHoldingRequest request) {
+    HoldingDto created = holdingUploadService.createHolding(request);
+    return ResponseEntity.ok(created);
+  }
+
   @Operation(summary = "Update quantity and/or average cost for an existing holding")
   @PatchMapping("/{ticker}")
   public ResponseEntity<HoldingDto> updateHolding(
@@ -63,10 +69,17 @@ public class HoldingController {
     return ResponseEntity.ok(updated);
   }
 
-  @Operation(summary = "Refresh live prices for all holdings from Yahoo Finance")
+  @Operation(summary = "Delete a holding by ticker")
+  @DeleteMapping("/{ticker}")
+  public ResponseEntity<Void> deleteHolding(@PathVariable String ticker) {
+    holdingUploadService.deleteHolding(ticker);
+    return ResponseEntity.noContent().build();
+  }
+
+  @Operation(
+      summary = "Refresh live prices for all holdings from Yahoo Finance and sync allocations")
   @PostMapping("/refresh-prices")
   public ResponseEntity<List<HoldingDto>> refreshPrices() {
-    holdingPriceService.refreshPricesForAllHoldings();
-    return ResponseEntity.ok(holdingUploadService.getHoldings());
+    return ResponseEntity.ok(holdingUploadService.refreshPricesAndSyncAllocations());
   }
 }

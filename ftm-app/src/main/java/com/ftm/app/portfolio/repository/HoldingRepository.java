@@ -81,12 +81,53 @@ public class HoldingRepository {
         .execute();
   }
 
-  public int updatePrice(String ticker, BigDecimal currentPriceLocal, LocalDate priceDate, String priceSource) {
+  public int updateByTickerWithManualPrice(
+      String ticker, BigDecimal quantity, BigDecimal avgCostLocal, BigDecimal manualPrice) {
+    return dsl.update(HOLDINGS)
+        .set(HOLDINGS.QUANTITY, quantity)
+        .set(HOLDINGS.AVG_COST_LOCAL, avgCostLocal)
+        .set(HOLDINGS.CURRENT_PRICE_LOCAL, manualPrice)
+        .set(HOLDINGS.PRICE_DATE, LocalDate.now())
+        .set(HOLDINGS.PRICE_SOURCE, "manual")
+        .set(HOLDINGS.UPLOADED_AT, OffsetDateTime.now())
+        .where(HOLDINGS.TICKER.eq(ticker))
+        .execute();
+  }
+
+  public int updatePrice(
+      String ticker, BigDecimal currentPriceLocal, LocalDate priceDate, String priceSource) {
     return dsl.update(HOLDINGS)
         .set(HOLDINGS.CURRENT_PRICE_LOCAL, currentPriceLocal)
         .set(HOLDINGS.PRICE_DATE, priceDate)
         .set(HOLDINGS.PRICE_SOURCE, priceSource)
         .where(HOLDINGS.TICKER.eq(ticker))
         .execute();
+  }
+
+  public void insertSingle(Holding holding) {
+    dsl.insertInto(
+            HOLDINGS,
+            HOLDINGS.TICKER,
+            HOLDINGS.NAME,
+            HOLDINGS.CATEGORY_ID,
+            HOLDINGS.CURRENCY,
+            HOLDINGS.QUANTITY,
+            HOLDINGS.AVG_COST_LOCAL,
+            HOLDINGS.USD_FX_RATE,
+            HOLDINGS.UPLOADED_AT)
+        .values(
+            holding.ticker(),
+            holding.name(),
+            holding.categoryId(),
+            holding.currency(),
+            holding.quantity(),
+            holding.avgCostLocal(),
+            holding.usdFxRate(),
+            OffsetDateTime.now())
+        .execute();
+  }
+
+  public int deleteByTicker(String ticker) {
+    return dsl.deleteFrom(HOLDINGS).where(HOLDINGS.TICKER.eq(ticker)).execute();
   }
 }

@@ -11,15 +11,15 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "RRG", description = "Relative Rotation Graph chart data")
 public class RrgController {
 
-    private final RrgService rrgService;
+  private final RrgService rrgService;
 
-    public RrgController(RrgService rrgService) {
-        this.rrgService = rrgService;
-    }
+  public RrgController(RrgService rrgService) {
+    this.rrgService = rrgService;
+  }
 
-    @GetMapping("/rrg")
-    @Operation(summary = "RRG chart data — last 42 trading days per active category")
-    public RrgResponse getLatest() {
-        return rrgService.getLatest();
-    }
+  @GetMapping("/rrg")
+  @Operation(summary = "RRG chart data — last 42 trading days per active category")
+  public RrgResponse getLatest() {
+    return rrgService.getLatest();
+  }
 }

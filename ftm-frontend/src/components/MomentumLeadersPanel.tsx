@@ -58,8 +58,11 @@ function MomentumRow({ cat, isLast }: { cat: CategorySummary; isLast: boolean })
           : "bg-red-500";
 
   const t20 = cat.compositeTrend20d;
+  const t10 = cat.compositeTrend10d;
   const t5 = cat.compositeTrend5d;
   const trendPositive = (t20 ?? 0) >= 0;
+  const tripleConfirmed = t5 != null && t10 != null && t20 != null &&
+    (trendPositive ? (t5 > 0 && t10 > 0 && t20 > 0) : (t5 < 0 && t10 < 0 && t20 < 0));
   const hasDrilldown = SECTOR_DRILLDOWN_IDS.has(cat.id);
 
   return (
@@ -92,6 +95,14 @@ function MomentumRow({ cat, isLast }: { cat: CategorySummary; isLast: boolean })
           <TrendChip label="20d" value={t20} positive={t20 >= 0} />
         )}
         <RsConfirmBadge rs60={cat.rs60} rs120={cat.rs120} trendPositive={trendPositive} />
+        {tripleConfirmed && (
+          <span
+            className={`text-[9px] font-bold px-1 py-0.5 rounded ${trendPositive ? "text-emerald-300 bg-emerald-900/50 border border-emerald-700/50" : "text-red-300 bg-red-900/50 border border-red-700/50"}`}
+            title="5d, 10d, and 20d trends all agree — high momentum conviction"
+          >
+            ●●●
+          </span>
+        )}
       </div>
     </div>
   );

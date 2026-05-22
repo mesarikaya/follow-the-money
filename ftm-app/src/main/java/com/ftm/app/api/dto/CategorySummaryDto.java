@@ -15,6 +15,8 @@ public record CategorySummaryDto(
         BigDecimal compositeScore,
     @Schema(description = "5-day composite trend; null until signals computed")
         BigDecimal compositeTrend5d,
+    @Schema(description = "10-day composite trend; null until signals computed")
+        BigDecimal compositeTrend10d,
     @Schema(description = "20-day composite trend; null until signals computed")
         BigDecimal compositeTrend20d,
     @Schema(description = "RRG quadrant; null until signals computed") String rrgQuadrant,

@@ -47,6 +47,8 @@ public class CategoryService {
         signalRepository.findLatestByType(SignalType.RRG_QUADRANT);
     Map<String, BigDecimal> compositeTrend5dByCategoryId =
         signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_5D);
+    Map<String, BigDecimal> compositeTrend10dByCategoryId =
+        signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_10D);
     Map<String, BigDecimal> compositeTrend20dByCategoryId =
         signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_20D);
     Map<String, BigDecimal> rs120ByCategoryId =
@@ -83,6 +85,7 @@ public class CategoryService {
                         compositeByCategoryId,
                         rrgQuadrantByCategoryId,
                         compositeTrend5dByCategoryId,
+                        compositeTrend10dByCategoryId,
                         compositeTrend20dByCategoryId,
                         rs120ByCategoryId,
                         flow20dByCategoryId,

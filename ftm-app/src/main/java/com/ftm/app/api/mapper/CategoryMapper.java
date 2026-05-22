@@ -21,6 +21,9 @@ public interface CategoryMapper {
       target = "compositeTrend5d",
       expression = "java(compositeTrend5dByCategoryId.get(row.category().id().name()))")
   @Mapping(
+      target = "compositeTrend10d",
+      expression = "java(compositeTrend10dByCategoryId.get(row.category().id().name()))")
+  @Mapping(
       target = "compositeTrend20d",
       expression = "java(compositeTrend20dByCategoryId.get(row.category().id().name()))")
   @Mapping(
@@ -48,6 +51,7 @@ public interface CategoryMapper {
       Map<String, BigDecimal> compositeByCategoryId,
       Map<String, BigDecimal> rrgQuadrantByCategoryId,
       Map<String, BigDecimal> compositeTrend5dByCategoryId,
+      Map<String, BigDecimal> compositeTrend10dByCategoryId,
       Map<String, BigDecimal> compositeTrend20dByCategoryId,
       Map<String, BigDecimal> rs120ByCategoryId,
       Map<String, BigDecimal> flow20dByCategoryId,

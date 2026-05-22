@@ -10,6 +10,7 @@ export type CategorySummary = {
   etfTicker: string;
   compositeScore: number | null;
   compositeTrend5d: number | null;
+  compositeTrend10d: number | null;
   compositeTrend20d: number | null;
   rrgQuadrant: string | null;
   rs60: number | null;

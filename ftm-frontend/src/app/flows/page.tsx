@@ -107,6 +107,42 @@ function RsBarRow({ category, maxAbs }: { category: CategorySummary; maxAbs: num
   );
 }
 
+function FlowSignalRow({ category, maxAbsZ }: { category: CategorySummary; maxAbsZ: number }) {
+  const z = category.flow20d;
+  const persist = category.persistence20d;
+  if (z === null && persist === null) return null;
+
+  const absZ = Math.abs(z ?? 0);
+  const barWidth = maxAbsZ > 0 ? Math.min(absZ / maxAbsZ, 1) * 100 : 0;
+  const isPos = (z ?? 0) >= 0;
+  const persistPct = persist != null ? Math.round((persist / 20) * 100) : null;
+
+  const zColor = z == null ? "text-slate-600" : Math.abs(z) < 0.5 ? "text-slate-400" : isPos ? "text-emerald-400" : "text-red-400";
+  const barColor = z == null ? "bg-slate-700" : isPos ? "bg-emerald-500" : "bg-red-500";
+  const persistColor = persist == null ? "text-slate-600" : persist >= 14 ? "text-emerald-400" : persist >= 8 ? "text-slate-400" : "text-red-400";
+
+  return (
+    <div className="flex items-center gap-3 py-1.5 border-b border-slate-700/20 last:border-0">
+      <span className="text-[10px] text-cyan-400 w-10 shrink-0" style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+        {category.etfTicker}
+      </span>
+      <div className="flex-1 flex items-center gap-2">
+        <div className="flex-1 h-1.5 bg-slate-700/50 rounded-full overflow-hidden">
+          <div className={`h-full rounded-full ${barColor}`} style={{ width: `${barWidth}%` }} />
+        </div>
+        <span className={`text-xs tabular-nums w-12 text-right shrink-0 ${zColor}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+          {z == null ? "—" : `${isPos ? "+" : ""}${z.toFixed(2)}σ`}
+        </span>
+      </div>
+      <span className={`text-xs tabular-nums w-16 text-right shrink-0 ${persistColor}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}
+        title="Positive-flow days out of last 20">
+        {persist != null ? `${persist}/20` : "—"}
+        {persistPct != null && <span className="text-slate-600 text-[9px] ml-0.5">({persistPct}%)</span>}
+      </span>
+    </div>
+  );
+}
+
 function EventRow({ event }: { event: RotationEventEntry }) {
   const config = EVENT_LABELS[event.eventType];
   return (
@@ -147,6 +183,12 @@ export default async function CapitalFlowsPage({ searchParams }: Props) {
     .sort((a, b) => (b.rs60 ?? -999) - (a.rs60 ?? -999));
 
   const maxAbs = allRanked.reduce((m, c) => Math.max(m, Math.abs(c.rs60 ?? 0) * 100), 0) || 10;
+
+  const flowRanked = (categories?.categories ?? [])
+    .filter((c) => c.flow20d !== null || c.persistence20d !== null)
+    .sort((a, b) => (b.flow20d ?? 0) - (a.flow20d ?? 0));
+
+  const maxAbsZ = flowRanked.reduce((m, c) => Math.max(m, Math.abs(c.flow20d ?? 0)), 0) || 2;
 
   const hasData = allRanked.length > 0 || (rotation?.topLeaders.length ?? 0) > 0;
 
@@ -227,6 +269,37 @@ export default async function CapitalFlowsPage({ searchParams }: Props) {
             {allRanked.map((c) => (
               <RsBarRow key={c.id} category={c} maxAbs={maxAbs} />
             ))}
+          </div>
+        )}
+
+        {flowRanked.length > 0 && (
+          <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+            <div className="flex items-baseline justify-between mb-3">
+              <h2
+                className="text-slate-300 text-[10px] font-semibold uppercase tracking-widest"
+                style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.1em" }}
+              >
+                Flow Z-Score (20d)
+              </h2>
+              <span className="text-[10px] text-slate-500" style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+                Z-score · Persistence (n/20 positive days)
+              </span>
+            </div>
+            <div className="flex items-center gap-3 px-0 mb-1">
+              <span className="w-10 shrink-0" />
+              <span className="flex-1 text-[9px] text-slate-600 text-center">
+                flow z-score (σ from 0 = mean)
+              </span>
+              <span className="w-16 text-right text-[9px] text-slate-600 shrink-0">
+                positive days
+              </span>
+            </div>
+            {flowRanked.map((c) => (
+              <FlowSignalRow key={c.id} category={c} maxAbsZ={maxAbsZ} />
+            ))}
+            <div className="mt-3 text-[10px] text-slate-600">
+              Z-score: σ &gt; +1 = unusual inflow · σ &lt; −1 = unusual outflow · Persistence ≥14/20 = sustained buying
+            </div>
           </div>
         )}
 

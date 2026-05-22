@@ -1,4 +1,7 @@
+import Link from "next/link";
 import { RotationResponse } from "@/lib/api";
+
+const SECTOR_DRILLDOWN_IDS = new Set(["TECH","HLTH","FINL","DISR","INDU","ENRG","MATL","UTIL","REIT","STPL","COMM"]);
 
 const QUADRANT_LABELS: Record<number, string> = {
   1: "↗ Leading",
@@ -48,7 +51,11 @@ export default function RotationPanel({ rotation }: Props) {
           {rotation.topLeaders.map((leader) => (
             <li key={leader.categoryId} className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-200">{leader.categoryName}</span>
+                {SECTOR_DRILLDOWN_IDS.has(leader.categoryId) ? (
+                  <Link href={`/sectors/${leader.categoryId}`} className="text-xs font-medium text-slate-200 hover:text-cyan-300 transition-colors">{leader.categoryName}</Link>
+                ) : (
+                  <span className="text-xs font-medium text-slate-200">{leader.categoryName}</span>
+                )}
                 <span className="text-xs text-slate-500">{leader.categoryId}</span>
               </div>
               <div className="flex items-center gap-2">
@@ -75,7 +82,11 @@ export default function RotationPanel({ rotation }: Props) {
           {rotation.bottomLaggards.map((laggard) => (
             <li key={laggard.categoryId} className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-200">{laggard.categoryName}</span>
+                {SECTOR_DRILLDOWN_IDS.has(laggard.categoryId) ? (
+                  <Link href={`/sectors/${laggard.categoryId}`} className="text-xs font-medium text-slate-200 hover:text-cyan-300 transition-colors">{laggard.categoryName}</Link>
+                ) : (
+                  <span className="text-xs font-medium text-slate-200">{laggard.categoryName}</span>
+                )}
                 <span className="text-xs text-slate-500">{laggard.categoryId}</span>
               </div>
               <div className="flex items-center gap-2">

@@ -51,6 +51,22 @@ function EquityCurveChart({ curve, rebalanceDates }: { curve: EquityCurvePoint[]
     "Z",
   ].join(" ");
 
+  // Max drawdown period: find peak→trough segment with largest drawdown
+  let maxDD = 0;
+  let ddPeakIdx = 0;
+  let ddTroughIdx = 0;
+  {
+    let peak = normalized[0].portfolioValue;
+    let peakI = 0;
+    for (let i = 1; i < normalized.length; i++) {
+      const v = normalized[i].portfolioValue;
+      if (v > peak) { peak = v; peakI = i; }
+      const dd = (peak - v) / peak;
+      if (dd > maxDD) { maxDD = dd; ddPeakIdx = peakI; ddTroughIdx = i; }
+    }
+  }
+  const showDD = maxDD > 0.02;
+
   // Y-axis grid lines: 5 horizontal lines — labels as % return from start
   const ySteps = 5;
   const yGridLines = Array.from({ length: ySteps }, (_, i) => {
@@ -96,6 +112,30 @@ function EquityCurveChart({ curve, rebalanceDates }: { curve: EquityCurvePoint[]
         <>
           <line x1={covidX.toFixed(1)} y1={PAD_T} x2={covidX.toFixed(1)} y2={PAD_T + innerH} stroke="#ef4444" strokeWidth="0.8" strokeDasharray="3,2" opacity="0.4" />
           <text x={(covidX + 3).toFixed(1)} y={(PAD_T + 10).toFixed(1)} fill="#ef4444" fontSize="8" opacity="0.7">COVID</text>
+        </>
+      )}
+
+      {/* Max drawdown period shading */}
+      {showDD && (
+        <>
+          <rect
+            x={toX(ddPeakIdx).toFixed(1)}
+            y={PAD_T}
+            width={Math.max(1, toX(ddTroughIdx) - toX(ddPeakIdx)).toFixed(1)}
+            height={innerH}
+            fill="#ef4444"
+            fillOpacity="0.07"
+          />
+          <text
+            x={((toX(ddPeakIdx) + toX(ddTroughIdx)) / 2).toFixed(1)}
+            y={(PAD_T + innerH - 4).toFixed(1)}
+            fill="#ef4444"
+            fontSize="7"
+            textAnchor="middle"
+            opacity="0.5"
+          >
+            max DD
+          </text>
         </>
       )}
 
@@ -449,7 +489,7 @@ export default function BacktesterPage() {
                         const excess = run.totalReturnPct - run.spyTotalReturnPct;
                         const isActive = result?.runId === run.runId;
                         return (
-                          <tr key={run.runId} className={`transition-colors ${isActive ? "bg-blue-900/20" : "hover:bg-slate-800/40"}`}>
+                          <tr key={run.runId} className={`transition-colors cursor-pointer ${isActive ? "bg-blue-900/20" : "hover:bg-slate-800/40"}`} onClick={() => setResult(run)} title="Click to load this run">
                             <td className="py-1.5 pr-3 font-mono text-slate-400 tabular-nums">
                               {run.runAt?.slice(0, 10) ?? "—"}
                             </td>

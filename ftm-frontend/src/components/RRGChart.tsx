@@ -251,16 +251,33 @@ export default function RRGChart({ categories, etfTickers = {}, maxHeight = "min
                   />
                 )}
 
-                {/* Trail tip arrow direction indicator (small filled dot at second-to-last point) */}
-                {visible.length >= 2 && !dimmed && (
-                  <circle
-                    cx={toX(visible[visible.length - 2].ratio)}
-                    cy={toY(visible[visible.length - 2].momentum)}
-                    r={2.5}
-                    fill={color}
-                    fillOpacity={isHovered ? 0.6 : 0.25}
-                  />
-                )}
+                {/* Direction triangle at dot edge pointing in direction of travel */}
+                {visible.length >= 2 && (() => {
+                  const prevPt = visible[visible.length - 2];
+                  const prevSvgX = clampX(prevPt.ratio);
+                  const prevSvgY = clampY(prevPt.momentum);
+                  const dx = dotX - prevSvgX;
+                  const dy = dotY - prevSvgY;
+                  const len = Math.sqrt(dx * dx + dy * dy);
+                  if (len < 0.5) return null;
+                  const ux = dx / len;
+                  const uy = dy / len;
+                  const dotR = isHovered ? 9 : 7;
+                  const tipX = dotX + ux * (dotR + 5);
+                  const tipY = dotY + uy * (dotR + 5);
+                  const w1x = dotX + ux * (dotR + 1) - uy * 3.5;
+                  const w1y = dotY + uy * (dotR + 1) + ux * 3.5;
+                  const w2x = dotX + ux * (dotR + 1) + uy * 3.5;
+                  const w2y = dotY + uy * (dotR + 1) - ux * 3.5;
+                  return (
+                    <polygon
+                      points={`${tipX.toFixed(1)},${tipY.toFixed(1)} ${w1x.toFixed(1)},${w1y.toFixed(1)} ${w2x.toFixed(1)},${w2y.toFixed(1)}`}
+                      fill={color}
+                      fillOpacity={dimmed ? 0.08 : isHovered ? 1 : 0.65}
+                      style={{ pointerEvents: "none" }}
+                    />
+                  );
+                })()}
 
                 {/* Main dot */}
                 <circle

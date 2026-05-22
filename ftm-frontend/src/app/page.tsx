@@ -5,6 +5,7 @@ import MarketBreadthBar from "@/components/MarketBreadthBar";
 import MomentumLeadersPanel from "@/components/MomentumLeadersPanel";
 import RotationHeatmap from "@/components/RotationHeatmap";
 import RotationPanel from "@/components/RotationPanel";
+import RotationPhaseIndicator from "@/components/RotationPhaseIndicator";
 import ScoreExtremesPanel from "@/components/ScoreExtremesPanel";
 import StaleDataBanner from "@/components/StaleDataBanner";
 
@@ -46,6 +47,8 @@ export default async function Home({ searchParams }: Props) {
         {categories.length > 0 && <StaleDataBanner categories={categories} />}
 
         {categories.length > 0 && <MarketBreadthBar categories={categories} />}
+
+        {categories.length > 0 && <RotationPhaseIndicator categories={categories} />}
 
         {categories.length > 0 && <MomentumLeadersPanel categories={categories} />}
 

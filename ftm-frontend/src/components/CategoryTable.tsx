@@ -17,11 +17,11 @@ const TYPE_SECTION_LABELS: Record<string, string> = {
   CASH:           "Cash",
 };
 
-const RRG_QUADRANT_LABELS: Record<number, { label: string; color: string }> = {
-  1: { label: "↗ Leading",   color: "text-green-400" },
-  2: { label: "↖ Improving", color: "text-blue-400"  },
-  3: { label: "↘ Weakening", color: "text-orange-400" },
-  4: { label: "↙ Lagging",   color: "text-slate-400"  },
+const RRG_QUADRANT_CONFIG: Record<number, { label: string; color: string; borderClass: string }> = {
+  1: { label: "↗ Leading",   color: "text-green-400",  borderClass: "border-l-green-500"  },
+  2: { label: "↖ Improving", color: "text-blue-400",   borderClass: "border-l-cyan-500"   },
+  3: { label: "↘ Weakening", color: "text-orange-400", borderClass: "border-l-orange-500" },
+  4: { label: "↙ Lagging",   color: "text-slate-400",  borderClass: "border-l-slate-600"  },
 };
 
 function TrendPip({
@@ -136,10 +136,11 @@ export default function CategoryTable({
         <tbody className="divide-y divide-slate-800">
           {categories.map((cat, idx) => {
             const typeConfig = TYPE_CONFIG[cat.type] ?? TYPE_CONFIG.ALTERNATIVE;
-            const quadrantInfo = cat.rrgQuadrant != null ? RRG_QUADRANT_LABELS[Number(cat.rrgQuadrant)] : null;
             const prevType = idx > 0 ? categories[idx - 1].type : null;
             const showDivider = prevType !== cat.type && TYPE_SECTION_LABELS[cat.type] != null;
             const history = scoreHistory[cat.id] ?? [];
+            const quadrantInfo = cat.rrgQuadrant != null ? RRG_QUADRANT_CONFIG[Number(cat.rrgQuadrant)] : null;
+            const rowBorderClass = quadrantInfo ? quadrantInfo.borderClass : "border-l-slate-700/20";
 
             return (
               <Fragment key={cat.id}>
@@ -150,7 +151,7 @@ export default function CategoryTable({
                     </td>
                   </tr>
                 )}
-                <tr className="hover:bg-slate-800/50 transition-colors text-slate-200">
+                <tr className={`hover:bg-slate-800/50 transition-colors text-slate-200 border-l-[3px] ${rowBorderClass}`}>
                   <td className="px-4 py-2.5 text-slate-500 tabular-nums text-xs">{cat.rank}</td>
                   <td className="px-4 py-2.5 font-mono text-blue-300 font-medium">{cat.etfTicker}</td>
                   <td className="px-4 py-2.5 font-medium">{cat.name}</td>

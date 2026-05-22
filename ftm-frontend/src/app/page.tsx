@@ -7,6 +7,7 @@ import RotationHeatmap from "@/components/RotationHeatmap";
 import RotationPanel from "@/components/RotationPanel";
 import RotationPhaseIndicator from "@/components/RotationPhaseIndicator";
 import ScoreExtremesPanel from "@/components/ScoreExtremesPanel";
+import SignalDivergencePanel from "@/components/SignalDivergencePanel";
 import StaleDataBanner from "@/components/StaleDataBanner";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +56,8 @@ export default async function Home({ searchParams }: Props) {
         {categories.length > 0 && Object.keys(scoreHistory).length > 0 && (
           <ScoreExtremesPanel categories={categories} scoreHistory={scoreHistory} />
         )}
+
+        {categories.length > 0 && <SignalDivergencePanel categories={categories} />}
 
         {macro && <MacroPanel macro={macro} />}
 

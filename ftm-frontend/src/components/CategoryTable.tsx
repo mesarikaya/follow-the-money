@@ -56,34 +56,48 @@ function ScoreBar({
   score,
   trend5d,
   trend20d,
+  macroFit,
 }: {
   score: number | null;
   trend5d: number | null;
   trend20d: number | null;
+  macroFit?: number | null;
 }) {
   if (score == null) return <span className="text-slate-600 text-xs">—</span>;
   const pct = Math.round(score * 100);
   const filledCount = Math.round(score * 5);
   const barColor = score >= 0.7 ? "bg-green-500" : score >= 0.4 ? "bg-yellow-500" : "bg-red-500";
+  const macroFitPct = macroFit != null ? Math.round(macroFit * 100) : null;
+  const macroFitColor = macroFitPct != null ? (macroFitPct >= 60 ? "bg-violet-500" : macroFitPct >= 40 ? "bg-violet-400/60" : "bg-slate-600") : null;
 
   return (
     <div
-      className="flex items-center gap-1.5"
-      title={`Composite signal score: ${pct}/100. Combines RS-60, momentum, and macro-regime alignment.`}
+      className="flex flex-col gap-0.5"
+      title={`Composite signal score: ${pct}/100.${macroFitPct != null ? `\nMacro Fit: ${macroFitPct}% — historical win rate in current macro regime.` : ""}`}
     >
-      <div className="flex gap-0.5">
-        {Array.from({ length: 5 }, (_, i) => (
-          <div
-            key={i}
-            className={`w-2 h-3.5 rounded-[2px] ${i < filledCount ? barColor : "bg-slate-700"}`}
-          />
-        ))}
+      <div className="flex items-center gap-1.5">
+        <div className="flex gap-0.5">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div
+              key={i}
+              className={`w-2 h-3.5 rounded-[2px] ${i < filledCount ? barColor : "bg-slate-700"}`}
+            />
+          ))}
+        </div>
+        <span className={`text-xs tabular-nums font-medium ${score >= 0.7 ? "text-green-400" : score >= 0.4 ? "text-yellow-400" : "text-red-400"}`}>
+          {pct}
+        </span>
+        <TrendPip trend={trend5d} label="5d" />
+        <TrendPip trend={trend20d} label="20d" />
       </div>
-      <span className={`text-xs tabular-nums font-medium ${score >= 0.7 ? "text-green-400" : score >= 0.4 ? "text-yellow-400" : "text-red-400"}`}>
-        {pct}
-      </span>
-      <TrendPip trend={trend5d} label="5d" />
-      <TrendPip trend={trend20d} label="20d" />
+      {macroFitPct != null && (
+        <div className="flex items-center gap-1" title={`Macro Fit: ${macroFitPct}% — historical RS win rate in current regime`}>
+          <div className="w-10 h-0.5 rounded-full bg-slate-700/60 overflow-hidden">
+            <div className={`h-full rounded-full ${macroFitColor}`} style={{ width: `${macroFitPct}%` }} />
+          </div>
+          <span className="text-[9px] text-slate-600 tabular-nums">M{macroFitPct}%</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -111,10 +125,12 @@ export default function CategoryTable({
   categories,
   timeframe = "MONTH",
   scoreHistory = {},
+  macroFit = {},
 }: {
   categories: CategorySummary[];
   timeframe?: string;
   scoreHistory?: Record<string, number[]>;
+  macroFit?: Record<string, number>;
 }) {
   const rsLabel = RS_LABEL[timeframe] ?? "60d";
   const hasHistory = Object.keys(scoreHistory).length > 0;
@@ -189,7 +205,7 @@ export default function CategoryTable({
                   )}
                   <td className="px-4 py-2.5">
                     <div className="flex justify-center">
-                      <ScoreBar score={cat.compositeScore} trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} />
+                      <ScoreBar score={cat.compositeScore} trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} macroFit={macroFit[cat.id] ?? null} />
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-right">

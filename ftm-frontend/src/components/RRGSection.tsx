@@ -1,10 +1,6 @@
 import { fetchRrg, fetchCategories } from "@/lib/api";
+import { RRG_EXCLUDED_IDS } from "@/lib/rrg";
 import RRGChart from "./RRGChart";
-
-const EXCLUDED_IDS = new Set([
-  "FTRS", "MTUM", "QUAL", "USMV", "VLUE",
-  "SEMI", "AIRO", "CLOD", "SOFT",
-]);
 
 export default async function RRGSection({ fullPage = false }: { fullPage?: boolean }) {
   const [data, categoriesData] = await Promise.all([
@@ -20,7 +16,7 @@ export default async function RRGSection({ fullPage = false }: { fullPage?: bool
   }
 
   const filtered = (data?.categories ?? []).filter(
-    (c) => !c.id.includes("_") && !EXCLUDED_IDS.has(c.id)
+    (c) => !c.id.includes("_") && !RRG_EXCLUDED_IDS.has(c.id)
   );
 
   const quadrantCounts = filtered.reduce<Record<string, number>>(

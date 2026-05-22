@@ -1,9 +1,5 @@
 import { fetchRrg, fetchCategories } from "@/lib/api";
-
-const EXCLUDED_IDS = new Set([
-  "FTRS", "MTUM", "QUAL", "USMV", "VLUE",
-  "SEMI", "AIRO", "CLOD", "SOFT",
-]);
+import { RRG_EXCLUDED_IDS } from "@/lib/rrg";
 
 const QUADRANT_CONFIG: Record<number, {
   label: string;
@@ -54,7 +50,7 @@ export default async function RRGPositionTable() {
   }
 
   const filtered = rrg.categories
-    .filter((c) => !c.id.includes("_") && !EXCLUDED_IDS.has(c.id))
+    .filter((c) => !c.id.includes("_") && !RRG_EXCLUDED_IDS.has(c.id))
     .filter((c) => c.trail.length > 0);
 
   const rows = filtered.map((cat) => {

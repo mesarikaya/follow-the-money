@@ -215,6 +215,13 @@ function SectorCard({ sector, history }: { sector: CategorySummary; history: num
   );
 }
 
+const QUADRANT_STRIP_CONFIG: Array<{ key: string; label: string; colorClass: string; dotClass: string }> = [
+  { key: "4", label: "↗ Leading",   colorClass: "text-green-400",  dotClass: "bg-green-500"  },
+  { key: "3", label: "↖ Improving", colorClass: "text-cyan-400",   dotClass: "bg-cyan-500"   },
+  { key: "2", label: "↘ Weakening", colorClass: "text-orange-400", dotClass: "bg-orange-500" },
+  { key: "1", label: "↙ Lagging",   colorClass: "text-slate-400",  dotClass: "bg-slate-500"  },
+];
+
 export default async function SectorsHubPage() {
   let sectors: CategorySummary[] = [];
   let scoreHistory: Record<string, number[]> = {};
@@ -231,6 +238,14 @@ export default async function SectorsHubPage() {
     error = err instanceof Error ? err.message : "Failed to load sectors";
   }
 
+  const quadrantCounts: Record<string, string[]> = { "4": [], "3": [], "2": [], "1": [] };
+  for (const s of sectors) {
+    if (s.rrgQuadrant && quadrantCounts[s.rrgQuadrant]) {
+      quadrantCounts[s.rrgQuadrant].push(s.etfTicker);
+    }
+  }
+  const hasQuadrantData = sectors.some(s => s.rrgQuadrant != null);
+
   return (
     <div className="flex flex-col h-full">
       <header className="px-6 py-4 border-b border-slate-700 shrink-0">
@@ -239,19 +254,46 @@ export default async function SectorsHubPage() {
             className="text-slate-100 font-bold"
             style={{ fontFamily: "var(--font-rajdhani)", fontSize: "22px", letterSpacing: "0.02em" }}
           >
-            Sector Sub-Sectors
+            Sub-Sector Rotation
           </h1>
           <span
             className="text-[11px] text-slate-500"
             style={{ fontFamily: "var(--font-jetbrains-mono)" }}
           >
-            11 GICS sectors · ~85 sub-sector ETFs
+            11 GICS sectors · 62 sub-sector ETFs
           </span>
         </div>
         <p className="text-xs text-slate-500 mt-1 max-w-xl">
           Each sub-sector is benchmarked against its parent sector ETF — not the S&amp;P 500.
           A positive RS score means capital is rotating into that sub-sector <em>within</em> its sector.
         </p>
+
+        {hasQuadrantData && (
+          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-700/50 flex-wrap">
+            <span className="text-[10px] text-slate-600 uppercase tracking-wider shrink-0">
+              Sector Rotation
+            </span>
+            {QUADRANT_STRIP_CONFIG.map(({ key, label, colorClass, dotClass }) => {
+              const tickers = quadrantCounts[key];
+              return (
+                <div key={key} className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotClass}`} />
+                  <span className={`text-[11px] font-semibold ${colorClass}`} style={{ fontFamily: "var(--font-rajdhani)" }}>
+                    {label}
+                  </span>
+                  <span className="text-[11px] text-slate-400" style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+                    {tickers.length > 0 ? `(${tickers.length})` : "—"}
+                  </span>
+                  {tickers.length > 0 && (
+                    <span className="text-[10px] text-slate-600 hidden xl:inline" style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+                      {tickers.join(" · ")}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </header>
 
       <main className="flex-1 overflow-y-auto p-6">

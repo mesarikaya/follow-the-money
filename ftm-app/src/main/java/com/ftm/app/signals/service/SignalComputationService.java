@@ -185,13 +185,13 @@ public class SignalComputationService {
               categoryId,
               SignalType.MACRO_FIT,
               macroFitByCategoryId.get(categoryId));
-          addIfNotNull(
-              pendingRows,
-              signalDate,
-              categoryId,
-              SignalType.COMPOSITE,
-              compositeScoresByCategoryId.get(categoryId));
         }
+        addIfNotNull(
+            pendingRows,
+            signalDate,
+            categoryId,
+            SignalType.COMPOSITE,
+            compositeScoresByCategoryId.get(categoryId));
       }
 
       if (pendingRows.size() >= UPSERT_CHUNK_SIZE) {

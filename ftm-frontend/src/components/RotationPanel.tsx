@@ -104,31 +104,45 @@ export default function RotationPanel({ rotation }: Props) {
       </div>
 
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
-        <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-          Recent Events
-        </h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Recent Events
+          </h3>
+          {rotation.recentEvents.length > 0 && (
+            <span className="text-[10px] text-slate-600" style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+              {rotation.recentEvents.length} total · 90d
+            </span>
+          )}
+        </div>
         <ul className="space-y-2">
           {rotation.recentEvents.length === 0 && (
             <li className="text-xs text-slate-500">No rotation events in the last 90 days</li>
           )}
-          {rotation.recentEvents.slice(0, 6).map((event, index) => (
-            <li key={index} className="flex flex-col gap-0.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-200">
-                  {EVENT_TYPE_LABELS[event.eventType] ?? event.eventType}
-                </span>
-                <span className="text-xs text-slate-600 font-mono">
-                  {String(event.detectedDate)}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400">{event.categoryName}</span>
-                <span className="text-xs text-slate-600">
-                  {Math.round(Number(event.confidence) * 100)}% confidence
-                </span>
-              </div>
-            </li>
-          ))}
+          {rotation.recentEvents.slice(0, 6).map((event, index) => {
+            const label = EVENT_TYPE_LABELS[event.eventType] ?? event.eventType;
+            const isEntering = event.eventType.startsWith("ENTERING_");
+            const isBullish = event.eventType === "ENTERING_IMPROVING" || event.eventType === "ENTERING_LEADING" || event.eventType === "COMPOSITE_BREAKOUT";
+            const isBearish = event.eventType === "ENTERING_WEAKENING" || event.eventType === "ENTERING_LAGGING";
+            const labelColor = isBullish ? "text-emerald-400" : isBearish ? "text-orange-400" : "text-slate-200";
+            return (
+              <li key={index} className="flex flex-col gap-0.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`text-xs font-medium ${labelColor}`}>
+                    {label}
+                  </span>
+                  <span className="text-[10px] text-slate-600 font-mono shrink-0">
+                    {String(event.detectedDate)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400">{event.categoryName}</span>
+                  <span className={`text-[10px] tabular-nums ${Number(event.confidence) >= 0.85 ? "text-emerald-600" : "text-slate-600"}`}>
+                    {Math.round(Number(event.confidence) * 100)}%
+                  </span>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </div>

@@ -1,17 +1,17 @@
 import { fetchSubSectors, SubSectorSummary } from "@/lib/api";
 
 const QUADRANT_LABELS: Record<string, string> = {
-  "1": "↗ Leading",
-  "2": "↖ Improving",
-  "3": "↘ Weakening",
-  "4": "↙ Lagging",
+  "4": "↗ Leading",
+  "3": "↖ Improving",
+  "2": "↘ Weakening",
+  "1": "↙ Lagging",
 };
 
 const QUADRANT_COLORS: Record<string, string> = {
-  "1": "text-emerald-400",
-  "2": "text-blue-400",
-  "3": "text-amber-400",
-  "4": "text-red-400",
+  "4": "text-emerald-400",
+  "3": "text-blue-400",
+  "2": "text-amber-400",
+  "1": "text-red-400",
 };
 
 const FACTOR_DESCRIPTIONS: Record<string, string> = {

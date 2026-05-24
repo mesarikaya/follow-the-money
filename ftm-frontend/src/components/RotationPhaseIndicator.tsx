@@ -36,8 +36,8 @@ export default function RotationPhaseIndicator({ categories }: { categories: Cat
   const equitySectors = categories.filter(c => c.type === "EQUITY_SECTOR");
   if (equitySectors.length === 0) return null;
 
-  const leading = equitySectors.filter(c => c.rrgQuadrant === "1");
-  const improving = equitySectors.filter(c => c.rrgQuadrant === "2");
+  const leading = equitySectors.filter(c => c.rrgQuadrant === "4");
+  const improving = equitySectors.filter(c => c.rrgQuadrant === "3");
 
   if (leading.length === 0 && improving.length === 0) return null;
 

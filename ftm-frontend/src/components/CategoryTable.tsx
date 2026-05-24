@@ -20,10 +20,10 @@ const TYPE_SECTION_LABELS: Record<string, string> = {
 };
 
 const RRG_QUADRANT_CONFIG: Record<number, { label: string; color: string; borderClass: string }> = {
-  1: { label: "↗ Leading",   color: "text-green-400",  borderClass: "border-l-green-500"  },
-  2: { label: "↖ Improving", color: "text-blue-400",   borderClass: "border-l-cyan-500"   },
-  3: { label: "↘ Weakening", color: "text-orange-400", borderClass: "border-l-orange-500" },
-  4: { label: "↙ Lagging",   color: "text-slate-400",  borderClass: "border-l-slate-600"  },
+  4: { label: "↗ Leading",   color: "text-green-400",  borderClass: "border-l-green-500"  },
+  3: { label: "↖ Improving", color: "text-blue-400",   borderClass: "border-l-cyan-500"   },
+  2: { label: "↘ Weakening", color: "text-orange-400", borderClass: "border-l-orange-500" },
+  1: { label: "↙ Lagging",   color: "text-slate-400",  borderClass: "border-l-slate-600"  },
 };
 
 function TrendPip({

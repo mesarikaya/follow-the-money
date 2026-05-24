@@ -22,22 +22,22 @@ const QUADRANT_CONFIG: Record<string, {
   badgeClass: string;
   leftBorderClass: string;
 }> = {
-  "1": {
+  "4": {
     label: "↗ Leading",
     badgeClass: "bg-green-500/10 text-green-400 border border-green-500/25",
     leftBorderClass: "border-l-green-500",
   },
-  "2": {
+  "3": {
     label: "↖ Improving",
     badgeClass: "bg-cyan-500/10 text-cyan-400 border border-cyan-500/25",
     leftBorderClass: "border-l-cyan-500",
   },
-  "3": {
+  "2": {
     label: "↘ Weakening",
     badgeClass: "bg-orange-500/10 text-orange-400 border border-orange-500/25",
     leftBorderClass: "border-l-orange-500",
   },
-  "4": {
+  "1": {
     label: "↙ Lagging",
     badgeClass: "bg-slate-500/15 text-slate-400 border border-slate-500/30",
     leftBorderClass: "border-l-slate-600",

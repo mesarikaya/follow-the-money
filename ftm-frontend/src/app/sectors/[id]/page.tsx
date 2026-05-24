@@ -21,10 +21,10 @@ const SECTOR_META: Record<string, { name: string; etfTicker: string }> = {
 };
 
 const QUADRANT_SUMMARY: Record<string, { label: string; colorClass: string }> = {
-  "1": { label: "↗ Leading",   colorClass: "text-green-400"  },
-  "2": { label: "↖ Improving", colorClass: "text-cyan-400"   },
-  "3": { label: "↘ Weakening", colorClass: "text-orange-400" },
-  "4": { label: "↙ Lagging",   colorClass: "text-slate-400"  },
+  "4": { label: "↗ Leading",   colorClass: "text-green-400"  },
+  "3": { label: "↖ Improving", colorClass: "text-cyan-400"   },
+  "2": { label: "↘ Weakening", colorClass: "text-orange-400" },
+  "1": { label: "↙ Lagging",   colorClass: "text-slate-400"  },
 };
 
 export default async function SectorDrilldownPage({ params }: Props) {
@@ -41,7 +41,7 @@ export default async function SectorDrilldownPage({ params }: Props) {
     error = err instanceof Error ? err.message : "Failed to load sub-sectors";
   }
 
-  const quadrantCounts: Record<string, SubSectorSummary[]> = { "1": [], "2": [], "3": [], "4": [] };
+  const quadrantCounts: Record<string, SubSectorSummary[]> = { "4": [], "3": [], "2": [], "1": [] };
   for (const s of subSectors) {
     if (s.rrgQuadrant && quadrantCounts[s.rrgQuadrant]) {
       quadrantCounts[s.rrgQuadrant].push(s);

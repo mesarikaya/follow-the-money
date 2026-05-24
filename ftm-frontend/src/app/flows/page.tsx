@@ -9,10 +9,10 @@ import {
 export const dynamic = "force-dynamic";
 
 const QUADRANT_CONFIG: Record<string, { label: string; colorClass: string; badgeClass: string }> = {
-  "1": { label: "↗ Leading",   colorClass: "text-green-400",  badgeClass: "bg-green-500/10 text-green-400 border border-green-500/25" },
-  "2": { label: "↖ Improving", colorClass: "text-cyan-400",   badgeClass: "bg-cyan-500/10 text-cyan-400 border border-cyan-500/25" },
-  "3": { label: "↘ Weakening", colorClass: "text-orange-400", badgeClass: "bg-orange-500/10 text-orange-400 border border-orange-500/25" },
-  "4": { label: "↙ Lagging",   colorClass: "text-slate-400",  badgeClass: "bg-slate-500/15 text-slate-400 border border-slate-500/30" },
+  "4": { label: "↗ Leading",   colorClass: "text-green-400",  badgeClass: "bg-green-500/10 text-green-400 border border-green-500/25" },
+  "3": { label: "↖ Improving", colorClass: "text-cyan-400",   badgeClass: "bg-cyan-500/10 text-cyan-400 border border-cyan-500/25" },
+  "2": { label: "↘ Weakening", colorClass: "text-orange-400", badgeClass: "bg-orange-500/10 text-orange-400 border border-orange-500/25" },
+  "1": { label: "↙ Lagging",   colorClass: "text-slate-400",  badgeClass: "bg-slate-500/15 text-slate-400 border border-slate-500/30" },
 };
 
 const EVENT_LABELS: Record<string, { label: string; colorClass: string }> = {

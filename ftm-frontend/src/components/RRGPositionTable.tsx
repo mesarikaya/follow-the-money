@@ -11,17 +11,17 @@ const QUADRANT_CONFIG: Record<number, {
   badgeClass: string;
   description: string;
 }> = {
-  1: { label: "↗ Leading",   shortLabel: "Leading",   order: 0, colorClass: "text-green-400",  badgeClass: "bg-green-500/10 text-green-400 border border-green-500/20",   description: "High RS, rising momentum — strongest rotation" },
-  2: { label: "↖ Improving", shortLabel: "Improving", order: 1, colorClass: "text-cyan-400",   badgeClass: "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20",     description: "Low RS, rising momentum — early-stage entry" },
-  3: { label: "↘ Weakening", shortLabel: "Weakening", order: 2, colorClass: "text-orange-400", badgeClass: "bg-orange-500/10 text-orange-400 border border-orange-500/20", description: "High RS, falling momentum — rotation peak" },
-  4: { label: "↙ Lagging",   shortLabel: "Lagging",   order: 3, colorClass: "text-slate-400",  badgeClass: "bg-slate-500/15 text-slate-400 border border-slate-500/25",   description: "Low RS, falling momentum — avoid or short" },
+  4: { label: "↗ Leading",   shortLabel: "Leading",   order: 0, colorClass: "text-green-400",  badgeClass: "bg-green-500/10 text-green-400 border border-green-500/20",   description: "High RS, rising momentum — strongest rotation" },
+  3: { label: "↖ Improving", shortLabel: "Improving", order: 1, colorClass: "text-cyan-400",   badgeClass: "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20",     description: "Low RS, rising momentum — early-stage entry" },
+  2: { label: "↘ Weakening", shortLabel: "Weakening", order: 2, colorClass: "text-orange-400", badgeClass: "bg-orange-500/10 text-orange-400 border border-orange-500/20", description: "High RS, falling momentum — rotation peak" },
+  1: { label: "↙ Lagging",   shortLabel: "Lagging",   order: 3, colorClass: "text-slate-400",  badgeClass: "bg-slate-500/15 text-slate-400 border border-slate-500/25",   description: "Low RS, falling momentum — avoid or short" },
 };
 
 function numericQuadrant(ratio: number, momentum: number): number {
-  if (ratio >= 100 && momentum >= 100) return 1;
-  if (ratio < 100 && momentum >= 100) return 2;
-  if (ratio >= 100 && momentum < 100) return 3;
-  return 4;
+  if (ratio >= 100 && momentum >= 100) return 4; // Leading
+  if (ratio < 100 && momentum >= 100) return 3;  // Improving
+  if (ratio >= 100 && momentum < 100) return 2;  // Weakening
+  return 1;                                       // Lagging
 }
 
 function directionArrow(current: number, previous: number | null): string {

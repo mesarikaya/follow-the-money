@@ -97,9 +97,9 @@ export default function SignalDivergencePanel({ categories }: { categories: Cate
     const quadrant = cat.rrgQuadrant;
 
     if (score != null && quadrant != null) {
-      if (score >= 0.65 && quadrant === "3") {
+      if (score >= 0.65 && quadrant === "2") {
         divergences.push({ cat, type: "SCORE_HIGH_RRG_WEAKENING" });
-      } else if (score < 0.40 && quadrant === "2") {
+      } else if (score < 0.40 && quadrant === "3") {
         divergences.push({ cat, type: "SCORE_LOW_RRG_IMPROVING" });
       }
     }

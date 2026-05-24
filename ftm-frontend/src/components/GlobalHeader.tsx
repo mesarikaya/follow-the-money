@@ -9,10 +9,10 @@ import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 type SignalChip = { id: string; etfTicker: string; score: number; quadrant: string | null };
 
 const QUADRANT_SHORT: Record<string, { label: string; color: string }> = {
-  "1": { label: "↗",  color: "text-emerald-400" },
-  "2": { label: "↖",  color: "text-cyan-400"    },
-  "3": { label: "↘",  color: "text-orange-400"  },
-  "4": { label: "↙",  color: "text-slate-400"   },
+  "4": { label: "↗",  color: "text-emerald-400" },
+  "3": { label: "↖",  color: "text-cyan-400"    },
+  "2": { label: "↘",  color: "text-orange-400"  },
+  "1": { label: "↙",  color: "text-slate-400"   },
 };
 
 function MarketSignalStrip() {

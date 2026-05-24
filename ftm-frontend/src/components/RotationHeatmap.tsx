@@ -3,10 +3,10 @@ import { CategorySummary } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 
 const QUADRANT_CONFIG: Record<string, { label: string; dot: string }> = {
-  "1": { label: "Leading",   dot: "bg-green-400"  },
-  "2": { label: "Improving", dot: "bg-blue-400"   },
-  "3": { label: "Weakening", dot: "bg-orange-400" },
-  "4": { label: "Lagging",   dot: "bg-slate-500"  },
+  "4": { label: "Leading",   dot: "bg-green-400"  },
+  "3": { label: "Improving", dot: "bg-blue-400"   },
+  "2": { label: "Weakening", dot: "bg-orange-400" },
+  "1": { label: "Lagging",   dot: "bg-slate-500"  },
 };
 
 function scoreColors(score: number | null): string {

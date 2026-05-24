@@ -6,7 +6,7 @@ import { SubSectorSummary } from "@/lib/api";
 type SortCol = "rs60" | "rs20" | "rs120" | "momentum" | "compositeScore" | "quadrant" | "acceleration";
 type SortDir = "asc" | "desc";
 
-const QUADRANT_ORDER: Record<string, number> = { "1": 0, "2": 1, "3": 2, "4": 3 };
+const QUADRANT_ORDER: Record<string, number> = { "4": 0, "3": 1, "2": 2, "1": 3 };
 
 const QUADRANT_CONFIG: Record<string, {
   label: string;
@@ -14,25 +14,25 @@ const QUADRANT_CONFIG: Record<string, {
   badgeClass: string;
   rowBorderClass: string;
 }> = {
-  "1": {
+  "4": {
     label: "↗ Leading",
     colorClass: "text-green-400",
     badgeClass: "bg-green-500/10 text-green-400 border border-green-500/25",
     rowBorderClass: "border-l-green-500",
   },
-  "2": {
+  "3": {
     label: "↖ Improving",
     colorClass: "text-cyan-400",
     badgeClass: "bg-cyan-500/10 text-cyan-400 border border-cyan-500/25",
     rowBorderClass: "border-l-cyan-500",
   },
-  "3": {
+  "2": {
     label: "↘ Weakening",
     colorClass: "text-orange-400",
     badgeClass: "bg-orange-500/10 text-orange-400 border border-orange-500/25",
     rowBorderClass: "border-l-orange-500",
   },
-  "4": {
+  "1": {
     label: "↙ Lagging",
     colorClass: "text-slate-400",
     badgeClass: "bg-slate-500/15 text-slate-400 border border-slate-500/30",

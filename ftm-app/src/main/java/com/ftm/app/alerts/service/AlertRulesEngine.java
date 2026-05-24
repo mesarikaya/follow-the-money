@@ -35,6 +35,7 @@ public class AlertRulesEngine {
   private static final String RULE_RRG_TRANSITION = "rrg_transition";
   private static final String RULE_COMPOSITE_BREAKOUT = "composite_breakout";
   private static final String RULE_MACRO_REGIME_SHIFT = "macro_regime_shift";
+  private static final String RULE_RS_ACCEL_CROSSOVER = "rs_accel_crossover";
 
   private final AlertRepository alertRepository;
   private final AlertRulesRepository alertRulesRepository;
@@ -61,6 +62,7 @@ public class AlertRulesEngine {
     int alertsCreated = 0;
     alertsCreated += evaluateRotationEventAlerts(signalDate);
     alertsCreated += evaluateMacroRegimeShift(signalDate);
+    alertsCreated += evaluateRsAccelerationCrossover(signalDate);
 
     log.info(
         "Alert rule evaluation complete: {} alerts created for date={}", alertsCreated, signalDate);
@@ -207,6 +209,88 @@ public class AlertRulesEngine {
     return String.format(
         "{\"eventType\":\"%s\",\"confidence\":%.3f,\"detectedDate\":\"%s\"}",
         rotationEvent.eventType().name(), rotationEvent.confidence(), rotationEvent.detectedDate());
+  }
+
+  private int evaluateRsAccelerationCrossover(LocalDate signalDate) {
+    boolean ruleEnabled =
+        alertRulesRepository.findById(RULE_RS_ACCEL_CROSSOVER).map(AlertRule::enabled).orElse(false);
+    if (!ruleEnabled) return 0;
+
+    Severity severity =
+        alertRulesRepository.findById(RULE_RS_ACCEL_CROSSOVER).map(AlertRule::severity).orElse(Severity.INFO);
+
+    Map<String, BigDecimal> currentRs60 =
+        signalRepository.findByTypeAndDate(SignalType.RS_60, signalDate);
+    Map<String, BigDecimal> currentRs120 =
+        signalRepository.findByTypeAndDate(SignalType.RS_120, signalDate);
+    if (currentRs60.isEmpty() || currentRs120.isEmpty()) return 0;
+
+    LocalDate prevDate = signalRepository.findPreviousSignalDate(SignalType.RS_60, signalDate);
+    if (prevDate == null) return 0;
+
+    Map<String, BigDecimal> prevRs60 = signalRepository.findByTypeAndDate(SignalType.RS_60, prevDate);
+    Map<String, BigDecimal> prevRs120 =
+        signalRepository.findByTypeAndDate(SignalType.RS_120, prevDate);
+
+    int count = 0;
+    for (String categoryId : currentRs60.keySet()) {
+      if (categoryId.contains("_")) continue; // skip sub-sectors — parent sectors only
+      BigDecimal rs60 = currentRs60.get(categoryId);
+      BigDecimal rs120 = currentRs120.get(categoryId);
+      BigDecimal prevRs60Val = prevRs60.get(categoryId);
+      BigDecimal prevRs120Val = prevRs120.get(categoryId);
+
+      if (rs60 == null || rs120 == null || prevRs60Val == null || prevRs120Val == null) continue;
+
+      boolean nowAbove = rs60.compareTo(rs120) > 0;
+      boolean wasAbove = prevRs60Val.compareTo(prevRs120Val) > 0;
+      if (nowAbove == wasAbove) continue;
+
+      CategoryId catId;
+      try {
+        catId = CategoryId.valueOf(categoryId);
+      } catch (IllegalArgumentException e) {
+        log.debug("rs_accel_crossover: skipping unknown CategoryId={}", categoryId);
+        continue;
+      }
+
+      if (!alertRepository.existsActiveAlert(RULE_RS_ACCEL_CROSSOVER, categoryId)) {
+        String message =
+            nowAbove
+                ? String.format(
+                    "%s RS-60 crossed above RS-120 — near-term momentum accelerating beyond long-term baseline",
+                    categoryId)
+                : String.format(
+                    "%s RS-60 crossed below RS-120 — near-term momentum decelerating below long-term baseline",
+                    categoryId);
+        String snapshot =
+            String.format(
+                "{\"direction\":\"%s\",\"rs60\":%.4f,\"rs120\":%.4f,\"prevRs60\":%.4f,\"prevRs120\":%.4f,\"signalDate\":\"%s\"}",
+                nowAbove ? "bullish" : "bearish",
+                rs60,
+                rs120,
+                prevRs60Val,
+                prevRs120Val,
+                signalDate);
+        alertRepository.insert(
+            new Alert(
+                OffsetDateTime.now(),
+                catId,
+                RULE_RS_ACCEL_CROSSOVER,
+                severity,
+                message,
+                snapshot,
+                AlertStatus.ACTIVE));
+        count++;
+        log.info(
+            "rs_accel_crossover alert: category={} direction={} rs60={} rs120={}",
+            categoryId,
+            nowAbove ? "bullish" : "bearish",
+            rs60,
+            rs120);
+      }
+    }
+    return count;
   }
 
   private String resolveRegimeName(int ordinal) {

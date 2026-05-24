@@ -19,6 +19,7 @@ const RULE_LABELS: Record<string, string> = {
   rrg_transition:     "RRG Transition",
   composite_breakout: "Composite Breakout",
   macro_regime_shift: "Macro Regime Shift",
+  rs_accel_crossover: "RS Accel Crossover",
   flow_inflow_5d:     "Flow Inflow (5d)",
   flow_inflow_10d:    "Flow Inflow (10d)",
   flow_inflow_20d:    "Flow Inflow (20d)",
@@ -31,6 +32,7 @@ const BUILTIN_RULES = [
   { id: "rrg_transition",     label: "RRG Transition",      condition: "RRG quadrant changes",      severity: "INFO",    note: "Any category enters Leading or Improving quadrant" },
   { id: "composite_breakout", label: "Composite Breakout",  condition: "composite_score > 0.80",    severity: "ACTION",  note: "Category score crosses into strong signal territory" },
   { id: "macro_regime_shift", label: "Macro Regime Shift",  condition: "regime changes",            severity: "WARNING", note: "Macro regime classification changes on new data" },
+  { id: "rs_accel_crossover", label: "RS Accel Crossover",  condition: "rs_60 crosses rs_120",      severity: "INFO",    note: "Near-term RS crosses long-term RS baseline — momentum acceleration or deceleration shift" },
   { id: "flow_inflow_20d",    label: "Flow Inflow (20d)",   condition: "flow_20d > threshold",      severity: "INFO",    note: "Sustained 20-day inflow above baseline" },
   { id: "flow_outflow_20d",   label: "Flow Outflow (20d)",  condition: "flow_20d < threshold",      severity: "WARNING", note: "Sustained 20-day outflow below baseline" },
 ];

@@ -188,14 +188,19 @@ public class AlertRulesEngine {
 
   private boolean isRrgTransitionEvent(RotationEventType eventType) {
     return eventType == RotationEventType.ENTERING_IMPROVING
-        || eventType == RotationEventType.ENTERING_LEADING;
+        || eventType == RotationEventType.ENTERING_LEADING
+        || eventType == RotationEventType.ENTERING_WEAKENING
+        || eventType == RotationEventType.ENTERING_LAGGING;
   }
 
   private String buildRrgTransitionMessage(RotationEvent rotationEvent) {
     String transitionDescription =
-        rotationEvent.eventType() == RotationEventType.ENTERING_LEADING
-            ? "entered Leading quadrant (Improving → Leading)"
-            : "entered Improving quadrant (Lagging → Improving)";
+        switch (rotationEvent.eventType()) {
+          case ENTERING_LEADING   -> "entered Leading quadrant (Improving → Leading)";
+          case ENTERING_WEAKENING -> "entered Weakening quadrant (Leading → Weakening) — rotation peak";
+          case ENTERING_LAGGING   -> "entered Lagging quadrant (Weakening → Lagging) — losing relative strength";
+          default                 -> "entered Improving quadrant (Lagging → Improving)";
+        };
     return String.format("%s %s", rotationEvent.categoryId().name(), transitionDescription);
   }
 

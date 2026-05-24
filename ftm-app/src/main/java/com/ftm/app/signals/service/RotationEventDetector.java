@@ -34,6 +34,7 @@ public class RotationEventDetector {
   private static final BigDecimal COMPOSITE_BREAKOUT_THRESHOLD = new BigDecimal("0.70");
 
   private static final int LAGGING_QUADRANT = 1;
+  private static final int WEAKENING_QUADRANT = 2;
   private static final int IMPROVING_QUADRANT = 3;
   private static final int LEADING_QUADRANT = 4;
 
@@ -132,6 +133,26 @@ public class RotationEventDetector {
           new BigDecimal("0.900"),
           String.format("{\"previousQuadrant\":%d,\"currentQuadrant\":%d}", previous, current),
           "Quadrant transition from Improving to Leading");
+    }
+
+    if (previous == LEADING_QUADRANT && current == WEAKENING_QUADRANT) {
+      return recordIfNew(
+          detectedDate,
+          categoryId,
+          RotationEventType.ENTERING_WEAKENING,
+          new BigDecimal("0.750"),
+          String.format("{\"previousQuadrant\":%d,\"currentQuadrant\":%d}", previous, current),
+          "Quadrant transition from Leading to Weakening — rotation peak signal");
+    }
+
+    if (previous == WEAKENING_QUADRANT && current == LAGGING_QUADRANT) {
+      return recordIfNew(
+          detectedDate,
+          categoryId,
+          RotationEventType.ENTERING_LAGGING,
+          new BigDecimal("0.800"),
+          String.format("{\"previousQuadrant\":%d,\"currentQuadrant\":%d}", previous, current),
+          "Quadrant transition from Weakening to Lagging — sector losing relative strength");
     }
 
     return 0;

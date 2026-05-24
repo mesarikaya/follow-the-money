@@ -16,12 +16,12 @@ const QUADRANT_CONFIG: Record<string, { label: string; colorClass: string; badge
 };
 
 const EVENT_LABELS: Record<string, { label: string; colorClass: string }> = {
-  RRG_TRANSITION_IMPROVING_TO_LEADING:  { label: "↗ Improving→Leading",  colorClass: "text-green-400" },
-  RRG_TRANSITION_LAGGING_TO_IMPROVING:  { label: "↑ Lagging→Improving",  colorClass: "text-cyan-400" },
-  RRG_TRANSITION_LEADING_TO_WEAKENING:  { label: "↘ Leading→Weakening",  colorClass: "text-orange-400" },
-  RRG_TRANSITION_WEAKENING_TO_LAGGING:  { label: "↙ Weakening→Lagging",  colorClass: "text-slate-400" },
-  COMPOSITE_BREAKOUT:                   { label: "★ Composite Breakout",  colorClass: "text-yellow-400" },
-  FLOW_SURGE:                           { label: "⚡ Flow Surge",          colorClass: "text-blue-400" },
+  ENTERING_IMPROVING:  { label: "↑ Lagging→Improving",  colorClass: "text-cyan-400"   },
+  ENTERING_LEADING:    { label: "↗ Improving→Leading",  colorClass: "text-green-400"  },
+  ENTERING_WEAKENING:  { label: "↘ Leading→Weakening",  colorClass: "text-orange-400" },
+  ENTERING_LAGGING:    { label: "↙ Weakening→Lagging",  colorClass: "text-slate-400"  },
+  COMPOSITE_BREAKOUT:  { label: "★ Composite Breakout", colorClass: "text-yellow-400" },
+  FLOW_SURGE:          { label: "⚡ Flow Surge",         colorClass: "text-blue-400"   },
 };
 
 function formatRs(value: number | null): string {

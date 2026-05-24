@@ -3,6 +3,8 @@ package com.ftm.app.domain;
 public enum RotationEventType {
   ENTERING_IMPROVING,
   ENTERING_LEADING,
+  ENTERING_WEAKENING,
+  ENTERING_LAGGING,
   FLOW_SURGE,
   COMPOSITE_BREAKOUT
 }

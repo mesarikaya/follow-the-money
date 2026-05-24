@@ -3,15 +3,17 @@ import { RotationResponse } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 
 const QUADRANT_LABELS: Record<number, string> = {
-  1: "↗ Leading",
-  2: "↖ Improving",
-  3: "↘ Weakening",
-  4: "↙ Lagging",
+  4: "↗ Leading",
+  3: "↖ Improving",
+  2: "↘ Weakening",
+  1: "↙ Lagging",
 };
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   ENTERING_IMPROVING:  "Entered Improving",
   ENTERING_LEADING:    "Entered Leading",
+  ENTERING_WEAKENING:  "Entered Weakening",
+  ENTERING_LAGGING:    "Entered Lagging",
   COMPOSITE_BREAKOUT:  "Composite Breakout",
   FLOW_SURGE:          "Flow Surge",
 };

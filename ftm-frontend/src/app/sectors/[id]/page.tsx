@@ -113,7 +113,7 @@ export default async function SectorDrilldownPage({ params }: Props) {
           <>
             {/* Quadrant summary cards */}
             <div className="grid grid-cols-4 gap-3">
-              {(["1", "2", "3", "4"] as const).map((q) => {
+              {(["4", "3", "2", "1"] as const).map((q) => {
                 const config = QUADRANT_SUMMARY[q];
                 const members = quadrantCounts[q];
                 return (

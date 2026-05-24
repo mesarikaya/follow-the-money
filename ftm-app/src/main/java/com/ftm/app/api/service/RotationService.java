@@ -62,6 +62,7 @@ public class RotationService {
     List<RotationLeaderEntry> allRanked =
         categoriesById.entrySet().stream()
             .filter(entry -> compositeScores.containsKey(entry.getKey()))
+            .filter(entry -> entry.getValue().parentId() == null)
             .map(
                 entry -> {
                   String categoryId = entry.getKey();

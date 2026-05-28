@@ -77,6 +77,29 @@ class CategoryRepositoryIT {
   }
 
   @Test
+  @DisplayName("findTopLevelActiveCategoryIds returns only active top-level category IDs")
+  void shouldReturnOnlyTopLevelActiveCategoryIds() {
+    java.util.Set<String> ids = repository.findTopLevelActiveCategoryIds();
+
+    // 19 top-level active categories (FTRS is inactive; sub-sectors have non-null parent_id)
+    assertThat(ids).hasSize(19);
+    assertThat(ids).contains("TECH", "FINL", "HLTH", "CASH");
+    // Sub-sectors must not appear
+    assertThat(ids).doesNotContain("SEMI", "FINL_BANK", "HLTH_BIOT");
+  }
+
+  @Test
+  @DisplayName("findTopLevelActiveCategoryIds excludes inactive top-level categories")
+  void shouldExcludeInactiveFromTopLevelIds() {
+    jdbcTemplate.update("UPDATE categories SET active = false WHERE id = 'CASH'");
+
+    java.util.Set<String> ids = repository.findTopLevelActiveCategoryIds();
+
+    assertThat(ids).doesNotContain("CASH");
+    assertThat(ids).hasSize(18);
+  }
+
+  @Test
   @DisplayName(
       "findAllWithLatestPrice returns all 19 categories with null price when no prices ingested")
   void findAllWithLatestPrice_returnsAllCategoriesWithNullPriceWhenNoPricesExist() {

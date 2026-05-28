@@ -6,6 +6,7 @@ import com.ftm.app.domain.Category;
 import com.ftm.app.domain.SignalType;
 import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.springframework.cache.annotation.Cacheable;
@@ -28,18 +29,34 @@ public class SubSectorService {
     List<Category> subCategories = categoryRepository.findSubCategoriesByParentId(parentCategoryId);
     if (subCategories.isEmpty()) return List.of();
 
-    Map<String, BigDecimal> rs20ByCategory = signalRepository.findLatestByType(SignalType.RS_20);
-    Map<String, BigDecimal> rs60ByCategory = signalRepository.findLatestByType(SignalType.RS_60);
-    Map<String, BigDecimal> rs120ByCategory = signalRepository.findLatestByType(SignalType.RS_120);
-    Map<String, BigDecimal> momentumByCategory = signalRepository.findLatestByType(SignalType.MOM);
+    Map<SignalType, Map<String, BigDecimal>> signals =
+        signalRepository.findLatestByTypes(
+            List.of(
+                SignalType.RS_20,
+                SignalType.RS_60,
+                SignalType.RS_120,
+                SignalType.MOM,
+                SignalType.RRG_QUADRANT,
+                SignalType.COMPOSITE,
+                SignalType.COMPOSITE_TREND_5D,
+                SignalType.COMPOSITE_TREND_20D));
+
+    Map<String, BigDecimal> rs20ByCategory =
+        signals.getOrDefault(SignalType.RS_20, Collections.emptyMap());
+    Map<String, BigDecimal> rs60ByCategory =
+        signals.getOrDefault(SignalType.RS_60, Collections.emptyMap());
+    Map<String, BigDecimal> rs120ByCategory =
+        signals.getOrDefault(SignalType.RS_120, Collections.emptyMap());
+    Map<String, BigDecimal> momentumByCategory =
+        signals.getOrDefault(SignalType.MOM, Collections.emptyMap());
     Map<String, BigDecimal> rrgQuadrantByCategory =
-        signalRepository.findLatestByType(SignalType.RRG_QUADRANT);
+        signals.getOrDefault(SignalType.RRG_QUADRANT, Collections.emptyMap());
     Map<String, BigDecimal> compositeByCategory =
-        signalRepository.findLatestByType(SignalType.COMPOSITE);
+        signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap());
     Map<String, BigDecimal> trend5dByCategory =
-        signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_5D);
+        signals.getOrDefault(SignalType.COMPOSITE_TREND_5D, Collections.emptyMap());
     Map<String, BigDecimal> trend20dByCategory =
-        signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_20D);
+        signals.getOrDefault(SignalType.COMPOSITE_TREND_20D, Collections.emptyMap());
 
     return subCategories.stream()
         .map(

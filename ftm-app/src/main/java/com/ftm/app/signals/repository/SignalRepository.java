@@ -81,6 +81,26 @@ public class SignalRepository {
         .fetchMap(SIGNALS.CATEGORY_ID, SIGNALS.VALUE);
   }
 
+  public Map<SignalType, Map<String, BigDecimal>> findLatestByTypes(List<SignalType> types) {
+    if (types.isEmpty()) return Map.of();
+    var typeNames = types.stream().map(SignalType::name).toList();
+    var latestPerType =
+        dsl.select(SIGNALS.SIGNAL_TYPE, max(SIGNALS.SIGNAL_DATE))
+            .from(SIGNALS)
+            .where(SIGNALS.SIGNAL_TYPE.in(typeNames))
+            .groupBy(SIGNALS.SIGNAL_TYPE);
+    return dsl.select(SIGNALS.CATEGORY_ID, SIGNALS.SIGNAL_TYPE, SIGNALS.VALUE)
+        .from(SIGNALS)
+        .where(row(SIGNALS.SIGNAL_TYPE, SIGNALS.SIGNAL_DATE).in(latestPerType))
+        .stream()
+        .collect(
+            Collectors.groupingBy(
+                r -> SignalType.valueOf(r.get(SIGNALS.SIGNAL_TYPE)),
+                Collectors.toMap(
+                    r -> r.get(SIGNALS.CATEGORY_ID),
+                    r -> r.get(SIGNALS.VALUE))));
+  }
+
   public LocalDate findPreviousSignalDate(SignalType type, LocalDate currentDate) {
     return dsl.select(max(SIGNALS.SIGNAL_DATE))
         .from(SIGNALS)

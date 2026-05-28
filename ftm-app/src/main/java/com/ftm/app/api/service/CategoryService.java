@@ -7,6 +7,7 @@ import com.ftm.app.domain.SignalType;
 import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -41,23 +42,38 @@ public class CategoryService {
     log.debug("Loading categories for timeframe={}", timeframe);
     var rows = categoryRepository.findAllWithLatestPrice();
     SignalType rsType = rsTypeForTimeframe(timeframe);
-    Map<String, BigDecimal> rsByCategory = signalRepository.findLatestByType(rsType);
+    List<SignalType> typesToFetch = List.of(
+        rsType,
+        SignalType.COMPOSITE,
+        SignalType.RRG_QUADRANT,
+        SignalType.COMPOSITE_TREND_5D,
+        SignalType.COMPOSITE_TREND_10D,
+        SignalType.COMPOSITE_TREND_20D,
+        SignalType.RS_120,
+        SignalType.FLOW_20D,
+        SignalType.PERSISTENCE_20D);
+    // Exclude duplicates when rsType is one of the already-listed types (e.g. RS_60 = default)
+    var uniqueTypes = typesToFetch.stream().distinct().toList();
+    Map<SignalType, Map<String, BigDecimal>> signals =
+        signalRepository.findLatestByTypes(uniqueTypes);
+    Map<String, BigDecimal> rsByCategory =
+        signals.getOrDefault(rsType, Collections.emptyMap());
     Map<String, BigDecimal> compositeByCategoryId =
-        signalRepository.findLatestByType(SignalType.COMPOSITE);
+        signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap());
     Map<String, BigDecimal> rrgQuadrantByCategoryId =
-        signalRepository.findLatestByType(SignalType.RRG_QUADRANT);
+        signals.getOrDefault(SignalType.RRG_QUADRANT, Collections.emptyMap());
     Map<String, BigDecimal> compositeTrend5dByCategoryId =
-        signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_5D);
+        signals.getOrDefault(SignalType.COMPOSITE_TREND_5D, Collections.emptyMap());
     Map<String, BigDecimal> compositeTrend10dByCategoryId =
-        signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_10D);
+        signals.getOrDefault(SignalType.COMPOSITE_TREND_10D, Collections.emptyMap());
     Map<String, BigDecimal> compositeTrend20dByCategoryId =
-        signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_20D);
+        signals.getOrDefault(SignalType.COMPOSITE_TREND_20D, Collections.emptyMap());
     Map<String, BigDecimal> rs120ByCategoryId =
-        signalRepository.findLatestByType(SignalType.RS_120);
+        signals.getOrDefault(SignalType.RS_120, Collections.emptyMap());
     Map<String, BigDecimal> flow20dByCategoryId =
-        signalRepository.findLatestByType(SignalType.FLOW_20D);
+        signals.getOrDefault(SignalType.FLOW_20D, Collections.emptyMap());
     Map<String, BigDecimal> persistence20dByCategoryId =
-        signalRepository.findLatestByType(SignalType.PERSISTENCE_20D);
+        signals.getOrDefault(SignalType.PERSISTENCE_20D, Collections.emptyMap());
 
     // Primary sort: timeframe RS signal; secondary: composite score (tiebreaker)
     var sortedRows =

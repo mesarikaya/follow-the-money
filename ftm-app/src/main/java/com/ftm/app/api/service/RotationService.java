@@ -11,6 +11,7 @@ import com.ftm.app.signals.repository.RotationEventRepository;
 import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -49,12 +50,15 @@ public class RotationService {
         categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc().stream()
             .collect(Collectors.toMap(c -> c.id().name(), c -> c));
 
+    Map<SignalType, Map<String, BigDecimal>> signals =
+        signalRepository.findLatestByTypes(
+            List.of(SignalType.COMPOSITE, SignalType.RS_60, SignalType.RRG_QUADRANT));
     Map<String, BigDecimal> compositeScores =
-        signalRepository.findLatestByType(SignalType.COMPOSITE);
+        signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap());
     Map<String, BigDecimal> relativeStrength60Days =
-        signalRepository.findLatestByType(SignalType.RS_60);
+        signals.getOrDefault(SignalType.RS_60, Collections.emptyMap());
     Map<String, BigDecimal> rrgQuadrants =
-        signalRepository.findLatestByType(SignalType.RRG_QUADRANT);
+        signals.getOrDefault(SignalType.RRG_QUADRANT, Collections.emptyMap());
 
     LocalDate asOfDate =
         signalRepository.findLatestSignalDate().orElse(LocalDate.now());

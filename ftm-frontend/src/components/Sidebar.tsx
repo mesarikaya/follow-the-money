@@ -23,8 +23,7 @@ const MANAGEMENT_ITEMS = [
 function useActiveAlertCount(): number {
   const [count, setCount] = useState(0);
   useEffect(() => {
-    const backend = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8080";
-    fetch(`${backend}/api/v1/alerts`)
+    fetch("/api/v1/alerts")
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data?.activeCount) setCount(data.activeCount); })
       .catch(() => {});

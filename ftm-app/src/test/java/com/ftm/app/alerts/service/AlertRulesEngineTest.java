@@ -13,9 +13,7 @@ import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.domain.Alert;
 import com.ftm.app.domain.AlertRule;
 import com.ftm.app.domain.AlertStatus;
-import com.ftm.app.domain.Category;
 import com.ftm.app.domain.CategoryId;
-import com.ftm.app.domain.CategoryType;
 import com.ftm.app.domain.RotationEvent;
 import com.ftm.app.domain.RotationEventType;
 import com.ftm.app.domain.Severity;
@@ -28,6 +26,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -70,14 +69,7 @@ class AlertRulesEngineTest {
   }
 
   private void stubTopLevelCategories(String... ids) {
-    List<Category> categories =
-        java.util.Arrays.stream(ids)
-            .map(
-                id ->
-                    new Category(
-                        CategoryId.valueOf(id), id, CategoryType.EQUITY_SECTOR, id, "SPY", 1, true, null))
-            .toList();
-    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc()).thenReturn(categories);
+    when(categoryRepository.findTopLevelActiveCategoryIds()).thenReturn(Set.of(ids));
   }
 
   private void stubMacroDisabled() {

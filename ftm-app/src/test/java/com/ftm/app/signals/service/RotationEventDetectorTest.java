@@ -7,9 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ftm.app.api.repository.CategoryRepository;
-import com.ftm.app.domain.Category;
 import com.ftm.app.domain.CategoryId;
-import com.ftm.app.domain.CategoryType;
 import com.ftm.app.domain.RotationEvent;
 import com.ftm.app.domain.RotationEventType;
 import com.ftm.app.domain.SignalType;
@@ -18,8 +16,9 @@ import com.ftm.app.signals.repository.RotationEventRepository;
 import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,14 +45,7 @@ class RotationEventDetectorTest {
   }
 
   private void stubTopLevelCategories(String... ids) {
-    List<Category> categories =
-        java.util.Arrays.stream(ids)
-            .map(
-                id ->
-                    new Category(
-                        CategoryId.valueOf(id), id, CategoryType.EQUITY_SECTOR, id, "SPY", 1, true, null))
-            .toList();
-    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc()).thenReturn(categories);
+    when(categoryRepository.findTopLevelActiveCategoryIds()).thenReturn(Set.of(ids));
   }
 
   private void stubQuadrants(
@@ -175,15 +167,9 @@ class RotationEventDetectorTest {
   @Test
   @DisplayName("Sub-sector category (not top-level): skipped even if quadrant transitions")
   void shouldSkipSubSectorCategories() {
-    // SEMI has a parentId (it's a sub-sector of TECH)
-    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
-        .thenReturn(List.of(
-            // TECH has no parent → top-level
-            new Category(CategoryId.TECH, "TECH", CategoryType.EQUITY_SECTOR, "XLK", "SPY", 1, true, null),
-            // SEMI has a parent → sub-sector, should be filtered out
-            new Category(CategoryId.SEMI, "Semiconductors", CategoryType.EQUITY_SECTOR, "SOXX", "XLK", 101, true, "TECH")));
+    stubTopLevelCategories("TECH"); // SEMI is a sub-sector and excluded from top-level set
 
-    // Both TECH and SEMI show quadrant transition, but only TECH should fire
+    // Both TECH and SEMI show a Lagging→Improving quadrant transition
     when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
         .thenReturn(Map.of("TECH", new BigDecimal("3"), "SEMI", new BigDecimal("3")));
     when(signalRepository.findPreviousSignalDate(SignalType.RRG_QUADRANT, DATE)).thenReturn(PREV_DATE);
@@ -194,6 +180,7 @@ class RotationEventDetectorTest {
 
     detector.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
+    // Only TECH fires — SEMI is skipped because it is not in topLevelCategoryIds
     ArgumentCaptor<RotationEvent> captor = ArgumentCaptor.forClass(RotationEvent.class);
     verify(rotationEventRepository).insert(captor.capture());
     assertThat(captor.getValue().categoryId()).isEqualTo(CategoryId.TECH);

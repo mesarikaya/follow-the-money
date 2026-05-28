@@ -3,6 +3,7 @@ package com.ftm.app.api.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.instancio.Select.field;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
 
 import com.ftm.app.api.dto.RotationResponse;
@@ -45,13 +46,18 @@ class RotationServiceTest {
         .create();
   }
 
+  private Map<SignalType, Map<String, BigDecimal>> noSignals() {
+    return Map.of(
+        SignalType.COMPOSITE, Map.of(),
+        SignalType.RS_60, Map.of(),
+        SignalType.RRG_QUADRANT, Map.of());
+  }
+
   @Test
   @DisplayName("getLatest returns rotation response with empty lists when no signals")
   void shouldReturnEmptyResponseWhenNoSignals() {
     when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc()).thenReturn(List.of());
-    when(signalRepository.findLatestByType(SignalType.COMPOSITE)).thenReturn(Map.of());
-    when(signalRepository.findLatestByType(SignalType.RS_60)).thenReturn(Map.of());
-    when(signalRepository.findLatestByType(SignalType.RRG_QUADRANT)).thenReturn(Map.of());
+    when(signalRepository.findLatestByTypes(anyList())).thenReturn(noSignals());
     when(rotationEventRepository.findRecentEvents(any(LocalDate.class))).thenReturn(List.of());
 
     RotationResponse response = rotationService.getLatest();
@@ -66,10 +72,12 @@ class RotationServiceTest {
   void shouldRankByCompositeScore() {
     Category tech = techCategory();
     when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc()).thenReturn(List.of(tech));
-    when(signalRepository.findLatestByType(SignalType.COMPOSITE))
-        .thenReturn(Map.of("TECH", new BigDecimal("0.85")));
-    when(signalRepository.findLatestByType(SignalType.RS_60)).thenReturn(Map.of());
-    when(signalRepository.findLatestByType(SignalType.RRG_QUADRANT)).thenReturn(Map.of());
+    when(signalRepository.findLatestByTypes(anyList()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE, Map.of("TECH", new BigDecimal("0.85")),
+                SignalType.RS_60, Map.of(),
+                SignalType.RRG_QUADRANT, Map.of()));
     when(rotationEventRepository.findRecentEvents(any(LocalDate.class))).thenReturn(List.of());
 
     RotationResponse response = rotationService.getLatest();
@@ -92,10 +100,9 @@ class RotationServiceTest {
             "{}",
             "Strong inflows");
     when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc()).thenReturn(List.of(tech));
-    when(signalRepository.findLatestByType(SignalType.COMPOSITE)).thenReturn(Map.of());
-    when(signalRepository.findLatestByType(SignalType.RS_60)).thenReturn(Map.of());
-    when(signalRepository.findLatestByType(SignalType.RRG_QUADRANT)).thenReturn(Map.of());
-    when(rotationEventRepository.findRecentEvents(any(LocalDate.class))).thenReturn(List.of(event));
+    when(signalRepository.findLatestByTypes(anyList())).thenReturn(noSignals());
+    when(rotationEventRepository.findRecentEvents(any(LocalDate.class)))
+        .thenReturn(List.of(event));
 
     RotationResponse response = rotationService.getLatest();
 

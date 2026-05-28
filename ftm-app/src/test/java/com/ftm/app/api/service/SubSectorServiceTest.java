@@ -2,6 +2,7 @@ package com.ftm.app.api.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.instancio.Select.field;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
 
 import com.ftm.app.api.dto.SubSectorSummaryDto;
@@ -38,6 +39,18 @@ class SubSectorServiceTest {
         .create();
   }
 
+  private Map<SignalType, Map<String, BigDecimal>> emptySignals() {
+    return Map.ofEntries(
+        Map.entry(SignalType.RS_20, Map.of()),
+        Map.entry(SignalType.RS_60, Map.of()),
+        Map.entry(SignalType.RS_120, Map.of()),
+        Map.entry(SignalType.MOM, Map.of()),
+        Map.entry(SignalType.RRG_QUADRANT, Map.of()),
+        Map.entry(SignalType.COMPOSITE, Map.of()),
+        Map.entry(SignalType.COMPOSITE_TREND_5D, Map.of()),
+        Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of()));
+  }
+
   @Test
   @DisplayName("getSubSectors returns empty list when parent has no sub-categories")
   void shouldReturnEmptyWhenNoSubCategories() {
@@ -53,13 +66,17 @@ class SubSectorServiceTest {
   void shouldMapCategoryAndSignals() {
     Category semi = subCategory(CategoryId.SEMI, "TECH");
     when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(List.of(semi));
-    when(signalRepository.findLatestByType(SignalType.RS_20))
-        .thenReturn(Map.of("SEMI", new BigDecimal("1.05")));
-    when(signalRepository.findLatestByType(SignalType.RS_60))
-        .thenReturn(Map.of("SEMI", new BigDecimal("1.12")));
-    when(signalRepository.findLatestByType(SignalType.RS_120)).thenReturn(Map.of());
-    when(signalRepository.findLatestByType(SignalType.MOM)).thenReturn(Map.of());
-    when(signalRepository.findLatestByType(SignalType.RRG_QUADRANT)).thenReturn(Map.of());
+    when(signalRepository.findLatestByTypes(anyList()))
+        .thenReturn(
+            Map.ofEntries(
+                Map.entry(SignalType.RS_20, Map.of("SEMI", new BigDecimal("1.05"))),
+                Map.entry(SignalType.RS_60, Map.of("SEMI", new BigDecimal("1.12"))),
+                Map.entry(SignalType.RS_120, Map.of()),
+                Map.entry(SignalType.MOM, Map.of()),
+                Map.entry(SignalType.RRG_QUADRANT, Map.of()),
+                Map.entry(SignalType.COMPOSITE, Map.of()),
+                Map.entry(SignalType.COMPOSITE_TREND_5D, Map.of()),
+                Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of())));
 
     List<SubSectorSummaryDto> result = subSectorService.getSubSectors("TECH");
 
@@ -77,12 +94,19 @@ class SubSectorServiceTest {
     Category semi = subCategory(CategoryId.SEMI, "TECH");
     Category clod = subCategory(CategoryId.CLOD, "TECH");
     when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(List.of(semi, clod));
-    when(signalRepository.findLatestByType(SignalType.RS_20)).thenReturn(Map.of());
-    when(signalRepository.findLatestByType(SignalType.RS_60))
-        .thenReturn(Map.of("SEMI", new BigDecimal("1.05"), "CLOD", new BigDecimal("1.20")));
-    when(signalRepository.findLatestByType(SignalType.RS_120)).thenReturn(Map.of());
-    when(signalRepository.findLatestByType(SignalType.MOM)).thenReturn(Map.of());
-    when(signalRepository.findLatestByType(SignalType.RRG_QUADRANT)).thenReturn(Map.of());
+    when(signalRepository.findLatestByTypes(anyList()))
+        .thenReturn(
+            Map.ofEntries(
+                Map.entry(SignalType.RS_20, Map.of()),
+                Map.entry(
+                    SignalType.RS_60,
+                    Map.of("SEMI", new BigDecimal("1.05"), "CLOD", new BigDecimal("1.20"))),
+                Map.entry(SignalType.RS_120, Map.of()),
+                Map.entry(SignalType.MOM, Map.of()),
+                Map.entry(SignalType.RRG_QUADRANT, Map.of()),
+                Map.entry(SignalType.COMPOSITE, Map.of()),
+                Map.entry(SignalType.COMPOSITE_TREND_5D, Map.of()),
+                Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of())));
 
     List<SubSectorSummaryDto> result = subSectorService.getSubSectors("TECH");
 

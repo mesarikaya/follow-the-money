@@ -6,6 +6,7 @@ import com.ftm.app.domain.SignalType;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -94,5 +95,30 @@ class SignalRepositoryIT {
 
     assertThat(history.getFirst().signalDate()).isEqualTo(DATE);
     assertThat(history.getLast().signalDate()).isEqualTo(DATE.minusDays(1));
+  }
+
+  @Test
+  @DisplayName("findLatestByTypes returns the most recent value for each requested type in one call")
+  void shouldReturnLatestSignalsForMultipleTypes() {
+    repository.batchUpsert(
+        List.of(
+            new SignalRepository.Row(DATE.minusDays(1), TECH, SignalType.RS_60, new BigDecimal("1.010000")),
+            new SignalRepository.Row(DATE, TECH, SignalType.RS_60, new BigDecimal("1.050000")),
+            new SignalRepository.Row(DATE, TECH, SignalType.COMPOSITE, new BigDecimal("0.750000")),
+            new SignalRepository.Row(DATE, TECH, SignalType.RRG_QUADRANT, new BigDecimal("4"))));
+
+    Map<SignalType, Map<String, BigDecimal>> result =
+        repository.findLatestByTypes(List.of(SignalType.RS_60, SignalType.COMPOSITE, SignalType.RRG_QUADRANT));
+
+    assertThat(result).containsKeys(SignalType.RS_60, SignalType.COMPOSITE, SignalType.RRG_QUADRANT);
+    assertThat(result.get(SignalType.RS_60).get(TECH)).isEqualByComparingTo("1.050000");
+    assertThat(result.get(SignalType.COMPOSITE).get(TECH)).isEqualByComparingTo("0.750000");
+    assertThat(result.get(SignalType.RRG_QUADRANT).get(TECH)).isEqualByComparingTo("4");
+  }
+
+  @Test
+  @DisplayName("findLatestByTypes returns empty map for empty input")
+  void shouldReturnEmptyMapForEmptyTypeList() {
+    assertThat(repository.findLatestByTypes(List.of())).isEmpty();
   }
 }

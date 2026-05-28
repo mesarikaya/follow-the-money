@@ -118,7 +118,7 @@ public class CompositeScoreService {
       Map<String, BigDecimal> rawValues, Set<String> allCategoryIds) {
     Map<String, BigDecimal> filled = new HashMap<>();
     for (String id : allCategoryIds) {
-      filled.put(id, rawValues.getOrDefault(id, null));
+      filled.put(id, rawValues.get(id));
     }
 
     java.util.List<BigDecimal> nonNulls =

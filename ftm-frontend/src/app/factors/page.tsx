@@ -8,10 +8,10 @@ const QUADRANT_LABELS: Record<string, string> = {
 };
 
 const QUADRANT_COLORS: Record<string, string> = {
-  "4": "text-emerald-400",
-  "3": "text-blue-400",
-  "2": "text-amber-400",
-  "1": "text-red-400",
+  "4": "text-green-400",
+  "3": "text-cyan-400",
+  "2": "text-orange-400",
+  "1": "text-slate-400",
 };
 
 const FACTOR_DESCRIPTIONS: Record<string, string> = {
@@ -92,6 +92,39 @@ function FactorComparisonStrip({ factors }: { factors: SubSectorSummary[] }) {
   );
 }
 
+function ScoreBar({ score, trend5d, trend20d }: { score: number | null; trend5d: number | null | undefined; trend20d: number | null | undefined }) {
+  if (score == null) return null;
+  const pct = Math.round(score * 100);
+  const filled = Math.round(score * 5);
+  const barColor = score >= 0.7 ? "bg-green-500" : score >= 0.4 ? "bg-yellow-500" : "bg-red-500";
+  const textColor = score >= 0.7 ? "text-green-400" : score >= 0.4 ? "text-yellow-400" : "text-red-400";
+  return (
+    <div className="bg-slate-900/40 rounded p-2 flex items-center justify-between gap-2">
+      <span className="text-xs text-slate-500 shrink-0">Signal</span>
+      <div className="flex items-center gap-1.5">
+        <div className="flex gap-0.5">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div key={i} className={`w-1.5 h-2.5 rounded-[1px] ${i < filled ? barColor : "bg-slate-700"}`} />
+          ))}
+        </div>
+        <span className={`text-xs font-mono tabular-nums ${textColor}`}>{pct}</span>
+        {trend5d != null && Math.abs(trend5d * 100) >= 1 && (
+          <span className={`text-[9px] tabular-nums ${trend5d > 0 ? "text-emerald-400" : "text-red-400"}`}
+            title={`5d trend: ${trend5d > 0 ? "+" : ""}${Math.round(trend5d * 100)}pt`}>
+            {trend5d > 0 ? "↑" : "↓"}{Math.abs(Math.round(trend5d * 100))}
+          </span>
+        )}
+        {trend20d != null && Math.abs(trend20d * 100) >= 1 && (
+          <span className={`text-[9px] tabular-nums ${trend20d > 0 ? "text-emerald-400/60" : "text-red-400/60"}`}
+            title={`20d trend: ${trend20d > 0 ? "+" : ""}${Math.round(trend20d * 100)}pt`}>
+            {trend20d > 0 ? "↑" : "↓"}{Math.abs(Math.round(trend20d * 100))}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function FactorCard({ factor }: { factor: SubSectorSummary }) {
   const quadrantLabel = factor.rrgQuadrant ? QUADRANT_LABELS[factor.rrgQuadrant] : "—";
   const quadrantColor = factor.rrgQuadrant ? QUADRANT_COLORS[factor.rrgQuadrant] : "text-slate-500";
@@ -151,6 +184,7 @@ function FactorCard({ factor }: { factor: SubSectorSummary }) {
           </div>
         </div>
       </div>
+      <ScoreBar score={factor.compositeScore} trend5d={factor.compositeTrend5d} trend20d={factor.compositeTrend20d} />
     </div>
   );
 }

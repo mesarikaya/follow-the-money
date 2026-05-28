@@ -121,4 +121,52 @@ class SignalRepositoryIT {
   void shouldReturnEmptyMapForEmptyTypeList() {
     assertThat(repository.findLatestByTypes(List.of())).isEmpty();
   }
+
+  @Test
+  @DisplayName("findCompositeScoreHistory returns ordered history for requested categories only")
+  void shouldReturnScoreHistoryForRequestedCategoriesOnly() {
+    String FINL = "FINL";
+    repository.batchUpsert(
+        List.of(
+            new SignalRepository.Row(DATE.minusDays(2), TECH, SignalType.COMPOSITE, new BigDecimal("0.600000")),
+            new SignalRepository.Row(DATE.minusDays(1), TECH, SignalType.COMPOSITE, new BigDecimal("0.700000")),
+            new SignalRepository.Row(DATE,               TECH, SignalType.COMPOSITE, new BigDecimal("0.800000")),
+            new SignalRepository.Row(DATE,               FINL, SignalType.COMPOSITE, new BigDecimal("0.500000"))));
+
+    var result = repository.findCompositeScoreHistory(3, List.of(TECH));
+
+    assertThat(result).containsOnlyKeys(TECH);
+    assertThat(result.get(TECH)).hasSize(3);
+    assertThat(result.get(TECH).get(0)).isEqualByComparingTo("0.600000");
+    assertThat(result.get(TECH).get(2)).isEqualByComparingTo("0.800000");
+  }
+
+  @Test
+  @DisplayName("findCompositeScoreHistory limits result to the requested number of most-recent dates")
+  void shouldLimitScoreHistoryToRequestedDays() {
+    repository.batchUpsert(
+        List.of(
+            new SignalRepository.Row(DATE.minusDays(4), TECH, SignalType.COMPOSITE, new BigDecimal("0.500000")),
+            new SignalRepository.Row(DATE.minusDays(3), TECH, SignalType.COMPOSITE, new BigDecimal("0.550000")),
+            new SignalRepository.Row(DATE.minusDays(2), TECH, SignalType.COMPOSITE, new BigDecimal("0.600000")),
+            new SignalRepository.Row(DATE.minusDays(1), TECH, SignalType.COMPOSITE, new BigDecimal("0.700000")),
+            new SignalRepository.Row(DATE,               TECH, SignalType.COMPOSITE, new BigDecimal("0.800000"))));
+
+    var result = repository.findCompositeScoreHistory(3, List.of(TECH));
+
+    assertThat(result.get(TECH)).hasSize(3);
+    assertThat(result.get(TECH).get(0)).isEqualByComparingTo("0.600000"); // DATE-2 (oldest of 3)
+    assertThat(result.get(TECH).getLast()).isEqualByComparingTo("0.800000"); // DATE (newest)
+  }
+
+  @Test
+  @DisplayName("findCompositeScoreHistory returns empty map when categoryIds list is empty")
+  void shouldReturnEmptyMapWhenCategoryIdsEmpty() {
+    repository.batchUpsert(
+        List.of(new SignalRepository.Row(DATE, TECH, SignalType.COMPOSITE, new BigDecimal("0.700000"))));
+
+    var result = repository.findCompositeScoreHistory(10, List.of());
+
+    assertThat(result).isEmpty();
+  }
 }

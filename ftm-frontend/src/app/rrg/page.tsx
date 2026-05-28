@@ -23,7 +23,7 @@ export default function RelativeRotationGraphPage() {
               <span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> Leading
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Improving
+              <span className="w-2 h-2 rounded-full bg-cyan-500 inline-block" /> Improving
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-orange-500 inline-block" /> Weakening

@@ -165,10 +165,10 @@ test.describe("Sector drilldown page", () => {
 });
 
 test.describe("Legacy /sub-sectors redirect", () => {
-  test("redirects /sub-sectors to /sectors/TECH", async ({ page }) => {
+  test("redirects /sub-sectors to /sectors hub", async ({ page }) => {
     await page.goto("/sub-sectors");
-    await expect(page).toHaveURL(/\/sectors\/TECH/);
-    await expect(page.getByText("Information Technology").first()).toBeVisible();
+    await expect(page).toHaveURL(/\/sectors$/);
+    await expect(page.getByRole("heading", { name: /Sub-Sector Rotation/i })).toBeVisible();
   });
 });
 

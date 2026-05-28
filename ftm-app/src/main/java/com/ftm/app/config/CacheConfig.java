@@ -17,9 +17,6 @@ public class CacheConfig {
     manager.registerCustomCache(
         "signals-latest",
         Caffeine.newBuilder().maximumSize(200).expireAfterWrite(1, TimeUnit.HOURS).build());
-    manager.registerCustomCache(
-        "rotation-matrix",
-        Caffeine.newBuilder().maximumSize(10).expireAfterWrite(1, TimeUnit.HOURS).build());
     // Evicted on SignalsUpdatedEvent (EP-006)
     manager.registerCustomCache(
         "rrg-latest",

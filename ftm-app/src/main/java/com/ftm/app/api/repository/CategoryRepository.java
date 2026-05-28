@@ -9,7 +9,9 @@ import com.ftm.app.domain.CategoryId;
 import com.ftm.app.domain.CategoryType;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
 
@@ -86,6 +88,15 @@ public class CategoryRepository {
                         null),
                     r.get(RAW_PRICES.CLOSE),
                     r.get(RAW_PRICES.TRADE_DATE)));
+  }
+
+  public Set<String> findTopLevelActiveCategoryIds() {
+    return new HashSet<>(
+        dsl.select(CATEGORIES.ID)
+            .from(CATEGORIES)
+            .where(CATEGORIES.ACTIVE.isTrue())
+            .and(CATEGORIES.PARENT_ID.isNull())
+            .fetchInto(String.class));
   }
 
   public List<Category> findSubCategoriesByParentId(String parentId) {

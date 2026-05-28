@@ -121,11 +121,7 @@ public class CategoryService {
 
   public Map<String, List<Double>> getCompositeScoreHistory(int days) {
     int clamped = Math.max(5, Math.min(days, 120));
-    Set<String> topLevelIds =
-        categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc().stream()
-            .filter(c -> c.parentId() == null)
-            .map(c -> c.id().name())
-            .collect(Collectors.toSet());
+    Set<String> topLevelIds = categoryRepository.findTopLevelActiveCategoryIds();
     return signalRepository.findCompositeScoreHistory(clamped).entrySet().stream()
         .filter(e -> topLevelIds.contains(e.getKey()))
         .collect(

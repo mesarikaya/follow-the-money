@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { SubSectorSummary } from "@/lib/api";
 
-type SortCol = "rs60" | "rs20" | "rs120" | "momentum" | "compositeScore" | "quadrant" | "acceleration";
+type SortCol = "rs60" | "rs20" | "rs120" | "momentum" | "compositeScore" | "quadrant" | "acceleration" | "compositeTrend5d";
 type SortDir = "asc" | "desc";
 
 const QUADRANT_ORDER: Record<string, number> = { "4": 0, "3": 1, "2": 2, "1": 3 };
@@ -47,6 +47,24 @@ function RsCell({ value }: { value: number | null }) {
   return (
     <span className={`tabular-nums ${colorClass}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
       {value > 0 ? "+" : ""}{pct}%
+    </span>
+  );
+}
+
+function TrendPip({ value, label }: { value: number | null | undefined; label: string }) {
+  if (value == null) return null;
+  const delta = Math.round(Math.abs(value * 100));
+  const isUp = value > 0.005;
+  const isDown = value < -0.005;
+  const arrow = isUp ? "↑" : isDown ? "↓" : "→";
+  const colorClass = isUp ? "text-emerald-400" : isDown ? "text-red-400" : "text-slate-500";
+  return (
+    <span
+      className={`text-[9px] tabular-nums ${colorClass}`}
+      style={{ fontFamily: "var(--font-jetbrains-mono)" }}
+      title={`${label}: ${value > 0 ? "+" : ""}${(value * 100).toFixed(1)}pt`}
+    >
+      {arrow}{delta > 0 ? delta : ""}
     </span>
   );
 }
@@ -108,9 +126,12 @@ function sortRows(rows: SubSectorSummary[], col: SortCol, dir: SortDir): SubSect
     } else if (col === "acceleration") {
       valA = acceleration(a) ?? -Infinity;
       valB = acceleration(b) ?? -Infinity;
+    } else if (col === "compositeTrend5d") {
+      valA = a.compositeTrend5d ?? -Infinity;
+      valB = b.compositeTrend5d ?? -Infinity;
     } else {
-      valA = a[col] ?? -Infinity;
-      valB = b[col] ?? -Infinity;
+      valA = (a[col] as number | null) ?? -Infinity;
+      valB = (b[col] as number | null) ?? -Infinity;
     }
 
     const diff = valA - valB;
@@ -162,9 +183,17 @@ export default function SubSectorTable({
               className={`px-4 py-3 text-center ${thCls("compositeScore")}`}
               style={TH_STYLE}
               onClick={() => handleSort("compositeScore")}
-              title="Composite signal score (0–100)"
+              title="Composite signal score (0–100). ↑/↓ pips show 5d and 20d score trends."
             >
               Score<SortArrow col="compositeScore" sortCol={sortCol} sortDir={sortDir} />
+            </th>
+            <th
+              className={`px-4 py-3 text-center ${thCls("compositeTrend5d")}`}
+              style={TH_STYLE}
+              onClick={() => handleSort("compositeTrend5d")}
+              title="5-day composite score trend. Positive = improving score over last 5 days."
+            >
+              Trend<SortArrow col="compositeTrend5d" sortCol={sortCol} sortDir={sortDir} />
             </th>
             <th
               className={`px-4 py-3 text-right ${thCls("rs60")}`}
@@ -241,6 +270,16 @@ export default function SubSectorTable({
                 <td className="px-4 py-2.5">
                   <ScoreBar score={subSector.compositeScore} />
                 </td>
+                <td className="px-4 py-2.5 text-center">
+                  {subSector.compositeTrend5d != null ? (
+                    <div className="flex flex-col items-center gap-0.5">
+                      <TrendPip value={subSector.compositeTrend5d} label="5d trend" />
+                      <TrendPip value={subSector.compositeTrend20d} label="20d trend" />
+                    </div>
+                  ) : (
+                    <span className="text-slate-600 text-xs">—</span>
+                  )}
+                </td>
                 <td className="px-4 py-2.5 text-right text-xs"><RsCell value={subSector.rs60} /></td>
                 <td className="px-4 py-2.5 text-right text-xs"><RsCell value={subSector.rs20} /></td>
                 <td className="px-4 py-2.5 text-right text-xs"><RsCell value={subSector.rs120} /></td>
@@ -276,7 +315,7 @@ export default function SubSectorTable({
         </tbody>
       </table>
       <div className="px-4 py-2 border-t border-slate-700 text-[10px] text-slate-600 bg-slate-800/30">
-        Click any column header to sort · RS values vs {parentEtfTicker} ({parentName}) · Accel = RS60 − RS120 (↗ building, ↘ fading)
+        Click any column header to sort · RS values vs {parentEtfTicker} ({parentName}) · Accel = RS60 − RS120 (↗ building, ↘ fading) · Trend = 5d &amp; 20d composite score delta
       </div>
     </div>
   );

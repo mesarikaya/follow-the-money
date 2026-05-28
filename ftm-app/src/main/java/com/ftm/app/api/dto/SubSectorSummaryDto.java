@@ -12,4 +12,6 @@ public record SubSectorSummaryDto(
     BigDecimal rs120,
     BigDecimal momentum,
     String rrgQuadrant,
-    BigDecimal compositeScore) {}
+    BigDecimal compositeScore,
+    BigDecimal compositeTrend5d,
+    BigDecimal compositeTrend20d) {}

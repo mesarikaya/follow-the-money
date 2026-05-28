@@ -34,6 +34,10 @@ public class SubSectorService {
         signalRepository.findLatestByType(SignalType.RRG_QUADRANT);
     Map<String, BigDecimal> compositeByCategory =
         signalRepository.findLatestByType(SignalType.COMPOSITE);
+    Map<String, BigDecimal> trend5dByCategory =
+        signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_5D);
+    Map<String, BigDecimal> trend20dByCategory =
+        signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_20D);
 
     return subCategories.stream()
         .map(
@@ -52,7 +56,9 @@ public class SubSectorService {
                   rs120ByCategory.get(categoryId),
                   momentumByCategory.get(categoryId),
                   rrgQuadrant,
-                  compositeByCategory.get(categoryId));
+                  compositeByCategory.get(categoryId),
+                  trend5dByCategory.get(categoryId),
+                  trend20dByCategory.get(categoryId));
             })
         .sorted(
             (subSectorA, subSectorB) -> {

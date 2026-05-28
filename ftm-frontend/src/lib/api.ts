@@ -78,6 +78,8 @@ export type SubSectorSummary = {
   momentum: number | null;
   rrgQuadrant: string | null;
   compositeScore: number | null;
+  compositeTrend5d: number | null;
+  compositeTrend20d: number | null;
 };
 
 async function get<T>(path: string): Promise<T> {

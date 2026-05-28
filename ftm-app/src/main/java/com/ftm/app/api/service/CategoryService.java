@@ -10,6 +10,7 @@ import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -104,7 +105,13 @@ public class CategoryService {
 
   public Map<String, List<Double>> getCompositeScoreHistory(int days) {
     int clamped = Math.max(5, Math.min(days, 120));
+    Set<String> topLevelIds =
+        categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc().stream()
+            .filter(c -> c.parentId() == null)
+            .map(c -> c.id().name())
+            .collect(Collectors.toSet());
     return signalRepository.findCompositeScoreHistory(clamped).entrySet().stream()
+        .filter(e -> topLevelIds.contains(e.getKey()))
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,

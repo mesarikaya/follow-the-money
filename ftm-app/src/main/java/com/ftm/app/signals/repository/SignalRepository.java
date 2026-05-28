@@ -211,6 +211,7 @@ public class SignalRepository {
 
   public Map<String, List<BigDecimal>> findCompositeScoreHistory(
       int days, Collection<String> categoryIds) {
+    if (categoryIds.isEmpty()) return Map.of();
     List<LocalDate> recentDates =
         dsl.selectDistinct(SIGNALS.SIGNAL_DATE)
             .from(SIGNALS)

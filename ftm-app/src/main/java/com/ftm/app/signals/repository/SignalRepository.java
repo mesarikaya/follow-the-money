@@ -209,7 +209,8 @@ public class SignalRepository {
 
   public record MacroRegimeHistoryRow(LocalDate date, BigDecimal regimeOrdinal) {}
 
-  public Map<String, List<BigDecimal>> findCompositeScoreHistory(int days) {
+  public Map<String, List<BigDecimal>> findCompositeScoreHistory(
+      int days, Collection<String> categoryIds) {
     List<LocalDate> recentDates =
         dsl.selectDistinct(SIGNALS.SIGNAL_DATE)
             .from(SIGNALS)
@@ -225,6 +226,7 @@ public class SignalRepository {
         .from(SIGNALS)
         .where(SIGNALS.SIGNAL_TYPE.eq(SignalType.COMPOSITE.name()))
         .and(SIGNALS.SIGNAL_DATE.in(recentDates))
+        .and(SIGNALS.CATEGORY_ID.in(categoryIds))
         .orderBy(SIGNALS.CATEGORY_ID, SIGNALS.SIGNAL_DATE.asc())
         .fetch()
         .forEach(

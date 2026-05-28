@@ -13,7 +13,6 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
@@ -65,11 +64,7 @@ public class AlertRulesEngine {
     LocalDate signalDate = event.signalDate();
     log.info("Evaluating alert rules for signal_date={}", signalDate);
 
-    Set<String> topLevelCategoryIds =
-        categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc().stream()
-            .filter(c -> c.parentId() == null)
-            .map(c -> c.id().name())
-            .collect(Collectors.toSet());
+    Set<String> topLevelCategoryIds = categoryRepository.findTopLevelActiveCategoryIds();
 
     int alertsCreated = 0;
     alertsCreated += evaluateRotationEventAlerts(signalDate);

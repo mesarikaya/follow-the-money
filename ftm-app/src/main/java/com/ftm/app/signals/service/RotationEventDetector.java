@@ -11,7 +11,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
@@ -57,11 +56,7 @@ public class RotationEventDetector {
     LocalDate currentSignalDate = event.signalDate();
     log.info("Detecting rotation events for signal_date={}", currentSignalDate);
 
-    Set<String> topLevelCategoryIds =
-        categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc().stream()
-            .filter(c -> c.parentId() == null)
-            .map(c -> c.id().name())
-            .collect(Collectors.toSet());
+    Set<String> topLevelCategoryIds = categoryRepository.findTopLevelActiveCategoryIds();
 
     Map<String, BigDecimal> currentQuadrants =
         signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, currentSignalDate);

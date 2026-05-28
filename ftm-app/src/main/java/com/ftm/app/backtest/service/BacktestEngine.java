@@ -1,5 +1,7 @@
 package com.ftm.app.backtest.service;
 
+import static com.ftm.app.jooq.Tables.*;
+
 import com.ftm.app.api.dto.BacktestRequest;
 import com.ftm.app.api.dto.BacktestResult;
 import com.ftm.app.api.dto.BacktestResult.EquityCurvePoint;
@@ -13,7 +15,6 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -86,53 +87,45 @@ public class BacktestEngine {
   }
 
   private List<LocalDate> fetchTradingDates(LocalDate startDate, LocalDate endDate) {
-    return dsl.selectDistinct(DSL.field("trade_date", LocalDate.class))
-        .from(DSL.table("benchmark_prices"))
-        .where(DSL.field("trade_date").between(startDate, endDate))
-        .and(DSL.field("ticker").eq("SPY"))
-        .orderBy(DSL.field("trade_date").asc())
-        .fetch(r -> r.get("trade_date", LocalDate.class));
+    return dsl.selectDistinct(BENCHMARK_PRICES.TRADE_DATE)
+        .from(BENCHMARK_PRICES)
+        .where(BENCHMARK_PRICES.TRADE_DATE.between(startDate, endDate))
+        .and(BENCHMARK_PRICES.TICKER.eq("SPY"))
+        .orderBy(BENCHMARK_PRICES.TRADE_DATE.asc())
+        .fetchInto(LocalDate.class);
   }
 
   private Map<LocalDate, Map<String, BigDecimal>> fetchCompositesByDate(
       LocalDate startDate, LocalDate endDate) {
     Map<LocalDate, Map<String, BigDecimal>> result = new TreeMap<>();
-    dsl.select(
-            DSL.field("signal_date", LocalDate.class),
-            DSL.field("category_id", String.class),
-            DSL.field("value", BigDecimal.class))
-        .from(DSL.table("signals"))
-        .where(DSL.field("signal_type").eq(SignalType.COMPOSITE.name()))
-        .and(DSL.field("signal_date").between(startDate, endDate))
+    dsl.select(SIGNALS.SIGNAL_DATE, SIGNALS.CATEGORY_ID, SIGNALS.VALUE)
+        .from(SIGNALS)
+        .where(SIGNALS.SIGNAL_TYPE.eq(SignalType.COMPOSITE.name()))
+        .and(SIGNALS.SIGNAL_DATE.between(startDate, endDate))
         .fetch()
         .forEach(
-            r -> {
-              LocalDate date = r.get("signal_date", LocalDate.class);
-              String categoryId = r.get("category_id", String.class);
-              BigDecimal value = r.get("value", BigDecimal.class);
-              result.computeIfAbsent(date, d -> new HashMap<>()).put(categoryId, value);
-            });
+            r ->
+                result
+                    .computeIfAbsent(r.get(SIGNALS.SIGNAL_DATE), d -> new HashMap<>())
+                    .put(r.get(SIGNALS.CATEGORY_ID), r.get(SIGNALS.VALUE)));
     return result;
   }
 
   private Map<LocalDate, Map<String, BigDecimal>> fetchEtfPricesByDate(
       LocalDate startDate, LocalDate endDate) {
     Map<LocalDate, Map<String, BigDecimal>> result = new TreeMap<>();
-    dsl.select(
-            DSL.field("trade_date", LocalDate.class),
-            DSL.field("category_id", String.class),
-            DSL.field("adj_close", BigDecimal.class))
-        .from(DSL.table("raw_prices"))
-        .where(DSL.field("trade_date").between(startDate, endDate))
-        .orderBy(DSL.field("trade_date").asc())
+    dsl.select(RAW_PRICES.TRADE_DATE, RAW_PRICES.CATEGORY_ID, RAW_PRICES.ADJ_CLOSE)
+        .from(RAW_PRICES)
+        .where(RAW_PRICES.TRADE_DATE.between(startDate, endDate))
+        .orderBy(RAW_PRICES.TRADE_DATE.asc())
         .fetch()
         .forEach(
             r -> {
-              LocalDate date = r.get("trade_date", LocalDate.class);
-              String categoryId = r.get("category_id", String.class);
-              BigDecimal adjClose = r.get("adj_close", BigDecimal.class);
+              BigDecimal adjClose = r.get(RAW_PRICES.ADJ_CLOSE);
               if (adjClose != null) {
-                result.computeIfAbsent(date, d -> new HashMap<>()).put(categoryId, adjClose);
+                result
+                    .computeIfAbsent(r.get(RAW_PRICES.TRADE_DATE), d -> new HashMap<>())
+                    .put(r.get(RAW_PRICES.CATEGORY_ID), adjClose);
               }
             });
     return result;
@@ -140,18 +133,17 @@ public class BacktestEngine {
 
   private Map<LocalDate, BigDecimal> fetchSpyPricesByDate(LocalDate startDate, LocalDate endDate) {
     Map<LocalDate, BigDecimal> result = new TreeMap<>();
-    dsl.select(DSL.field("trade_date", LocalDate.class), DSL.field("adj_close", BigDecimal.class))
-        .from(DSL.table("benchmark_prices"))
-        .where(DSL.field("ticker").eq("SPY"))
-        .and(DSL.field("trade_date").between(startDate, endDate))
-        .orderBy(DSL.field("trade_date").asc())
+    dsl.select(BENCHMARK_PRICES.TRADE_DATE, BENCHMARK_PRICES.ADJ_CLOSE)
+        .from(BENCHMARK_PRICES)
+        .where(BENCHMARK_PRICES.TICKER.eq("SPY"))
+        .and(BENCHMARK_PRICES.TRADE_DATE.between(startDate, endDate))
+        .orderBy(BENCHMARK_PRICES.TRADE_DATE.asc())
         .fetch()
         .forEach(
             r -> {
-              LocalDate date = r.get("trade_date", LocalDate.class);
-              BigDecimal adjClose = r.get("adj_close", BigDecimal.class);
+              BigDecimal adjClose = r.get(BENCHMARK_PRICES.ADJ_CLOSE);
               if (adjClose != null) {
-                result.put(date, adjClose);
+                result.put(r.get(BENCHMARK_PRICES.TRADE_DATE), adjClose);
               }
             });
     return result;

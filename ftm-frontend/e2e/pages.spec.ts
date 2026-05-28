@@ -202,12 +202,50 @@ test.describe("Capital Flows page", () => {
   });
 });
 
+test.describe("Dashboard (/) page", () => {
+  test("loads and shows category table with data from mock", async ({ page }) => {
+    await page.goto("/");
+    // CategoryTable renders ETF tickers from CATEGORIES_RESPONSE
+    await expect(page.getByText("XLK").first()).toBeVisible();
+    await expect(page.getByText("XLV").first()).toBeVisible();
+    await expect(page.getByText("XLE").first()).toBeVisible();
+  });
+
+  test("shows market breadth bar with equity sectors", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Market Breadth")).toBeVisible();
+  });
+
+  test("shows macro panel with regime and indicators", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Macro Environment")).toBeVisible();
+    await expect(page.getByText("VIX", { exact: true })).toBeVisible();
+  });
+
+  test("shows section dividers in category table for non-equity types", async ({ page }) => {
+    await page.goto("/");
+    // GOLD is PRECIOUS_METAL → divider appears; TLT is FIXED_INCOME
+    await expect(page.getByText("Precious Metals")).toBeVisible();
+    await expect(page.getByText("Fixed Income")).toBeVisible();
+    await expect(page.getByText("Cash")).toBeVisible();
+  });
+
+  test("BIL Cash category renders Cash badge, not Alternative", async ({ page }) => {
+    await page.goto("/");
+    // The CASH TYPE_CONFIG renders "Cash" label (not "ALT" or "Alternative")
+    await expect(page.getByText("Cash").first()).toBeVisible();
+    await expect(page.getByText("Alternative")).not.toBeVisible();
+  });
+});
+
 test.describe("Sidebar navigation", () => {
   test("sidebar contains all main section links", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("link", { name: /Macro/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Sub-Sectors/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Factor/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Capital Flows/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /RRG/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Portfolio/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Alerts/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Backtest/ })).toBeVisible();

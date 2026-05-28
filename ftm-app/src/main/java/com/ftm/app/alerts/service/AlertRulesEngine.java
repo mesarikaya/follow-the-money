@@ -2,6 +2,7 @@ package com.ftm.app.alerts.service;
 
 import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.alerts.repository.AlertRulesRepository;
+import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.domain.*;
 import com.ftm.app.signals.event.SignalsUpdatedEvent;
 import com.ftm.app.signals.repository.RotationEventRepository;
@@ -11,6 +12,8 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
@@ -41,16 +44,19 @@ public class AlertRulesEngine {
   private final AlertRulesRepository alertRulesRepository;
   private final RotationEventRepository rotationEventRepository;
   private final SignalRepository signalRepository;
+  private final CategoryRepository categoryRepository;
 
   public AlertRulesEngine(
       AlertRepository alertRepository,
       AlertRulesRepository alertRulesRepository,
       RotationEventRepository rotationEventRepository,
-      SignalRepository signalRepository) {
+      SignalRepository signalRepository,
+      CategoryRepository categoryRepository) {
     this.alertRepository = alertRepository;
     this.alertRulesRepository = alertRulesRepository;
     this.rotationEventRepository = rotationEventRepository;
     this.signalRepository = signalRepository;
+    this.categoryRepository = categoryRepository;
   }
 
   @EventListener
@@ -59,10 +65,16 @@ public class AlertRulesEngine {
     LocalDate signalDate = event.signalDate();
     log.info("Evaluating alert rules for signal_date={}", signalDate);
 
+    Set<String> topLevelCategoryIds =
+        categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc().stream()
+            .filter(c -> c.parentId() == null)
+            .map(c -> c.id().name())
+            .collect(Collectors.toSet());
+
     int alertsCreated = 0;
     alertsCreated += evaluateRotationEventAlerts(signalDate);
     alertsCreated += evaluateMacroRegimeShift(signalDate);
-    alertsCreated += evaluateRsAccelerationCrossover(signalDate);
+    alertsCreated += evaluateRsAccelerationCrossover(signalDate, topLevelCategoryIds);
 
     log.info(
         "Alert rule evaluation complete: {} alerts created for date={}", alertsCreated, signalDate);
@@ -216,7 +228,7 @@ public class AlertRulesEngine {
         rotationEvent.eventType().name(), rotationEvent.confidence(), rotationEvent.detectedDate());
   }
 
-  private int evaluateRsAccelerationCrossover(LocalDate signalDate) {
+  private int evaluateRsAccelerationCrossover(LocalDate signalDate, Set<String> topLevelCategoryIds) {
     boolean ruleEnabled =
         alertRulesRepository.findById(RULE_RS_ACCEL_CROSSOVER).map(AlertRule::enabled).orElse(false);
     if (!ruleEnabled) return 0;
@@ -239,7 +251,7 @@ public class AlertRulesEngine {
 
     int count = 0;
     for (String categoryId : currentRs60.keySet()) {
-      if (categoryId.contains("_")) continue; // skip sub-sectors — parent sectors only
+      if (!topLevelCategoryIds.contains(categoryId)) continue;
       BigDecimal rs60 = currentRs60.get(categoryId);
       BigDecimal rs120 = currentRs120.get(categoryId);
       BigDecimal prevRs60Val = prevRs60.get(categoryId);

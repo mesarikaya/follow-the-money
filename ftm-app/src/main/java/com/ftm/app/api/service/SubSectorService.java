@@ -8,6 +8,7 @@ import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -22,6 +23,7 @@ public class SubSectorService {
     this.signalRepository = signalRepository;
   }
 
+  @Cacheable(value = "sub-sectors-latest", key = "#parentCategoryId")
   public List<SubSectorSummaryDto> getSubSectors(String parentCategoryId) {
     List<Category> subCategories = categoryRepository.findSubCategoriesByParentId(parentCategoryId);
     if (subCategories.isEmpty()) return List.of();

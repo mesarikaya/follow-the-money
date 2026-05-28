@@ -32,6 +32,10 @@ public class CacheConfig {
     manager.registerCustomCache(
         "rotation-latest",
         Caffeine.newBuilder().maximumSize(10).expireAfterWrite(1, TimeUnit.HOURS).build());
+    // Evicted on SignalsUpdatedEvent — keyed by parent category ID
+    manager.registerCustomCache(
+        "sub-sectors-latest",
+        Caffeine.newBuilder().maximumSize(50).expireAfterWrite(1, TimeUnit.HOURS).build());
     return manager;
   }
 }

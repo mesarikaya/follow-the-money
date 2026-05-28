@@ -167,9 +167,10 @@ public class BacktestEngine {
     for (LocalDate date : tradingDates) {
       boolean shouldRebalance =
           switch (rebalanceFrequency.toUpperCase()) {
-            case "WEEKLY" -> ChronoUnit.WEEKS.between(lastRebalance, date) >= 1;
-            case "MONTHLY" -> ChronoUnit.MONTHS.between(lastRebalance, date) >= 1;
-            default -> ChronoUnit.MONTHS.between(lastRebalance, date) >= 1;
+            case "WEEKLY"    -> ChronoUnit.WEEKS.between(lastRebalance, date) >= 1;
+            case "MONTHLY"   -> ChronoUnit.MONTHS.between(lastRebalance, date) >= 1;
+            case "QUARTERLY" -> ChronoUnit.MONTHS.between(lastRebalance, date) >= 3;
+            default          -> ChronoUnit.MONTHS.between(lastRebalance, date) >= 1;
           };
       if (shouldRebalance && !date.equals(lastRebalance)) {
         rebalanceDates.add(date);

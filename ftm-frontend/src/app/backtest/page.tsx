@@ -163,6 +163,128 @@ function EquityCurveChart({ curve, rebalanceDates }: { curve: EquityCurvePoint[]
 }
 
 
+const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function computeMonthlyReturns(curve: EquityCurvePoint[]) {
+  if (curve.length < 2) return [];
+  const monthEnd = new Map<string, { portfolio: number; spy: number }>();
+  for (const pt of curve) {
+    const ym = pt.date.slice(0, 7);
+    monthEnd.set(ym, { portfolio: pt.portfolioValue, spy: pt.spyValue });
+  }
+  const sortedMonths = Array.from(monthEnd.keys()).sort();
+  const rows: { ym: string; year: number; month: number; port: number; spy: number }[] = [];
+  for (let i = 1; i < sortedMonths.length; i++) {
+    const prev = monthEnd.get(sortedMonths[i - 1])!;
+    const curr = monthEnd.get(sortedMonths[i])!;
+    const [yr, mo] = sortedMonths[i].split("-").map(Number);
+    rows.push({ ym: sortedMonths[i], year: yr, month: mo, port: curr.portfolio / prev.portfolio - 1, spy: curr.spy / prev.spy - 1 });
+  }
+  return rows;
+}
+
+function cellBg(excess: number): string {
+  if (excess >= 0.03)  return "bg-emerald-800/80 text-emerald-200";
+  if (excess >= 0.01)  return "bg-emerald-900/60 text-emerald-300";
+  if (excess >= 0.003) return "bg-emerald-900/30 text-emerald-400";
+  if (excess >= -0.003) return "bg-slate-700/40 text-slate-400";
+  if (excess >= -0.01) return "bg-red-900/30 text-red-400";
+  if (excess >= -0.03) return "bg-red-900/60 text-red-300";
+  return "bg-red-800/80 text-red-200";
+}
+
+function MonthlyReturnsTable({ curve }: { curve: EquityCurvePoint[] }) {
+  const rows = computeMonthlyReturns(curve);
+  if (rows.length === 0) return null;
+
+  const years = Array.from(new Set(rows.map(r => r.year))).sort();
+  const byYM = new Map(rows.map(r => [r.ym, r]));
+
+  // Annual returns: first value of year / last value of prev year
+  const monthEnd = new Map<string, { portfolio: number; spy: number }>();
+  for (const pt of curve) monthEnd.set(pt.date.slice(0, 7), { portfolio: pt.portfolioValue, spy: pt.spyValue });
+
+  const annualReturns = years.map(yr => {
+    const yrMonths = Array.from(monthEnd.keys()).filter(ym => ym.startsWith(String(yr))).sort();
+    const prevYrMonths = Array.from(monthEnd.keys()).filter(ym => ym.startsWith(String(yr - 1))).sort();
+    const start = prevYrMonths.length > 0 ? monthEnd.get(prevYrMonths[prevYrMonths.length - 1])! : monthEnd.get(yrMonths[0])!;
+    const end = monthEnd.get(yrMonths[yrMonths.length - 1])!;
+    return {
+      yr,
+      port: end.portfolio / start.portfolio - 1,
+      spy: end.spy / start.spy - 1,
+    };
+  });
+
+  const months = [1,2,3,4,5,6,7,8,9,10,11,12];
+  const beatCount = rows.filter(r => r.port > r.spy).length;
+  const winRate = Math.round((beatCount / rows.length) * 100);
+
+  return (
+    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-sm font-semibold text-slate-200">Monthly Returns vs SPY</div>
+        <div className="text-[10px] text-slate-500 flex items-center gap-3">
+          <span>Beat SPY in <span className="text-emerald-400 font-semibold">{beatCount}/{rows.length}</span> months ({winRate}%)</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-800/80 inline-block"/>outperform</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-red-800/80 inline-block"/>underperform</span>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs border-collapse">
+          <thead>
+            <tr>
+              <th className="text-left text-slate-500 pr-3 pb-1.5 font-medium w-12">Year</th>
+              {months.map(m => (
+                <th key={m} className="text-center text-slate-500 pb-1.5 font-medium px-1 w-[calc(100%/14)]">
+                  {MONTH_ABBR[m-1]}
+                </th>
+              ))}
+              <th className="text-right text-slate-500 pb-1.5 font-medium pl-2 pr-1 w-16">Full Yr</th>
+            </tr>
+          </thead>
+          <tbody>
+            {years.map((yr, yi) => {
+              const ann = annualReturns[yi];
+              const annExcess = ann.port - ann.spy;
+              return (
+                <tr key={yr}>
+                  <td className="text-slate-400 pr-3 py-0.5 font-mono font-medium">{yr}</td>
+                  {months.map(mo => {
+                    const ym = `${yr}-${String(mo).padStart(2, "0")}`;
+                    const cell = byYM.get(ym);
+                    if (!cell) return <td key={mo} className="px-0.5 py-0.5"><div className="text-center text-slate-700 text-[9px] rounded py-1">—</div></td>;
+                    const excess = cell.port - cell.spy;
+                    const bg = cellBg(excess);
+                    const portPct = (cell.port * 100).toFixed(1);
+                    const spyPct = (cell.spy * 100).toFixed(1);
+                    const excessPct = (excess * 100).toFixed(1);
+                    return (
+                      <td key={mo} className="px-0.5 py-0.5" title={`${MONTH_ABBR[mo-1]} ${yr}\nStrategy: ${cell.port >= 0 ? "+" : ""}${portPct}%\nSPY: ${cell.spy >= 0 ? "+" : ""}${spyPct}%\nExcess: ${excess >= 0 ? "+" : ""}${excessPct}%`}>
+                        <div className={`text-center rounded py-1 text-[9px] tabular-nums font-mono ${bg}`}>
+                          {cell.port >= 0 ? "+" : ""}{portPct}%
+                        </div>
+                      </td>
+                    );
+                  })}
+                  <td className="px-0.5 py-0.5 pl-2">
+                    <div className={`text-right rounded py-1 text-[10px] tabular-nums font-mono font-semibold ${cellBg(annExcess)}`}>
+                      {ann.port >= 0 ? "+" : ""}{(ann.port * 100).toFixed(1)}%
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-2 text-[10px] text-slate-600">
+        Color intensity = excess return vs SPY that month. Hover cells for details. Annual column = full-year compounded return.
+      </div>
+    </div>
+  );
+}
+
 function RebalanceTimeline({ events }: { events: RebalanceEvent[] }) {
   if (!events || events.length === 0) {
     return <p className="text-xs text-slate-500 py-4 text-center">No rebalance events recorded.</p>;
@@ -481,6 +603,11 @@ export default function BacktesterPage() {
                     </div>
                   </div>
                 </div>
+                {/* Monthly returns calendar */}
+                {result.equityCurve && result.equityCurve.length > 2 && (
+                  <MonthlyReturnsTable curve={result.equityCurve} />
+                )}
+
                 {/* Rebalance Timeline */}
                 {result.rebalanceHistory && result.rebalanceHistory.length > 0 && (
                   <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">

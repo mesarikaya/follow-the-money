@@ -585,6 +585,10 @@ export default function BacktesterPage() {
                       <MetricCard label="Ann. Return" value={formatPct(result.annualizedReturnPct)} color={result.annualizedReturnPct >= 0 ? winColor : lossColor} tooltip="CAGR: compound annual growth rate." />
                       <MetricCard label="Max Drawdown" value={`-${result.maxDrawdownPct?.toFixed(2)}%`} color={lossColor} tooltip="Largest peak-to-trough decline. Lower is better." />
                       <MetricCard label="Sharpe Ratio" value={formatDecimal(result.sharpeRatio)} color={(result.sharpeRatio ?? 0) >= 1 ? winColor : neutColor} tooltip="Ann. return / ann. volatility. >1.0 = good, >2.0 = excellent." />
+                      {result.maxDrawdownPct > 0 && (() => {
+                        const calmar = result.annualizedReturnPct / result.maxDrawdownPct;
+                        return <MetricCard label="Calmar Ratio" value={calmar.toFixed(2)} color={calmar >= 1.5 ? winColor : calmar >= 0.5 ? neutColor : lossColor} tooltip="Ann. return ÷ max drawdown. >1.5 = good; favored by trend-following funds." />;
+                      })()}
                     </div>
                   </div>
                   <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
@@ -597,6 +601,10 @@ export default function BacktesterPage() {
                       <MetricCard label="Ann. Return" value={formatPct(result.spyAnnualizedReturnPct)} color="text-slate-300" tooltip="SPY CAGR over the backtest period." />
                       <MetricCard label="Max Drawdown" value={result.spyMaxDrawdownPct != null ? `-${result.spyMaxDrawdownPct.toFixed(2)}%` : "—"} color="text-slate-300" tooltip="Largest peak-to-trough decline for SPY." />
                       <MetricCard label="Sharpe Ratio" value={formatDecimal(result.spySharpeRatio)} color="text-slate-300" />
+                      {result.spyMaxDrawdownPct != null && result.spyMaxDrawdownPct > 0 && result.spyAnnualizedReturnPct != null && (() => {
+                        const spyCalmar = result.spyAnnualizedReturnPct / result.spyMaxDrawdownPct;
+                        return <MetricCard label="Calmar Ratio" value={spyCalmar.toFixed(2)} color="text-slate-300" tooltip="SPY ann. return ÷ max drawdown." />;
+                      })()}
                     </div>
                     <div className="mt-3 pt-3 border-t border-slate-700/50 text-[10px] font-mono text-slate-600">
                       {result.tradingDays} days · Run {result.runId.slice(0, 8)}

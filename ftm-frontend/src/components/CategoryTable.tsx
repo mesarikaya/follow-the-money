@@ -147,6 +147,46 @@ function buildScoreTooltip(cat: import("@/lib/api").CategorySummary, macroFitVal
   ].filter(Boolean).join("\n");
 }
 
+type TradeSignal = "BUY" | "WATCH" | "HOLD" | "REDUCE";
+
+function deriveTradeSignal(cat: CategorySummary): TradeSignal | null {
+  const score = cat.compositeScore;
+  const quadrant = cat.rrgQuadrant != null ? Number(cat.rrgQuadrant) : null;
+  const trend20d = cat.compositeTrend20d;
+
+  if (score == null) return null;
+
+  const improving = quadrant === 3 || quadrant === 4;
+  const weakening = quadrant === 1 || quadrant === 2;
+  const trending = trend20d != null && trend20d > 0;
+
+  if (score >= 0.65 && improving && trending) return "BUY";
+  if (score >= 0.50 && (improving || trending)) return "WATCH";
+  if (score < 0.35 && weakening) return "REDUCE";
+  return "HOLD";
+}
+
+const TRADE_SIGNAL_CONFIG: Record<TradeSignal, { label: string; className: string; description: string }> = {
+  BUY:    { label: "BUY",    className: "bg-green-900/60 text-green-300 border-green-700/60",  description: "Score ≥65, improving RRG quadrant, positive 20d trend — all three aligned" },
+  WATCH:  { label: "WATCH",  className: "bg-cyan-900/50 text-cyan-300 border-cyan-700/50",     description: "Score ≥50, momentum or RRG improving — worth monitoring for entry" },
+  HOLD:   { label: "HOLD",   className: "bg-slate-700/60 text-slate-400 border-slate-600/60",  description: "Mixed signals — maintain existing position, no strong directional bias" },
+  REDUCE: { label: "REDUCE", className: "bg-red-900/50 text-red-400 border-red-700/50",        description: "Score <35 with weakening/lagging RRG — consider trimming exposure" },
+};
+
+function TradeSignalBadge({ cat }: { cat: CategorySummary }) {
+  const signal = deriveTradeSignal(cat);
+  if (signal == null) return <span className="text-slate-600 text-xs">—</span>;
+  const cfg = TRADE_SIGNAL_CONFIG[signal];
+  return (
+    <span
+      className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold border ${cfg.className}`}
+      title={cfg.description}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
 function TopSubChip({ sub }: { sub: SubSectorSummary }) {
   const rs = sub.rs60;
   const color = rs == null ? "text-slate-400" : rs > 0 ? "text-emerald-400" : "text-red-400";
@@ -195,7 +235,7 @@ export default function CategoryTable({
             )}
             <th className="px-4 py-3 text-center" title="Composite signal score: 0-100 bar. Combines RS-60, momentum, and macro-regime alignment.">Score</th>
             <th className="px-4 py-3 text-right" title={`${rsLabel} relative strength vs benchmark`}>vs Benchmark ({rsLabel})</th>
-            <th className="px-4 py-3 text-center" title="Relative Rotation Graph quadrant based on RS ratio and momentum">Signal</th>
+            <th className="px-4 py-3 text-center" title="RRG quadrant + actionable trade signal. BUY: score≥65, improving+trending. WATCH: score≥50, improving or trending. REDUCE: score<35, weakening. HOLD: mixed.">Signal / Action</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-800">
@@ -260,12 +300,15 @@ export default function CategoryTable({
                   <td className="px-4 py-2.5 text-right">
                     <RsCell value={cat.rs60} rs120={cat.rs120} period={rsLabel.replace("d", "")} />
                   </td>
-                  <td className="px-4 py-2.5 text-center text-xs">
-                    {quadrantInfo ? (
-                      <span className={quadrantInfo.color}>{quadrantInfo.label}</span>
-                    ) : (
-                      <span className="text-slate-600">—</span>
-                    )}
+                  <td className="px-4 py-2.5 text-center">
+                    <div className="flex flex-col items-center gap-1">
+                      {quadrantInfo ? (
+                        <span className={`text-xs ${quadrantInfo.color}`}>{quadrantInfo.label}</span>
+                      ) : (
+                        <span className="text-slate-600 text-xs">—</span>
+                      )}
+                      <TradeSignalBadge cat={cat} />
+                    </div>
                   </td>
                 </tr>
               </Fragment>

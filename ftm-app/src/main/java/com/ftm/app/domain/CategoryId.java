@@ -100,5 +100,18 @@ public enum CategoryId {
   COMM_ESPO,
   COMM_NERD,
   COMM_BETZ,
-  COMM_FIVG
+  COMM_FIVG,
+  // V18 additions
+  MATL_GOLD,
+  MATL_SLVR,
+  INDU_SHPP,
+  INDU_ELEC,
+  INDU_MACH,
+  ENRG_URNM,
+  ENRG_NGAS,
+  TECH_SMH,
+  TECH_IOTC,
+  UTIL_CLNR,
+  HLTH_DRUG,
+  REIT_HLTH
 }

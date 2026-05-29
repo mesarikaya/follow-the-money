@@ -109,6 +109,17 @@ export default async function SectorDrilldownPage({ params }: Props) {
           </div>
         )}
 
+        {subSectors.length > 0 && subSectors.every(s => s.rs60 == null && s.compositeScore == null) && (
+          <div className="p-3 rounded-lg bg-amber-900/20 border border-amber-700/40 text-amber-300 text-xs flex items-start gap-2">
+            <span className="text-amber-400 shrink-0 mt-0.5">⚠</span>
+            <div>
+              <span className="font-semibold">Signals pending for {meta?.name ?? sectorId} sub-sectors.</span>{" "}
+              Price history has not been ingested for these ETFs yet. Trigger a data refresh from the main dashboard
+              to compute RS, momentum, and composite score signals. First ingestion may take 8–15 minutes for new tickers.
+            </div>
+          </div>
+        )}
+
         {subSectors.length > 0 && (
           <>
             {/* Quadrant summary cards */}

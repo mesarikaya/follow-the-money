@@ -161,6 +161,13 @@ function EquityCurveChart({ curve, rebalanceDates }: { curve: EquityCurvePoint[]
   );
 }
 
+const CATEGORY_ETF: Record<string, string> = {
+  TECH: "XLK", HLTH: "XLV", FINL: "XLF", DISR: "XLY", INDU: "XLI",
+  ENRG: "XLE", MATL: "XLB", UTIL: "XLU", REIT: "XLRE", STPL: "XLP",
+  COMM: "XLC", GOLD: "GLD", SILV: "SLV", TIPS: "TIP", AGG: "AGG",
+  BIL: "BIL", TLT: "TLT", HYG: "HYG", EMB: "EMB", DBC: "DBC",
+};
+
 function RebalanceTimeline({ events }: { events: RebalanceEvent[] }) {
   if (!events || events.length === 0) {
     return <p className="text-xs text-slate-500 py-4 text-center">No rebalance events recorded.</p>;
@@ -173,9 +180,9 @@ function RebalanceTimeline({ events }: { events: RebalanceEvent[] }) {
           <tr className="border-b border-slate-700 text-slate-500 text-left">
             <th className="pb-2 pr-4 font-medium">#</th>
             <th className="pb-2 pr-4 font-medium">Date</th>
-            <th className="pb-2 pr-4 font-medium">Portfolio Value</th>
-            <th className="pb-2 pr-4 font-medium">Return Since Start</th>
-            <th className="pb-2 font-medium">Categories Held</th>
+            <th className="pb-2 pr-4 font-medium">Value</th>
+            <th className="pb-2 pr-4 font-medium">Return</th>
+            <th className="pb-2 font-medium">Hold — ETF (sector) · Equal weight</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-800">
@@ -193,11 +200,15 @@ function RebalanceTimeline({ events }: { events: RebalanceEvent[] }) {
                 </td>
                 <td className="py-1.5">
                   <div className="flex flex-wrap gap-1">
-                    {ev.categoryIds.map(id => (
-                      <span key={id} className="px-1.5 py-0.5 text-[10px] font-mono bg-blue-900/40 text-blue-300 border border-blue-800/40 rounded">
-                        {id}
-                      </span>
-                    ))}
+                    {ev.categoryIds.map(id => {
+                      const ticker = CATEGORY_ETF[id] ?? id;
+                      return (
+                        <span key={id} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono bg-blue-900/40 text-blue-300 border border-blue-800/40 rounded" title={`Category: ${id}`}>
+                          <span className="text-cyan-300 font-bold">{ticker}</span>
+                          <span className="text-blue-500">({id})</span>
+                        </span>
+                      );
+                    })}
                   </div>
                 </td>
               </tr>
@@ -205,6 +216,9 @@ function RebalanceTimeline({ events }: { events: RebalanceEvent[] }) {
           })}
         </tbody>
       </table>
+      <p className="mt-2 text-[10px] text-slate-600">
+        Hypothetical equal-weighted positions. Rotation strategy exits all positions and buys the top-N sectors by composite score on each rebalance date. No transaction costs, slippage, or taxes modeled.
+      </p>
     </div>
   );
 }
@@ -225,7 +239,7 @@ function MetricCard({ label, value, color, tooltip }: { label: string; value: st
 export default function BacktesterPage() {
   const [startDate, setStartDate] = useState(DEFAULT_START_DATE);
   const [endDate, setEndDate] = useState(DEFAULT_END_DATE);
-  const [rebalanceFrequency, setRebalanceFrequency] = useState<"WEEKLY" | "MONTHLY">("MONTHLY");
+  const [rebalanceFrequency, setRebalanceFrequency] = useState<"WEEKLY" | "MONTHLY" | "QUARTERLY">("MONTHLY");
   const [topN, setTopN] = useState(5);
   const [signalThreshold, setSignalThreshold] = useState("");
   const [result, setResult] = useState<BacktestResult | null>(null);
@@ -245,7 +259,7 @@ export default function BacktesterPage() {
       const data = await runBacktest({
         startDate,
         endDate,
-        rebalanceFrequency,
+        rebalanceFrequency: rebalanceFrequency as "WEEKLY" | "MONTHLY",
         topN,
         signalThreshold: signalThreshold ? parseFloat(signalThreshold) : undefined,
       });
@@ -307,26 +321,25 @@ export default function BacktesterPage() {
                   <label className={labelCls}>Rebalance Frequency</label>
                   <select
                     value={rebalanceFrequency}
-                    onChange={(e) => setRebalanceFrequency(e.target.value as "WEEKLY" | "MONTHLY")}
+                    onChange={(e) => setRebalanceFrequency(e.target.value as "WEEKLY" | "MONTHLY" | "QUARTERLY")}
                     className="w-full text-xs bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-slate-200 focus:border-blue-500 focus:outline-none"
                   >
                     <option value="WEEKLY">Weekly</option>
                     <option value="MONTHLY">Monthly</option>
+                    <option value="QUARTERLY">Quarterly</option>
                   </select>
                 </div>
                 <div>
                   <label className={labelCls}>
                     Top-N Categories
-                    <span className="text-slate-600 ml-1 cursor-help" title="Hold this many categories with the highest composite scores. Equal weight applied.">(?)
-</span>
+                    <span className="text-slate-600 ml-1 cursor-help" title="Hold this many categories with the highest composite scores. Equal weight applied.">(?)</span>
                   </label>
                   <input type="number" min="1" max="19" value={topN} onChange={(e) => setTopN(parseInt(e.target.value) || 5)} className={inputCls} />
                 </div>
                 <div>
                   <label className={labelCls}>
                     Min Composite Score (0–1)
-                    <span className="text-slate-600 ml-1 cursor-help" title="Categories below this score are skipped and replaced with cash (BIL). Range 0–1.">(?)
-</span>
+                    <span className="text-slate-600 ml-1 cursor-help" title="Categories below this score are skipped and replaced with cash (BIL). Range 0–1.">(?)</span>
                   </label>
                   <input
                     type="number"
@@ -374,7 +387,7 @@ export default function BacktesterPage() {
                     <div className="flex items-center gap-4 text-xs text-slate-500">
                       <span className="flex items-center gap-1.5">
                         <span className="inline-block w-6 h-0.5 bg-blue-400" />
-                        Strategy (Top-{topN} {rebalanceFrequency === "WEEKLY" ? "weekly" : "monthly"})
+                        Strategy (Top-{topN} {rebalanceFrequency === "WEEKLY" ? "weekly" : rebalanceFrequency === "QUARTERLY" ? "quarterly" : "monthly"})
                       </span>
                       <span className="flex items-center gap-1.5">
                         <span className="inline-block w-6 border-t border-dashed border-slate-400 opacity-60" />

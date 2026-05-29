@@ -220,7 +220,7 @@ export type BacktestResult = {
 export type BacktestRequest = {
   startDate: string;
   endDate: string;
-  rebalanceFrequency: "WEEKLY" | "MONTHLY";
+  rebalanceFrequency: "WEEKLY" | "MONTHLY" | "QUARTERLY";
   topN: number;
   signalThreshold?: number;
 };

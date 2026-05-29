@@ -1,4 +1,5 @@
-import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory } from "@/lib/api";
+import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, SubSectorSummary } from "@/lib/api";
+import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import CategoryTable from "@/components/CategoryTable";
 import MacroPanel from "@/components/MacroPanel";
 import MarketBreadthBar from "@/components/MarketBreadthBar";
@@ -21,12 +22,26 @@ type Props = {
 export default async function Home({ searchParams }: Props) {
   const { timeframe = "MONTH" } = await searchParams;
 
-  const [categoriesResult, macroResult, rotationResult, scoreHistoryResult] = await Promise.allSettled([
-    fetchCategories(timeframe),
-    fetchMacro(),
-    fetchRotation(),
-    fetchCategoryScoreHistory(30),
-  ]);
+  const sectorIds = Array.from(SECTOR_DRILLDOWN_IDS);
+
+  const [categoriesResult, macroResult, rotationResult, scoreHistoryResult, ...subSectorResults] =
+    await Promise.allSettled([
+      fetchCategories(timeframe),
+      fetchMacro(),
+      fetchRotation(),
+      fetchCategoryScoreHistory(30),
+      ...sectorIds.map((id) => fetchSubSectors(id)),
+    ]);
+
+  const topSubSectorByParent: Record<string, SubSectorSummary> = {};
+  subSectorResults.forEach((result, i) => {
+    if (result.status === "fulfilled" && result.value.length > 0) {
+      const sorted = [...result.value].sort(
+        (a, b) => (b.rs60 ?? -Infinity) - (a.rs60 ?? -Infinity)
+      );
+      topSubSectorByParent[sectorIds[i]] = sorted[0];
+    }
+  });
 
   const categories =
     categoriesResult.status === "fulfilled" ? categoriesResult.value.categories : [];
@@ -102,7 +117,7 @@ export default async function Home({ searchParams }: Props) {
             </span>
           </h2>
           {categories.length > 0 ? (
-            <CategoryTable categories={categories} timeframe={timeframe} scoreHistory={scoreHistory} macroFit={macro?.macroFitByCategory ?? {}} />
+            <CategoryTable categories={categories} timeframe={timeframe} scoreHistory={scoreHistory} macroFit={macro?.macroFitByCategory ?? {}} topSubSectors={topSubSectorByParent} />
           ) : (
             <div className="text-slate-500 text-sm py-8 text-center">
               No categories loaded.

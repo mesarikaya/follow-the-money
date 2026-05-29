@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import Link from "next/link";
-import { CategorySummary } from "@/lib/api";
+import { CategorySummary, SubSectorSummary } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import Sparkline from "@/components/Sparkline";
 
@@ -147,16 +147,34 @@ function buildScoreTooltip(cat: import("@/lib/api").CategorySummary, macroFitVal
   ].filter(Boolean).join("\n");
 }
 
+function TopSubChip({ sub }: { sub: SubSectorSummary }) {
+  const rs = sub.rs60;
+  const color = rs == null ? "text-slate-400" : rs > 0 ? "text-emerald-400" : "text-red-400";
+  const rsPct = rs != null ? `${rs > 0 ? "+" : ""}${(rs * 100).toFixed(1)}%` : null;
+  return (
+    <span
+      className="ml-1.5 inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-mono bg-slate-700/60 border border-slate-600/50 text-slate-400"
+      title={`Top sub-sector: ${sub.name} (${sub.etfTicker})${rsPct ? ` — RS-60 vs sector: ${rsPct}` : ""}`}
+    >
+      <span className="text-slate-500">▲</span>
+      <span className="text-slate-300">{sub.etfTicker}</span>
+      {rsPct && <span className={color}>{rsPct}</span>}
+    </span>
+  );
+}
+
 export default function CategoryTable({
   categories,
   timeframe = "MONTH",
   scoreHistory = {},
   macroFit = {},
+  topSubSectors = {},
 }: {
   categories: CategorySummary[];
   timeframe?: string;
   scoreHistory?: Record<string, number[]>;
   macroFit?: Record<string, number>;
+  topSubSectors?: Record<string, SubSectorSummary>;
 }) {
   const rsLabel = RS_LABEL[timeframe] ?? "60d";
   const hasHistory = Object.keys(scoreHistory).length > 0;
@@ -201,11 +219,16 @@ export default function CategoryTable({
                 <tr className={`hover:bg-slate-800/50 transition-colors text-slate-200 border-l-[3px] ${rowBorderClass}`}>
                   <td className="px-4 py-2.5 text-slate-500 tabular-nums text-xs">{cat.rank}</td>
                   <td className="px-4 py-2.5 font-mono text-blue-300 font-medium">
-                    {SECTOR_DRILLDOWN_IDS.has(cat.id) ? (
-                      <Link href={`/sectors/${cat.id}`} className="hover:text-cyan-300 transition-colors underline decoration-blue-700/50 hover:decoration-cyan-400/70">
-                        {cat.etfTicker}
-                      </Link>
-                    ) : cat.etfTicker}
+                    <div className="flex items-center flex-wrap gap-x-0.5">
+                      {SECTOR_DRILLDOWN_IDS.has(cat.id) ? (
+                        <Link href={`/sectors/${cat.id}`} className="hover:text-cyan-300 transition-colors underline decoration-blue-700/50 hover:decoration-cyan-400/70">
+                          {cat.etfTicker}
+                        </Link>
+                      ) : cat.etfTicker}
+                      {SECTOR_DRILLDOWN_IDS.has(cat.id) && topSubSectors[cat.id] && (
+                        <TopSubChip sub={topSubSectors[cat.id]} />
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-2.5 font-medium">
                     {SECTOR_DRILLDOWN_IDS.has(cat.id) ? (

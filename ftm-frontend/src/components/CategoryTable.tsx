@@ -125,6 +125,28 @@ function RsCell({ value, rs120, period }: { value: number | null; rs120?: number
   );
 }
 
+function buildScoreTooltip(cat: import("@/lib/api").CategorySummary, macroFitVal: number | null): string {
+  const pct = cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : null;
+  const rs60Str = cat.rs60 != null ? `${cat.rs60 > 0 ? "+" : ""}${(cat.rs60 * 100).toFixed(1)}%` : "—";
+  const rs120Str = cat.rs120 != null ? `${cat.rs120 > 0 ? "+" : ""}${(cat.rs120 * 100).toFixed(1)}%` : "—";
+  const rrgLabel = cat.rrgQuadrant ? ({ "4": "Leading ↗", "3": "Improving ↖", "2": "Weakening ↘", "1": "Lagging ↙" }[cat.rrgQuadrant] ?? "—") : "—";
+  const macroFitStr = macroFitVal != null ? `${Math.round(macroFitVal * 100)}% win rate in current regime` : "—";
+  const trend5dPts = cat.compositeTrend5d != null ? Math.round(cat.compositeTrend5d * 100) : null;
+  const trend20dPts = cat.compositeTrend20d != null ? Math.round(cat.compositeTrend20d * 100) : null;
+  return [
+    `Composite Score: ${pct ?? "—"}/100`,
+    ``,
+    `RS-60 (25% weight): ${rs60Str}`,
+    `RS-120 (10% weight, confirmation): ${rs120Str}`,
+    `Flow 20d: n/a (AUM data unavailable)`,
+    `Momentum (20% weight): ${trend5dPts != null ? `5d ${trend5dPts > 0 ? "+" : ""}${trend5dPts}pt` : "—"}`,
+    `Macro Fit (10% weight): ${macroFitStr}`,
+    `RRG (10% weight): ${rrgLabel}`,
+    ``,
+    trend20dPts != null ? `20d score trend: ${trend20dPts > 0 ? "+" : ""}${trend20dPts} pts` : "",
+  ].filter(Boolean).join("\n");
+}
+
 export default function CategoryTable({
   categories,
   timeframe = "MONTH",
@@ -207,7 +229,7 @@ export default function CategoryTable({
                       </div>
                     </td>
                   )}
-                  <td className="px-4 py-2.5">
+                  <td className="px-4 py-2.5" title={buildScoreTooltip(cat, macroFit[cat.id] ?? null)}>
                     <div className="flex justify-center">
                       <ScoreBar score={cat.compositeScore} trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} macroFit={macroFit[cat.id] ?? null} />
                     </div>

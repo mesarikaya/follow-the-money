@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CategorySummary, SubSectorSummary } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import Sparkline from "@/components/Sparkline";
+import GlossaryTooltip from "@/components/GlossaryTooltip";
 
 const TYPE_CONFIG: Record<string, { label: string; className: string }> = {
   EQUITY_SECTOR:  { label: "Equity",         className: "bg-blue-900/50 text-blue-300 border border-blue-800/40" },
@@ -233,9 +234,9 @@ export default function CategoryTable({
             {hasHistory && (
               <th className="px-3 py-3 text-center" title="30-day composite score trend (sparkline)">30d Trend</th>
             )}
-            <th className="px-4 py-3 text-center" title="Composite signal score: 0-100 bar. Combines RS-60, momentum, and macro-regime alignment.">Score</th>
-            <th className="px-4 py-3 text-right" title={`${rsLabel} relative strength vs benchmark`}>vs Benchmark ({rsLabel})</th>
-            <th className="px-4 py-3 text-center" title="RRG quadrant + actionable trade signal. BUY: score≥65, improving+trending. WATCH: score≥50, improving or trending. REDUCE: score<35, weakening. HOLD: mixed.">Signal / Action</th>
+            <th className="px-4 py-3 text-center"><GlossaryTooltip term="Composite Score">Score</GlossaryTooltip></th>
+            <th className="px-4 py-3 text-right"><GlossaryTooltip term="RS-60">vs Benchmark ({rsLabel})</GlossaryTooltip></th>
+            <th className="px-4 py-3 text-center"><GlossaryTooltip term="RRG">Signal</GlossaryTooltip> / <GlossaryTooltip term="BUY">Action</GlossaryTooltip></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-800">

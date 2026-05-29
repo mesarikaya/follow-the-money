@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { CategorySummary, MacroResponse, SubSectorSummary } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
+import GlossaryTooltip from "@/components/GlossaryTooltip";
 
 const REGIME_LABELS: Record<string, string> = {
   RISK_ON:         "Risk-On",
@@ -163,11 +164,21 @@ export default function MarketNarrativePanel({ categories, macro, topSubSectors 
         </div>
       )}
 
-      <div className="px-4 pb-2.5 pt-0">
-        <p className="text-[9px] text-slate-700 leading-relaxed">
-          Signals derived from composite score (RS-60, momentum, RRG, macro fit). Not financial advice.
-          BUY = score≥65 + improving quadrant + positive trend. REDUCE = score&lt;35 + weakening quadrant.
-        </p>
+      <div className="px-4 pb-2.5 pt-0 flex flex-wrap gap-x-3 gap-y-0.5">
+        <span className="text-[9px] text-slate-700">
+          <GlossaryTooltip term="Composite Score">Score</GlossaryTooltip>
+          {" · "}
+          <GlossaryTooltip term="RS-60">RS-60</GlossaryTooltip>
+          {" · "}
+          <GlossaryTooltip term="RRG">RRG</GlossaryTooltip>
+          {" · "}
+          <GlossaryTooltip term="Macro Fit">Macro Fit</GlossaryTooltip>
+          {" · "}
+          <GlossaryTooltip term="BUY">BUY</GlossaryTooltip>
+          {" · "}
+          <GlossaryTooltip term="REDUCE">REDUCE</GlossaryTooltip>
+          {" — click any term for definition · not financial advice"}
+        </span>
       </div>
     </div>
   );

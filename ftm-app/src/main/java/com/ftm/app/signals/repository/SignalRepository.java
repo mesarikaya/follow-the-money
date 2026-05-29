@@ -89,16 +89,15 @@ public class SignalRepository {
             .from(SIGNALS)
             .where(SIGNALS.SIGNAL_TYPE.in(typeNames))
             .groupBy(SIGNALS.SIGNAL_TYPE);
-    return dsl.select(SIGNALS.CATEGORY_ID, SIGNALS.SIGNAL_TYPE, SIGNALS.VALUE)
+    return dsl
+        .select(SIGNALS.CATEGORY_ID, SIGNALS.SIGNAL_TYPE, SIGNALS.VALUE)
         .from(SIGNALS)
         .where(row(SIGNALS.SIGNAL_TYPE, SIGNALS.SIGNAL_DATE).in(latestPerType))
         .stream()
         .collect(
             Collectors.groupingBy(
                 r -> SignalType.valueOf(r.get(SIGNALS.SIGNAL_TYPE)),
-                Collectors.toMap(
-                    r -> r.get(SIGNALS.CATEGORY_ID),
-                    r -> r.get(SIGNALS.VALUE))));
+                Collectors.toMap(r -> r.get(SIGNALS.CATEGORY_ID), r -> r.get(SIGNALS.VALUE))));
   }
 
   public LocalDate findPreviousSignalDate(SignalType type, LocalDate currentDate) {
@@ -168,7 +167,13 @@ public class SignalRepository {
         .where(SIGNALS.SIGNAL_TYPE.eq(type.name()))
         .orderBy(SIGNALS.CATEGORY_ID, SIGNALS.SIGNAL_DATE.asc())
         .fetch()
-        .map(r -> new Row(r.get(SIGNALS.SIGNAL_DATE), r.get(SIGNALS.CATEGORY_ID), type, r.get(SIGNALS.VALUE)));
+        .map(
+            r ->
+                new Row(
+                    r.get(SIGNALS.SIGNAL_DATE),
+                    r.get(SIGNALS.CATEGORY_ID),
+                    type,
+                    r.get(SIGNALS.VALUE)));
   }
 
   public List<HistoryRow> findByCategoryId(String categoryId) {

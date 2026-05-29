@@ -203,10 +203,12 @@ public class AlertRulesEngine {
   private String buildRrgTransitionMessage(RotationEvent rotationEvent) {
     String transitionDescription =
         switch (rotationEvent.eventType()) {
-          case ENTERING_LEADING   -> "entered Leading quadrant (Improving → Leading)";
-          case ENTERING_WEAKENING -> "entered Weakening quadrant (Leading → Weakening) — rotation peak";
-          case ENTERING_LAGGING   -> "entered Lagging quadrant (Weakening → Lagging) — losing relative strength";
-          default                 -> "entered Improving quadrant (Lagging → Improving)";
+          case ENTERING_LEADING -> "entered Leading quadrant (Improving → Leading)";
+          case ENTERING_WEAKENING ->
+              "entered Weakening quadrant (Leading → Weakening) — rotation peak";
+          case ENTERING_LAGGING ->
+              "entered Lagging quadrant (Weakening → Lagging) — losing relative strength";
+          default -> "entered Improving quadrant (Lagging → Improving)";
         };
     return String.format("%s %s", rotationEvent.categoryId().name(), transitionDescription);
   }
@@ -223,13 +225,20 @@ public class AlertRulesEngine {
         rotationEvent.eventType().name(), rotationEvent.confidence(), rotationEvent.detectedDate());
   }
 
-  private int evaluateRsAccelerationCrossover(LocalDate signalDate, Set<String> topLevelCategoryIds) {
+  private int evaluateRsAccelerationCrossover(
+      LocalDate signalDate, Set<String> topLevelCategoryIds) {
     boolean ruleEnabled =
-        alertRulesRepository.findById(RULE_RS_ACCEL_CROSSOVER).map(AlertRule::enabled).orElse(false);
+        alertRulesRepository
+            .findById(RULE_RS_ACCEL_CROSSOVER)
+            .map(AlertRule::enabled)
+            .orElse(false);
     if (!ruleEnabled) return 0;
 
     Severity severity =
-        alertRulesRepository.findById(RULE_RS_ACCEL_CROSSOVER).map(AlertRule::severity).orElse(Severity.INFO);
+        alertRulesRepository
+            .findById(RULE_RS_ACCEL_CROSSOVER)
+            .map(AlertRule::severity)
+            .orElse(Severity.INFO);
 
     Map<String, BigDecimal> currentRs60 =
         signalRepository.findByTypeAndDate(SignalType.RS_60, signalDate);
@@ -240,7 +249,8 @@ public class AlertRulesEngine {
     LocalDate prevDate = signalRepository.findPreviousSignalDate(SignalType.RS_60, signalDate);
     if (prevDate == null) return 0;
 
-    Map<String, BigDecimal> prevRs60 = signalRepository.findByTypeAndDate(SignalType.RS_60, prevDate);
+    Map<String, BigDecimal> prevRs60 =
+        signalRepository.findByTypeAndDate(SignalType.RS_60, prevDate);
     Map<String, BigDecimal> prevRs120 =
         signalRepository.findByTypeAndDate(SignalType.RS_120, prevDate);
 

@@ -42,7 +42,8 @@ public class CategoryController {
   @GetMapping("/score-history")
   @Operation(
       summary = "Composite score history for all categories",
-      description = "Returns the last N trading days of COMPOSITE scores per category, oldest first.")
+      description =
+          "Returns the last N trading days of COMPOSITE scores per category, oldest first.")
   public ResponseEntity<Map<String, List<Double>>> getScoreHistory(
       @RequestParam(defaultValue = "30") @Min(5) @Max(120) int days) {
     return ResponseEntity.ok(categoryService.getCompositeScoreHistory(days));

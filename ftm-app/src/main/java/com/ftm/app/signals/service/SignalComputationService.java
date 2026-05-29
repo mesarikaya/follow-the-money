@@ -217,8 +217,7 @@ public class SignalComputationService {
   }
 
   private int computeAndStoreTrends() {
-    List<SignalRepository.Row> allComposites =
-        signalRepository.findAllByType(SignalType.COMPOSITE);
+    List<SignalRepository.Row> allComposites = signalRepository.findAllByType(SignalType.COMPOSITE);
     if (allComposites.isEmpty()) return 0;
 
     Map<String, List<SignalRepository.Row>> byCategory =
@@ -229,9 +228,7 @@ public class SignalComputationService {
 
     int[] lags = {5, 10, 20};
     SignalType[] trendTypes = {
-      SignalType.COMPOSITE_TREND_5D,
-      SignalType.COMPOSITE_TREND_10D,
-      SignalType.COMPOSITE_TREND_20D
+      SignalType.COMPOSITE_TREND_5D, SignalType.COMPOSITE_TREND_10D, SignalType.COMPOSITE_TREND_20D
     };
 
     List<SignalRepository.Row> trendRows = new ArrayList<>();

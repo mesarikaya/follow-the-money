@@ -33,8 +33,7 @@ class CategoryServiceTest {
   @Test
   @DisplayName("getCompositeScoreHistory returns only top-level category scores from DB")
   void shouldReturnOnlyTopLevelCategoryScoresFromDb() {
-    when(categoryRepository.findTopLevelActiveCategoryIds())
-        .thenReturn(Set.of("TECH", "FINL"));
+    when(categoryRepository.findTopLevelActiveCategoryIds()).thenReturn(Set.of("TECH", "FINL"));
     when(signalRepository.findCompositeScoreHistory(eq(30), anyCollection()))
         .thenReturn(
             Map.of(
@@ -94,7 +93,8 @@ class CategoryServiceTest {
   @DisplayName("getCompositeScoreHistory returns empty map when repository returns empty")
   void shouldReturnEmptyMapWhenRepositoryReturnsEmpty() {
     when(categoryRepository.findTopLevelActiveCategoryIds()).thenReturn(Set.of("TECH"));
-    when(signalRepository.findCompositeScoreHistory(anyInt(), anyCollection())).thenReturn(Map.of());
+    when(signalRepository.findCompositeScoreHistory(anyInt(), anyCollection()))
+        .thenReturn(Map.of());
 
     Map<String, List<Double>> result = categoryService.getCompositeScoreHistory(30);
 
@@ -106,8 +106,7 @@ class CategoryServiceTest {
   void shouldPassTopLevelIdsToRepository() {
     Set<String> topLevelIds = Set.of("TECH", "FINL", "HLTH");
     when(categoryRepository.findTopLevelActiveCategoryIds()).thenReturn(topLevelIds);
-    when(signalRepository.findCompositeScoreHistory(eq(30), eq(topLevelIds)))
-        .thenReturn(Map.of());
+    when(signalRepository.findCompositeScoreHistory(eq(30), eq(topLevelIds))).thenReturn(Map.of());
 
     categoryService.getCompositeScoreHistory(30);
 

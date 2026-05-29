@@ -2,7 +2,6 @@ package com.ftm.app.alerts.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -100,8 +99,12 @@ class AlertRulesEngineTest {
 
     RotationEvent event =
         new RotationEvent(
-            DATE, CategoryId.TECH, RotationEventType.ENTERING_IMPROVING,
-            new BigDecimal("0.800"), "{}", "");
+            DATE,
+            CategoryId.TECH,
+            RotationEventType.ENTERING_IMPROVING,
+            new BigDecimal("0.800"),
+            "{}",
+            "");
 
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of(event));
     when(alertRulesRepository.findById("rrg_transition"))
@@ -131,8 +134,12 @@ class AlertRulesEngineTest {
 
     RotationEvent event =
         new RotationEvent(
-            DATE, CategoryId.FINL, RotationEventType.ENTERING_LEADING,
-            new BigDecimal("0.900"), "{}", "");
+            DATE,
+            CategoryId.FINL,
+            RotationEventType.ENTERING_LEADING,
+            new BigDecimal("0.900"),
+            "{}",
+            "");
 
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of(event));
     when(alertRulesRepository.findById("rrg_transition"))
@@ -157,8 +164,12 @@ class AlertRulesEngineTest {
 
     RotationEvent event =
         new RotationEvent(
-            DATE, CategoryId.TECH, RotationEventType.ENTERING_IMPROVING,
-            new BigDecimal("0.800"), "{}", "");
+            DATE,
+            CategoryId.TECH,
+            RotationEventType.ENTERING_IMPROVING,
+            new BigDecimal("0.800"),
+            "{}",
+            "");
 
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of(event));
     when(alertRulesRepository.findById("rrg_transition"))
@@ -180,8 +191,12 @@ class AlertRulesEngineTest {
 
     RotationEvent event =
         new RotationEvent(
-            DATE, CategoryId.TECH, RotationEventType.ENTERING_IMPROVING,
-            new BigDecimal("0.800"), "{}", "");
+            DATE,
+            CategoryId.TECH,
+            RotationEventType.ENTERING_IMPROVING,
+            new BigDecimal("0.800"),
+            "{}",
+            "");
 
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of(event));
     when(alertRulesRepository.findById("rrg_transition"))
@@ -206,8 +221,12 @@ class AlertRulesEngineTest {
 
     RotationEvent event =
         new RotationEvent(
-            DATE, CategoryId.TECH, RotationEventType.COMPOSITE_BREAKOUT,
-            new BigDecimal("0.750"), "{}", "");
+            DATE,
+            CategoryId.TECH,
+            RotationEventType.COMPOSITE_BREAKOUT,
+            new BigDecimal("0.750"),
+            "{}",
+            "");
 
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of(event));
     when(alertRulesRepository.findById("rrg_transition"))

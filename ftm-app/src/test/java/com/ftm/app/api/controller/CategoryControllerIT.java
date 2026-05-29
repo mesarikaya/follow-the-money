@@ -64,9 +64,7 @@ class CategoryControllerIT {
   void shouldReturn200ForScoreHistoryWithDefaultDays() throws Exception {
     when(categoryService.getCompositeScoreHistory(anyInt())).thenReturn(Map.of());
 
-    mockMvc
-        .perform(get("/api/v1/categories/score-history"))
-        .andExpect(status().isOk());
+    mockMvc.perform(get("/api/v1/categories/score-history")).andExpect(status().isOk());
   }
 
   @Test

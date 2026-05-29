@@ -14,5 +14,7 @@ public record MacroResponse(
     MacroIndicatorsDto indicators,
     MacroIndicatorsDto previousIndicators,
     List<MacroRegimeHistoryEntry> regimeHistory,
-    @Schema(description = "MACRO_FIT win rate per category — fraction of days in current regime where RS_60 > 0")
+    @Schema(
+            description =
+                "MACRO_FIT win rate per category — fraction of days in current regime where RS_60 > 0")
         Map<String, BigDecimal> macroFitByCategory) {}

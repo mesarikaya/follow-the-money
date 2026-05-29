@@ -8,6 +8,40 @@ const REGIME_COLORS: Record<string, string> = {
   STAGFLATION:        "bg-amber-900/50 text-amber-300 border-amber-700",
 };
 
+type RegimeImplication = {
+  headline: string;
+  favor: string[];
+  avoid: string[];
+};
+
+const REGIME_IMPLICATIONS: Record<string, RegimeImplication> = {
+  RISK_ON_GROWTH: {
+    headline: "Economy expanding, volatility low — growth assets leading.",
+    favor: ["Tech (XLK)", "Consumer Disc. (XLY)", "Industrials (XLI)", "Financials (XLF)"],
+    avoid: ["Long bonds (TLT)", "Utilities (XLU)", "Gold (GLD)"],
+  },
+  RISK_ON_DEFENSIVE: {
+    headline: "Growth moderating but still positive — quality and stability favored.",
+    favor: ["Healthcare (XLV)", "Consumer Staples (XLP)", "Financials (XLF)"],
+    avoid: ["High-beta tech sub-sectors", "Speculative small-caps"],
+  },
+  RISK_OFF_DEFENSIVE: {
+    headline: "Rising uncertainty — capital rotating to safer assets.",
+    favor: ["Healthcare (XLV)", "Staples (XLP)", "Gold (GLD)", "Short bonds (BIL)"],
+    avoid: ["Discretionary (XLY)", "Tech growth names", "Energy (XLE)"],
+  },
+  RISK_OFF_FLIGHT: {
+    headline: "Stress conditions — flight to safety, equities broadly under pressure.",
+    favor: ["Cash (BIL)", "Gold (GLD)", "Long bonds (TLT)", "Utilities (XLU)"],
+    avoid: ["Most equity sectors", "High-yield bonds (HYG)"],
+  },
+  STAGFLATION: {
+    headline: "High inflation + slowing growth — real assets and energy outperform.",
+    favor: ["Energy (XLE)", "Materials (XLB)", "Gold (GLD)", "Commodities (DBC)"],
+    avoid: ["Long-duration bonds (TLT)", "High-multiple tech growth"],
+  },
+};
+
 type CardConfig = {
   label: string;
   key: keyof MacroIndicators;
@@ -120,6 +154,7 @@ function MacroCard({
 export default function MacroPanel({ macro }: { macro: MacroResponse }) {
   const { indicators, previousIndicators, regime, asOfDate } = macro;
   const regimeClass = REGIME_COLORS[regime] ?? "bg-slate-700 text-slate-300 border-slate-600";
+  const implication = REGIME_IMPLICATIONS[regime] ?? null;
 
   return (
     <section className="space-y-4">
@@ -132,6 +167,23 @@ export default function MacroPanel({ macro }: { macro: MacroResponse }) {
           <span className="text-xs text-slate-500">as of {asOfDate}</span>
         )}
       </div>
+
+      {implication && (
+        <div className="rounded-lg border border-slate-700/60 bg-slate-800/40 px-4 py-3 text-xs space-y-2">
+          <p className="text-slate-300">{implication.headline}</p>
+          <div className="flex gap-6">
+            <div>
+              <span className="text-emerald-400 font-semibold">Favor: </span>
+              <span className="text-slate-400">{implication.favor.join(" · ")}</span>
+            </div>
+            <div>
+              <span className="text-red-400 font-semibold">Avoid: </span>
+              <span className="text-slate-400">{implication.avoid.join(" · ")}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3">
         {CARD_CONFIGS.map((config) => (
           <MacroCard

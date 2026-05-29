@@ -65,7 +65,10 @@ public class MacroService {
 
     List<MacroRegimeHistoryEntry> regimeHistory =
         signalRepository.findMacroRegimeHistory(REGIME_HISTORY_LOOKBACK_DAYS).stream()
-            .map(row -> new MacroRegimeHistoryEntry(row.date(), ordinalToRegimeName(row.regimeOrdinal().intValue())))
+            .map(
+                row ->
+                    new MacroRegimeHistoryEntry(
+                        row.date(), ordinalToRegimeName(row.regimeOrdinal().intValue())))
             .toList();
 
     if (regimeHistory.isEmpty()) {

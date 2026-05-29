@@ -98,19 +98,23 @@ class SignalRepositoryIT {
   }
 
   @Test
-  @DisplayName("findLatestByTypes returns the most recent value for each requested type in one call")
+  @DisplayName(
+      "findLatestByTypes returns the most recent value for each requested type in one call")
   void shouldReturnLatestSignalsForMultipleTypes() {
     repository.batchUpsert(
         List.of(
-            new SignalRepository.Row(DATE.minusDays(1), TECH, SignalType.RS_60, new BigDecimal("1.010000")),
+            new SignalRepository.Row(
+                DATE.minusDays(1), TECH, SignalType.RS_60, new BigDecimal("1.010000")),
             new SignalRepository.Row(DATE, TECH, SignalType.RS_60, new BigDecimal("1.050000")),
             new SignalRepository.Row(DATE, TECH, SignalType.COMPOSITE, new BigDecimal("0.750000")),
             new SignalRepository.Row(DATE, TECH, SignalType.RRG_QUADRANT, new BigDecimal("4"))));
 
     Map<SignalType, Map<String, BigDecimal>> result =
-        repository.findLatestByTypes(List.of(SignalType.RS_60, SignalType.COMPOSITE, SignalType.RRG_QUADRANT));
+        repository.findLatestByTypes(
+            List.of(SignalType.RS_60, SignalType.COMPOSITE, SignalType.RRG_QUADRANT));
 
-    assertThat(result).containsKeys(SignalType.RS_60, SignalType.COMPOSITE, SignalType.RRG_QUADRANT);
+    assertThat(result)
+        .containsKeys(SignalType.RS_60, SignalType.COMPOSITE, SignalType.RRG_QUADRANT);
     assertThat(result.get(SignalType.RS_60).get(TECH)).isEqualByComparingTo("1.050000");
     assertThat(result.get(SignalType.COMPOSITE).get(TECH)).isEqualByComparingTo("0.750000");
     assertThat(result.get(SignalType.RRG_QUADRANT).get(TECH)).isEqualByComparingTo("4");
@@ -128,10 +132,13 @@ class SignalRepositoryIT {
     String FINL = "FINL";
     repository.batchUpsert(
         List.of(
-            new SignalRepository.Row(DATE.minusDays(2), TECH, SignalType.COMPOSITE, new BigDecimal("0.600000")),
-            new SignalRepository.Row(DATE.minusDays(1), TECH, SignalType.COMPOSITE, new BigDecimal("0.700000")),
-            new SignalRepository.Row(DATE,               TECH, SignalType.COMPOSITE, new BigDecimal("0.800000")),
-            new SignalRepository.Row(DATE,               FINL, SignalType.COMPOSITE, new BigDecimal("0.500000"))));
+            new SignalRepository.Row(
+                DATE.minusDays(2), TECH, SignalType.COMPOSITE, new BigDecimal("0.600000")),
+            new SignalRepository.Row(
+                DATE.minusDays(1), TECH, SignalType.COMPOSITE, new BigDecimal("0.700000")),
+            new SignalRepository.Row(DATE, TECH, SignalType.COMPOSITE, new BigDecimal("0.800000")),
+            new SignalRepository.Row(
+                DATE, FINL, SignalType.COMPOSITE, new BigDecimal("0.500000"))));
 
     var result = repository.findCompositeScoreHistory(3, List.of(TECH));
 
@@ -142,15 +149,21 @@ class SignalRepositoryIT {
   }
 
   @Test
-  @DisplayName("findCompositeScoreHistory limits result to the requested number of most-recent dates")
+  @DisplayName(
+      "findCompositeScoreHistory limits result to the requested number of most-recent dates")
   void shouldLimitScoreHistoryToRequestedDays() {
     repository.batchUpsert(
         List.of(
-            new SignalRepository.Row(DATE.minusDays(4), TECH, SignalType.COMPOSITE, new BigDecimal("0.500000")),
-            new SignalRepository.Row(DATE.minusDays(3), TECH, SignalType.COMPOSITE, new BigDecimal("0.550000")),
-            new SignalRepository.Row(DATE.minusDays(2), TECH, SignalType.COMPOSITE, new BigDecimal("0.600000")),
-            new SignalRepository.Row(DATE.minusDays(1), TECH, SignalType.COMPOSITE, new BigDecimal("0.700000")),
-            new SignalRepository.Row(DATE,               TECH, SignalType.COMPOSITE, new BigDecimal("0.800000"))));
+            new SignalRepository.Row(
+                DATE.minusDays(4), TECH, SignalType.COMPOSITE, new BigDecimal("0.500000")),
+            new SignalRepository.Row(
+                DATE.minusDays(3), TECH, SignalType.COMPOSITE, new BigDecimal("0.550000")),
+            new SignalRepository.Row(
+                DATE.minusDays(2), TECH, SignalType.COMPOSITE, new BigDecimal("0.600000")),
+            new SignalRepository.Row(
+                DATE.minusDays(1), TECH, SignalType.COMPOSITE, new BigDecimal("0.700000")),
+            new SignalRepository.Row(
+                DATE, TECH, SignalType.COMPOSITE, new BigDecimal("0.800000"))));
 
     var result = repository.findCompositeScoreHistory(3, List.of(TECH));
 
@@ -163,7 +176,9 @@ class SignalRepositoryIT {
   @DisplayName("findCompositeScoreHistory returns empty map when categoryIds list is empty")
   void shouldReturnEmptyMapWhenCategoryIdsEmpty() {
     repository.batchUpsert(
-        List.of(new SignalRepository.Row(DATE, TECH, SignalType.COMPOSITE, new BigDecimal("0.700000"))));
+        List.of(
+            new SignalRepository.Row(
+                DATE, TECH, SignalType.COMPOSITE, new BigDecimal("0.700000"))));
 
     var result = repository.findCompositeScoreHistory(10, List.of());
 

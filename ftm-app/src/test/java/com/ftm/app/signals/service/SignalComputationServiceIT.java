@@ -24,12 +24,11 @@ import org.springframework.test.context.event.RecordApplicationEvents;
 @RecordApplicationEvents
 class SignalComputationServiceIT {
 
+  private static final LocalDate SIGNAL_DATE = LocalDate.of(2024, 6, 28);
   @Autowired SignalComputationService service;
   @Autowired SignalRepository signalRepository;
   @Autowired JdbcTemplate jdbcTemplate;
   @Autowired ApplicationEvents applicationEvents;
-
-  private static final LocalDate SIGNAL_DATE = LocalDate.of(2024, 6, 28);
 
   @BeforeEach
   void clean() {
@@ -55,6 +54,9 @@ class SignalComputationServiceIT {
     assertThat(latestDateSignals)
         .extracting(SignalRepository.HistoryRow::signalType)
         .containsExactlyInAnyOrder(
+            SignalType.COMPOSITE_TREND_5D,
+            SignalType.COMPOSITE_TREND_10D,
+            SignalType.COMPOSITE_TREND_20D,
             SignalType.RS_20,
             SignalType.RS_60,
             SignalType.RS_120,

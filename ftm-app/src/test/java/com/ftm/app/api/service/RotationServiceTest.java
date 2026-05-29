@@ -101,8 +101,7 @@ class RotationServiceTest {
             "Strong inflows");
     when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc()).thenReturn(List.of(tech));
     when(signalRepository.findLatestByTypes(anyList())).thenReturn(noSignals());
-    when(rotationEventRepository.findRecentEvents(any(LocalDate.class)))
-        .thenReturn(List.of(event));
+    when(rotationEventRepository.findRecentEvents(any(LocalDate.class))).thenReturn(List.of(event));
 
     RotationResponse response = rotationService.getLatest();
 

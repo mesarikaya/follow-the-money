@@ -45,7 +45,8 @@ class RrgServiceTest {
         .create();
   }
 
-  private SignalRepository.RrgRow row(LocalDate date, String categoryId, SignalType type, String value) {
+  private SignalRepository.RrgRow row(
+      LocalDate date, String categoryId, SignalType type, String value) {
     return new SignalRepository.RrgRow(date, categoryId, type, new BigDecimal(value));
   }
 

@@ -42,22 +42,22 @@ public class CategoryService {
     log.debug("Loading categories for timeframe={}", timeframe);
     var rows = categoryRepository.findAllWithLatestPrice();
     SignalType rsType = rsTypeForTimeframe(timeframe);
-    List<SignalType> typesToFetch = List.of(
-        rsType,
-        SignalType.COMPOSITE,
-        SignalType.RRG_QUADRANT,
-        SignalType.COMPOSITE_TREND_5D,
-        SignalType.COMPOSITE_TREND_10D,
-        SignalType.COMPOSITE_TREND_20D,
-        SignalType.RS_120,
-        SignalType.FLOW_20D,
-        SignalType.PERSISTENCE_20D);
+    List<SignalType> typesToFetch =
+        List.of(
+            rsType,
+            SignalType.COMPOSITE,
+            SignalType.RRG_QUADRANT,
+            SignalType.COMPOSITE_TREND_5D,
+            SignalType.COMPOSITE_TREND_10D,
+            SignalType.COMPOSITE_TREND_20D,
+            SignalType.RS_120,
+            SignalType.FLOW_20D,
+            SignalType.PERSISTENCE_20D);
     // Exclude duplicates when rsType is one of the already-listed types (e.g. RS_60 = default)
     var uniqueTypes = typesToFetch.stream().distinct().toList();
     Map<SignalType, Map<String, BigDecimal>> signals =
         signalRepository.findLatestByTypes(uniqueTypes);
-    Map<String, BigDecimal> rsByCategory =
-        signals.getOrDefault(rsType, Collections.emptyMap());
+    Map<String, BigDecimal> rsByCategory = signals.getOrDefault(rsType, Collections.emptyMap());
     Map<String, BigDecimal> compositeByCategoryId =
         signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap());
     Map<String, BigDecimal> rrgQuadrantByCategoryId =

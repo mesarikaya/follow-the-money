@@ -60,8 +60,7 @@ public class RotationService {
     Map<String, BigDecimal> rrgQuadrants =
         signals.getOrDefault(SignalType.RRG_QUADRANT, Collections.emptyMap());
 
-    LocalDate asOfDate =
-        signalRepository.findLatestSignalDate().orElse(LocalDate.now());
+    LocalDate asOfDate = signalRepository.findLatestSignalDate().orElse(LocalDate.now());
 
     List<RotationLeaderEntry> allRanked =
         categoriesById.entrySet().stream()

@@ -11,8 +11,10 @@ public record BacktestRequest(
     @NotNull LocalDate endDate,
     @NotNull String rebalanceFrequency,
     @Min(1) @Max(19) int topN,
-    BigDecimal signalThreshold) {
+    BigDecimal signalThreshold,
+    String categoryScope) {
   public BacktestRequest {
     if (topN == 0) topN = 5;
+    if (categoryScope == null || categoryScope.isBlank()) categoryScope = "ALL";
   }
 }

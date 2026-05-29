@@ -45,9 +45,19 @@ class HoldingPriceServiceTest {
   }
 
   private Holding holding(String ticker, String categoryId, String priceSource) {
-    return new Holding(1L, ticker, ticker + " ETF", categoryId, "USD",
-        new BigDecimal("10"), new BigDecimal("100"), null,
-        OffsetDateTime.now(), null, null, priceSource);
+    return new Holding(
+        1L,
+        ticker,
+        ticker + " ETF",
+        categoryId,
+        "USD",
+        new BigDecimal("10"),
+        new BigDecimal("100"),
+        null,
+        OffsetDateTime.now(),
+        null,
+        null,
+        priceSource);
   }
 
   // ===== fetchGbpUsdRate =====
@@ -147,7 +157,9 @@ class HoldingPriceServiceTest {
 
     holdingPriceService.refreshPricesForAllHoldings();
 
-    verify(holdingRepository).updatePrice(eq("XLK"), eq(new BigDecimal("195.50")), any(LocalDate.class), eq("yahoo_finance"));
+    verify(holdingRepository)
+        .updatePrice(
+            eq("XLK"), eq(new BigDecimal("195.50")), any(LocalDate.class), eq("yahoo_finance"));
   }
 
   @Test

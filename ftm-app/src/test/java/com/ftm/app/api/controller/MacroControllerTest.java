@@ -5,13 +5,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.ftm.app.api.dto.MacroIndicatorsDto;
-import com.ftm.app.api.dto.MacroRegimeHistoryEntry;
 import com.ftm.app.api.dto.MacroResponse;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
 import com.ftm.app.api.service.MacroService;
-import java.time.LocalDate;
-import java.util.List;
+import org.instancio.Instancio;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,14 +35,12 @@ class MacroControllerTest {
   @Test
   @DisplayName("GET /macro returns 200 OK with regime and indicators")
   void shouldReturn200WithMacroResponse() throws Exception {
-    var indicators = new MacroIndicatorsDto(null, null, null, null, null, null, null, null);
-    var history = List.of(new MacroRegimeHistoryEntry(LocalDate.now(), "RISK_ON_GROWTH"));
-    when(macroService.getMacroResponse())
-        .thenReturn(new MacroResponse(LocalDate.now(), "RISK_ON_GROWTH", indicators, history));
+    var macroResponse = Instancio.of(MacroResponse.class).create();
+    when(macroService.getMacroResponse()).thenReturn(macroResponse);
 
     mockMvc
         .perform(get("/macro"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.regime").value("RISK_ON_GROWTH"));
+        .andExpect(jsonPath("$.regime").value(macroResponse.regime()));
   }
 }

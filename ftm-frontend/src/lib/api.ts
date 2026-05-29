@@ -223,6 +223,7 @@ export type BacktestRequest = {
   rebalanceFrequency: "WEEKLY" | "MONTHLY" | "QUARTERLY";
   topN: number;
   signalThreshold?: number;
+  categoryScope?: "ALL" | "EQUITY_SECTORS_ONLY" | "TOP_LEVEL_ONLY";
 };
 
 export const runBacktest = (request: BacktestRequest) =>

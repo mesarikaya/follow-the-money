@@ -14,7 +14,9 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import org.jooq.Condition;
 import org.jooq.DSLContext;
+import org.jooq.impl.DSL;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -48,7 +50,7 @@ public class BacktestEngine {
     }
 
     Map<LocalDate, Map<String, BigDecimal>> compositesByDate =
-        fetchCompositesByDate(request.startDate(), request.endDate());
+        fetchCompositesByDate(request.startDate(), request.endDate(), request.categoryScope());
     Map<LocalDate, Map<String, BigDecimal>> pricesByDate =
         fetchEtfPricesByDate(request.startDate(), request.endDate());
     Map<LocalDate, BigDecimal> spyPricesByDate =
@@ -96,12 +98,23 @@ public class BacktestEngine {
   }
 
   private Map<LocalDate, Map<String, BigDecimal>> fetchCompositesByDate(
-      LocalDate startDate, LocalDate endDate) {
+      LocalDate startDate, LocalDate endDate, String categoryScope) {
     Map<LocalDate, Map<String, BigDecimal>> result = new TreeMap<>();
+
+    Condition scopeCondition =
+        switch (categoryScope.toUpperCase()) {
+          case "EQUITY_SECTORS_ONLY" ->
+              CATEGORIES.TYPE.eq("EQUITY_SECTOR").and(CATEGORIES.PARENT_ID.isNull());
+          case "TOP_LEVEL_ONLY" -> CATEGORIES.PARENT_ID.isNull();
+          default -> DSL.noCondition();
+        };
+
     dsl.select(SIGNALS.SIGNAL_DATE, SIGNALS.CATEGORY_ID, SIGNALS.VALUE)
         .from(SIGNALS)
+        .join(CATEGORIES).on(CATEGORIES.ID.eq(SIGNALS.CATEGORY_ID))
         .where(SIGNALS.SIGNAL_TYPE.eq(SignalType.COMPOSITE.name()))
         .and(SIGNALS.SIGNAL_DATE.between(startDate, endDate))
+        .and(scopeCondition)
         .fetch()
         .forEach(
             r ->
@@ -159,10 +172,10 @@ public class BacktestEngine {
     for (LocalDate date : tradingDates) {
       boolean shouldRebalance =
           switch (rebalanceFrequency.toUpperCase()) {
-            case "WEEKLY"    -> ChronoUnit.WEEKS.between(lastRebalance, date) >= 1;
-            case "MONTHLY"   -> ChronoUnit.MONTHS.between(lastRebalance, date) >= 1;
+            case "WEEKLY" -> ChronoUnit.WEEKS.between(lastRebalance, date) >= 1;
+            case "MONTHLY" -> ChronoUnit.MONTHS.between(lastRebalance, date) >= 1;
             case "QUARTERLY" -> ChronoUnit.MONTHS.between(lastRebalance, date) >= 3;
-            default          -> ChronoUnit.MONTHS.between(lastRebalance, date) >= 1;
+            default -> ChronoUnit.MONTHS.between(lastRebalance, date) >= 1;
           };
       if (shouldRebalance && !date.equals(lastRebalance)) {
         rebalanceDates.add(date);

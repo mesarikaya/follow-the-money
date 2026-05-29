@@ -228,8 +228,7 @@ function MetricCard({ label, value, color, tooltip }: { label: string; value: st
     <div className="space-y-0.5" title={tooltip}>
       <div className="text-xs text-slate-500 flex items-center gap-1">
         {label}
-        {tooltip && <span className="cursor-help text-slate-600">(?)
-</span>}
+        {tooltip && <span className="cursor-help text-slate-600">(?)</span>}
       </div>
       <div className={`text-xl font-bold font-mono ${color}`}>{value}</div>
     </div>
@@ -240,6 +239,7 @@ export default function BacktesterPage() {
   const [startDate, setStartDate] = useState(DEFAULT_START_DATE);
   const [endDate, setEndDate] = useState(DEFAULT_END_DATE);
   const [rebalanceFrequency, setRebalanceFrequency] = useState<"WEEKLY" | "MONTHLY" | "QUARTERLY">("MONTHLY");
+  const [categoryScope, setCategoryScope] = useState<"ALL" | "EQUITY_SECTORS_ONLY" | "TOP_LEVEL_ONLY">("TOP_LEVEL_ONLY");
   const [topN, setTopN] = useState(5);
   const [signalThreshold, setSignalThreshold] = useState("");
   const [result, setResult] = useState<BacktestResult | null>(null);
@@ -259,9 +259,10 @@ export default function BacktesterPage() {
       const data = await runBacktest({
         startDate,
         endDate,
-        rebalanceFrequency: rebalanceFrequency as "WEEKLY" | "MONTHLY",
+        rebalanceFrequency,
         topN,
         signalThreshold: signalThreshold ? parseFloat(signalThreshold) : undefined,
+        categoryScope,
       });
       setResult(data);
       setRecentRuns(prev => [data, ...prev.filter(r => r.runId !== data.runId).slice(0, 9)]);
@@ -328,6 +329,26 @@ export default function BacktesterPage() {
                     <option value="MONTHLY">Monthly</option>
                     <option value="QUARTERLY">Quarterly</option>
                   </select>
+                </div>
+                <div>
+                  <label className={labelCls}>
+                    Universe
+                    <span className="text-slate-600 ml-1 cursor-help" title="Which categories compete for allocation. 'Equity Sectors Only' forces TECH/HLTH/FINL etc. to compete against each other — use for pure sector rotation. 'All Top-Level' adds Gold, Bonds, and Cash as defensive alternatives. 'All' also includes sub-sectors and factor ETFs.">(?)</span>
+                  </label>
+                  <select
+                    value={categoryScope}
+                    onChange={(e) => setCategoryScope(e.target.value as "ALL" | "EQUITY_SECTORS_ONLY" | "TOP_LEVEL_ONLY")}
+                    className="w-full text-xs bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-slate-200 focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="EQUITY_SECTORS_ONLY">Equity Sectors Only (GICS)</option>
+                    <option value="TOP_LEVEL_ONLY">All Top-Level (+ Gold, Bonds)</option>
+                    <option value="ALL">All (incl. Sub-Sectors)</option>
+                  </select>
+                  <p className="text-[10px] text-slate-600 mt-1">
+                    {categoryScope === "EQUITY_SECTORS_ONLY" && "Tech vs Financials vs Energy etc. — pure GICS rotation"}
+                    {categoryScope === "TOP_LEVEL_ONLY" && "Can rotate to Gold/TLT/BIL in risk-off regimes"}
+                    {categoryScope === "ALL" && "Broadest universe — sub-sectors may dilute signals"}
+                  </p>
                 </div>
                 <div>
                   <label className={labelCls}>
@@ -509,7 +530,7 @@ export default function BacktesterPage() {
                             <td className="py-1.5 pr-3 text-slate-400 tabular-nums">
                               {run.startDate?.slice(0, 7)} – {run.endDate?.slice(0, 7)}
                             </td>
-                            <td className="py-1.5 pr-3 text-slate-500">{run.rebalanceFrequency === "WEEKLY" ? "W" : "M"}</td>
+                            <td className="py-1.5 pr-3 text-slate-500">{run.rebalanceFrequency === "WEEKLY" ? "W" : run.rebalanceFrequency === "QUARTERLY" ? "Q" : "M"}</td>
                             <td className="py-1.5 pr-3 text-slate-500 tabular-nums">{run.topN}</td>
                             <td className={`py-1.5 pr-3 font-mono tabular-nums text-right ${run.totalReturnPct >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                               {run.totalReturnPct >= 0 ? "+" : ""}{run.totalReturnPct?.toFixed(1)}%

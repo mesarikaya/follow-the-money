@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { RotationResponse } from "@/lib/api";
-import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
+import { SECTOR_DRILLDOWN_IDS, CATEGORY_ETF_MAP } from "@/lib/sectors";
 
 const QUADRANT_LABELS: Record<number, string> = {
   4: "↗ Leading",
@@ -41,65 +41,87 @@ type Props = { rotation: RotationResponse };
 export default function RotationPanel({ rotation }: Props) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
-        <h3 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-3">
+      <div className="bg-slate-800/50 border border-emerald-800/20 rounded-lg p-4">
+        <h3 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1">
           Top Leaders
         </h3>
+        <p className="text-[10px] text-slate-600 mb-3">Overweight — highest composite signal scores</p>
         <ul className="space-y-2">
           {rotation.topLeaders.length === 0 && (
             <li className="text-xs text-slate-500">No data yet</li>
           )}
-          {rotation.topLeaders.map((leader) => (
-            <li key={leader.categoryId} className="flex flex-col gap-1">
-              <div className="flex items-center justify-between">
-                {SECTOR_DRILLDOWN_IDS.has(leader.categoryId) ? (
-                  <Link href={`/sectors/${leader.categoryId}`} className="text-xs font-medium text-slate-200 hover:text-cyan-300 transition-colors">{leader.categoryName}</Link>
-                ) : (
-                  <span className="text-xs font-medium text-slate-200">{leader.categoryName}</span>
-                )}
-                <span className="text-xs text-slate-500">{leader.categoryId}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {compositeScoreBar(leader.compositeScore)}
-                {leader.relativeRotationGraphQuadrant != null && (
-                  <span className="text-xs text-slate-500 shrink-0">
-                    {QUADRANT_LABELS[leader.relativeRotationGraphQuadrant] ?? "—"}
-                  </span>
-                )}
-              </div>
-            </li>
-          ))}
+          {rotation.topLeaders.map((leader) => {
+            const etfTicker = CATEGORY_ETF_MAP[leader.categoryId] ?? leader.categoryId;
+            return (
+              <li key={leader.categoryId} className="flex flex-col gap-1">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="font-mono text-xs font-bold text-emerald-300 shrink-0 bg-emerald-900/30 border border-emerald-700/30 px-1.5 py-0.5 rounded"
+                      title={`ETF: ${etfTicker}`}
+                    >
+                      {etfTicker}
+                    </span>
+                    {SECTOR_DRILLDOWN_IDS.has(leader.categoryId) ? (
+                      <Link href={`/sectors/${leader.categoryId}`} className="text-xs text-slate-400 hover:text-cyan-300 transition-colors truncate">{leader.categoryName}</Link>
+                    ) : (
+                      <span className="text-xs text-slate-400 truncate">{leader.categoryName}</span>
+                    )}
+                  </div>
+                  {leader.relativeRotationGraphQuadrant != null && (
+                    <span className="text-[10px] text-slate-500 shrink-0">
+                      {QUADRANT_LABELS[leader.relativeRotationGraphQuadrant] ?? "—"}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {compositeScoreBar(leader.compositeScore)}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       </div>
 
-      <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
-        <h3 className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-3">
+      <div className="bg-slate-800/50 border border-red-900/20 rounded-lg p-4">
+        <h3 className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-1">
           Bottom Laggards
         </h3>
+        <p className="text-[10px] text-slate-600 mb-3">Underweight or avoid — weakest composite signals</p>
         <ul className="space-y-2">
           {rotation.bottomLaggards.length === 0 && (
             <li className="text-xs text-slate-500">No data yet</li>
           )}
-          {rotation.bottomLaggards.map((laggard) => (
-            <li key={laggard.categoryId} className="flex flex-col gap-1">
-              <div className="flex items-center justify-between">
-                {SECTOR_DRILLDOWN_IDS.has(laggard.categoryId) ? (
-                  <Link href={`/sectors/${laggard.categoryId}`} className="text-xs font-medium text-slate-200 hover:text-cyan-300 transition-colors">{laggard.categoryName}</Link>
-                ) : (
-                  <span className="text-xs font-medium text-slate-200">{laggard.categoryName}</span>
-                )}
-                <span className="text-xs text-slate-500">{laggard.categoryId}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {compositeScoreBar(laggard.compositeScore)}
-                {laggard.relativeRotationGraphQuadrant != null && (
-                  <span className="text-xs text-slate-500 shrink-0">
-                    {QUADRANT_LABELS[laggard.relativeRotationGraphQuadrant] ?? "—"}
-                  </span>
-                )}
-              </div>
-            </li>
-          ))}
+          {rotation.bottomLaggards.map((laggard) => {
+            const etfTicker = CATEGORY_ETF_MAP[laggard.categoryId] ?? laggard.categoryId;
+            return (
+              <li key={laggard.categoryId} className="flex flex-col gap-1">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="font-mono text-xs font-bold text-red-400 shrink-0 bg-red-900/20 border border-red-800/30 px-1.5 py-0.5 rounded"
+                      title={`ETF: ${etfTicker}`}
+                    >
+                      {etfTicker}
+                    </span>
+                    {SECTOR_DRILLDOWN_IDS.has(laggard.categoryId) ? (
+                      <Link href={`/sectors/${laggard.categoryId}`} className="text-xs text-slate-400 hover:text-cyan-300 transition-colors truncate">{laggard.categoryName}</Link>
+                    ) : (
+                      <span className="text-xs text-slate-400 truncate">{laggard.categoryName}</span>
+                    )}
+                  </div>
+                  {laggard.relativeRotationGraphQuadrant != null && (
+                    <span className="text-[10px] text-slate-500 shrink-0">
+                      {QUADRANT_LABELS[laggard.relativeRotationGraphQuadrant] ?? "—"}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {compositeScoreBar(laggard.compositeScore)}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       </div>
 

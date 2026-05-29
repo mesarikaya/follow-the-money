@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { runBacktest, fetchRecentBacktests, BacktestResult, EquityCurvePoint, RebalanceEvent } from "@/lib/api";
+import { CATEGORY_ETF_MAP } from "@/lib/sectors";
 
 const DEFAULT_START_DATE = "2021-01-04";
 const DEFAULT_END_DATE   = new Date().toISOString().split("T")[0];
@@ -161,12 +162,6 @@ function EquityCurveChart({ curve, rebalanceDates }: { curve: EquityCurvePoint[]
   );
 }
 
-const CATEGORY_ETF: Record<string, string> = {
-  TECH: "XLK", HLTH: "XLV", FINL: "XLF", DISR: "XLY", INDU: "XLI",
-  ENRG: "XLE", MATL: "XLB", UTIL: "XLU", REIT: "XLRE", STPL: "XLP",
-  COMM: "XLC", GOLD: "GLD", SILV: "SLV", TIPS: "TIP", AGG: "AGG",
-  BIL: "BIL", TLT: "TLT", HYG: "HYG", EMB: "EMB", DBC: "DBC",
-};
 
 function RebalanceTimeline({ events }: { events: RebalanceEvent[] }) {
   if (!events || events.length === 0) {
@@ -201,7 +196,7 @@ function RebalanceTimeline({ events }: { events: RebalanceEvent[] }) {
                 <td className="py-1.5">
                   <div className="flex flex-wrap gap-1">
                     {ev.categoryIds.map(id => {
-                      const ticker = CATEGORY_ETF[id] ?? id;
+                      const ticker = CATEGORY_ETF_MAP[id] ?? id;
                       return (
                         <span key={id} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono bg-blue-900/40 text-blue-300 border border-blue-800/40 rounded" title={`Category: ${id}`}>
                           <span className="text-cyan-300 font-bold">{ticker}</span>

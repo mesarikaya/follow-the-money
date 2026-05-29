@@ -122,6 +122,7 @@ public class SignalComputationService {
       LocalDate windowStart = signalDate.minusDays(LOOKBACK_DAYS);
 
       Map<String, BigDecimal> rs60ByCategoryId = new HashMap<>();
+      Map<String, BigDecimal> rs120ByCategoryId = new HashMap<>();
       Map<String, BigDecimal> momentumByCategoryId = new HashMap<>();
       Map<String, BigDecimal> rrgQuadrantByCategoryId = new HashMap<>();
 
@@ -145,6 +146,7 @@ public class SignalComputationService {
         addIfNotNull(pendingRows, signalDate, categoryId, SignalType.MOM, momentum);
 
         if (rs60 != null) rs60ByCategoryId.put(categoryId, rs60);
+        if (rs120 != null) rs120ByCategoryId.put(categoryId, rs120);
         if (momentum != null) momentumByCategoryId.put(categoryId, momentum);
 
         List<BigDecimal> rs20Series =
@@ -168,6 +170,7 @@ public class SignalComputationService {
       Map<String, BigDecimal> compositeScoresByCategoryId =
           compositeScoreService.computeCompositeScores(
               rs60ByCategoryId,
+              rs120ByCategoryId,
               Map.of(),
               momentumByCategoryId,
               macroFitByCategoryId,

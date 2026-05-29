@@ -9,10 +9,13 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 
 /**
- * Computes the D-009 composite score per category using weighted min-max normalized signals.
+ * Computes the composite score per category using weighted min-max normalized signals.
  *
- * <p>COMPOSITE = 0.35 × norm(RS_60) + 0.25 × norm(FLOW_20D) + 0.20 × norm(MOM) + 0.10 ×
- * norm(MACRO_FIT) + 0.10 × relativeRotationGraphScore
+ * <p>COMPOSITE = 0.25 × norm(RS_60) + 0.10 × norm(RS_120) + 0.25 × norm(FLOW_20D) +
+ * 0.20 × norm(MOM) + 0.10 × norm(MACRO_FIT) + 0.10 × relativeRotationGraphScore
+ *
+ * <p>RS_60 captures medium-term RS; RS_120 provides long-term confirmation — categories
+ * outperforming on both timeframes receive higher composite scores.
  *
  * <p>norm() = min-max normalization across all categories on a given date.
  * relativeRotationGraphScore: Leading=1.0, Improving=0.7, Weakening=0.3, Lagging=0.0. Null
@@ -21,7 +24,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class CompositeScoreService {
 
-  private static final BigDecimal RS_60_WEIGHT = new BigDecimal("0.35");
+  private static final BigDecimal RS_60_WEIGHT = new BigDecimal("0.25");
+  private static final BigDecimal RS_120_WEIGHT = new BigDecimal("0.10");
   private static final BigDecimal FLOW_20_DAY_WEIGHT = new BigDecimal("0.25");
   private static final BigDecimal MOMENTUM_WEIGHT = new BigDecimal("0.20");
   private static final BigDecimal MACRO_FIT_WEIGHT = new BigDecimal("0.10");
@@ -40,6 +44,7 @@ public class CompositeScoreService {
    * Computes the composite score for each category.
    *
    * @param rs60ByCategoryId raw RS_60 values per category (may contain nulls)
+   * @param rs120ByCategoryId raw RS_120 values per category (long-term RS confirmation)
    * @param flow20DayByCategoryId raw FLOW_20D values per category (may be null if AUM unavailable)
    * @param momentumByCategoryId raw MOM values per category
    * @param macroFitByCategoryId MACRO_FIT win-rate in [0,1] per category
@@ -48,6 +53,7 @@ public class CompositeScoreService {
    */
   public Map<String, BigDecimal> computeCompositeScores(
       Map<String, BigDecimal> rs60ByCategoryId,
+      Map<String, BigDecimal> rs120ByCategoryId,
       Map<String, BigDecimal> flow20DayByCategoryId,
       Map<String, BigDecimal> momentumByCategoryId,
       Map<String, BigDecimal> macroFitByCategoryId,
@@ -56,12 +62,14 @@ public class CompositeScoreService {
     Set<String> allCategoryIds =
         collectAllCategoryIds(
             rs60ByCategoryId,
+            rs120ByCategoryId,
             flow20DayByCategoryId,
             momentumByCategoryId,
             macroFitByCategoryId,
             rrgQuadrantByCategoryId);
 
     Map<String, BigDecimal> normalizedRs60 = normalize(rs60ByCategoryId, allCategoryIds);
+    Map<String, BigDecimal> normalizedRs120 = normalize(rs120ByCategoryId, allCategoryIds);
     Map<String, BigDecimal> normalizedFlow20Day = normalize(flow20DayByCategoryId, allCategoryIds);
     Map<String, BigDecimal> normalizedMomentum = normalize(momentumByCategoryId, allCategoryIds);
     Map<String, BigDecimal> normalizedMacroFit = normalize(macroFitByCategoryId, allCategoryIds);
@@ -73,6 +81,7 @@ public class CompositeScoreService {
       BigDecimal score =
           computeWeightedScore(
               normalizedRs60.get(categoryId),
+              normalizedRs120.get(categoryId),
               normalizedFlow20Day.get(categoryId),
               normalizedMomentum.get(categoryId),
               normalizedMacroFit.get(categoryId),
@@ -86,12 +95,14 @@ public class CompositeScoreService {
 
   private BigDecimal computeWeightedScore(
       BigDecimal normalizedRs60,
+      BigDecimal normalizedRs120,
       BigDecimal normalizedFlow20Day,
       BigDecimal normalizedMomentum,
       BigDecimal normalizedMacroFit,
       BigDecimal relativeRotationGraphScore) {
     BigDecimal[][] weightedComponents = {
       {RS_60_WEIGHT, normalizedRs60},
+      {RS_120_WEIGHT, normalizedRs120},
       {FLOW_20_DAY_WEIGHT, normalizedFlow20Day},
       {MOMENTUM_WEIGHT, normalizedMomentum},
       {MACRO_FIT_WEIGHT, normalizedMacroFit},

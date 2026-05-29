@@ -1,6 +1,7 @@
 package com.ftm.app.portfolio.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.instancio.Select.field;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
@@ -13,8 +14,8 @@ import com.ftm.app.domain.Holding;
 import com.ftm.app.portfolio.repository.HoldingRepository;
 import com.ftm.app.portfolio.repository.PortfolioRepository;
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
 import java.util.List;
+import org.instancio.Instancio;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,19 +51,12 @@ class HoldingUploadServiceTest {
       """;
 
   private Holding storedHolding(String ticker, String categoryId) {
-    return new Holding(
-        1L,
-        ticker,
-        ticker + " name",
-        categoryId,
-        "USD",
-        new BigDecimal("10.0"),
-        new BigDecimal("100.00"),
-        null,
-        OffsetDateTime.now(),
-        null,
-        null,
-        null);
+    return Instancio.of(Holding.class)
+        .set(field(Holding::id), 1L)
+        .set(field(Holding::ticker), ticker)
+        .set(field(Holding::categoryId), categoryId)
+        .set(field(Holding::currency), "USD")
+        .create();
   }
 
   @Test

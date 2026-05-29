@@ -1,6 +1,7 @@
 package com.ftm.app.portfolio.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.instancio.Select.field;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -14,10 +15,10 @@ import com.ftm.app.ingestion.client.dto.YahooChartResponse;
 import com.ftm.app.portfolio.repository.HoldingRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import org.instancio.Instancio;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,19 +46,12 @@ class HoldingPriceServiceTest {
   }
 
   private Holding holding(String ticker, String categoryId, String priceSource) {
-    return new Holding(
-        1L,
-        ticker,
-        ticker + " ETF",
-        categoryId,
-        "USD",
-        new BigDecimal("10"),
-        new BigDecimal("100"),
-        null,
-        OffsetDateTime.now(),
-        null,
-        null,
-        priceSource);
+    return Instancio.of(Holding.class)
+        .set(field(Holding::ticker), ticker)
+        .set(field(Holding::categoryId), categoryId)
+        .set(field(Holding::currency), "USD")
+        .set(field(Holding::priceSource), priceSource)
+        .create();
   }
 
   // ===== fetchGbpUsdRate =====

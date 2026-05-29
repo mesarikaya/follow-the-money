@@ -1,6 +1,7 @@
 package com.ftm.app.alerts.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.instancio.Select.field;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.instancio.Instancio;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,11 +62,18 @@ class AlertRulesEngineTest {
   }
 
   private AlertRule enabled(String ruleId, Severity severity) {
-    return new AlertRule(ruleId, true, null, null, null, severity, null, null, null);
+    return Instancio.of(AlertRule.class)
+        .set(field(AlertRule::ruleId), ruleId)
+        .set(field(AlertRule::enabled), true)
+        .set(field(AlertRule::severity), severity)
+        .create();
   }
 
   private AlertRule disabled(String ruleId) {
-    return new AlertRule(ruleId, false, null, null, null, Severity.INFO, null, null, null);
+    return Instancio.of(AlertRule.class)
+        .set(field(AlertRule::ruleId), ruleId)
+        .set(field(AlertRule::enabled), false)
+        .create();
   }
 
   private void stubTopLevelCategories(String... ids) {

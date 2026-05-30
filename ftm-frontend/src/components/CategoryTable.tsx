@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import Link from "next/link";
 import { CategorySummary, SubSectorSummary } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
+import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 import Sparkline from "@/components/Sparkline";
 import GlossaryTooltip from "@/components/GlossaryTooltip";
 
@@ -148,24 +149,6 @@ function buildScoreTooltip(cat: import("@/lib/api").CategorySummary, macroFitVal
   ].filter(Boolean).join("\n");
 }
 
-type TradeSignal = "BUY" | "WATCH" | "HOLD" | "REDUCE";
-
-function deriveTradeSignal(cat: CategorySummary): TradeSignal | null {
-  const score = cat.compositeScore;
-  const quadrant = cat.rrgQuadrant != null ? Number(cat.rrgQuadrant) : null;
-  const trend20d = cat.compositeTrend20d;
-
-  if (score == null) return null;
-
-  const improving = quadrant === 3 || quadrant === 4;
-  const weakening = quadrant === 1 || quadrant === 2;
-  const trending = trend20d != null && trend20d > 0;
-
-  if (score >= 0.65 && improving && trending) return "BUY";
-  if (score >= 0.50 && (improving || trending)) return "WATCH";
-  if (score < 0.35 && weakening) return "REDUCE";
-  return "HOLD";
-}
 
 const TRADE_SIGNAL_CONFIG: Record<TradeSignal, { label: string; className: string; description: string }> = {
   BUY:    { label: "BUY",    className: "bg-green-900/60 text-green-300 border-green-700/60",  description: "Score ≥65, improving RRG quadrant, positive 20d trend — all three aligned" },

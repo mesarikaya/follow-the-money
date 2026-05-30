@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { CategorySummary, MacroResponse, SubSectorSummary } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
+import { deriveTradeSignal, countBuyConditions, missingBuyConditions } from "@/lib/signals";
 import GlossaryTooltip from "@/components/GlossaryTooltip";
 
 const REGIME_LABELS: Record<string, string> = {
@@ -13,42 +14,6 @@ const REGIME_LABELS: Record<string, string> = {
   TRANSITIONAL:    "Transitional",
 };
 
-function deriveTradeSignal(cat: CategorySummary): "BUY" | "WATCH" | "HOLD" | "REDUCE" | null {
-  const score = cat.compositeScore;
-  const quadrant = cat.rrgQuadrant != null ? Number(cat.rrgQuadrant) : null;
-  const trend20d = cat.compositeTrend20d;
-  if (score == null) return null;
-  const improving = quadrant === 3 || quadrant === 4;
-  const weakening = quadrant === 1 || quadrant === 2;
-  const trending = trend20d != null && trend20d > 0;
-  if (score >= 0.65 && improving && trending) return "BUY";
-  if (score >= 0.50 && (improving || trending)) return "WATCH";
-  if (score < 0.35 && weakening) return "REDUCE";
-  return "HOLD";
-}
-
-function countBuyConditions(cat: CategorySummary): number {
-  const score = cat.compositeScore;
-  const quadrant = cat.rrgQuadrant != null ? Number(cat.rrgQuadrant) : null;
-  const trend20d = cat.compositeTrend20d;
-  if (score == null) return 0;
-  let count = 0;
-  if (score >= 0.65) count++;
-  if (quadrant === 3 || quadrant === 4) count++;
-  if (trend20d != null && trend20d > 0) count++;
-  return count;
-}
-
-function missingBuyCondition(cat: CategorySummary): string {
-  const score = cat.compositeScore ?? 0;
-  const quadrant = cat.rrgQuadrant != null ? Number(cat.rrgQuadrant) : null;
-  const trend20d = cat.compositeTrend20d;
-  const missing: string[] = [];
-  if (score < 0.65) missing.push(`score ${Math.round(score * 100)}<65`);
-  if (quadrant !== 3 && quadrant !== 4) missing.push("RRG not improving");
-  if (trend20d == null || trend20d <= 0) missing.push("trend negative");
-  return missing.join(", ");
-}
 
 function buildNarrative(
   equities: CategorySummary[],
@@ -108,7 +73,7 @@ function buildNarrative(
   if (nearBuySignals.length > 0) {
     const nearBuyStr = nearBuySignals
       .slice(0, 3)
-      .map(c => `${c.etfTicker} (missing: ${missingBuyCondition(c)})`)
+      .map(c => `${c.etfTicker} (missing: ${missingBuyConditions(c).join(", ")})`)
       .join("; ");
     lines.push(`**Watch closely:** ${nearBuyStr} — 2 of 3 BUY conditions met, one confirmation away.`);
   }

@@ -39,7 +39,7 @@ class SubSectorServiceTest {
         .create();
   }
 
-  private Map<SignalType, Map<String, BigDecimal>> emptySignals() {
+  private Map<SignalType, Map<String, BigDecimal>> noSignals() {
     return Map.ofEntries(
         Map.entry(SignalType.RS_20, Map.of()),
         Map.entry(SignalType.RS_60, Map.of()),
@@ -48,7 +48,9 @@ class SubSectorServiceTest {
         Map.entry(SignalType.RRG_QUADRANT, Map.of()),
         Map.entry(SignalType.COMPOSITE, Map.of()),
         Map.entry(SignalType.COMPOSITE_TREND_5D, Map.of()),
-        Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of()));
+        Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of()),
+        Map.entry(SignalType.PERSISTENCE_20D, Map.of()),
+        Map.entry(SignalType.MACRO_FIT, Map.of()));
   }
 
   @Test
@@ -76,7 +78,9 @@ class SubSectorServiceTest {
                 Map.entry(SignalType.RRG_QUADRANT, Map.of()),
                 Map.entry(SignalType.COMPOSITE, Map.of()),
                 Map.entry(SignalType.COMPOSITE_TREND_5D, Map.of()),
-                Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of())));
+                Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of()),
+                Map.entry(SignalType.PERSISTENCE_20D, Map.of()),
+                Map.entry(SignalType.MACRO_FIT, Map.of())));
 
     List<SubSectorSummaryDto> result = subSectorService.getSubSectors("TECH");
 
@@ -103,7 +107,9 @@ class SubSectorServiceTest {
                 Map.entry(SignalType.RRG_QUADRANT, Map.of("SEMI", new BigDecimal("4"))),
                 Map.entry(SignalType.COMPOSITE, Map.of("SEMI", new BigDecimal("0.72"))),
                 Map.entry(SignalType.COMPOSITE_TREND_5D, Map.of()),
-                Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of("SEMI", new BigDecimal("0.02")))));
+                Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of("SEMI", new BigDecimal("0.02"))),
+                Map.entry(SignalType.PERSISTENCE_20D, Map.of()),
+                Map.entry(SignalType.MACRO_FIT, Map.of())));
 
     List<SubSectorSummaryDto> result = subSectorService.getSubSectors("TECH");
 
@@ -129,12 +135,54 @@ class SubSectorServiceTest {
                 Map.entry(SignalType.RRG_QUADRANT, Map.of()),
                 Map.entry(SignalType.COMPOSITE, Map.of()),
                 Map.entry(SignalType.COMPOSITE_TREND_5D, Map.of()),
-                Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of())));
+                Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of()),
+                Map.entry(SignalType.PERSISTENCE_20D, Map.of()),
+                Map.entry(SignalType.MACRO_FIT, Map.of())));
 
     List<SubSectorSummaryDto> result = subSectorService.getSubSectors("TECH");
 
     assertThat(result).hasSize(2);
     assertThat(result.get(0).id()).isEqualTo("CLOD");
     assertThat(result.get(1).id()).isEqualTo("SEMI");
+  }
+
+  @Test
+  @DisplayName("getSubSectors maps persistence20d (int) and macroFit (decimal) from signals")
+  void shouldMapPersistenceAndMacroFit() {
+    Category semi = subCategory(CategoryId.SEMI, "TECH");
+    when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(List.of(semi));
+    when(signalRepository.findLatestByTypes(anyList()))
+        .thenReturn(
+            Map.ofEntries(
+                Map.entry(SignalType.RS_20, Map.of()),
+                Map.entry(SignalType.RS_60, Map.of()),
+                Map.entry(SignalType.RS_120, Map.of()),
+                Map.entry(SignalType.MOM, Map.of()),
+                Map.entry(SignalType.RRG_QUADRANT, Map.of()),
+                Map.entry(SignalType.COMPOSITE, Map.of()),
+                Map.entry(SignalType.COMPOSITE_TREND_5D, Map.of()),
+                Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of()),
+                Map.entry(SignalType.PERSISTENCE_20D, Map.of("SEMI", new BigDecimal("14"))),
+                Map.entry(SignalType.MACRO_FIT, Map.of("SEMI", new BigDecimal("0.72")))));
+
+    List<SubSectorSummaryDto> result = subSectorService.getSubSectors("TECH");
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).persistence20d()).isEqualTo(14);
+    assertThat(result.get(0).macroFit()).isEqualByComparingTo("0.72");
+  }
+
+  @Test
+  @DisplayName("getSubSectors returns null persistence20d and macroFit when signals absent")
+  void shouldReturnNullPersistenceAndMacroFitWhenSignalsAbsent() {
+    Category semi = subCategory(CategoryId.SEMI, "TECH");
+    when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(List.of(semi));
+    when(signalRepository.findLatestByTypes(anyList())).thenReturn(noSignals());
+
+    List<SubSectorSummaryDto> result = subSectorService.getSubSectors("TECH");
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).persistence20d()).isNull();
+    assertThat(result.get(0).macroFit()).isNull();
   }
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { CategorySummary, MacroResponse, SubSectorSummary } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
-import { deriveTradeSignal, countBuyConditions, missingBuyConditions } from "@/lib/signals";
+import { deriveTradeSignal, countBuyConditions, missingBuyConditions, TradeSignal } from "@/lib/signals";
 import GlossaryTooltip from "@/components/GlossaryTooltip";
 
 const REGIME_LABELS: Record<string, string> = {
@@ -22,10 +22,11 @@ function buildNarrative(
 ): string[] {
   const lines: string[] = [];
 
-  const buySignals = equities.filter(c => deriveTradeSignal(c) === "BUY");
-  const reduceSignals = equities.filter(c => deriveTradeSignal(c) === "REDUCE");
+  const getSignal = (c: CategorySummary) => (c.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(c);
+  const buySignals = equities.filter(c => getSignal(c) === "BUY");
+  const reduceSignals = equities.filter(c => getSignal(c) === "REDUCE");
   const nearBuySignals = equities.filter(c =>
-    deriveTradeSignal(c) === "WATCH" && countBuyConditions(c) === 2
+    getSignal(c) === "WATCH" && countBuyConditions(c) === 2
   );
   const bullishCount = equities.filter(c => (c.compositeScore ?? 0) >= 0.7).length;
   const bearishCount = equities.filter(c => (c.compositeScore ?? 0) < 0.4).length;

@@ -257,7 +257,7 @@ export default function SubSectorTable({
           {sorted.map((subSector, idx) => {
             const qConfig = subSector.rrgQuadrant ? QUADRANT_CONFIG[subSector.rrgQuadrant] : null;
             const rowBorderClass = qConfig?.rowBorderClass ?? "border-l-slate-700/40";
-            const signal = deriveTradeSignal(subSector);
+            const signal = (subSector.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(subSector);
             const signalCfg = signal ? TRADE_SIGNAL_CONFIG[signal] : null;
             return (
               <tr

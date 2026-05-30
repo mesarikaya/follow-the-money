@@ -158,7 +158,7 @@ const TRADE_SIGNAL_CONFIG: Record<TradeSignal, { label: string; className: strin
 };
 
 function TradeSignalBadge({ cat }: { cat: CategorySummary }) {
-  const signal = deriveTradeSignal(cat);
+  const signal = (cat.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(cat);
   if (signal == null) return <span className="text-slate-600 text-xs">—</span>;
   const cfg = TRADE_SIGNAL_CONFIG[signal];
   const score = cat.compositeScore ?? 0;

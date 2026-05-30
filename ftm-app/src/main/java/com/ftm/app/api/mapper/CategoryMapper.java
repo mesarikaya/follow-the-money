@@ -2,12 +2,13 @@ package com.ftm.app.api.mapper;
 
 import com.ftm.app.api.dto.CategorySummaryDto;
 import com.ftm.app.api.repository.CategoryRepository;
+import com.ftm.app.api.service.TradeSignalDeriver;
 import java.math.BigDecimal;
 import java.util.Map;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", imports = {TradeSignalDeriver.class})
 public interface CategoryMapper {
 
   @Mapping(target = "id", source = "row.category.id")
@@ -42,6 +43,13 @@ public interface CategoryMapper {
   @Mapping(target = "rank", source = "rank")
   @Mapping(target = "latestClose", source = "row.latestClose")
   @Mapping(target = "priceDate", source = "row.priceDate")
+  @Mapping(
+      target = "tradeSignal",
+      expression =
+          "java(TradeSignalDeriver.derive("
+              + "compositeByCategoryId.get(row.category().id().name()), "
+              + "rrgQuadrantByCategoryId.containsKey(row.category().id().name()) ? String.valueOf(rrgQuadrantByCategoryId.get(row.category().id().name()).intValue()) : null, "
+              + "compositeTrend20dByCategoryId.get(row.category().id().name())))")
   CategorySummaryDto toDto(
       CategoryRepository.CategoryPriceRow row,
       int rank,

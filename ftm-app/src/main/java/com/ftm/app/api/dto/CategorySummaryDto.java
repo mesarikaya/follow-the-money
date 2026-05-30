@@ -31,4 +31,6 @@ public record CategorySummaryDto(
     @Schema(description = "Latest ETF closing price; null if not yet ingested")
         BigDecimal latestClose,
     @Schema(description = "Date of the latest closing price; null if not yet ingested")
-        LocalDate priceDate) {}
+        LocalDate priceDate,
+    @Schema(description = "Trade signal: BUY, WATCH, HOLD, or REDUCE; null until signals computed")
+        String tradeSignal) {}

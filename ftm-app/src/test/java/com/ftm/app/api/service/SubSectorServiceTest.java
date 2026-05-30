@@ -89,6 +89,29 @@ class SubSectorServiceTest {
   }
 
   @Test
+  @DisplayName("getSubSectors computes tradeSignal from composite, rrg, and trend20d")
+  void shouldComputeTradeSignal() {
+    Category semi = subCategory(CategoryId.SEMI, "TECH");
+    when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(List.of(semi));
+    when(signalRepository.findLatestByTypes(anyList()))
+        .thenReturn(
+            Map.ofEntries(
+                Map.entry(SignalType.RS_20, Map.of()),
+                Map.entry(SignalType.RS_60, Map.of()),
+                Map.entry(SignalType.RS_120, Map.of()),
+                Map.entry(SignalType.MOM, Map.of()),
+                Map.entry(SignalType.RRG_QUADRANT, Map.of("SEMI", new BigDecimal("4"))),
+                Map.entry(SignalType.COMPOSITE, Map.of("SEMI", new BigDecimal("0.72"))),
+                Map.entry(SignalType.COMPOSITE_TREND_5D, Map.of()),
+                Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of("SEMI", new BigDecimal("0.02")))));
+
+    List<SubSectorSummaryDto> result = subSectorService.getSubSectors("TECH");
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).tradeSignal()).isEqualTo("BUY");
+  }
+
+  @Test
   @DisplayName("getSubSectors sorts by rs60 descending")
   void shouldSortByRs60Descending() {
     Category semi = subCategory(CategoryId.SEMI, "TECH");

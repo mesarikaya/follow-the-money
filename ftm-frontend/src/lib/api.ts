@@ -20,6 +20,7 @@ export type CategorySummary = {
   rank: number;
   latestClose: number | null;
   priceDate: string | null;
+  tradeSignal: string | null;
 };
 
 export type CategoriesResponse = {
@@ -80,6 +81,7 @@ export type SubSectorSummary = {
   compositeScore: number | null;
   compositeTrend5d: number | null;
   compositeTrend20d: number | null;
+  tradeSignal: string | null;
 };
 
 async function get<T>(path: string): Promise<T> {

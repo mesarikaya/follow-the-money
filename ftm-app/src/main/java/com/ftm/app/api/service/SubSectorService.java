@@ -65,6 +65,8 @@ public class SubSectorService {
               BigDecimal rrgQuadrantValue = rrgQuadrantByCategory.get(categoryId);
               String rrgQuadrant =
                   rrgQuadrantValue != null ? String.valueOf(rrgQuadrantValue.intValue()) : null;
+              BigDecimal compositeScore = compositeByCategory.get(categoryId);
+              BigDecimal trend20d = trend20dByCategory.get(categoryId);
               return new SubSectorSummaryDto(
                   categoryId,
                   category.name(),
@@ -75,9 +77,10 @@ public class SubSectorService {
                   rs120ByCategory.get(categoryId),
                   momentumByCategory.get(categoryId),
                   rrgQuadrant,
-                  compositeByCategory.get(categoryId),
+                  compositeScore,
                   trend5dByCategory.get(categoryId),
-                  trend20dByCategory.get(categoryId));
+                  trend20d,
+                  TradeSignalDeriver.derive(compositeScore, rrgQuadrant, trend20d));
             })
         .sorted(
             (subSectorA, subSectorB) -> {

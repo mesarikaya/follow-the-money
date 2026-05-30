@@ -14,4 +14,5 @@ public record SubSectorSummaryDto(
     String rrgQuadrant,
     BigDecimal compositeScore,
     BigDecimal compositeTrend5d,
-    BigDecimal compositeTrend20d) {}
+    BigDecimal compositeTrend20d,
+    String tradeSignal) {}

@@ -1,5 +1,6 @@
 package com.ftm.app.api.controller;
 
+import static org.instancio.Select.field;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
@@ -14,8 +15,8 @@ import com.ftm.app.api.dto.PortfolioEntryDto;
 import com.ftm.app.api.dto.PortfolioResponse;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
 import com.ftm.app.portfolio.service.PortfolioService;
-import java.math.BigDecimal;
 import java.util.List;
+import org.instancio.Instancio;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,7 +44,11 @@ class PortfolioControllerTest {
   }
 
   private PortfolioResponse emptyPortfolio() {
-    return new PortfolioResponse(List.of(), BigDecimal.ZERO, "MISALIGNED", List.of());
+    return Instancio.of(PortfolioResponse.class)
+        .set(field(PortfolioResponse::alignmentLabel), "MISALIGNED")
+        .set(field(PortfolioResponse::allocations), List.of())
+        .set(field(PortfolioResponse::rebalanceSuggestions), List.of())
+        .create();
   }
 
   @Test

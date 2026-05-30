@@ -1,5 +1,6 @@
 package com.ftm.app.api.controller;
 
+import static org.instancio.Select.field;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -9,8 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.ftm.app.api.dto.CategoriesResponse;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
 import com.ftm.app.api.service.CategoryService;
-import java.time.LocalDate;
 import java.util.List;
+import org.instancio.Instancio;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,7 +39,11 @@ class CategoryControllerTest {
   @DisplayName("GET /categories returns 200 OK with default timeframe")
   void shouldReturn200WithDefaultTimeframe() throws Exception {
     when(categoryService.getCategoriesResponse(anyString()))
-        .thenReturn(new CategoriesResponse(LocalDate.now(), "MONTH", List.of()));
+        .thenReturn(
+            Instancio.of(CategoriesResponse.class)
+                .set(field(CategoriesResponse::timeframe), "MONTH")
+                .set(field(CategoriesResponse::categories), List.of())
+                .create());
 
     mockMvc
         .perform(get("/categories"))
@@ -50,7 +55,11 @@ class CategoryControllerTest {
   @DisplayName("GET /categories?timeframe=WEEK returns 200 OK")
   void shouldReturn200ForValidTimeframe() throws Exception {
     when(categoryService.getCategoriesResponse("WEEK"))
-        .thenReturn(new CategoriesResponse(LocalDate.now(), "WEEK", List.of()));
+        .thenReturn(
+            Instancio.of(CategoriesResponse.class)
+                .set(field(CategoriesResponse::timeframe), "WEEK")
+                .set(field(CategoriesResponse::categories), List.of())
+                .create());
 
     mockMvc
         .perform(get("/categories").param("timeframe", "WEEK"))

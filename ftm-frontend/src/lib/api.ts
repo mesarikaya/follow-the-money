@@ -163,7 +163,7 @@ export type AlertDto = {
   createdAt: string;
   categoryId: string | null;
   ruleId: string;
-  severity: "INFO" | "WARNING" | "ACTION";
+  severity: "INFO" | "WARNING" | "ACTION" | "URGENT";
   message: string;
   triggerSnapshot: string | null;
   status: "ACTIVE" | "RESOLVED" | "ACKNOWLEDGED";
@@ -252,7 +252,7 @@ export const fetchAlerts = () => get<AlertsResponse>("/api/v1/alerts");
 export type AlertRuleDto = {
   ruleId: string;
   enabled: boolean;
-  severity: "INFO" | "WARNING" | "ACTION";
+  severity: "INFO" | "WARNING" | "ACTION" | "URGENT";
   compositeThreshold: number | null;
   persistenceDays: number | null;
 };

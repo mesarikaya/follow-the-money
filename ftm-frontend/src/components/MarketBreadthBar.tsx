@@ -32,6 +32,11 @@ export default function MarketBreadthBar({ categories }: { categories: CategoryS
   const rsNeutralCount = equities.filter(c => c.rs60 != null && c.rs120 != null).length - rsAccelCount - rsDeccelCount;
   const hasRsAccelData = equities.some(c => c.rs60 != null && c.rs120 != null);
 
+  const macroAlignedCount = equities.filter(c => (c.macroFit ?? 0) >= 0.60).length;
+  const macroNeutralCount = equities.filter(c => c.macroFit != null && c.macroFit < 0.60 && c.macroFit >= 0.35).length;
+  const macroWeakCount    = equities.filter(c => c.macroFit != null && c.macroFit < 0.35).length;
+  const hasMacroFitData   = equities.some(c => c.macroFit != null);
+
   const overallSignal =
     bullish.length > bearish.length + moderate.length ? "Risk-On" :
     bearish.length > bullish.length + moderate.length ? "Risk-Off" :
@@ -68,6 +73,13 @@ export default function MarketBreadthBar({ categories }: { categories: CategoryS
             {rsAccelCount > 0  && <div className="bg-emerald-400/60" style={{ flex: rsAccelCount }}  title={`${rsAccelCount} RS accelerating (rs60>rs120)`} />}
             {rsNeutralCount > 0 && <div className="bg-slate-600/50"  style={{ flex: rsNeutralCount }} title={`${rsNeutralCount} RS neutral`} />}
             {rsDeccelCount > 0 && <div className="bg-red-400/60"     style={{ flex: rsDeccelCount }}  title={`${rsDeccelCount} RS decelerating (rs60<rs120)`} />}
+          </div>
+        )}
+        {hasMacroFitData && (macroAlignedCount + macroNeutralCount + macroWeakCount) > 0 && (
+          <div className="flex h-1 rounded-full overflow-hidden gap-px" title="Regime-Fit Breadth: sectors historically strong in the current macro regime (macroFit ≥60% win rate)">
+            {macroAlignedCount > 0 && <div className="bg-violet-500/60" style={{ flex: macroAlignedCount }} title={`${macroAlignedCount} regime-aligned (macroFit ≥60%)`} />}
+            {macroNeutralCount > 0 && <div className="bg-slate-600/40" style={{ flex: macroNeutralCount }} title={`${macroNeutralCount} regime-neutral (macroFit 35–60%)`} />}
+            {macroWeakCount > 0    && <div className="bg-slate-700/40" style={{ flex: macroWeakCount }}    title={`${macroWeakCount} regime-weak (macroFit <35%)`} />}
           </div>
         )}
       </div>
@@ -109,7 +121,7 @@ export default function MarketBreadthBar({ categories }: { categories: CategoryS
             </div>
           );
         })}
-        <span className="ml-auto text-[10px] text-slate-700">score ≥70·40·&lt;40 / RS↗↘</span>
+        <span className="ml-auto text-[10px] text-slate-700">score ≥70·40·&lt;40 / RS↗↘ / <span className="text-violet-700">regime-fit</span></span>
       </div>
     </div>
   );

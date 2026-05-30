@@ -27,6 +27,29 @@ function deriveTradeSignal(cat: CategorySummary): "BUY" | "WATCH" | "HOLD" | "RE
   return "HOLD";
 }
 
+function countBuyConditions(cat: CategorySummary): number {
+  const score = cat.compositeScore;
+  const quadrant = cat.rrgQuadrant != null ? Number(cat.rrgQuadrant) : null;
+  const trend20d = cat.compositeTrend20d;
+  if (score == null) return 0;
+  let count = 0;
+  if (score >= 0.65) count++;
+  if (quadrant === 3 || quadrant === 4) count++;
+  if (trend20d != null && trend20d > 0) count++;
+  return count;
+}
+
+function missingBuyCondition(cat: CategorySummary): string {
+  const score = cat.compositeScore ?? 0;
+  const quadrant = cat.rrgQuadrant != null ? Number(cat.rrgQuadrant) : null;
+  const trend20d = cat.compositeTrend20d;
+  const missing: string[] = [];
+  if (score < 0.65) missing.push(`score ${Math.round(score * 100)}<65`);
+  if (quadrant !== 3 && quadrant !== 4) missing.push("RRG not improving");
+  if (trend20d == null || trend20d <= 0) missing.push("trend negative");
+  return missing.join(", ");
+}
+
 function buildNarrative(
   equities: CategorySummary[],
   macro: MacroResponse | null,
@@ -36,6 +59,9 @@ function buildNarrative(
 
   const buySignals = equities.filter(c => deriveTradeSignal(c) === "BUY");
   const reduceSignals = equities.filter(c => deriveTradeSignal(c) === "REDUCE");
+  const nearBuySignals = equities.filter(c =>
+    deriveTradeSignal(c) === "WATCH" && countBuyConditions(c) === 2
+  );
   const bullishCount = equities.filter(c => (c.compositeScore ?? 0) >= 0.7).length;
   const bearishCount = equities.filter(c => (c.compositeScore ?? 0) < 0.4).length;
   const accelCount = equities.filter(c =>
@@ -76,6 +102,15 @@ function buildNarrative(
     lines.push(`**Add / Overweight:** ${names} — all three signals aligned (score, RRG quadrant, trend).`);
   } else {
     lines.push(`No sectors currently meet all three BUY criteria simultaneously.`);
+  }
+
+  // Near-BUY sectors (2 of 3 conditions met)
+  if (nearBuySignals.length > 0) {
+    const nearBuyStr = nearBuySignals
+      .slice(0, 3)
+      .map(c => `${c.etfTicker} (missing: ${missingBuyCondition(c)})`)
+      .join("; ");
+    lines.push(`**Watch closely:** ${nearBuyStr} — 2 of 3 BUY conditions met, one confirmation away.`);
   }
 
   // REDUCE signals

@@ -178,13 +178,33 @@ function TradeSignalBadge({ cat }: { cat: CategorySummary }) {
   const signal = deriveTradeSignal(cat);
   if (signal == null) return <span className="text-slate-600 text-xs">—</span>;
   const cfg = TRADE_SIGNAL_CONFIG[signal];
+  const score = cat.compositeScore ?? 0;
+  const quadrant = cat.rrgQuadrant != null ? Number(cat.rrgQuadrant) : null;
+  const trend20d = cat.compositeTrend20d;
+  const scoreOk = score >= 0.65;
+  const rrgOk = quadrant === 3 || quadrant === 4;
+  const trendOk = trend20d != null && trend20d > 0;
+  const conditionsMet = (scoreOk ? 1 : 0) + (rrgOk ? 1 : 0) + (trendOk ? 1 : 0);
+  const showConditions = signal === "WATCH" || signal === "HOLD";
   return (
-    <span
-      className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold border ${cfg.className}`}
-      title={cfg.description}
-    >
-      {cfg.label}
-    </span>
+    <div className="flex flex-col items-center gap-0.5">
+      <span
+        className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold border ${cfg.className}`}
+        title={cfg.description}
+      >
+        {cfg.label}
+      </span>
+      {showConditions && conditionsMet > 0 && (
+        <div
+          className="flex gap-0.5 text-[8px]"
+          title={`BUY needs all 3: Score≥65 ${scoreOk ? "✓" : "✗"} · RRG Improving/Leading ${rrgOk ? "✓" : "✗"} · 20d trend+ ${trendOk ? "✓" : "✗"}`}
+        >
+          <span className={scoreOk ? "text-emerald-400" : "text-slate-700"} title={`Score ${Math.round(score * 100)}/100 ${scoreOk ? "≥65 ✓" : "<65 ✗"}`}>S</span>
+          <span className={rrgOk ? "text-emerald-400" : "text-slate-700"} title={`RRG ${rrgOk ? "Improving/Leading ✓" : "Weakening/Lagging ✗"}`}>R</span>
+          <span className={trendOk ? "text-emerald-400" : "text-slate-700"} title={`20d trend ${trendOk ? "positive ✓" : "negative/null ✗"}`}>T</span>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -326,8 +346,8 @@ export default function CategoryTable({
             </span>
           </span>
         ))}
-        <span className="ml-auto" title="Score bars: 5 cells = 0-100 composite signal score">
-          Score: ██████ = strong · ███ = moderate · █ = weak
+        <span className="ml-auto" title="Score bars: 5 cells = 0-100 composite signal score. S/R/T = BUY conditions: Score≥65, RRG Improving/Leading, 20d trend positive">
+          Score: ██████ = strong · ███ = moderate · █ = weak · S/R/T = BUY conditions
         </span>
       </div>
     </div>

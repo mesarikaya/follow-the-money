@@ -37,6 +37,11 @@ export default function MarketBreadthBar({ categories }: { categories: CategoryS
   const macroWeakCount    = equities.filter(c => c.macroFit != null && c.macroFit < 0.35).length;
   const hasMacroFitData   = equities.some(c => c.macroFit != null);
 
+  const persistStrongCount  = equities.filter(c => (c.persistence20d ?? 0) >= 12).length;
+  const persistModerateCount = equities.filter(c => { const p = c.persistence20d ?? 0; return p >= 7 && p < 12; }).length;
+  const persistWeakCount    = equities.filter(c => c.persistence20d != null && c.persistence20d < 7).length;
+  const hasPersistData      = equities.some(c => c.persistence20d != null);
+
   const overallSignal =
     bullish.length > bearish.length + moderate.length ? "Risk-On" :
     bearish.length > bullish.length + moderate.length ? "Risk-Off" :
@@ -82,6 +87,13 @@ export default function MarketBreadthBar({ categories }: { categories: CategoryS
             {macroWeakCount > 0    && <div className="bg-slate-700/40" style={{ flex: macroWeakCount }}    title={`${macroWeakCount} regime-weak (macroFit <35%)`} />}
           </div>
         )}
+        {hasPersistData && (persistStrongCount + persistModerateCount + persistWeakCount) > 0 && (
+          <div className="flex h-1 rounded-full overflow-hidden gap-px" title="Persistence Breadth: days in last 20 that sector daily return beat its benchmark (≥12=strong, 7-11=moderate, <7=weak)">
+            {persistStrongCount   > 0 && <div className="bg-cyan-500/60"   style={{ flex: persistStrongCount }}   title={`${persistStrongCount} strong persistence (≥12/20 days)`} />}
+            {persistModerateCount > 0 && <div className="bg-slate-500/50"  style={{ flex: persistModerateCount }} title={`${persistModerateCount} moderate persistence (7-11/20 days)`} />}
+            {persistWeakCount     > 0 && <div className="bg-orange-500/50" style={{ flex: persistWeakCount }}     title={`${persistWeakCount} weak persistence (<7/20 days)`} />}
+          </div>
+        )}
       </div>
 
       {/* Individual sector dots + tickers */}
@@ -121,7 +133,7 @@ export default function MarketBreadthBar({ categories }: { categories: CategoryS
             </div>
           );
         })}
-        <span className="ml-auto text-[10px] text-slate-700">score ≥70·40·&lt;40 / RS↗↘ / <span className="text-violet-700">regime-fit</span></span>
+        <span className="ml-auto text-[10px] text-slate-700">score ≥70·40·&lt;40 / RS↗↘ / <span className="text-violet-700">regime-fit</span> / <span className="text-cyan-700">persist</span></span>
       </div>
     </div>
   );

@@ -159,4 +159,25 @@ class AlertServiceTest {
         .isInstanceOf(NoSuchElementException.class)
         .hasMessageContaining("unknown_rule");
   }
+
+  @Test
+  @DisplayName("acknowledgeAllActive delegates to repository and returns count")
+  void shouldAcknowledgeAllActive() {
+    when(alertRepository.acknowledgeAllActive()).thenReturn(7);
+
+    int result = alertService.acknowledgeAllActive();
+
+    assertThat(result).isEqualTo(7);
+    verify(alertRepository).acknowledgeAllActive();
+  }
+
+  @Test
+  @DisplayName("acknowledgeAllActive returns zero when no active alerts exist")
+  void shouldReturnZeroWhenNoActiveAlerts() {
+    when(alertRepository.acknowledgeAllActive()).thenReturn(0);
+
+    int result = alertService.acknowledgeAllActive();
+
+    assertThat(result).isZero();
+  }
 }

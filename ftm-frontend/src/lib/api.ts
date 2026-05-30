@@ -395,6 +395,9 @@ export const acknowledgeAlert = (alertId: number) =>
     return res.json() as Promise<AlertDto>;
   });
 
+export const fetchActiveAlertCount = () =>
+  get<{ active: number }>("/api/v1/alerts/active/count");
+
 export const bulkDismissAlerts = () =>
   fetch(`${BACKEND}/api/v1/alerts/bulk-dismiss`, {
     method: "POST",

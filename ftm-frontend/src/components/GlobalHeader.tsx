@@ -5,6 +5,7 @@ import Link from "next/link";
 import TimeframeSelector from "@/components/TimeframeSelector";
 import RefreshButton from "@/components/RefreshButton";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
+import { fetchActiveAlertCount } from "@/lib/api";
 
 type SignalChip = { id: string; etfTicker: string; score: number; quadrant: string | null };
 
@@ -56,6 +57,29 @@ function MarketSignalStrip() {
   );
 }
 
+function AlertCountBadge() {
+  const [count, setCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetchActiveAlertCount()
+      .then(data => setCount(data.active))
+      .catch(() => {});
+  }, []);
+
+  if (!count) return null;
+
+  return (
+    <Link
+      href="/alerts"
+      className="relative flex items-center gap-1 px-2 py-0.5 rounded border border-red-700/50 bg-red-900/30 hover:bg-red-900/50 transition-colors"
+      title={`${count} active alert${count > 1 ? "s" : ""}`}
+    >
+      <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+      <span className="text-[10px] font-semibold text-red-300">{count}</span>
+    </Link>
+  );
+}
+
 export default function GlobalHeader() {
   return (
     <header className="bg-slate-800 border-b border-slate-700 px-6 py-3 flex items-center justify-between gap-4 shrink-0 z-10">
@@ -74,6 +98,7 @@ export default function GlobalHeader() {
         <TimeframeSelector />
       </Suspense>
       <div className="flex items-center gap-3 shrink-0">
+        <AlertCountBadge />
         <RefreshButton />
       </div>
     </header>

@@ -46,6 +46,11 @@ public class AlertController {
     return ResponseEntity.ok(alertService.acknowledgeAlert(alertId));
   }
 
+  @GetMapping("/active/count")
+  public Map<String, Integer> getActiveCount() {
+    return Map.of("active", alertService.countActiveAlerts());
+  }
+
   @PostMapping("/bulk-dismiss")
   public ResponseEntity<Map<String, Integer>> bulkDismiss() {
     int dismissed = alertService.acknowledgeAllActive();

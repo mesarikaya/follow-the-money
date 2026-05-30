@@ -73,6 +73,10 @@ public class AlertService {
         rule.persistenceDays());
   }
 
+  public int countActiveAlerts() {
+    return alertRepository.countActive();
+  }
+
   public int acknowledgeAllActive() {
     int count = alertRepository.acknowledgeAllActive();
     log.info("Bulk-dismissed {} active alerts", count);

@@ -53,6 +53,10 @@ public class AlertRepository {
     return dsl.fetchExists(ALERTS, condition);
   }
 
+  public int countActive() {
+    return dsl.fetchCount(ALERTS, ALERTS.STATUS.eq(AlertStatus.ACTIVE.name()));
+  }
+
   public List<Alert> findAllActive() {
     return dsl.selectFrom(ALERTS)
         .where(ALERTS.STATUS.eq(AlertStatus.ACTIVE.name()))

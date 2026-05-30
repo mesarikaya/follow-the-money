@@ -1,4 +1,4 @@
-import { fetchMacro } from "@/lib/api";
+import { fetchMacro, fetchCategories, CategorySummary } from "@/lib/api";
 import type { MacroResponse, MacroIndicators } from "@/lib/api";
 
 const REGIME_STYLES: Record<string, { label: string; color: string; ring: string; bg: string }> = {
@@ -229,51 +229,97 @@ function RegimePlaybook({ regime }: { regime: string }) {
   );
 }
 
-function MacroFitTable({
-  macroFitByCategory,
+const SIGNAL_STYLES: Record<string, { className: string }> = {
+  BUY:    { className: "bg-green-900/60 text-green-300 border-green-700/60" },
+  WATCH:  { className: "bg-cyan-900/50 text-cyan-300 border-cyan-700/50" },
+  HOLD:   { className: "bg-slate-700/60 text-slate-400 border-slate-600/60" },
+  REDUCE: { className: "bg-red-900/50 text-red-400 border-red-700/50" },
+};
+
+function RegimeAlignmentTable({
+  categories,
   regime,
 }: {
-  macroFitByCategory: Record<string, number>;
+  categories: CategorySummary[];
   regime: string;
 }) {
   const regimeLabel = REGIME_STYLES[regime]?.label ?? regime;
-  const sorted = Object.entries(macroFitByCategory).sort(([, a], [, b]) => b - a);
+  const withFit = categories
+    .filter(c => c.macroFit != null && c.type !== "CASH")
+    .sort((a, b) => (b.macroFit ?? 0) - (a.macroFit ?? 0));
 
-  if (sorted.length === 0) return null;
+  if (withFit.length === 0) return null;
 
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-semibold text-slate-300">MACRO_FIT Win Rate</h2>
+      <h2 className="text-sm font-semibold text-slate-300">Regime Alignment</h2>
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-slate-700 flex items-center gap-2">
+        <div className="px-4 py-2.5 border-b border-slate-700 flex items-center justify-between">
           <span className="text-xs text-slate-400">
-            % of historical days in <span className="text-slate-200 font-medium">{regimeLabel}</span> where RS_60 &gt; 0
+            Historical RS win rate in{" "}
+            <span className="text-slate-200 font-medium">{regimeLabel}</span>
+            {" "}· sorted by fit (highest = historically strongest in this regime)
           </span>
         </div>
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-700 text-slate-500 text-xs uppercase tracking-wider">
-              <th className="text-left px-4 py-2">Category</th>
-              <th className="text-right px-4 py-2">Win Rate</th>
-              <th className="text-left px-4 py-2 w-48">Historical Fit</th>
+            <tr className="border-b border-slate-700 bg-slate-800/80 text-slate-500 text-xs uppercase tracking-wider">
+              <th className="text-left px-4 py-2.5">Category</th>
+              <th className="text-left px-4 py-2.5">ETF</th>
+              <th className="text-center px-4 py-2.5">Score</th>
+              <th className="text-center px-4 py-2.5">Signal</th>
+              <th className="text-right px-4 py-2.5">Regime Fit</th>
+              <th className="text-left px-4 py-2.5 w-36">Win Rate</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-700/50">
-            {sorted.map(([categoryId, winRate]) => {
-              const pct = Math.round(winRate * 100);
-              const barColor =
-                pct >= 60 ? "bg-green-500" : pct >= 40 ? "bg-yellow-500" : "bg-red-500";
-              const textColor =
-                pct >= 60 ? "text-green-400" : pct >= 40 ? "text-yellow-400" : "text-red-400";
+            {withFit.map((cat) => {
+              const fitPct = Math.round((cat.macroFit ?? 0) * 100);
+              const scorePct = cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : null;
+              const barColor = fitPct >= 60 ? "bg-violet-500" : fitPct >= 40 ? "bg-violet-400/60" : "bg-slate-600";
+              const fitTextColor = fitPct >= 60 ? "text-violet-400" : fitPct >= 40 ? "text-violet-500" : "text-slate-600";
+              const signal = cat.tradeSignal;
+              const signalCls = signal ? (SIGNAL_STYLES[signal]?.className ?? "bg-slate-700/60 text-slate-400 border-slate-600/60") : null;
+              const isAligned = fitPct >= 60 && (signal === "BUY" || signal === "WATCH");
               return (
-                <tr key={categoryId} className="hover:bg-slate-700/30">
-                  <td className="px-4 py-2 font-mono text-slate-200">{categoryId}</td>
-                  <td className={`px-4 py-2 text-right font-mono font-semibold tabular-nums ${textColor}`}>
-                    {pct}%
+                <tr
+                  key={cat.id}
+                  className={`hover:bg-slate-800/40 transition-colors ${isAligned ? "bg-violet-950/15" : ""}`}
+                >
+                  <td className="px-4 py-2.5">
+                    <span className="text-slate-200 font-medium text-sm">{cat.name}</span>
+                    {isAligned && (
+                      <span className="ml-2 text-[9px] text-violet-400 font-semibold uppercase tracking-wider">aligned</span>
+                    )}
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-2.5 font-mono text-blue-300 text-xs">{cat.etfTicker}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    {scorePct != null ? (
+                      <span className={`text-xs tabular-nums font-medium ${scorePct >= 65 ? "text-green-400" : scorePct >= 45 ? "text-slate-300" : "text-red-400"}`}
+                        style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+                        {scorePct}
+                      </span>
+                    ) : (
+                      <span className="text-slate-600 text-xs">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 text-center">
+                    {signalCls ? (
+                      <span className={`inline-block px-1.5 py-0.5 rounded border text-[10px] font-bold ${signalCls}`}
+                        style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.04em" }}>
+                        {signal}
+                      </span>
+                    ) : (
+                      <span className="text-slate-600 text-xs">—</span>
+                    )}
+                  </td>
+                  <td className={`px-4 py-2.5 text-right tabular-nums font-semibold text-sm ${fitTextColor}`}
+                    style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+                    {fitPct}%
+                  </td>
+                  <td className="px-4 py-2.5">
                     <div className="h-1.5 w-full bg-slate-700 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                      <div className={`h-full rounded-full ${barColor}`} style={{ width: `${fitPct}%` }} />
                     </div>
                   </td>
                 </tr>
@@ -281,20 +327,23 @@ function MacroFitTable({
             })}
           </tbody>
         </table>
+        <div className="px-4 py-2 border-t border-slate-700 text-[10px] text-slate-600">
+          "aligned" = regime fit ≥60% AND trade signal is BUY or WATCH · Regime fit computed from 5yr OHLCV history
+        </div>
       </div>
     </section>
   );
 }
 
 export default async function MacroRegimePage() {
-  let macro: MacroResponse | null = null;
-  let error: string | null = null;
+  const [macroResult, categoriesResult] = await Promise.allSettled([
+    fetchMacro(),
+    fetchCategories("MONTH"),
+  ]);
 
-  try {
-    macro = await fetchMacro();
-  } catch (e) {
-    error = String(e);
-  }
+  const macro = macroResult.status === "fulfilled" ? macroResult.value : null;
+  const categories = categoriesResult.status === "fulfilled" ? categoriesResult.value.categories : [];
+  const error = macroResult.status === "rejected" ? String((macroResult as PromiseRejectedResult).reason) : null;
 
   const regime = macro?.regime ?? "UNKNOWN";
   const style = REGIME_STYLES[regime] ?? { label: regime, color: "text-slate-400", ring: "border-slate-600", bg: "bg-slate-800/50" };
@@ -358,11 +407,8 @@ export default async function MacroRegimePage() {
 
             <RegimePlaybook regime={regime} />
 
-            {macro.macroFitByCategory && Object.keys(macro.macroFitByCategory).length > 0 && (
-              <MacroFitTable
-                macroFitByCategory={macro.macroFitByCategory as Record<string, number>}
-                regime={regime}
-              />
+            {categories.length > 0 && (
+              <RegimeAlignmentTable categories={categories} regime={regime} />
             )}
           </>
         )}

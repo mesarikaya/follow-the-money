@@ -7,6 +7,7 @@ import com.ftm.app.domain.Alert;
 import com.ftm.app.domain.AlertRule;
 import com.ftm.app.domain.AlertStatus;
 import com.ftm.app.domain.CategoryId;
+import com.ftm.app.domain.CategoryType;
 import com.ftm.app.domain.RotationEvent;
 import com.ftm.app.domain.RotationEventType;
 import com.ftm.app.domain.Severity;
@@ -38,7 +39,7 @@ import org.springframework.stereotype.Service;
  *   <li>composite_breakdown: fires when composite score falls below 0.35
  *   <li>macro_regime_shift: fires when MACRO_REGIME changes from the previous signal date
  *   <li>rs_accel_crossover: fires when RS-60 crosses above or below RS-120
- *   <li>persistence_low: fires when a sector beats its benchmark on fewer than threshold (default 7) of last 20 days
+ *   <li>persistence_low: fires when an equity sector beats its benchmark on fewer than threshold (default 7) of last 20 days; scoped to EQUITY_SECTOR to avoid spurious alerts on non-equity assets
  * </ul>
  *
  * <p>Deferred (no FLOW signals yet): flow_inflow_5d, flow_inflow_10d, flow_outflow_5d
@@ -82,14 +83,16 @@ public class AlertRulesEngine {
     log.info("Evaluating alert rules for signal_date={}", signalDate);
 
     Set<String> topLevelCategoryIds = categoryRepository.findTopLevelActiveCategoryIds();
+    Set<String> equitySectorIds =
+        categoryRepository.findTopLevelActiveCategoryIdsByType(CategoryType.EQUITY_SECTOR);
 
-    int alertsResolved = resolveStaleAlerts(signalDate, topLevelCategoryIds);
+    int alertsResolved = resolveStaleAlerts(signalDate, topLevelCategoryIds, equitySectorIds);
 
     int alertsCreated = 0;
     alertsCreated += evaluateRotationEventAlerts(signalDate);
     alertsCreated += evaluateMacroRegimeShift(signalDate);
     alertsCreated += evaluateRsAccelerationCrossover(signalDate, topLevelCategoryIds);
-    alertsCreated += evaluatePersistenceLow(signalDate, topLevelCategoryIds);
+    alertsCreated += evaluatePersistenceLow(signalDate, equitySectorIds);
 
     log.info(
         "Alert rule evaluation complete: {} created, {} resolved for date={}",
@@ -98,7 +101,10 @@ public class AlertRulesEngine {
         signalDate);
   }
 
-  private int resolveStaleAlerts(LocalDate signalDate, Set<String> topLevelCategoryIds) {
+  private int resolveStaleAlerts(
+      LocalDate signalDate,
+      Set<String> topLevelCategoryIds,
+      Set<String> equitySectorIds) {
     Map<String, BigDecimal> currentComposites =
         signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
     Map<String, BigDecimal> currentPersistence =
@@ -120,11 +126,14 @@ public class AlertRulesEngine {
         }
       }
 
-      // Persistence alert: resolve when sector recovers to ≥ 8/20 outperformance days
-      BigDecimal persistence = currentPersistence.get(categoryId);
-      if (persistence != null && persistence.intValue() >= PERSISTENCE_RECOVERY_THRESHOLD) {
-        resolved +=
-            alertRepository.resolveAlertsByRuleAndCategory(RULE_PERSISTENCE_LOW, categoryId);
+      // Persistence alert: only relevant for equity sectors — non-equity assets
+      // consistently lag SPY so persistence_low would otherwise fire spuriously.
+      if (equitySectorIds.contains(categoryId)) {
+        BigDecimal persistence = currentPersistence.get(categoryId);
+        if (persistence != null && persistence.intValue() >= PERSISTENCE_RECOVERY_THRESHOLD) {
+          resolved +=
+              alertRepository.resolveAlertsByRuleAndCategory(RULE_PERSISTENCE_LOW, categoryId);
+        }
       }
     }
 

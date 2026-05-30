@@ -99,6 +99,16 @@ public class CategoryRepository {
             .fetchInto(String.class));
   }
 
+  public Set<String> findTopLevelActiveCategoryIdsByType(CategoryType type) {
+    return new HashSet<>(
+        dsl.select(CATEGORIES.ID)
+            .from(CATEGORIES)
+            .where(CATEGORIES.ACTIVE.isTrue())
+            .and(CATEGORIES.PARENT_ID.isNull())
+            .and(CATEGORIES.TYPE.eq(type.name()))
+            .fetchInto(String.class));
+  }
+
   public List<Category> findSubCategoriesByParentId(String parentId) {
     return dsl.selectFrom(CATEGORIES)
         .where(CATEGORIES.PARENT_ID.eq(parentId))

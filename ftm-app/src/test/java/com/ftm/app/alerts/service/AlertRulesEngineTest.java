@@ -14,6 +14,7 @@ import com.ftm.app.domain.Alert;
 import com.ftm.app.domain.AlertRule;
 import com.ftm.app.domain.AlertStatus;
 import com.ftm.app.domain.CategoryId;
+import com.ftm.app.domain.CategoryType;
 import com.ftm.app.domain.RotationEvent;
 import com.ftm.app.domain.RotationEventType;
 import com.ftm.app.domain.Severity;
@@ -85,6 +86,9 @@ class AlertRulesEngineTest {
 
   private void stubTopLevelCategories(String... ids) {
     when(categoryRepository.findTopLevelActiveCategoryIds()).thenReturn(Set.of(ids));
+    // All test categories are equity sectors; stub the type-filtered query with the same set.
+    when(categoryRepository.findTopLevelActiveCategoryIdsByType(CategoryType.EQUITY_SECTOR))
+        .thenReturn(Set.of(ids));
   }
 
   private void stubMacroDisabled() {

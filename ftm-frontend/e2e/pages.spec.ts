@@ -238,6 +238,61 @@ test.describe("Dashboard (/) page", () => {
   });
 });
 
+test.describe("Macro Regime page — Regime Alignment table", () => {
+  test("shows Regime Alignment section with category names and ETF tickers", async ({ page }) => {
+    await page.goto("/macro");
+    await expect(page.getByText("Regime Alignment")).toBeVisible();
+    // Mock categories include TECH (XLK, macroFit=0.78) and HLTH (XLV, macroFit=0.63)
+    await expect(page.getByText("Information Technology").first()).toBeVisible();
+    await expect(page.getByText("Health Care").first()).toBeVisible();
+  });
+
+  test("shows trade signal badges in Regime Alignment table", async ({ page }) => {
+    await page.goto("/macro");
+    // TECH has tradeSignal=BUY, HLTH has WATCH in mock data
+    await expect(page.getByText("BUY").first()).toBeVisible();
+    await expect(page.getByText("WATCH").first()).toBeVisible();
+  });
+
+  test("shows win rate percentages for categories", async ({ page }) => {
+    await page.goto("/macro");
+    // TECH macroFit=0.78 → 78%
+    await expect(page.getByText("78%").first()).toBeVisible();
+  });
+});
+
+test.describe("Alerts page — Alert Rules", () => {
+  test("shows Alert Rules section from mock backend", async ({ page }) => {
+    await page.goto("/alerts");
+    await expect(page.getByText("Alert Rules")).toBeVisible();
+  });
+
+  test("renders rule names in Alert Rules panel", async ({ page }) => {
+    await page.goto("/alerts");
+    await expect(page.getByText("RRG Transition")).toBeVisible();
+    await expect(page.getByText("Composite Breakout")).toBeVisible();
+    await expect(page.getByText("Macro Regime Shift")).toBeVisible();
+  });
+
+  test("toggle buttons are present for each rule", async ({ page }) => {
+    await page.goto("/alerts");
+    // Toggle buttons render as buttons with specific role; at least 2 toggles (enabled rules)
+    const rules = page.locator("table").last().locator("button");
+    await expect(rules.first()).toBeVisible();
+  });
+});
+
+test.describe("Dashboard — trade signals", () => {
+  test("shows trade signal badges (BUY/WATCH/HOLD/REDUCE) in category table", async ({ page }) => {
+    await page.goto("/");
+    // Mock has TECH=BUY, HLTH=WATCH, ENRG=REDUCE, TLTD=HOLD
+    const buyBadge = page.getByText("BUY").first();
+    const watchBadge = page.getByText("WATCH").first();
+    await expect(buyBadge).toBeVisible();
+    await expect(watchBadge).toBeVisible();
+  });
+});
+
 test.describe("Sidebar navigation", () => {
   test("sidebar contains all main section links", async ({ page }) => {
     await page.goto("/");

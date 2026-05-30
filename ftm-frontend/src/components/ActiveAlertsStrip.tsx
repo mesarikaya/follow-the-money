@@ -2,9 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { AlertDto } from "@/lib/api";
-
-const BACKEND = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+import { AlertDto, fetchAlerts, acknowledgeAlert } from "@/lib/api";
 
 const RULE_SHORT: Record<string, string> = {
   rrg_transition:      "RRG",
@@ -27,13 +25,11 @@ export default function ActiveAlertsStrip() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(`${BACKEND}/api/v1/alerts`);
-      if (!res.ok) return;
-      const data = await res.json();
+      const data = await fetchAlerts();
       const active = (data.alerts ?? [])
         .filter((a: AlertDto) => a.status === "ACTIVE")
         .sort((a: AlertDto, b: AlertDto) => {
-          const order = { ACTION: 0, WARNING: 1, INFO: 2 };
+          const order: Record<string, number> = { ACTION: 0, WARNING: 1, INFO: 2 };
           return (order[a.severity] ?? 3) - (order[b.severity] ?? 3);
         });
       setAlerts(active);
@@ -45,7 +41,7 @@ export default function ActiveAlertsStrip() {
   const dismiss = async (id: number) => {
     setDismissing(id);
     try {
-      await fetch(`${BACKEND}/api/v1/alerts/${id}/acknowledge`, { method: "POST" });
+      await acknowledgeAlert(id);
       await load();
     } catch {} finally {
       setDismissing(null);

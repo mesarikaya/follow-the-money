@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { fetchCategories, fetchCategoryScoreHistory, fetchSubSectors, CategorySummary } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
+import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 import Sparkline from "@/components/Sparkline";
 
 const QUADRANT_CONFIG: Record<string, {
@@ -122,10 +123,19 @@ function RankStat({ rank }: { rank: number }) {
   );
 }
 
+const TRADE_SIGNAL_BADGE: Record<TradeSignal, { label: string; cls: string }> = {
+  BUY:    { label: "BUY",    cls: "bg-green-900/60 text-green-300 border-green-700/60" },
+  WATCH:  { label: "WATCH",  cls: "bg-cyan-900/50 text-cyan-300 border-cyan-700/50"   },
+  HOLD:   { label: "HOLD",   cls: "bg-slate-700/60 text-slate-400 border-slate-600/60" },
+  REDUCE: { label: "REDUCE", cls: "bg-red-900/50 text-red-400 border-red-700/50"      },
+};
+
 function SectorCard({ sector, history, subSectorCount }: { sector: CategorySummary; history: number[]; subSectorCount: number }) {
   const quadrant = sector.rrgQuadrant ?? null;
   const qConfig = quadrant ? QUADRANT_CONFIG[quadrant] : null;
   const leftBorderClass = qConfig?.leftBorderClass ?? "border-l-slate-700";
+  const signal = (sector.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(sector);
+  const signalBadge = signal ? TRADE_SIGNAL_BADGE[signal] : null;
 
   return (
     <Link
@@ -148,16 +158,27 @@ function SectorCard({ sector, history, subSectorCount }: { sector: CategorySumma
             {sector.etfTicker}
           </span>
         </div>
-        {qConfig ? (
-          <span
-            className={`shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded ${qConfig.badgeClass}`}
-            style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.02em" }}
-          >
-            {qConfig.label}
-          </span>
-        ) : (
-          <span className="text-slate-600 text-xs">—</span>
-        )}
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          {signalBadge && (
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded border ${signalBadge.cls}`}
+              style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.06em" }}
+              title={`Trade signal: ${signal}`}
+            >
+              {signalBadge.label}
+            </span>
+          )}
+          {qConfig ? (
+            <span
+              className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${qConfig.badgeClass}`}
+              style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.02em" }}
+            >
+              {qConfig.label}
+            </span>
+          ) : (
+            <span className="text-slate-600 text-[10px]">—</span>
+          )}
+        </div>
       </div>
 
       {/* Signal stats row */}

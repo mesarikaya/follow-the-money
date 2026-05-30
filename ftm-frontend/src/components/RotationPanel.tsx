@@ -14,7 +14,8 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   ENTERING_LEADING:    "Entered Leading",
   ENTERING_WEAKENING:  "Entered Weakening",
   ENTERING_LAGGING:    "Entered Lagging",
-  COMPOSITE_BREAKOUT:  "Composite Breakout",
+  COMPOSITE_BREAKOUT:  "Composite Breakout ↑",
+  COMPOSITE_BREAKDOWN: "Composite Breakdown ↓",
   FLOW_SURGE:          "Flow Surge",
 };
 
@@ -144,7 +145,7 @@ export default function RotationPanel({ rotation }: Props) {
             const label = EVENT_TYPE_LABELS[event.eventType] ?? event.eventType;
             const isEntering = event.eventType.startsWith("ENTERING_");
             const isBullish = event.eventType === "ENTERING_IMPROVING" || event.eventType === "ENTERING_LEADING" || event.eventType === "COMPOSITE_BREAKOUT";
-            const isBearish = event.eventType === "ENTERING_WEAKENING" || event.eventType === "ENTERING_LAGGING";
+            const isBearish = event.eventType === "ENTERING_WEAKENING" || event.eventType === "ENTERING_LAGGING" || event.eventType === "COMPOSITE_BREAKDOWN";
             const labelColor = isBullish ? "text-emerald-400" : isBearish ? "text-orange-400" : "text-slate-200";
             return (
               <li key={index} className="flex flex-col gap-0.5">

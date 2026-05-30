@@ -4,7 +4,7 @@ import { useState } from "react";
 import { SubSectorSummary } from "@/lib/api";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 
-type SortCol = "rs60" | "rs20" | "rs120" | "momentum" | "compositeScore" | "quadrant" | "acceleration" | "compositeTrend5d";
+type SortCol = "rs60" | "rs20" | "rs120" | "momentum" | "compositeScore" | "quadrant" | "acceleration" | "compositeTrend5d" | "persistence20d";
 type SortDir = "asc" | "desc";
 
 const QUADRANT_ORDER: Record<string, number> = { "4": 0, "3": 1, "2": 2, "1": 3 };
@@ -95,6 +95,28 @@ function ScoreBar({ score }: { score: number | null }) {
   );
 }
 
+function PersistenceCell({ value }: { value: number | null }) {
+  if (value == null) return <span className="text-slate-600">—</span>;
+  const pct = Math.round((value / 20) * 100);
+  const colorClass = pct >= 60 ? "text-emerald-400" : pct >= 40 ? "text-slate-400" : "text-red-400";
+  const filled = Math.round((value / 20) * 5);
+  return (
+    <div
+      className="flex items-center gap-1.5 justify-end"
+      title={`Persistence: ${value}/20 days outperformed benchmark (${pct}%)`}
+    >
+      <div className="flex gap-0.5">
+        {Array.from({ length: 5 }, (_, i) => (
+          <div key={i} className={`w-1 h-2.5 rounded-[1px] ${i < filled ? (pct >= 60 ? "bg-emerald-500" : pct >= 40 ? "bg-slate-500" : "bg-red-500") : "bg-slate-700"}`} />
+        ))}
+      </div>
+      <span className={`tabular-nums text-[10px] ${colorClass}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+        {value}d
+      </span>
+    </div>
+  );
+}
+
 function AccelCell({ value }: { value: number | null }) {
   if (value == null) return <span className="text-slate-600">—</span>;
   const pct = (value * 100).toFixed(1);
@@ -137,6 +159,9 @@ function sortRows(rows: SubSectorSummary[], col: SortCol, dir: SortDir): SubSect
     } else if (col === "compositeTrend5d") {
       valA = a.compositeTrend5d ?? -Infinity;
       valB = b.compositeTrend5d ?? -Infinity;
+    } else if (col === "persistence20d") {
+      valA = a.persistence20d ?? -Infinity;
+      valB = b.persistence20d ?? -Infinity;
     } else {
       valA = (a[col] as number | null) ?? -Infinity;
       valB = (b[col] as number | null) ?? -Infinity;
@@ -244,6 +269,14 @@ export default function SubSectorTable({
               Momentum<SortArrow col="momentum" sortCol={sortCol} sortDir={sortDir} />
             </th>
             <th
+              className={`px-4 py-3 text-right ${thCls("persistence20d")}`}
+              style={TH_STYLE}
+              onClick={() => handleSort("persistence20d")}
+              title="Persistence: days in last 20 where this sub-sector outperformed its parent sector benchmark. Higher = more consistent outperformance."
+            >
+              Persist<SortArrow col="persistence20d" sortCol={sortCol} sortDir={sortDir} />
+            </th>
+            <th
               className={`px-4 py-3 text-center ${thCls("quadrant")}`}
               style={TH_STYLE}
               onClick={() => handleSort("quadrant")}
@@ -307,6 +340,9 @@ export default function SubSectorTable({
                     <span className="text-slate-600">—</span>
                   )}
                 </td>
+                <td className="px-4 py-2.5 text-right text-xs">
+                  <PersistenceCell value={subSector.persistence20d} />
+                </td>
                 <td className="px-4 py-2.5 text-center">
                   <div className="flex flex-col items-center gap-1">
                     {signalCfg ? (
@@ -336,7 +372,7 @@ export default function SubSectorTable({
         </tbody>
       </table>
       <div className="px-4 py-2 border-t border-slate-700 text-[10px] text-slate-600 bg-slate-800/30">
-        Click any column header to sort · RS values vs {parentEtfTicker} ({parentName}) · Accel = RS60 − RS120 (↗ building, ↘ fading) · Trend = 5d &amp; 20d composite score delta
+        Click any column header to sort · RS values vs {parentEtfTicker} ({parentName}) · Accel = RS60 − RS120 (↗ building, ↘ fading) · Persist = days outperforming {parentEtfTicker} in last 20
       </div>
     </div>
   );

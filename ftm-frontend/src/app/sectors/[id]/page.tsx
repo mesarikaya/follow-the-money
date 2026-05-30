@@ -4,6 +4,42 @@ import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 import SubSectorTable from "@/components/SubSectorTable";
 import RefreshButton from "@/components/RefreshButton";
 
+function buildConfluenceNarrative(
+  bullishCount: number,
+  bearishCount: number,
+  total: number,
+  sectorName: string,
+  signalCounts: Record<string, SubSectorSummary[]>,
+): { text: string; strength: "strong" | "moderate" | "mixed" | "weak" } | null {
+  if (total === 0) return null;
+  const bullishPct = Math.round((bullishCount / total) * 100);
+  const buyCount = signalCounts["BUY"]?.length ?? 0;
+  const watchCount = signalCounts["WATCH"]?.length ?? 0;
+
+  if (bullishPct >= 75) {
+    return {
+      text: `${bullishCount} of ${total} ${sectorName} sub-sectors are in Leading or Improving phases — broad-based rotation strength. ${buyCount > 0 ? `${buyCount} BUY signal${buyCount > 1 ? "s" : ""} confirm entry readiness.` : "Watch for BUY signals to confirm."}`,
+      strength: "strong",
+    };
+  }
+  if (bullishPct >= 50) {
+    return {
+      text: `${bullishCount} of ${total} sub-sectors show bullish RRG momentum in ${sectorName}. ${watchCount + buyCount > 0 ? `${watchCount + buyCount} actionable signal${watchCount + buyCount > 1 ? "s" : ""} present.` : "Signals mixed — size positions cautiously."}`,
+      strength: "moderate",
+    };
+  }
+  if (bullishPct >= 25) {
+    return {
+      text: `Rotation in ${sectorName} is mixed — ${bullishCount} bullish vs ${bearishCount} bearish sub-sectors. Select only the Leading names; avoid sector-wide exposure.`,
+      strength: "mixed",
+    };
+  }
+  return {
+    text: `${bearishCount} of ${total} ${sectorName} sub-sectors are in Weakening or Lagging phases — broad deterioration in sector rotation. Reduce or avoid until momentum stabilizes.`,
+    strength: "weak",
+  };
+}
+
 interface Props {
   params: Promise<{ id: string }>;
 }
@@ -52,6 +88,11 @@ export default async function SectorDrilldownPage({ params }: Props) {
     const sig = (s.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(s);
     if (sig && signalCounts[sig]) signalCounts[sig].push(s);
   }
+
+  const bullishCount = (quadrantCounts["4"]?.length ?? 0) + (quadrantCounts["3"]?.length ?? 0);
+  const bearishCount = (quadrantCounts["2"]?.length ?? 0) + (quadrantCounts["1"]?.length ?? 0);
+  const total = subSectors.filter(s => s.rrgQuadrant != null).length;
+  const confluenceNarrative = buildConfluenceNarrative(bullishCount, bearishCount, total, meta?.name ?? sectorId, signalCounts);
 
   return (
     <div className="flex flex-col h-full">
@@ -189,6 +230,35 @@ export default async function SectorDrilldownPage({ params }: Props) {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Rotation confluence narrative */}
+            {confluenceNarrative && (
+              <div
+                className={`px-4 py-3 rounded-lg border text-sm leading-relaxed ${
+                  confluenceNarrative.strength === "strong"
+                    ? "bg-green-900/20 border-green-700/40 text-green-300"
+                    : confluenceNarrative.strength === "moderate"
+                    ? "bg-cyan-900/20 border-cyan-700/40 text-cyan-300"
+                    : confluenceNarrative.strength === "mixed"
+                    ? "bg-amber-900/15 border-amber-700/40 text-amber-300"
+                    : "bg-red-900/15 border-red-700/40 text-red-300"
+                }`}
+              >
+                <span
+                  className="font-semibold mr-1"
+                  style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.02em" }}
+                >
+                  {confluenceNarrative.strength === "strong"
+                    ? "Strong Confluence:"
+                    : confluenceNarrative.strength === "moderate"
+                    ? "Moderate Confluence:"
+                    : confluenceNarrative.strength === "mixed"
+                    ? "Mixed Rotation:"
+                    : "Broad Weakness:"}
+                </span>
+                {confluenceNarrative.text}
               </div>
             )}
 

@@ -83,6 +83,8 @@ export type SubSectorSummary = {
   compositeTrend5d: number | null;
   compositeTrend20d: number | null;
   tradeSignal: string | null;
+  persistence20d: number | null;
+  macroFit: number | null;
 };
 
 async function get<T>(path: string): Promise<T> {

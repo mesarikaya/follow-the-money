@@ -31,12 +31,17 @@ import org.springframework.stereotype.Service;
 /**
  * Evaluates alert rules after each signal computation run.
  *
- * <p>Implemented rules: - rrg_transition: one alert per ENTERING_IMPROVING or ENTERING_LEADING
- * rotation event - composite_breakout: one alert per COMPOSITE_BREAKOUT rotation event -
- * macro_regime_shift: fires when MACRO_REGIME signal changes from the previous signal date
+ * <p>Implemented rules:
+ * <ul>
+ *   <li>rrg_transition: fires on each RRG quadrant transition (entering/leaving leading/improving)
+ *   <li>composite_breakout: fires when composite score crosses above 0.70
+ *   <li>composite_breakdown: fires when composite score falls below 0.35
+ *   <li>macro_regime_shift: fires when MACRO_REGIME changes from the previous signal date
+ *   <li>rs_accel_crossover: fires when RS-60 crosses above or below RS-120
+ *   <li>persistence_low: fires when a sector beats its benchmark on fewer than threshold (default 7) of last 20 days
+ * </ul>
  *
- * <p>Deferred (no FLOW signals yet): - flow_inflow_5d, flow_inflow_10d, flow_inflow_20d -
- * flow_outflow_5d, flow_outflow_10d, flow_outflow_20d
+ * <p>Deferred (no FLOW signals yet): flow_inflow_5d, flow_inflow_10d, flow_outflow_5d
  */
 @Service
 public class AlertRulesEngine {
@@ -48,6 +53,8 @@ public class AlertRulesEngine {
   private static final String RULE_COMPOSITE_BREAKDOWN = "composite_breakdown";
   private static final String RULE_MACRO_REGIME_SHIFT = "macro_regime_shift";
   private static final String RULE_RS_ACCEL_CROSSOVER = "rs_accel_crossover";
+  private static final String RULE_PERSISTENCE_LOW = "persistence_low";
+  private static final int PERSISTENCE_RECOVERY_THRESHOLD = 8;
 
   private final AlertRepository alertRepository;
   private final AlertRulesRepository alertRulesRepository;
@@ -82,6 +89,7 @@ public class AlertRulesEngine {
     alertsCreated += evaluateRotationEventAlerts(signalDate);
     alertsCreated += evaluateMacroRegimeShift(signalDate);
     alertsCreated += evaluateRsAccelerationCrossover(signalDate, topLevelCategoryIds);
+    alertsCreated += evaluatePersistenceLow(signalDate, topLevelCategoryIds);
 
     log.info(
         "Alert rule evaluation complete: {} created, {} resolved for date={}",
@@ -93,26 +101,35 @@ public class AlertRulesEngine {
   private int resolveStaleAlerts(LocalDate signalDate, Set<String> topLevelCategoryIds) {
     Map<String, BigDecimal> currentComposites =
         signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
+    Map<String, BigDecimal> currentPersistence =
+        signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, signalDate);
 
     int resolved = 0;
     for (String categoryId : topLevelCategoryIds) {
       BigDecimal composite = currentComposites.get(categoryId);
-      if (composite == null) continue;
-
-      // Breakdown alert: condition was score < 0.35; resolve when score recovers to ≥ 0.35
-      if (composite.compareTo(new BigDecimal("0.35")) >= 0) {
-        resolved +=
-            alertRepository.resolveAlertsByRuleAndCategory(RULE_COMPOSITE_BREAKDOWN, categoryId);
+      if (composite != null) {
+        // Breakdown alert: condition was score < 0.35; resolve when score recovers to ≥ 0.35
+        if (composite.compareTo(new BigDecimal("0.35")) >= 0) {
+          resolved +=
+              alertRepository.resolveAlertsByRuleAndCategory(RULE_COMPOSITE_BREAKDOWN, categoryId);
+        }
+        // Breakout alert: condition was score > 0.70; resolve when score falls back to ≤ 0.70
+        if (composite.compareTo(new BigDecimal("0.70")) <= 0) {
+          resolved +=
+              alertRepository.resolveAlertsByRuleAndCategory(RULE_COMPOSITE_BREAKOUT, categoryId);
+        }
       }
-      // Breakout alert: condition was score > 0.70; resolve when score falls back to ≤ 0.70
-      if (composite.compareTo(new BigDecimal("0.70")) <= 0) {
+
+      // Persistence alert: resolve when sector recovers to ≥ 8/20 outperformance days
+      BigDecimal persistence = currentPersistence.get(categoryId);
+      if (persistence != null && persistence.intValue() >= PERSISTENCE_RECOVERY_THRESHOLD) {
         resolved +=
-            alertRepository.resolveAlertsByRuleAndCategory(RULE_COMPOSITE_BREAKOUT, categoryId);
+            alertRepository.resolveAlertsByRuleAndCategory(RULE_PERSISTENCE_LOW, categoryId);
       }
     }
 
     if (resolved > 0) {
-      log.info("Resolved {} stale composite alert(s) for date={}", resolved, signalDate);
+      log.info("Resolved {} stale alert(s) for date={}", resolved, signalDate);
     }
     return resolved;
   }
@@ -347,6 +364,55 @@ public class AlertRulesEngine {
             nowAbove ? "bullish" : "bearish",
             rs60,
             rs120);
+      }
+    }
+    return count;
+  }
+
+  private int evaluatePersistenceLow(LocalDate signalDate, Set<String> topLevelCategoryIds) {
+    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_PERSISTENCE_LOW);
+    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+    Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
+    int threshold = rule.map(AlertRule::persistenceDays).filter(d -> d != null).orElse(7);
+
+    Map<String, BigDecimal> currentPersistence =
+        signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, signalDate);
+    if (currentPersistence.isEmpty()) return 0;
+
+    int count = 0;
+    for (String categoryId : topLevelCategoryIds) {
+      BigDecimal persistenceValue = currentPersistence.get(categoryId);
+      if (persistenceValue == null) continue;
+
+      int days = persistenceValue.intValue();
+      if (days >= threshold) continue;
+
+      CategoryId catId;
+      try {
+        catId = CategoryId.valueOf(categoryId);
+      } catch (IllegalArgumentException e) {
+        log.debug("persistence_low: skipping unknown CategoryId={}", categoryId);
+        continue;
+      }
+
+      if (!alertRepository.existsActiveAlert(RULE_PERSISTENCE_LOW, categoryId)) {
+        String message = String.format(
+            "%s outperformed its benchmark on only %d of the last 20 trading days — breadth of outperformance is deteriorating",
+            categoryId, days);
+        String snapshot = String.format(
+            "{\"persistence20d\":%d,\"threshold\":%d,\"signalDate\":\"%s\"}",
+            days, threshold, signalDate);
+        alertRepository.insert(
+            new Alert(
+                OffsetDateTime.now(),
+                catId,
+                RULE_PERSISTENCE_LOW,
+                severity,
+                message,
+                snapshot,
+                AlertStatus.ACTIVE));
+        count++;
+        log.info("persistence_low alert: category={} days={} threshold={}", categoryId, days, threshold);
       }
     }
     return count;

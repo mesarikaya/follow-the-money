@@ -39,7 +39,9 @@ public class SubSectorService {
                 SignalType.RRG_QUADRANT,
                 SignalType.COMPOSITE,
                 SignalType.COMPOSITE_TREND_5D,
-                SignalType.COMPOSITE_TREND_20D));
+                SignalType.COMPOSITE_TREND_20D,
+                SignalType.PERSISTENCE_20D,
+                SignalType.MACRO_FIT));
 
     Map<String, BigDecimal> rs20ByCategory =
         signals.getOrDefault(SignalType.RS_20, Collections.emptyMap());
@@ -57,6 +59,10 @@ public class SubSectorService {
         signals.getOrDefault(SignalType.COMPOSITE_TREND_5D, Collections.emptyMap());
     Map<String, BigDecimal> trend20dByCategory =
         signals.getOrDefault(SignalType.COMPOSITE_TREND_20D, Collections.emptyMap());
+    Map<String, BigDecimal> persistence20dByCategory =
+        signals.getOrDefault(SignalType.PERSISTENCE_20D, Collections.emptyMap());
+    Map<String, BigDecimal> macroFitByCategory =
+        signals.getOrDefault(SignalType.MACRO_FIT, Collections.emptyMap());
 
     return subCategories.stream()
         .map(
@@ -67,6 +73,8 @@ public class SubSectorService {
                   rrgQuadrantValue != null ? String.valueOf(rrgQuadrantValue.intValue()) : null;
               BigDecimal compositeScore = compositeByCategory.get(categoryId);
               BigDecimal trend20d = trend20dByCategory.get(categoryId);
+              BigDecimal persistenceRaw = persistence20dByCategory.get(categoryId);
+              Integer persistence20d = persistenceRaw != null ? persistenceRaw.intValue() : null;
               return new SubSectorSummaryDto(
                   categoryId,
                   category.name(),
@@ -80,7 +88,9 @@ public class SubSectorService {
                   compositeScore,
                   trend5dByCategory.get(categoryId),
                   trend20d,
-                  TradeSignalDeriver.derive(compositeScore, rrgQuadrant, trend20d));
+                  TradeSignalDeriver.derive(compositeScore, rrgQuadrant, trend20d),
+                  persistence20d,
+                  macroFitByCategory.get(categoryId));
             })
         .sorted(
             (subSectorA, subSectorB) -> {

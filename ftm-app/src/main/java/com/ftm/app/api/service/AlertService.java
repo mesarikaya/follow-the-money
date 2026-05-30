@@ -73,6 +73,12 @@ public class AlertService {
         rule.persistenceDays());
   }
 
+  public int acknowledgeAllActive() {
+    int count = alertRepository.acknowledgeAllActive();
+    log.info("Bulk-dismissed {} active alerts", count);
+    return count;
+  }
+
   public AlertDto acknowledgeAlert(Long alertId) {
     int rowsUpdated = alertRepository.acknowledgeAlert(alertId);
     if (rowsUpdated == 0) {

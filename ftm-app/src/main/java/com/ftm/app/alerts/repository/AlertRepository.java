@@ -82,6 +82,14 @@ public class AlertRepository {
     return dsl.selectFrom(ALERTS).where(ALERTS.ID.eq(alertId)).fetchOptional().map(this::mapRecord);
   }
 
+  public int acknowledgeAllActive() {
+    return dsl.update(ALERTS)
+        .set(ALERTS.STATUS, AlertStatus.ACKNOWLEDGED.name())
+        .set(ALERTS.ACKNOWLEDGED_AT, OffsetDateTime.now())
+        .where(ALERTS.STATUS.eq(AlertStatus.ACTIVE.name()))
+        .execute();
+  }
+
   public int resolveAlertsByRuleAndCategory(String ruleId, String categoryId) {
     var condition = ALERTS.RULE_ID.eq(ruleId).and(ALERTS.STATUS.eq(AlertStatus.ACTIVE.name()));
     if (categoryId != null) {

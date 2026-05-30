@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { fetchAlerts, acknowledgeAlert, fetchAlertRules, setAlertRuleEnabled, AlertsResponse, AlertDto, AlertRuleDto } from "@/lib/api";
+import { fetchAlerts, acknowledgeAlert, bulkDismissAlerts, fetchAlertRules, setAlertRuleEnabled, AlertsResponse, AlertDto, AlertRuleDto } from "@/lib/api";
 
 function parseSnapshot(raw: string | null): Record<string, unknown> | null {
   if (!raw) return null;
@@ -89,6 +89,7 @@ export default function AlertsPage() {
   const [alertsResponse, setAlertsResponse] = useState<AlertsResponse | null>(null);
   const [alertRules, setAlertRules] = useState<AlertRuleDto[] | null>(null);
   const [acknowledging, setAcknowledging] = useState<number | null>(null);
+  const [bulkDismissing, setBulkDismissing] = useState(false);
   const [togglingRule, setTogglingRule] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [acknowledgeError, setAcknowledgeError] = useState<string | null>(null);
@@ -119,6 +120,19 @@ export default function AlertsPage() {
       setAlertRules(prev => prev ? prev.map(r => r.ruleId === ruleId ? updated : r) : prev);
     } catch { /* ignore toggle errors silently */ } finally {
       setTogglingRule(null);
+    }
+  };
+
+  const handleBulkDismiss = async () => {
+    setBulkDismissing(true);
+    setAcknowledgeError(null);
+    try {
+      await bulkDismissAlerts();
+      await loadAlerts();
+    } catch (error) {
+      setAcknowledgeError(String(error));
+    } finally {
+      setBulkDismissing(false);
     }
   };
 
@@ -194,6 +208,15 @@ export default function AlertsPage() {
                 <span className="text-sm font-semibold text-slate-200">Active Alerts</span>
                 <span className="text-[10px] text-slate-500 ml-1" title="Alerts fire after each ingestion. Acknowledge to suppress until next trigger.">(?)
 </span>
+                {activeAlerts.length > 1 && (
+                  <button
+                    onClick={handleBulkDismiss}
+                    disabled={bulkDismissing}
+                    className="ml-auto text-[10px] text-slate-500 hover:text-slate-300 border border-slate-700 hover:border-slate-500 px-2 py-0.5 rounded transition-colors disabled:opacity-50"
+                  >
+                    {bulkDismissing ? "Dismissing…" : `Dismiss all ${activeAlerts.length}`}
+                  </button>
+                )}
               </div>
 
               {!alertsResponse && !loadError && (

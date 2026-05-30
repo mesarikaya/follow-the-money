@@ -395,6 +395,15 @@ export const acknowledgeAlert = (alertId: number) =>
     return res.json() as Promise<AlertDto>;
   });
 
+export const bulkDismissAlerts = () =>
+  fetch(`${BACKEND}/api/v1/alerts/bulk-dismiss`, {
+    method: "POST",
+    cache: "no-store",
+  }).then(async (res) => {
+    if (!res.ok) throw new Error(`POST /api/v1/alerts/bulk-dismiss → ${res.status}`);
+    return res.json() as Promise<{ dismissed: number }>;
+  });
+
 export const fetchSubSectors = (parent = "TECH") =>
   get<SubSectorSummary[]>(`/api/v1/sub-sectors?parent=${parent}`);
 

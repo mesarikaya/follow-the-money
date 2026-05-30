@@ -1,11 +1,10 @@
 import { MacroResponse, MacroIndicators } from "@/lib/api";
 
 const REGIME_COLORS: Record<string, string> = {
-  RISK_ON_GROWTH:     "bg-emerald-900/50 text-emerald-300 border-emerald-700",
-  RISK_ON_DEFENSIVE:  "bg-blue-900/50 text-blue-300 border-blue-700",
-  RISK_OFF_DEFENSIVE: "bg-orange-900/50 text-orange-300 border-orange-700",
-  RISK_OFF_FLIGHT:    "bg-red-900/50 text-red-300 border-red-700",
-  STAGFLATION:        "bg-amber-900/50 text-amber-300 border-amber-700",
+  RISK_ON_GROWTH:    "bg-emerald-900/50 text-emerald-300 border-emerald-700",
+  RISK_ON_DEFENSIVE: "bg-blue-900/50 text-blue-300 border-blue-700",
+  RISK_OFF_FLIGHT:   "bg-red-900/50 text-red-300 border-red-700",
+  STAGFLATION:       "bg-amber-900/50 text-amber-300 border-amber-700",
 };
 
 type RegimeImplication = {
@@ -24,11 +23,6 @@ const REGIME_IMPLICATIONS: Record<string, RegimeImplication> = {
     headline: "Growth moderating but still positive — quality and stability favored.",
     favor: ["Healthcare (XLV)", "Consumer Staples (XLP)", "Financials (XLF)"],
     avoid: ["High-beta tech sub-sectors", "Speculative small-caps"],
-  },
-  RISK_OFF_DEFENSIVE: {
-    headline: "Rising uncertainty — capital rotating to safer assets.",
-    favor: ["Healthcare (XLV)", "Staples (XLP)", "Gold (GLD)", "Short bonds (BIL)"],
-    avoid: ["Discretionary (XLY)", "Tech growth names", "Energy (XLE)"],
   },
   RISK_OFF_FLIGHT: {
     headline: "Stress conditions — flight to safety, equities broadly under pressure.",

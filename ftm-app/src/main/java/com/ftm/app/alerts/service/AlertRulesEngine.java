@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,33 +82,16 @@ public class AlertRulesEngine {
     List<RotationEvent> todaysEvents =
         recentRotationEvents.stream().filter(e -> e.detectedDate().equals(signalDate)).toList();
 
-    boolean rrgRuleEnabled =
-        alertRulesRepository.findById(RULE_RRG_TRANSITION).map(AlertRule::enabled).orElse(false);
-    boolean breakoutRuleEnabled =
-        alertRulesRepository
-            .findById(RULE_COMPOSITE_BREAKOUT)
-            .map(AlertRule::enabled)
-            .orElse(false);
-    boolean breakdownRuleEnabled =
-        alertRulesRepository
-            .findById(RULE_COMPOSITE_BREAKDOWN)
-            .map(AlertRule::enabled)
-            .orElse(false);
-    Severity rrgSeverity =
-        alertRulesRepository
-            .findById(RULE_RRG_TRANSITION)
-            .map(AlertRule::severity)
-            .orElse(Severity.INFO);
-    Severity breakoutSeverity =
-        alertRulesRepository
-            .findById(RULE_COMPOSITE_BREAKOUT)
-            .map(AlertRule::severity)
-            .orElse(Severity.ACTION);
-    Severity breakdownSeverity =
-        alertRulesRepository
-            .findById(RULE_COMPOSITE_BREAKDOWN)
-            .map(AlertRule::severity)
-            .orElse(Severity.WARNING);
+    Optional<AlertRule> rrgRule = alertRulesRepository.findById(RULE_RRG_TRANSITION);
+    Optional<AlertRule> breakoutRule = alertRulesRepository.findById(RULE_COMPOSITE_BREAKOUT);
+    Optional<AlertRule> breakdownRule = alertRulesRepository.findById(RULE_COMPOSITE_BREAKDOWN);
+
+    boolean rrgRuleEnabled = rrgRule.map(AlertRule::enabled).orElse(false);
+    boolean breakoutRuleEnabled = breakoutRule.map(AlertRule::enabled).orElse(false);
+    boolean breakdownRuleEnabled = breakdownRule.map(AlertRule::enabled).orElse(false);
+    Severity rrgSeverity = rrgRule.map(AlertRule::severity).orElse(Severity.INFO);
+    Severity breakoutSeverity = breakoutRule.map(AlertRule::severity).orElse(Severity.ACTION);
+    Severity breakdownSeverity = breakdownRule.map(AlertRule::severity).orElse(Severity.WARNING);
 
     int count = 0;
     for (RotationEvent rotationEvent : todaysEvents) {
@@ -168,18 +152,9 @@ public class AlertRulesEngine {
   }
 
   private int evaluateMacroRegimeShift(LocalDate signalDate) {
-    boolean macroRuleEnabled =
-        alertRulesRepository
-            .findById(RULE_MACRO_REGIME_SHIFT)
-            .map(AlertRule::enabled)
-            .orElse(false);
-    if (!macroRuleEnabled) return 0;
-
-    Severity severity =
-        alertRulesRepository
-            .findById(RULE_MACRO_REGIME_SHIFT)
-            .map(AlertRule::severity)
-            .orElse(Severity.WARNING);
+    Optional<AlertRule> macroRule = alertRulesRepository.findById(RULE_MACRO_REGIME_SHIFT);
+    if (!macroRule.map(AlertRule::enabled).orElse(false)) return 0;
+    Severity severity = macroRule.map(AlertRule::severity).orElse(Severity.WARNING);
 
     Map<String, BigDecimal> currentRegimeSignals =
         signalRepository.findByTypeAndDate(SignalType.MACRO_REGIME, signalDate);
@@ -256,18 +231,9 @@ public class AlertRulesEngine {
 
   private int evaluateRsAccelerationCrossover(
       LocalDate signalDate, Set<String> topLevelCategoryIds) {
-    boolean ruleEnabled =
-        alertRulesRepository
-            .findById(RULE_RS_ACCEL_CROSSOVER)
-            .map(AlertRule::enabled)
-            .orElse(false);
-    if (!ruleEnabled) return 0;
-
-    Severity severity =
-        alertRulesRepository
-            .findById(RULE_RS_ACCEL_CROSSOVER)
-            .map(AlertRule::severity)
-            .orElse(Severity.INFO);
+    Optional<AlertRule> rsAccelRule = alertRulesRepository.findById(RULE_RS_ACCEL_CROSSOVER);
+    if (!rsAccelRule.map(AlertRule::enabled).orElse(false)) return 0;
+    Severity severity = rsAccelRule.map(AlertRule::severity).orElse(Severity.INFO);
 
     Map<String, BigDecimal> currentRs60 =
         signalRepository.findByTypeAndDate(SignalType.RS_60, signalDate);

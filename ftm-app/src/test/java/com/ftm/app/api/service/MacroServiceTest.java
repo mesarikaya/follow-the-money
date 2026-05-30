@@ -135,6 +135,44 @@ class MacroServiceTest {
   }
 
   @Test
+  @DisplayName("getMacroResponse maps ordinal 0 to STAGFLATION in regime history")
+  void shouldMapOrdinalZeroToStagflation() {
+    LocalDate today = LocalDate.now();
+    when(macroIndicatorRepository.findLatestPerSeries())
+        .thenReturn(List.of(indicator("VIXCLS", new BigDecimal("25.0"), today)));
+    when(macroRegimeService.classifyCurrentRegime()).thenReturn(MacroRegime.STAGFLATION);
+    when(macroIndicatorRepository.findPreviousPerSeries(any())).thenReturn(List.of());
+    when(macroRegimeService.computeMacroFitByCategory(MacroRegime.STAGFLATION)).thenReturn(Map.of());
+    when(signalRepository.findMacroRegimeHistory(anyInt())).thenReturn(List.of(
+        new MacroRegimeHistoryRow(today.minusDays(14), new BigDecimal("0"))  // ordinal 0 = STAGFLATION
+    ));
+
+    MacroResponse response = macroService.getMacroResponse();
+
+    assertThat(response.regimeHistory()).hasSize(1);
+    assertThat(response.regimeHistory().get(0).regime()).isEqualTo("STAGFLATION");
+  }
+
+  @Test
+  @DisplayName("getMacroResponse maps unknown ordinal to UNKNOWN in regime history")
+  void shouldMapUnknownOrdinalToUnknownString() {
+    LocalDate today = LocalDate.now();
+    when(macroIndicatorRepository.findLatestPerSeries())
+        .thenReturn(List.of(indicator("VIXCLS", new BigDecimal("18.0"), today)));
+    when(macroRegimeService.classifyCurrentRegime()).thenReturn(MacroRegime.RISK_ON_GROWTH);
+    when(macroIndicatorRepository.findPreviousPerSeries(any())).thenReturn(List.of());
+    when(macroRegimeService.computeMacroFitByCategory(MacroRegime.RISK_ON_GROWTH)).thenReturn(Map.of());
+    when(signalRepository.findMacroRegimeHistory(anyInt())).thenReturn(List.of(
+        new MacroRegimeHistoryRow(today.minusDays(5), new BigDecimal("99"))  // ordinal 99 = UNKNOWN
+    ));
+
+    MacroResponse response = macroService.getMacroResponse();
+
+    assertThat(response.regimeHistory()).hasSize(1);
+    assertThat(response.regimeHistory().get(0).regime()).isEqualTo("UNKNOWN");
+  }
+
+  @Test
   @DisplayName("getMacroResponse falls back to single-entry history when DB has no regime history")
   void shouldFallbackToCurrentRegimeWhenHistoryEmpty() {
     LocalDate today = LocalDate.now();

@@ -13,6 +13,7 @@ const RULE_SHORT: Record<string, string> = {
 };
 
 const SEV_STYLES: Record<string, { strip: string; badge: string; dot: string }> = {
+  URGENT:  { strip: "border-red-600/70 bg-red-950/40",   badge: "bg-red-800/90 text-red-200 border border-red-600/60",     dot: "bg-red-300"    },
   ACTION:  { strip: "border-red-700/60 bg-red-950/30",   badge: "bg-red-900/80 text-red-300 border border-red-700/50",     dot: "bg-red-400"    },
   WARNING: { strip: "border-amber-700/50 bg-amber-950/20", badge: "bg-amber-900/70 text-amber-300 border border-amber-700/40", dot: "bg-amber-400"  },
   INFO:    { strip: "border-blue-700/40 bg-blue-950/15",  badge: "bg-blue-900/60 text-blue-300 border border-blue-700/40",   dot: "bg-blue-400"   },
@@ -29,7 +30,7 @@ export default function ActiveAlertsStrip() {
       const active = (data.alerts ?? [])
         .filter((a: AlertDto) => a.status === "ACTIVE")
         .sort((a: AlertDto, b: AlertDto) => {
-          const order: Record<string, number> = { ACTION: 0, WARNING: 1, INFO: 2 };
+          const order: Record<string, number> = { URGENT: 0, ACTION: 1, WARNING: 2, INFO: 3 };
           return (order[a.severity] ?? 3) - (order[b.severity] ?? 3);
         });
       setAlerts(active);

@@ -63,6 +63,12 @@ export default function RotationHeatmap({ categories }: Props) {
       score >= 0.7 ? "bg-emerald-500" :
       score >= 0.5 ? "bg-blue-500" :
       score >= 0.3 ? "bg-amber-500" : "bg-red-500";
+    const persist = cat.persistence20d;
+    const persistClass =
+      persist == null ? null :
+      persist >= 12 ? "text-cyan-400 bg-cyan-900/20" :
+      persist >= 7  ? "text-slate-500 bg-slate-700/20" :
+                      "text-orange-400 bg-orange-900/20";
 
     const hasDrilldown = SECTOR_DRILLDOWN_IDS.has(cat.id);
     const Wrapper = ({ children }: { children: React.ReactNode }) =>
@@ -83,9 +89,19 @@ export default function RotationHeatmap({ categories }: Props) {
             <span className="text-[10px] font-mono text-slate-500">{cat.etfTicker}</span>
             <span className="text-xs font-bold tracking-tight">{cat.id}</span>
           </div>
-          <div className="flex items-center gap-1">
-            <TrendPips trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} />
-            <span className="text-sm font-bold tabular-nums">{pct ?? "—"}</span>
+          <div className="flex flex-col items-end gap-0.5">
+            <div className="flex items-center gap-1">
+              <TrendPips trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} />
+              <span className="text-sm font-bold tabular-nums">{pct ?? "—"}</span>
+            </div>
+            {persistClass && persist != null && (
+              <span
+                className={`text-[8px] font-mono px-1 rounded ${persistClass}`}
+                title={`Persistence: ${persist}/20 days outperformed benchmark${persist >= 12 ? " (strong)" : persist >= 7 ? " (moderate)" : " (weak)"}`}
+              >
+                P{persist}
+              </span>
+            )}
           </div>
         </div>
 

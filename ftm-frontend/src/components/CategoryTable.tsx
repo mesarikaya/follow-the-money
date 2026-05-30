@@ -1,4 +1,6 @@
-import { Fragment } from "react";
+"use client";
+
+import { Fragment, useState } from "react";
 import Link from "next/link";
 import { CategorySummary, SubSectorSummary } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
@@ -56,11 +58,13 @@ function ScoreBar({
   trend5d,
   trend20d,
   macroFit,
+  persistence20d,
 }: {
   score: number | null;
   trend5d: number | null;
   trend20d: number | null;
   macroFit?: number | null;
+  persistence20d?: number | null;
 }) {
   if (score == null) return <span className="text-slate-600 text-xs">—</span>;
   const pct = Math.round(score * 100);
@@ -68,11 +72,13 @@ function ScoreBar({
   const barColor = score >= 0.7 ? "bg-green-500" : score >= 0.4 ? "bg-yellow-500" : "bg-red-500";
   const macroFitPct = macroFit != null ? Math.round(macroFit * 100) : null;
   const macroFitColor = macroFitPct != null ? (macroFitPct >= 60 ? "bg-violet-500" : macroFitPct >= 40 ? "bg-violet-400/60" : "bg-slate-600") : null;
+  const persistPct = persistence20d != null ? Math.round((persistence20d / 20) * 100) : null;
+  const persistColor = persistPct != null ? (persistPct >= 60 ? "text-emerald-500" : persistPct >= 40 ? "text-slate-500" : "text-red-500") : null;
 
   return (
     <div
       className="flex flex-col gap-0.5"
-      title={`Composite signal score: ${pct}/100.${macroFitPct != null ? `\nMacro Fit: ${macroFitPct}% — historical win rate in current macro regime.` : ""}`}
+      title={`Composite signal score: ${pct}/100.${macroFitPct != null ? `\nMacro Fit: ${macroFitPct}% — historical win rate in current macro regime.` : ""}${persistence20d != null ? `\nPersistence: ${persistence20d}/20 days outperformed benchmark.` : ""}`}
     >
       <div className="flex items-center gap-1.5">
         <div className="flex gap-0.5">
@@ -88,6 +94,11 @@ function ScoreBar({
         </span>
         <TrendPip trend={trend5d} label="5d" />
         <TrendPip trend={trend20d} label="20d" />
+        {persistPct != null && (
+          <span className={`text-[8px] tabular-nums ${persistColor}`} title={`Persistence: ${persistence20d}/20 days outperformed benchmark (${persistPct}%)`}>
+            {persistence20d}d
+          </span>
+        )}
       </div>
       {macroFitPct != null && (
         <div className="flex items-center gap-1" title={`Macro Fit: ${macroFitPct}% — historical RS win rate in current regime`}>
@@ -135,6 +146,7 @@ function buildScoreTooltip(cat: import("@/lib/api").CategorySummary, macroFitVal
   const macroFitStr = macroFitVal != null ? `${Math.round(macroFitVal * 100)}% win rate in current regime` : "—";
   const trend5dPts = cat.compositeTrend5d != null ? Math.round(cat.compositeTrend5d * 100) : null;
   const trend20dPts = cat.compositeTrend20d != null ? Math.round(cat.compositeTrend20d * 100) : null;
+  const persistStr = cat.persistence20d != null ? `${cat.persistence20d}/20 days outperformed benchmark` : "n/a (computing)";
   return [
     `Composite Score: ${pct ?? "—"}/100`,
     ``,
@@ -144,6 +156,7 @@ function buildScoreTooltip(cat: import("@/lib/api").CategorySummary, macroFitVal
     `Momentum (20% weight): ${trend5dPts != null ? `5d ${trend5dPts > 0 ? "+" : ""}${trend5dPts}pt` : "—"}`,
     `Macro Fit (10% weight): ${macroFitStr}`,
     `RRG (10% weight): ${rrgLabel}`,
+    `Persistence 20d: ${persistStr}`,
     ``,
     trend20dPts != null ? `20d score trend: ${trend20dPts > 0 ? "+" : ""}${trend20dPts} pts` : "",
   ].filter(Boolean).join("\n");
@@ -207,6 +220,49 @@ function TopSubChip({ sub }: { sub: SubSectorSummary }) {
   );
 }
 
+type SortKey = "default" | "score" | "rs" | "signal" | "close" | "macroFit";
+type SortDir = "asc" | "desc";
+
+const SIGNAL_ORDER: Record<string, number> = { BUY: 0, WATCH: 1, HOLD: 2, REDUCE: 3 };
+
+function sortCategories(
+  cats: CategorySummary[],
+  key: SortKey,
+  dir: SortDir,
+  deriveSignal: (c: CategorySummary) => TradeSignal | null,
+): CategorySummary[] {
+  if (key === "default") return cats;
+  return [...cats].sort((a, b) => {
+    let delta = 0;
+    switch (key) {
+      case "score":
+        delta = (a.compositeScore ?? -1) - (b.compositeScore ?? -1);
+        break;
+      case "rs":
+        delta = (a.rs60 ?? -Infinity) - (b.rs60 ?? -Infinity);
+        break;
+      case "signal": {
+        const sa = deriveSignal(a) ?? "HOLD";
+        const sb = deriveSignal(b) ?? "HOLD";
+        delta = (SIGNAL_ORDER[sa] ?? 99) - (SIGNAL_ORDER[sb] ?? 99);
+        break;
+      }
+      case "close":
+        delta = (a.latestClose ?? -1) - (b.latestClose ?? -1);
+        break;
+      case "macroFit":
+        delta = (a.macroFit ?? -1) - (b.macroFit ?? -1);
+        break;
+    }
+    return dir === "desc" ? -delta : delta;
+  });
+}
+
+function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
+  if (!active) return <span className="ml-0.5 text-slate-700 text-[9px]">⇅</span>;
+  return <span className="ml-0.5 text-cyan-400 text-[9px]">{dir === "desc" ? "↓" : "↑"}</span>;
+}
+
 export default function CategoryTable({
   categories,
   timeframe = "MONTH",
@@ -218,12 +274,55 @@ export default function CategoryTable({
   scoreHistory?: Record<string, number[]>;
   topSubSectors?: Record<string, SubSectorSummary>;
 }) {
+  const [sortKey, setSortKey] = useState<SortKey>("default");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
   const rsLabel = RS_LABEL[timeframe] ?? "60d";
   const hasHistory = Object.keys(scoreHistory).length > 0;
   const colSpan = hasHistory ? 9 : 8;
 
+  const getSignal = (c: CategorySummary) => (c.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(c);
+  const isSorted = sortKey !== "default";
+  const sorted = sortCategories(categories, sortKey, sortDir, getSignal);
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      if (sortDir === "desc") setSortDir("asc");
+      else { setSortKey("default"); setSortDir("desc"); }
+    } else {
+      setSortKey(key);
+      setSortDir(key === "signal" ? "asc" : "desc");
+    }
+  }
+
+  function SortTh({ children, sortK, className = "" }: { children: React.ReactNode; sortK: SortKey; className?: string }) {
+    return (
+      <th
+        className={`px-4 py-3 cursor-pointer select-none hover:text-slate-200 transition-colors ${className} ${sortKey === sortK ? "text-cyan-400" : ""}`}
+        onClick={() => handleSort(sortK)}
+        title={`Sort by ${sortK}`}
+      >
+        <span className="inline-flex items-center gap-0.5">
+          {children}
+          <SortIcon active={sortKey === sortK} dir={sortDir} />
+        </span>
+      </th>
+    );
+  }
+
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-700">
+      {isSorted && (
+        <div className="px-4 py-1.5 bg-cyan-900/20 border-b border-cyan-800/30 flex items-center gap-2 text-[10px] text-cyan-400">
+          <span>Sorted by <strong>{sortKey}</strong> {sortDir === "desc" ? "(highest first)" : "(lowest first)"}</span>
+          <button
+            className="ml-auto text-slate-500 hover:text-slate-300 transition-colors"
+            onClick={() => { setSortKey("default"); setSortDir("desc"); }}
+          >
+            ✕ Reset
+          </button>
+        </div>
+      )}
       <table className="w-full text-sm text-left">
         <thead>
           <tr className="border-b border-slate-700 bg-slate-800/80 text-slate-400 text-xs uppercase tracking-wider">
@@ -231,20 +330,29 @@ export default function CategoryTable({
             <th className="px-4 py-3">ETF</th>
             <th className="px-4 py-3">Name</th>
             <th className="px-4 py-3">Type</th>
-            <th className="px-4 py-3 text-right" title="Latest closing price">Close</th>
+            <SortTh sortK="close" className="text-right">Close</SortTh>
             {hasHistory && (
               <th className="px-3 py-3 text-center" title="30-day composite score trend (sparkline)">30d Trend</th>
             )}
-            <th className="px-4 py-3 text-center"><GlossaryTooltip term="Composite Score">Score</GlossaryTooltip></th>
-            <th className="px-4 py-3 text-right"><GlossaryTooltip term="RS-60">vs Benchmark ({rsLabel})</GlossaryTooltip></th>
-            <th className="px-4 py-3 text-center"><GlossaryTooltip term="RRG">Signal</GlossaryTooltip> / <GlossaryTooltip term="BUY">Action</GlossaryTooltip></th>
+            <SortTh sortK="score" className="text-center">
+              <GlossaryTooltip term="Composite Score">Score</GlossaryTooltip>
+            </SortTh>
+            <SortTh sortK="rs" className="text-right">
+              <GlossaryTooltip term="RS-60">vs Benchmark ({rsLabel})</GlossaryTooltip>
+            </SortTh>
+            <SortTh sortK="macroFit" className="text-center">
+              <GlossaryTooltip term="Macro Fit">Regime</GlossaryTooltip>
+            </SortTh>
+            <SortTh sortK="signal" className="text-center">
+              <GlossaryTooltip term="RRG">Signal</GlossaryTooltip> / <GlossaryTooltip term="BUY">Action</GlossaryTooltip>
+            </SortTh>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-800">
-          {categories.map((cat, idx) => {
+          {sorted.map((cat, idx) => {
             const typeConfig = TYPE_CONFIG[cat.type] ?? TYPE_CONFIG.ALTERNATIVE;
-            const prevType = idx > 0 ? categories[idx - 1].type : null;
-            const showDivider = prevType !== cat.type && TYPE_SECTION_LABELS[cat.type] != null;
+            const prevType = idx > 0 ? sorted[idx - 1].type : null;
+            const showDivider = !isSorted && prevType !== cat.type && TYPE_SECTION_LABELS[cat.type] != null;
             const history = scoreHistory[cat.id] ?? [];
             const quadrantInfo = cat.rrgQuadrant != null ? RRG_QUADRANT_CONFIG[Number(cat.rrgQuadrant)] : null;
             const rowBorderClass = quadrantInfo ? quadrantInfo.borderClass : "border-l-slate-700/20";
@@ -253,13 +361,13 @@ export default function CategoryTable({
               <Fragment key={cat.id}>
                 {showDivider && (
                   <tr>
-                    <td colSpan={colSpan} className="px-4 py-1.5 text-xs font-semibold text-slate-500 bg-slate-900/60 uppercase tracking-widest border-t border-slate-700/60">
+                    <td colSpan={colSpan + 1} className="px-4 py-1.5 text-xs font-semibold text-slate-500 bg-slate-900/60 uppercase tracking-widest border-t border-slate-700/60">
                       {TYPE_SECTION_LABELS[cat.type]}
                     </td>
                   </tr>
                 )}
                 <tr className={`hover:bg-slate-800/50 transition-colors text-slate-200 border-l-[3px] ${rowBorderClass}`}>
-                  <td className="px-4 py-2.5 text-slate-500 tabular-nums text-xs">{cat.rank}</td>
+                  <td className="px-4 py-2.5 text-slate-500 tabular-nums text-xs">{isSorted ? idx + 1 : cat.rank}</td>
                   <td className="px-4 py-2.5 font-mono text-blue-300 font-medium">
                     <div className="flex items-center flex-wrap gap-x-0.5">
                       {SECTOR_DRILLDOWN_IDS.has(cat.id) ? (
@@ -296,11 +404,26 @@ export default function CategoryTable({
                   )}
                   <td className="px-4 py-2.5" title={buildScoreTooltip(cat, cat.macroFit ?? null)}>
                     <div className="flex justify-center">
-                      <ScoreBar score={cat.compositeScore} trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} macroFit={cat.macroFit ?? null} />
+                      <ScoreBar score={cat.compositeScore} trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} macroFit={cat.macroFit ?? null} persistence20d={cat.persistence20d ?? null} />
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <RsCell value={cat.rs60} rs120={cat.rs120} period={rsLabel.replace("d", "")} />
+                  </td>
+                  <td className="px-4 py-2.5 text-center">
+                    {cat.macroFit != null ? (
+                      <div className="flex flex-col items-center gap-0.5" title={`Macro Fit: ${Math.round(cat.macroFit * 100)}% — historical RS win rate in current regime`}>
+                        <div className="w-12 h-1 rounded-full bg-slate-700/60 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${cat.macroFit >= 0.6 ? "bg-violet-500" : cat.macroFit >= 0.4 ? "bg-violet-400/50" : "bg-slate-600"}`}
+                            style={{ width: `${Math.round(cat.macroFit * 100)}%` }}
+                          />
+                        </div>
+                        <span className={`text-[9px] tabular-nums ${cat.macroFit >= 0.6 ? "text-violet-400" : cat.macroFit >= 0.4 ? "text-violet-500" : "text-slate-600"}`}>
+                          {Math.round(cat.macroFit * 100)}%
+                        </span>
+                      </div>
+                    ) : <span className="text-slate-700 text-xs">—</span>}
                   </td>
                   <td className="px-4 py-2.5 text-center">
                     <div className="flex flex-col items-center gap-1">
@@ -327,8 +450,8 @@ export default function CategoryTable({
             </span>
           </span>
         ))}
-        <span className="ml-auto" title="Score bars: 5 cells = 0-100 composite signal score. S/R/T = BUY conditions: Score≥65, RRG Improving/Leading, 20d trend positive">
-          Score: ██████ = strong · ███ = moderate · █ = weak · S/R/T = BUY conditions
+        <span className="ml-auto text-[10px]" title="Click any column header to sort. Click again to reverse. Click a third time to reset.">
+          Click headers to sort · S/R/T = BUY conditions met · ⇅ = sortable
         </span>
       </div>
     </div>

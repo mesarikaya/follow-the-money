@@ -21,7 +21,6 @@ import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -136,7 +135,7 @@ class CategoryServiceTest {
     categoryService.getCategoriesResponse("WEEK");
 
     @SuppressWarnings("unchecked")
-    ArgumentCaptor<Collection<SignalType>> captor = ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<List<SignalType>> captor = ArgumentCaptor.forClass(List.class);
     verify(signalRepository).findLatestByTypes(captor.capture());
     assertThat(captor.getValue()).contains(SignalType.RS_20);
     assertThat(captor.getValue()).doesNotContain(SignalType.RS_60);
@@ -151,7 +150,7 @@ class CategoryServiceTest {
     categoryService.getCategoriesResponse("YEAR");
 
     @SuppressWarnings("unchecked")
-    ArgumentCaptor<Collection<SignalType>> captor = ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<List<SignalType>> captor = ArgumentCaptor.forClass(List.class);
     verify(signalRepository).findLatestByTypes(captor.capture());
     assertThat(captor.getValue()).contains(SignalType.RS_120);
     assertThat(captor.getValue()).doesNotContain(SignalType.RS_20);
@@ -169,7 +168,7 @@ class CategoryServiceTest {
     categoryService.getCategoriesResponse("MONTH");
 
     @SuppressWarnings("unchecked")
-    ArgumentCaptor<Collection<SignalType>> captor = ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<List<SignalType>> captor = ArgumentCaptor.forClass(List.class);
     verify(signalRepository).findLatestByTypes(captor.capture());
     assertThat(captor.getValue()).contains(SignalType.RS_60, SignalType.RS_120);
     assertThat(captor.getValue()).doesNotContain(SignalType.RS_20);
@@ -184,7 +183,7 @@ class CategoryServiceTest {
     categoryService.getCategoriesResponse("MONTH");
 
     @SuppressWarnings("unchecked")
-    ArgumentCaptor<Collection<SignalType>> captor = ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<List<SignalType>> captor = ArgumentCaptor.forClass(List.class);
     verify(signalRepository).findLatestByTypes(captor.capture());
     assertThat(captor.getValue()).contains(SignalType.MACRO_FIT);
   }
@@ -210,7 +209,7 @@ class CategoryServiceTest {
     categoryService.getCategoriesResponse(null);
 
     @SuppressWarnings("unchecked")
-    ArgumentCaptor<Collection<SignalType>> captor = ArgumentCaptor.forClass(Collection.class);
+    ArgumentCaptor<List<SignalType>> captor = ArgumentCaptor.forClass(List.class);
     verify(signalRepository).findLatestByTypes(captor.capture());
     assertThat(captor.getValue()).contains(SignalType.RS_60);
     assertThat(captor.getValue()).doesNotContain(SignalType.RS_20);

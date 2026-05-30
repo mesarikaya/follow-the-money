@@ -55,18 +55,21 @@ function buildNarrative(
     lines.push(`RS momentum is narrowing — only ${accelCount} sectors are accelerating relative to the benchmark.`);
   }
 
-  // BUY signals
+  // BUY signals with score-weighted allocations
   if (buySignals.length > 0) {
+    const totalScore = buySignals.reduce((sum, c) => sum + (c.compositeScore ?? 0), 0);
     const names = buySignals
       .map(c => {
         const sub = topSubSectors[c.id];
         const subPart = sub ? ` (→ ${sub.etfTicker})` : "";
-        return `${c.etfTicker}${subPart}`;
+        const allocPct = totalScore > 0 ? Math.round(((c.compositeScore ?? 0) / totalScore) * 100) : 0;
+        const allocStr = allocPct > 0 ? ` ~${allocPct}%` : "";
+        return `${c.etfTicker}${allocStr}${subPart}`;
       })
       .join(", ");
-    lines.push(`**Add / Overweight:** ${names} — all three signals aligned (score, RRG quadrant, trend).`);
+    lines.push(`**Add / Overweight:** ${names} — all three signals aligned. Proportional to score.`);
   } else {
-    lines.push(`No sectors currently meet all three BUY criteria simultaneously.`);
+    lines.push(`No sectors currently meet all three BUY criteria simultaneously. See WATCH sectors below.`);
   }
 
   // Near-BUY sectors (2 of 3 conditions met)

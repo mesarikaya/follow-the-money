@@ -139,11 +139,13 @@ public class SignalComputationService {
         BigDecimal rs60 = rsCalc.computeRs(categoryPrices, benchmarkPrices, 60);
         BigDecimal rs120 = rsCalc.computeRs(categoryPrices, benchmarkPrices, 120);
         BigDecimal momentum = rsCalc.computeMom(categoryPrices, benchmarkPrices, MOM_LAG);
+        BigDecimal persistence20d = rsCalc.computePersistence(categoryPrices, benchmarkPrices, 20);
 
         addIfNotNull(pendingRows, signalDate, categoryId, SignalType.RS_20, rs20);
         addIfNotNull(pendingRows, signalDate, categoryId, SignalType.RS_60, rs60);
         addIfNotNull(pendingRows, signalDate, categoryId, SignalType.RS_120, rs120);
         addIfNotNull(pendingRows, signalDate, categoryId, SignalType.MOM, momentum);
+        addIfNotNull(pendingRows, signalDate, categoryId, SignalType.PERSISTENCE_20D, persistence20d);
 
         if (rs60 != null) rs60ByCategoryId.put(categoryId, rs60);
         if (rs120 != null) rs120ByCategoryId.put(categoryId, rs120);

@@ -78,6 +78,47 @@ class RelativeStrengthCalculatorTest {
     assertThat(calc.computeMom(prices, prices, 10)).isNull();
   }
 
+  @Test
+  @DisplayName("computePersistence counts days category outperformed benchmark")
+  void shouldCountDaysCategoryOutperformedBenchmark() {
+    // Category: flat for 9 days, then spikes — benchmark: flat throughout
+    // All 10 daily returns: cat rises, bench flat → 10 wins
+    List<BigDecimal> cat = Collections.nCopies(21, bd(100));
+    List<BigDecimal> bench = new ArrayList<>(Collections.nCopies(11, bd(100)));
+    // Make first 10 of last 20 days: cat +0.5% vs bench +0%
+    List<BigDecimal> catRising = new ArrayList<>();
+    catRising.add(bd(100));
+    for (int i = 1; i <= 20; i++) catRising.add(bd(100 + i * 0.5));
+    List<BigDecimal> benchFlat = Collections.nCopies(21, bd(100));
+
+    BigDecimal result = calc.computePersistence(catRising, benchFlat, 20);
+
+    assertThat(result).isNotNull();
+    assertThat(result.intValue()).isEqualTo(20); // all 20 days cat > bench
+  }
+
+  @Test
+  @DisplayName("computePersistence returns 0 when category never outperforms benchmark")
+  void shouldReturnZeroWhenCategoryNeverOutperforms() {
+    List<BigDecimal> catFlat = Collections.nCopies(21, bd(100));
+    List<BigDecimal> benchRising = new ArrayList<>();
+    benchRising.add(bd(100));
+    for (int i = 1; i <= 20; i++) benchRising.add(bd(100 + i));
+
+    BigDecimal result = calc.computePersistence(catFlat, benchRising, 20);
+
+    assertThat(result).isNotNull();
+    assertThat(result.intValue()).isZero();
+  }
+
+  @Test
+  @DisplayName("computePersistence returns null when series too short")
+  void shouldReturnNullWhenPersistenceSeriesIsTooShort() {
+    List<BigDecimal> single = List.of(bd(100));
+
+    assertThat(calc.computePersistence(single, single, 20)).isNull();
+  }
+
   private static List<BigDecimal> series(double start, int middleCount, double end) {
     List<BigDecimal> list = new ArrayList<>();
     list.add(bd(start));

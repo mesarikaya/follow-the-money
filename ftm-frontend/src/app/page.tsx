@@ -13,6 +13,7 @@ import StaleDataBanner from "@/components/StaleDataBanner";
 import SectorCorrelationMatrix from "@/components/SectorCorrelationMatrix";
 import AllocationBar from "@/components/AllocationBar";
 import MarketNarrativePanel from "@/components/MarketNarrativePanel";
+import SignalReadinessPanel from "@/components/SignalReadinessPanel";
 import ActiveAlertsStrip from "@/components/ActiveAlertsStrip";
 
 export const dynamic = "force-dynamic";
@@ -73,6 +74,8 @@ export default async function Home({ searchParams }: Props) {
         {categories.length > 0 && (
           <MarketNarrativePanel categories={categories} macro={macro} topSubSectors={topSubSectorByParent} />
         )}
+
+        {categories.length > 0 && <SignalReadinessPanel categories={categories} />}
 
         {categories.length > 0 && <MarketBreadthBar categories={categories} />}
 

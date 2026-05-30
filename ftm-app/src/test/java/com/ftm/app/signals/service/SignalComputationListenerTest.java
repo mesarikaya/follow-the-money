@@ -1,11 +1,12 @@
 package com.ftm.app.signals.service;
 
+import static org.instancio.Select.field;
 import static org.mockito.Mockito.*;
 
 import com.ftm.app.domain.IngestSource;
 import com.ftm.app.domain.IngestStatus;
 import com.ftm.app.ingestion.event.IngestionCompleteEvent;
-import java.util.UUID;
+import org.instancio.Instancio;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,47 +21,38 @@ class SignalComputationListenerTest {
 
   @InjectMocks SignalComputationListener listener;
 
+  private IngestionCompleteEvent ingestionEvent(IngestSource source, IngestStatus status) {
+    return Instancio.of(IngestionCompleteEvent.class)
+        .set(field(IngestionCompleteEvent::source), source)
+        .set(field(IngestionCompleteEvent::status), status)
+        .create();
+  }
+
   @Test
   @DisplayName("PRICES SUCCESS triggers signal computation")
   void shouldTriggerComputationOnPricesSuccess() {
-    var event =
-        new IngestionCompleteEvent(UUID.randomUUID(), IngestSource.PRICES, IngestStatus.SUCCESS);
-
-    listener.onIngestionComplete(event);
-
+    listener.onIngestionComplete(ingestionEvent(IngestSource.PRICES, IngestStatus.SUCCESS));
     verify(computationService).computeAndStore();
   }
 
   @Test
   @DisplayName("PRICES PARTIAL triggers signal computation")
   void shouldTriggerComputationOnPricesPartial() {
-    var event =
-        new IngestionCompleteEvent(UUID.randomUUID(), IngestSource.PRICES, IngestStatus.PARTIAL);
-
-    listener.onIngestionComplete(event);
-
+    listener.onIngestionComplete(ingestionEvent(IngestSource.PRICES, IngestStatus.PARTIAL));
     verify(computationService).computeAndStore();
   }
 
   @Test
   @DisplayName("PRICES FAILED does not trigger computation")
   void shouldNotTriggerComputationOnPricesFailed() {
-    var event =
-        new IngestionCompleteEvent(UUID.randomUUID(), IngestSource.PRICES, IngestStatus.FAILED);
-
-    listener.onIngestionComplete(event);
-
+    listener.onIngestionComplete(ingestionEvent(IngestSource.PRICES, IngestStatus.FAILED));
     verifyNoInteractions(computationService);
   }
 
   @Test
   @DisplayName("MACRO SUCCESS does not trigger signal computation")
   void shouldNotTriggerComputationOnMacroEvent() {
-    var event =
-        new IngestionCompleteEvent(UUID.randomUUID(), IngestSource.MACRO, IngestStatus.SUCCESS);
-
-    listener.onIngestionComplete(event);
-
+    listener.onIngestionComplete(ingestionEvent(IngestSource.MACRO, IngestStatus.SUCCESS));
     verifyNoInteractions(computationService);
   }
 }

@@ -5,12 +5,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import static org.instancio.Select.field;
+
 import com.ftm.app.api.dto.RrgCategoryEntry;
 import com.ftm.app.api.dto.RrgResponse;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
 import com.ftm.app.api.service.RrgService;
 import java.time.LocalDate;
 import java.util.List;
+import org.instancio.Instancio;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -39,7 +42,12 @@ class RrgControllerTest {
   @DisplayName("GET /rrg returns 200 with date and categories array")
   void shouldReturnRrgData() throws Exception {
     RrgCategoryEntry techEntry =
-        new RrgCategoryEntry("TECH", "Technology", "#3b82f6", 4, List.of());
+        Instancio.of(RrgCategoryEntry.class)
+            .set(field(RrgCategoryEntry::id), "TECH")
+            .set(field(RrgCategoryEntry::name), "Technology")
+            .set(field(RrgCategoryEntry::quadrant), 4)
+            .set(field(RrgCategoryEntry::trail), List.of())
+            .create();
     RrgResponse response = new RrgResponse(LocalDate.of(2024, 6, 1), List.of(techEntry));
     when(rrgService.getLatest()).thenReturn(response);
 

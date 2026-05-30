@@ -66,7 +66,8 @@ class BacktestControllerTest {
             LocalDate.of(2024, 1, 1),
             "MONTHLY",
             5,
-            new BigDecimal("0.5"));
+            new BigDecimal("0.5"),
+            "ALL");
     BacktestResult result = sampleResult(runId);
     when(backtestEngine.run(any(BacktestRequest.class))).thenReturn(result);
     when(backtestRepository.save(result)).thenReturn(result);
@@ -87,7 +88,7 @@ class BacktestControllerTest {
     UUID runId = UUID.randomUUID();
     BacktestRequest request =
         new BacktestRequest(
-            LocalDate.of(2022, 1, 1), LocalDate.of(2023, 1, 1), "QUARTERLY", 3, null);
+            LocalDate.of(2022, 1, 1), LocalDate.of(2023, 1, 1), "QUARTERLY", 3, null, null);
     BacktestResult result = sampleResult(runId);
     when(backtestEngine.run(any(BacktestRequest.class))).thenReturn(result);
     when(backtestRepository.save(result)).thenReturn(result);

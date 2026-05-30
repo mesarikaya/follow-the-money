@@ -1,5 +1,6 @@
 package com.ftm.app.api.controller;
 
+import static org.instancio.Select.field;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,6 +20,7 @@ import com.ftm.app.portfolio.repository.TickerMappingRepository;
 import com.ftm.app.portfolio.service.HoldingClassificationService;
 import java.time.OffsetDateTime;
 import java.util.List;
+import org.instancio.Instancio;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -52,7 +54,11 @@ class TickerMappingControllerTest {
   @Test
   @DisplayName("GET /admin/ticker-mappings returns all mappings")
   void shouldReturnAllMappings() throws Exception {
-    TickerMapping xlk = new TickerMapping("XLK", "TECH", null, UPDATED_AT);
+    TickerMapping xlk =
+        Instancio.of(TickerMapping.class)
+            .set(field(TickerMapping::ticker), "XLK")
+            .set(field(TickerMapping::categoryId), "TECH")
+            .create();
     TickerMappingDto xlkDto = new TickerMappingDto("XLK", "TECH", null, UPDATED_AT);
     when(tickerMappingRepository.findAll()).thenReturn(List.of(xlk));
     when(tickerMappingMapper.toDto(xlk)).thenReturn(xlkDto);
@@ -80,7 +86,12 @@ class TickerMappingControllerTest {
   @DisplayName("POST /admin/ticker-mappings creates mapping and returns 200")
   void shouldUpsertMapping() throws Exception {
     TickerMappingRequest request = new TickerMappingRequest("AAPL", "TECH", "Apple Inc.");
-    TickerMapping saved = new TickerMapping("AAPL", "TECH", "Apple Inc.", UPDATED_AT);
+    TickerMapping saved =
+        Instancio.of(TickerMapping.class)
+            .set(field(TickerMapping::ticker), "AAPL")
+            .set(field(TickerMapping::categoryId), "TECH")
+            .set(field(TickerMapping::notes), "Apple Inc.")
+            .create();
     TickerMappingDto savedDto = new TickerMappingDto("AAPL", "TECH", "Apple Inc.", UPDATED_AT);
     when(tickerMappingRepository.findAll()).thenReturn(List.of(saved));
     when(tickerMappingMapper.toDto(any(TickerMapping.class))).thenReturn(savedDto);

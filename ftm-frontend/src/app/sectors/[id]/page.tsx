@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { fetchSubSectors, SubSectorSummary } from "@/lib/api";
 import SubSectorTable from "@/components/SubSectorTable";
+import RefreshButton from "@/components/RefreshButton";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -103,19 +104,31 @@ export default async function SectorDrilldownPage({ params }: Props) {
         )}
 
         {subSectors.length === 0 && !error && (
-          <div className="p-4 bg-slate-800/40 border border-slate-700/40 rounded-lg text-sm text-slate-500">
-            No sub-sector data yet for {meta?.name ?? sectorId}.
-            Trigger ingestion to compute signals for the {meta?.etfTicker ?? sectorId} sub-sectors.
+          <div className="p-4 bg-slate-800/40 border border-slate-700/40 rounded-lg space-y-3">
+            <p className="text-sm text-slate-400 font-medium">
+              No sub-sector data yet for {meta?.name ?? sectorId}.
+            </p>
+            <p className="text-xs text-slate-500">
+              These {meta?.etfTicker ?? sectorId} sub-sector ETFs were seeded in the database but have not been ingested yet.
+              Click <strong>Refresh Data</strong> to fetch 5 years of price history for all sub-sectors.
+              First ingestion takes 8–15 minutes; subsequent daily runs add ~30 seconds.
+            </p>
+            <RefreshButton />
           </div>
         )}
 
         {subSectors.length > 0 && subSectors.every(s => s.rs60 == null && s.compositeScore == null) && (
-          <div className="p-3 rounded-lg bg-amber-900/20 border border-amber-700/40 text-amber-300 text-xs flex items-start gap-2">
-            <span className="text-amber-400 shrink-0 mt-0.5">⚠</span>
-            <div>
-              <span className="font-semibold">Signals pending for {meta?.name ?? sectorId} sub-sectors.</span>{" "}
-              Price history has not been ingested for these ETFs yet. Trigger a data refresh from the main dashboard
-              to compute RS, momentum, and composite score signals. First ingestion may take 8–15 minutes for new tickers.
+          <div className="p-3 rounded-lg bg-amber-900/20 border border-amber-700/40 text-amber-300 text-xs space-y-2">
+            <div className="flex items-start gap-2">
+              <span className="text-amber-400 shrink-0 mt-0.5">⚠</span>
+              <div>
+                <span className="font-semibold">Signals pending for {meta?.name ?? sectorId} sub-sectors.</span>{" "}
+                Price history has not been ingested for these ETFs yet. Click Refresh Data to start.
+                First ingestion takes 8–15 minutes for new tickers.
+              </div>
+            </div>
+            <div className="pl-5">
+              <RefreshButton />
             </div>
           </div>
         )}

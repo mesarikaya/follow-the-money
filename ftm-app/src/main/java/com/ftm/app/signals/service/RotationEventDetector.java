@@ -20,10 +20,12 @@ import org.springframework.stereotype.Service;
 /**
  * Detects meaningful rotation events after each signal computation run.
  *
- * <p>Detected event types (per D-008 / EP-008 acceptance criteria): - ENTERING_IMPROVING: RRG
- * quadrant transitions Lagging(1) → Improving(3) - ENTERING_LEADING: RRG quadrant transitions
- * Improving(3) → Leading(4) - COMPOSITE_BREAKOUT: Composite score crosses above 0.70 threshold -
- * FLOW_SURGE: Deferred — requires FLOW signal computation (EP-005 T-001-3)
+ * <p>Detected event types: - ENTERING_IMPROVING: RRG quadrant transitions Lagging(1) or
+ * Weakening(2) → Improving(3) — both signal early recovery - ENTERING_LEADING: Improving(3) →
+ * Leading(4) - ENTERING_WEAKENING: Leading(4) → Weakening(2) - ENTERING_LAGGING: Weakening(2) →
+ * Lagging(1) - COMPOSITE_BREAKOUT: Composite score crosses above 0.70 - COMPOSITE_BREAKDOWN:
+ * Composite score falls below 0.35 (REDUCE threshold) - FLOW_SURGE: Deferred — requires FLOW
+ * signal computation
  */
 @Service
 public class RotationEventDetector {
@@ -31,6 +33,7 @@ public class RotationEventDetector {
   private static final Logger log = LoggerFactory.getLogger(RotationEventDetector.class);
 
   private static final BigDecimal COMPOSITE_BREAKOUT_THRESHOLD = new BigDecimal("0.70");
+  private static final BigDecimal COMPOSITE_BREAKDOWN_THRESHOLD = new BigDecimal("0.35");
 
   private static final int LAGGING_QUADRANT = 1;
   private static final int WEAKENING_QUADRANT = 2;
@@ -92,6 +95,9 @@ public class RotationEventDetector {
       eventsDetected +=
           detectCompositeBreakout(
               categoryId, currentSignalDate, currentComposite, previousComposite);
+      eventsDetected +=
+          detectCompositeBreakdown(
+              categoryId, currentSignalDate, currentComposite, previousComposite);
     }
 
     log.info(
@@ -110,14 +116,16 @@ public class RotationEventDetector {
     int current = currentQuadrant.intValue();
     int previous = previousQuadrant.intValue();
 
-    if (previous == LAGGING_QUADRANT && current == IMPROVING_QUADRANT) {
+    if (current == IMPROVING_QUADRANT
+        && (previous == LAGGING_QUADRANT || previous == WEAKENING_QUADRANT)) {
+      String fromLabel = previous == LAGGING_QUADRANT ? "Lagging" : "Weakening";
       return recordIfNew(
           detectedDate,
           categoryId,
           RotationEventType.ENTERING_IMPROVING,
           new BigDecimal("0.800"),
           String.format("{\"previousQuadrant\":%d,\"currentQuadrant\":%d}", previous, current),
-          "Quadrant transition from Lagging to Improving");
+          "Quadrant transition from " + fromLabel + " to Improving");
     }
 
     if (previous == IMPROVING_QUADRANT && current == LEADING_QUADRANT) {
@@ -174,6 +182,29 @@ public class RotationEventDetector {
             "{\"compositeScore\":%.6f,\"threshold\":%.2f}",
             currentComposite, COMPOSITE_BREAKOUT_THRESHOLD),
         "Composite score crossed 0.70 breakout threshold");
+  }
+
+  private int detectCompositeBreakdown(
+      String categoryId,
+      LocalDate detectedDate,
+      BigDecimal currentComposite,
+      BigDecimal previousComposite) {
+    if (currentComposite == null) return 0;
+    if (previousComposite != null
+        && previousComposite.compareTo(COMPOSITE_BREAKDOWN_THRESHOLD) <= 0) {
+      return 0; // Already below threshold — not a new breakdown
+    }
+    if (currentComposite.compareTo(COMPOSITE_BREAKDOWN_THRESHOLD) >= 0) return 0;
+
+    return recordIfNew(
+        detectedDate,
+        categoryId,
+        RotationEventType.COMPOSITE_BREAKDOWN,
+        BigDecimal.ONE.subtract(currentComposite).min(BigDecimal.ONE),
+        String.format(
+            "{\"compositeScore\":%.6f,\"threshold\":%.2f}",
+            currentComposite, COMPOSITE_BREAKDOWN_THRESHOLD),
+        "Composite score fell below 0.35 breakdown threshold — REDUCE signal");
   }
 
   private int recordIfNew(

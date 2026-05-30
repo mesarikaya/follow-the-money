@@ -276,11 +276,89 @@ class RotationEventDetectorTest {
     when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, PREV_DATE))
         .thenReturn(Map.of("TECH", new BigDecimal("4")));
 
+    // Score in mid-range: no breakout (< 0.70) and no breakdown (> 0.35)
     when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
-        .thenReturn(Map.of("TECH", new BigDecimal("0.650"))); // still below 0.70
+        .thenReturn(Map.of("TECH", new BigDecimal("0.550")));
     when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, DATE)).thenReturn(PREV_DATE);
     when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, PREV_DATE))
-        .thenReturn(Map.of("TECH", new BigDecimal("0.600")));
+        .thenReturn(Map.of("TECH", new BigDecimal("0.500")));
+
+    detector.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(rotationEventRepository, never()).insert(any());
+  }
+
+  // ===== Weakening → Improving Transition Tests =====
+
+  @Test
+  @DisplayName("Weakening → Improving: inserts ENTERING_IMPROVING event")
+  void shouldDetectEnteringImprovingFromWeakening() {
+    stubTopLevelCategories("MATL");
+    stubQuadrants(
+        Map.of("MATL", new BigDecimal("3")), PREV_DATE, Map.of("MATL", new BigDecimal("2")));
+    stubNoCompositeBreakout();
+    stubNotDuplicate("MATL", RotationEventType.ENTERING_IMPROVING);
+
+    detector.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<RotationEvent> captor = ArgumentCaptor.forClass(RotationEvent.class);
+    verify(rotationEventRepository).insert(captor.capture());
+    RotationEvent event = captor.getValue();
+    assertThat(event.eventType()).isEqualTo(RotationEventType.ENTERING_IMPROVING);
+    assertThat(event.categoryId()).isEqualTo(CategoryId.MATL);
+    assertThat(event.confidence()).isEqualByComparingTo("0.800");
+    assertThat(event.notes()).contains("Weakening");
+  }
+
+  // ===== Composite Breakdown Tests =====
+
+  @Test
+  @DisplayName("Composite breakdown: inserts COMPOSITE_BREAKDOWN when score falls below 0.35")
+  void shouldDetectCompositeBreakdownWhenScoreDropsBelowThreshold() {
+    stubTopLevelCategories("ENRG");
+    // No quadrant transition
+    when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(Map.of("ENRG", new BigDecimal("2")));
+    when(signalRepository.findPreviousSignalDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(PREV_DATE);
+    when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, PREV_DATE))
+        .thenReturn(Map.of("ENRG", new BigDecimal("2"))); // same quadrant
+
+    // Composite crosses below 0.35
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("ENRG", new BigDecimal("0.280")));
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, DATE)).thenReturn(PREV_DATE);
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, PREV_DATE))
+        .thenReturn(Map.of("ENRG", new BigDecimal("0.380"))); // was above threshold
+    stubNotDuplicate("ENRG", RotationEventType.COMPOSITE_BREAKDOWN);
+
+    detector.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<RotationEvent> captor = ArgumentCaptor.forClass(RotationEvent.class);
+    verify(rotationEventRepository).insert(captor.capture());
+    RotationEvent event = captor.getValue();
+    assertThat(event.eventType()).isEqualTo(RotationEventType.COMPOSITE_BREAKDOWN);
+    assertThat(event.categoryId()).isEqualTo(CategoryId.ENRG);
+    assertThat(event.notes()).contains("0.35");
+  }
+
+  @Test
+  @DisplayName("Composite already below 0.35: no COMPOSITE_BREAKDOWN event")
+  void shouldNotDetectBreakdownWhenAlreadyBelowThreshold() {
+    stubTopLevelCategories("ENRG");
+    when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(Map.of("ENRG", new BigDecimal("1")));
+    when(signalRepository.findPreviousSignalDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(PREV_DATE);
+    when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, PREV_DATE))
+        .thenReturn(Map.of("ENRG", new BigDecimal("1")));
+
+    // Both above and below threshold — already below, so not a new breakdown
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("ENRG", new BigDecimal("0.250")));
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, DATE)).thenReturn(PREV_DATE);
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, PREV_DATE))
+        .thenReturn(Map.of("ENRG", new BigDecimal("0.280"))); // was already below 0.35
 
     detector.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 

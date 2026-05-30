@@ -20,8 +20,9 @@ const EVENT_LABELS: Record<string, { label: string; colorClass: string }> = {
   ENTERING_LEADING:    { label: "↗ Improving→Leading",  colorClass: "text-green-400"  },
   ENTERING_WEAKENING:  { label: "↘ Leading→Weakening",  colorClass: "text-orange-400" },
   ENTERING_LAGGING:    { label: "↙ Weakening→Lagging",  colorClass: "text-slate-400"  },
-  COMPOSITE_BREAKOUT:  { label: "★ Composite Breakout", colorClass: "text-yellow-400" },
-  FLOW_SURGE:          { label: "⚡ Flow Surge",         colorClass: "text-blue-400"   },
+  COMPOSITE_BREAKOUT:  { label: "★ Composite Breakout",  colorClass: "text-yellow-400" },
+  COMPOSITE_BREAKDOWN: { label: "▼ Composite Breakdown", colorClass: "text-red-400"    },
+  FLOW_SURGE:          { label: "⚡ Flow Surge",          colorClass: "text-blue-400"   },
 };
 
 function formatRs(value: number | null): string {

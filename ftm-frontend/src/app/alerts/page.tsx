@@ -35,9 +35,10 @@ function SnapshotViewer({ raw }: { raw: string | null }) {
 }
 
 const SEVERITY_STYLES: Record<string, { badge: string; row: string }> = {
-  ACTION:  { badge: "bg-red-900/80 text-red-300 border border-red-700/50",    row: "bg-red-950/20"    },
+  URGENT:  { badge: "bg-red-800/90 text-red-200 border border-red-600/60",      row: "bg-red-950/30"    },
+  ACTION:  { badge: "bg-red-900/80 text-red-300 border border-red-700/50",      row: "bg-red-950/20"    },
   WARNING: { badge: "bg-amber-900/80 text-amber-300 border border-amber-700/50", row: "bg-amber-950/15" },
-  INFO:    { badge: "bg-blue-900/80 text-blue-300 border border-blue-700/50",  row: "bg-blue-950/10"   },
+  INFO:    { badge: "bg-blue-900/80 text-blue-300 border border-blue-700/50",   row: "bg-blue-950/10"   },
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -134,14 +135,15 @@ export default function AlertsPage() {
 
   const allAlerts = alertsResponse?.alerts ?? [];
   const activeAlerts  = allAlerts.filter(a => a.status === "ACTIVE").sort((a, b) => {
-    const order = { ACTION: 0, WARNING: 1, INFO: 2 };
-    return (order[a.severity] ?? 3) - (order[b.severity] ?? 3);
+    const order: Record<string, number> = { URGENT: 0, ACTION: 1, WARNING: 2, INFO: 3 };
+    return (order[a.severity] ?? 4) - (order[b.severity] ?? 4);
   });
   const historyAlerts = allAlerts.filter(a => a.status !== "ACTIVE")
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 20);
 
   const activeCount  = alertsResponse?.activeCount ?? 0;
+  const urgentCount  = activeAlerts.filter(a => a.severity === "URGENT").length;
   const actionCount  = activeAlerts.filter(a => a.severity === "ACTION").length;
   const warningCount = activeAlerts.filter(a => a.severity === "WARNING").length;
 
@@ -163,6 +165,7 @@ export default function AlertsPage() {
           )}
         </div>
         <div className="flex items-center gap-4 text-xs text-slate-500">
+          {urgentCount > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-300 inline-block animate-pulse" /> {urgentCount} Urgent</span>}
           {actionCount > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> {actionCount} Action</span>}
           {warningCount > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> {warningCount} Warning</span>}
           {alertsResponse && <span className="text-slate-600">· {BUILTIN_RULES.length} rules defined</span>}
@@ -333,10 +336,15 @@ export default function AlertsPage() {
                 <div>
                   <p className="font-medium text-slate-300 mb-1">Severity levels</p>
                   <div className="space-y-1.5 mt-2">
-                    {(["ACTION", "WARNING", "INFO"] as const).map((sev) => (
+                    {(["URGENT", "ACTION", "WARNING", "INFO"] as const).map((sev) => (
                       <div key={sev} className="flex items-center gap-2">
                         <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0 ${severityBadgeCls(sev)}`}>{sev}</span>
-                        <span>{sev === "ACTION" ? "Strong signal — consider acting" : sev === "WARNING" ? "Potential concern — monitor closely" : "Informational — rotation event detected"}</span>
+                        <span>{
+                          sev === "URGENT"  ? "Immediate attention — critical regime or risk event" :
+                          sev === "ACTION"  ? "Strong signal — consider acting" :
+                          sev === "WARNING" ? "Potential concern — monitor closely" :
+                                             "Informational — rotation event detected"
+                        }</span>
                       </div>
                     ))}
                   </div>

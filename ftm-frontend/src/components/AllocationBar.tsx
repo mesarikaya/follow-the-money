@@ -34,6 +34,32 @@ function AllocationPill({ pct }: { pct: number }) {
   );
 }
 
+function AccelBadge({ trend5d, trend20d }: { trend5d: number | null; trend20d: number | null }) {
+  if (trend5d == null || trend20d == null) return null;
+  const accel = trend5d - trend20d;
+  if (accel > 0.03) {
+    return (
+      <span
+        className="text-[8px] text-emerald-300 font-bold"
+        title={`Score acceleration: 5d trend (${Math.round(trend5d * 100)}pts) is significantly faster than 20d baseline (${Math.round(trend20d * 100)}pts) — momentum building`}
+      >
+        ↑↑
+      </span>
+    );
+  }
+  if (accel < -0.03) {
+    return (
+      <span
+        className="text-[8px] text-amber-400 font-bold"
+        title={`Score deceleration: 5d trend (${Math.round(trend5d * 100)}pts) is slower than 20d baseline — momentum fading`}
+      >
+        ↘
+      </span>
+    );
+  }
+  return null;
+}
+
 type Props = { categories: CategorySummary[] };
 
 export default function AllocationBar({ categories }: Props) {
@@ -91,6 +117,7 @@ export default function AllocationBar({ categories }: Props) {
                   {cat.etfTicker}
                 </span>
                 <AllocationPill pct={cat.allocationPct} />
+                <AccelBadge trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} />
                 <span className="text-emerald-400">
                   <ConvictionDots count={c} />
                 </span>

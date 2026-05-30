@@ -110,6 +110,20 @@ class AlertRulesEngineTest {
     stubBreakdownDisabled();
   }
 
+  private void stubPersistenceLowDisabled() {
+    when(alertRulesRepository.findById("persistence_low"))
+        .thenReturn(Optional.of(disabled("persistence_low")));
+  }
+
+  private AlertRule enabledWithPersistenceDays(String ruleId, Severity severity, int days) {
+    return Instancio.of(AlertRule.class)
+        .set(field(AlertRule::ruleId), ruleId)
+        .set(field(AlertRule::enabled), true)
+        .set(field(AlertRule::severity), severity)
+        .set(field(AlertRule::persistenceDays), days)
+        .create();
+  }
+
   // ===== RRG Transition Tests =====
 
   @Test
@@ -478,6 +492,110 @@ class AlertRulesEngineTest {
     assertThat(inserted.severity()).isEqualTo(Severity.WARNING);
     assertThat(inserted.status()).isEqualTo(AlertStatus.ACTIVE);
     assertThat(inserted.message()).contains("ENRG").contains("REDUCE");
+  }
+
+  // ===== Persistence Low Tests =====
+
+  @Test
+  @DisplayName("persistence_low enabled: inserts alert when sector beats benchmark fewer than threshold days")
+  void shouldCreatePersistenceLowAlertWhenDaysBelowThreshold() {
+    stubTopLevelCategories("TECH");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+
+    when(alertRulesRepository.findById("persistence_low"))
+        .thenReturn(Optional.of(enabledWithPersistenceDays("persistence_low", Severity.WARNING, 7)));
+    when(signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("5")));
+    when(alertRepository.existsActiveAlert("persistence_low", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("persistence_low");
+    assertThat(inserted.categoryId()).isEqualTo(CategoryId.TECH);
+    assertThat(inserted.severity()).isEqualTo(Severity.WARNING);
+    assertThat(inserted.status()).isEqualTo(AlertStatus.ACTIVE);
+    assertThat(inserted.message()).contains("TECH").contains("5").contains("20 trading days");
+  }
+
+  @Test
+  @DisplayName("persistence_low enabled: no alert when days meet or exceed threshold")
+  void shouldNotCreatePersistenceLowAlertWhenDaysAboveThreshold() {
+    stubTopLevelCategories("TECH");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+
+    when(alertRulesRepository.findById("persistence_low"))
+        .thenReturn(Optional.of(enabledWithPersistenceDays("persistence_low", Severity.WARNING, 7)));
+    // 12/20 days — above threshold of 7
+    when(signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("12")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("persistence_low enabled: no duplicate when active alert already exists")
+  void shouldNotCreatePersistenceLowAlertWhenActiveAlertAlreadyExists() {
+    stubTopLevelCategories("TECH");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+
+    when(alertRulesRepository.findById("persistence_low"))
+        .thenReturn(Optional.of(enabledWithPersistenceDays("persistence_low", Severity.WARNING, 7)));
+    when(signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("4")));
+    when(alertRepository.existsActiveAlert("persistence_low", "TECH")).thenReturn(true);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("persistence_low disabled: no alert inserted")
+  void shouldNotCreatePersistenceLowAlertWhenRuleDisabled() {
+    stubTopLevelCategories("TECH");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+    stubPersistenceLowDisabled();
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("resolveStaleAlerts: resolves persistence_low alert when persistence recovers to >= 8 days")
+  void shouldResolvePersistenceLowAlertWhenPersistenceRecovers() {
+    stubTopLevelCategories("TECH");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    stubPersistenceLowDisabled();
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.55")));
+    when(signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("10")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).resolveAlertsByRuleAndCategory("persistence_low", "TECH");
   }
 
   @Test

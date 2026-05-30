@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ftm.app.alerts.repository.AlertRepository;
+import com.ftm.app.alerts.repository.AlertRulesRepository;
 import com.ftm.app.api.dto.AlertDto;
 import com.ftm.app.api.dto.AlertsResponse;
 import com.ftm.app.api.mapper.AlertMapper;
@@ -14,6 +15,7 @@ import com.ftm.app.domain.Alert;
 import com.ftm.app.domain.AlertStatus;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import org.instancio.Instancio;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,6 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class AlertServiceTest {
 
   @Mock AlertRepository alertRepository;
+  @Mock AlertRulesRepository alertRulesRepository;
   @Mock AlertMapper alertMapper;
   @InjectMocks AlertService alertService;
 
@@ -79,7 +82,7 @@ class AlertServiceTest {
     Alert acknowledged = Instancio.of(Alert.class).set(field(Alert::id), alertId).create();
     AlertDto dto = Instancio.create(AlertDto.class);
     when(alertRepository.acknowledgeAlert(alertId)).thenReturn(1);
-    when(alertRepository.findRecentAlerts(100)).thenReturn(List.of(acknowledged));
+    when(alertRepository.findById(alertId)).thenReturn(Optional.of(acknowledged));
     when(alertMapper.toDto(acknowledged)).thenReturn(dto);
 
     AlertDto result = alertService.acknowledgeAlert(alertId);

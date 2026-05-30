@@ -248,6 +248,24 @@ export const fetchRecentBacktests = () => get<BacktestResult[]>("/api/v1/backtes
 
 export const fetchAlerts = () => get<AlertsResponse>("/api/v1/alerts");
 
+export type AlertRuleDto = {
+  ruleId: string;
+  enabled: boolean;
+  severity: "INFO" | "WARNING" | "ACTION";
+  compositeThreshold: number | null;
+  persistenceDays: number | null;
+};
+
+export const fetchAlertRules = () => get<AlertRuleDto[]>("/api/v1/alerts/rules");
+
+export const setAlertRuleEnabled = (ruleId: string, enabled: boolean) =>
+  fetch(`${BACKEND}/api/v1/alerts/rules/${encodeURIComponent(ruleId)}/enabled?enabled=${enabled}`, {
+    method: "PUT",
+  }).then(async res => {
+    if (!res.ok) throw new Error(`PUT /api/v1/alerts/rules/${ruleId}/enabled → ${res.status}`);
+    return res.json() as Promise<AlertRuleDto>;
+  });
+
 export type IngestStatusEntry = {
   runId: string;
   source: string;

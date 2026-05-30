@@ -4,6 +4,7 @@ import static com.ftm.app.jooq.Tables.ALERT_RULES;
 
 import com.ftm.app.domain.AlertRule;
 import com.ftm.app.domain.Severity;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.jooq.DSLContext;
@@ -17,6 +18,34 @@ public class AlertRulesRepository {
 
   public AlertRulesRepository(DSLContext dsl) {
     this.dsl = dsl;
+  }
+
+  public List<AlertRule> findAll() {
+    return dsl.selectFrom(ALERT_RULES)
+        .orderBy(ALERT_RULES.RULE_ID)
+        .fetch()
+        .map(
+            r ->
+                new AlertRule(
+                    r.getRuleId(),
+                    r.getEnabled(),
+                    r.getZThreshold(),
+                    r.getPersistenceDays(),
+                    r.getCompositeThreshold(),
+                    Severity.valueOf(r.getSeverity()),
+                    jsonbToString(r.getCategoryFilter()),
+                    jsonbToString(r.getConfig()),
+                    r.getLastUpdated()));
+  }
+
+  public boolean updateEnabled(String ruleId, boolean enabled) {
+    int updated =
+        dsl.update(ALERT_RULES)
+            .set(ALERT_RULES.ENABLED, enabled)
+            .set(ALERT_RULES.LAST_UPDATED, OffsetDateTime.now())
+            .where(ALERT_RULES.RULE_ID.eq(ruleId))
+            .execute();
+    return updated > 0;
   }
 
   public List<AlertRule> findAllEnabled() {

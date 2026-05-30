@@ -8,7 +8,9 @@ import java.util.Map;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-@Mapper(componentModel = "spring", imports = {TradeSignalDeriver.class})
+@Mapper(
+    componentModel = "spring",
+    imports = {TradeSignalDeriver.class})
 public interface CategoryMapper {
 
   @Mapping(target = "id", source = "row.category.id")

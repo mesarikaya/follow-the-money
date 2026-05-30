@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { fetchAlerts, acknowledgeAlert, AlertsResponse, AlertDto } from "@/lib/api";
+import { fetchAlerts, acknowledgeAlert, fetchAlertRules, setAlertRuleEnabled, AlertsResponse, AlertDto, AlertRuleDto } from "@/lib/api";
 
 function parseSnapshot(raw: string | null): Record<string, unknown> | null {
   if (!raw) return null;
@@ -84,7 +84,9 @@ function formatDateShort(isoString: string): string {
 
 export default function AlertsPage() {
   const [alertsResponse, setAlertsResponse] = useState<AlertsResponse | null>(null);
+  const [alertRules, setAlertRules] = useState<AlertRuleDto[] | null>(null);
   const [acknowledging, setAcknowledging] = useState<number | null>(null);
+  const [togglingRule, setTogglingRule] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [acknowledgeError, setAcknowledgeError] = useState<string | null>(null);
 
@@ -98,7 +100,24 @@ export default function AlertsPage() {
     }
   }, []);
 
-  useEffect(() => { loadAlerts(); }, [loadAlerts]);
+  const loadRules = useCallback(async () => {
+    try {
+      const rules = await fetchAlertRules();
+      setAlertRules(rules);
+    } catch { /* rules are optional */ }
+  }, []);
+
+  useEffect(() => { loadAlerts(); loadRules(); }, [loadAlerts, loadRules]);
+
+  const handleToggleRule = async (ruleId: string, currentEnabled: boolean) => {
+    setTogglingRule(ruleId);
+    try {
+      const updated = await setAlertRuleEnabled(ruleId, !currentEnabled);
+      setAlertRules(prev => prev ? prev.map(r => r.ruleId === ruleId ? updated : r) : prev);
+    } catch { /* ignore toggle errors silently */ } finally {
+      setTogglingRule(null);
+    }
+  };
 
   const handleAcknowledge = async (alertId: number) => {
     setAcknowledging(alertId);
@@ -249,39 +268,56 @@ export default function AlertsPage() {
               )}
             </div>
 
-            {/* Alert Rules Reference */}
+            {/* Alert Rules — live from DB */}
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-2">
                 <span className="text-sm font-semibold text-slate-200">Alert Rules</span>
-                <span className="text-[10px] text-slate-500 ml-1" title="Rules are evaluated each time data is ingested. A rule fires when its condition transitions from false to true.">(?)
-</span>
+                <span className="text-[10px] text-slate-500 ml-1" title="Rules are evaluated after each ingestion. Toggle to enable or disable a rule.">(live · toggleable)</span>
               </div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-700 bg-slate-800/80 text-slate-400 text-xs uppercase tracking-wider">
-                    <th className="text-left px-4 py-2.5">Rule</th>
-                    <th className="text-left px-4 py-2.5">Condition</th>
-                    <th className="text-left px-4 py-2.5">Severity</th>
-                    <th className="text-left px-4 py-2.5">Notes</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800">
-                  {BUILTIN_RULES.map((rule) => (
-                    <tr key={rule.id} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="px-4 py-3 font-medium text-slate-200 text-sm">{rule.label}</td>
-                      <td className="px-4 py-3">
-                        <code className="text-xs bg-slate-900 px-2 py-0.5 rounded font-mono text-slate-300">{rule.condition}</code>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${severityBadgeCls(rule.severity)}`}>
-                          {rule.severity}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-500">{rule.note}</td>
+              {alertRules == null ? (
+                <div className="px-4 py-6 text-center text-slate-600 text-sm">Loading rules…</div>
+              ) : alertRules.length === 0 ? (
+                <div className="px-4 py-6 text-center text-slate-600 text-sm">No alert rules configured.</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-700 bg-slate-800/80 text-slate-400 text-xs uppercase tracking-wider">
+                      <th className="text-left px-4 py-2.5">Rule</th>
+                      <th className="text-left px-4 py-2.5">Severity</th>
+                      <th className="text-right px-4 py-2.5">Enabled</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {alertRules.map((rule) => {
+                      const staticMeta = BUILTIN_RULES.find(r => r.id === rule.ruleId);
+                      const isToggling = togglingRule === rule.ruleId;
+                      return (
+                        <tr key={rule.ruleId} className={`hover:bg-slate-800/40 transition-colors ${!rule.enabled ? "opacity-50" : ""}`}>
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-slate-200 text-sm">{staticMeta?.label ?? rule.ruleId}</div>
+                            {staticMeta?.note && <div className="text-[10px] text-slate-600 mt-0.5">{staticMeta.note}</div>}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${severityBadgeCls(rule.severity)}`}>
+                              {rule.severity}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => handleToggleRule(rule.ruleId, rule.enabled)}
+                              disabled={isToggling}
+                              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${rule.enabled ? "bg-blue-600" : "bg-slate-600"}`}
+                              title={rule.enabled ? "Click to disable" : "Click to enable"}
+                            >
+                              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${rule.enabled ? "translate-x-4" : "translate-x-1"}`} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
 

@@ -3,7 +3,14 @@ package com.ftm.app.alerts.service;
 import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.alerts.repository.AlertRulesRepository;
 import com.ftm.app.api.repository.CategoryRepository;
-import com.ftm.app.domain.*;
+import com.ftm.app.domain.Alert;
+import com.ftm.app.domain.AlertRule;
+import com.ftm.app.domain.AlertStatus;
+import com.ftm.app.domain.CategoryId;
+import com.ftm.app.domain.RotationEvent;
+import com.ftm.app.domain.RotationEventType;
+import com.ftm.app.domain.Severity;
+import com.ftm.app.domain.SignalType;
 import com.ftm.app.signals.domain.MacroRegime;
 import com.ftm.app.signals.event.SignalsUpdatedEvent;
 import com.ftm.app.signals.repository.RotationEventRepository;
@@ -78,7 +85,9 @@ public class AlertRulesEngine {
 
     log.info(
         "Alert rule evaluation complete: {} created, {} resolved for date={}",
-        alertsCreated, alertsResolved, signalDate);
+        alertsCreated,
+        alertsResolved,
+        signalDate);
   }
 
   private int resolveStaleAlerts(LocalDate signalDate, Set<String> topLevelCategoryIds) {
@@ -165,7 +174,7 @@ public class AlertRulesEngine {
       if (breakdownRuleEnabled
           && rotationEvent.eventType() == RotationEventType.COMPOSITE_BREAKDOWN) {
         if (!alertRepository.existsActiveAlert(RULE_COMPOSITE_BREAKDOWN, categoryId)) {
-          int scorePercent = Math.round((1.0 - rotationEvent.confidence().doubleValue()) * 100);
+          long scorePercent = Math.round((1.0 - rotationEvent.confidence().doubleValue()) * 100);
           alertRepository.insert(
               new Alert(
                   OffsetDateTime.now(),

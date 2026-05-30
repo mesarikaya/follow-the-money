@@ -4,10 +4,12 @@ import static org.instancio.Select.field;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ftm.app.api.dto.AlertDto;
+import com.ftm.app.api.dto.AlertRuleDto;
 import com.ftm.app.api.dto.AlertsResponse;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
 import com.ftm.app.api.service.AlertService;
@@ -92,5 +94,43 @@ class AlertControllerTest {
         .thenThrow(new NoSuchElementException("Alert not found: 99"));
 
     mockMvc.perform(post("/alerts/99/acknowledge")).andExpect(status().isNotFound());
+  }
+
+  @Test
+  @DisplayName("GET /alerts/rules returns list of alert rules")
+  void shouldReturnAlertRules() throws Exception {
+    AlertRuleDto rule = new AlertRuleDto("composite_breakout", true, "ACTION", null, null);
+    when(alertService.getAlertRules()).thenReturn(List.of(rule));
+
+    mockMvc
+        .perform(get("/alerts/rules"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1))
+        .andExpect(jsonPath("$[0].ruleId").value("composite_breakout"))
+        .andExpect(jsonPath("$[0].enabled").value(true));
+  }
+
+  @Test
+  @DisplayName("PUT /alerts/rules/{id}/enabled toggles a rule and returns updated dto")
+  void shouldToggleAlertRule() throws Exception {
+    AlertRuleDto updated = new AlertRuleDto("rrg_transition", false, "INFO", null, null);
+    when(alertService.setRuleEnabled("rrg_transition", false)).thenReturn(updated);
+
+    mockMvc
+        .perform(put("/alerts/rules/rrg_transition/enabled").param("enabled", "false"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.ruleId").value("rrg_transition"))
+        .andExpect(jsonPath("$.enabled").value(false));
+  }
+
+  @Test
+  @DisplayName("PUT /alerts/rules/{id}/enabled returns 404 for unknown rule")
+  void shouldReturn404ForUnknownRule() throws Exception {
+    when(alertService.setRuleEnabled("unknown_rule", true))
+        .thenThrow(new NoSuchElementException("Alert rule not found: unknown_rule"));
+
+    mockMvc
+        .perform(put("/alerts/rules/unknown_rule/enabled").param("enabled", "true"))
+        .andExpect(status().isNotFound());
   }
 }

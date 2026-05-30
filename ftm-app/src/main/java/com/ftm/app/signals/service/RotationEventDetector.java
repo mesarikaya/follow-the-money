@@ -24,8 +24,8 @@ import org.springframework.stereotype.Service;
  * Weakening(2) → Improving(3) — both signal early recovery - ENTERING_LEADING: Improving(3) →
  * Leading(4) - ENTERING_WEAKENING: Leading(4) → Weakening(2) - ENTERING_LAGGING: Weakening(2) →
  * Lagging(1) - COMPOSITE_BREAKOUT: Composite score crosses above 0.70 - COMPOSITE_BREAKDOWN:
- * Composite score falls below 0.35 (REDUCE threshold) - FLOW_SURGE: Deferred — requires FLOW
- * signal computation
+ * Composite score falls below 0.35 (REDUCE threshold) - FLOW_SURGE: Deferred — requires FLOW signal
+ * computation
  */
 @Service
 public class RotationEventDetector {

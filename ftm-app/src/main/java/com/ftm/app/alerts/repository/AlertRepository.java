@@ -79,10 +79,7 @@ public class AlertRepository {
   }
 
   public Optional<Alert> findById(Long alertId) {
-    return dsl.selectFrom(ALERTS)
-        .where(ALERTS.ID.eq(alertId))
-        .fetchOptional()
-        .map(this::mapRecord);
+    return dsl.selectFrom(ALERTS).where(ALERTS.ID.eq(alertId)).fetchOptional().map(this::mapRecord);
   }
 
   public int resolveAlertsByRuleAndCategory(String ruleId, String categoryId) {

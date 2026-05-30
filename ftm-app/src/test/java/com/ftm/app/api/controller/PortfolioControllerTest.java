@@ -15,6 +15,7 @@ import com.ftm.app.api.dto.PortfolioEntryDto;
 import com.ftm.app.api.dto.PortfolioResponse;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
 import com.ftm.app.portfolio.service.PortfolioService;
+import java.math.BigDecimal;
 import java.util.List;
 import org.instancio.Instancio;
 import org.junit.jupiter.api.BeforeEach;

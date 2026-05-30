@@ -40,8 +40,7 @@ class TradeSignalDeriverTest {
   @Test
   @DisplayName("returns REDUCE when score < 0.35 and quadrant is weakening (1 or 2)")
   void shouldReturnReduceWhenScoreLowAndQuadrantWeakening() {
-    assertThat(TradeSignalDeriver.derive(new BigDecimal("0.30"), "1", null))
-        .isEqualTo("REDUCE");
+    assertThat(TradeSignalDeriver.derive(new BigDecimal("0.30"), "1", null)).isEqualTo("REDUCE");
     assertThat(TradeSignalDeriver.derive(new BigDecimal("0.34"), "2", new BigDecimal("-0.02")))
         .isEqualTo("REDUCE");
   }
@@ -56,8 +55,7 @@ class TradeSignalDeriverTest {
   @Test
   @DisplayName("returns HOLD when score < 0.35 but quadrant is not weakening")
   void shouldReturnHoldWhenScoreLowButQuadrantImproving() {
-    assertThat(TradeSignalDeriver.derive(new BigDecimal("0.30"), "4", null))
-        .isEqualTo("HOLD");
+    assertThat(TradeSignalDeriver.derive(new BigDecimal("0.30"), "4", null)).isEqualTo("HOLD");
   }
 
   @Test
@@ -70,8 +68,7 @@ class TradeSignalDeriverTest {
   @Test
   @DisplayName("does not return BUY when score is exactly 0.65 but trend is missing")
   void shouldNotReturnBuyWhenTrendMissing() {
-    assertThat(TradeSignalDeriver.derive(new BigDecimal("0.65"), "3", null))
-        .isEqualTo("WATCH");
+    assertThat(TradeSignalDeriver.derive(new BigDecimal("0.65"), "3", null)).isEqualTo("WATCH");
   }
 
   @Test

@@ -211,13 +211,11 @@ export default function CategoryTable({
   categories,
   timeframe = "MONTH",
   scoreHistory = {},
-  macroFit = {},
   topSubSectors = {},
 }: {
   categories: CategorySummary[];
   timeframe?: string;
   scoreHistory?: Record<string, number[]>;
-  macroFit?: Record<string, number>;
   topSubSectors?: Record<string, SubSectorSummary>;
 }) {
   const rsLabel = RS_LABEL[timeframe] ?? "60d";
@@ -296,9 +294,9 @@ export default function CategoryTable({
                       </div>
                     </td>
                   )}
-                  <td className="px-4 py-2.5" title={buildScoreTooltip(cat, macroFit[cat.id] ?? null)}>
+                  <td className="px-4 py-2.5" title={buildScoreTooltip(cat, cat.macroFit ?? null)}>
                     <div className="flex justify-center">
-                      <ScoreBar score={cat.compositeScore} trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} macroFit={macroFit[cat.id] ?? null} />
+                      <ScoreBar score={cat.compositeScore} trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} macroFit={cat.macroFit ?? null} />
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-right">

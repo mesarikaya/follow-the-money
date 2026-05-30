@@ -125,7 +125,7 @@ export default async function Home({ searchParams }: Props) {
             </span>
           </h2>
           {categories.length > 0 ? (
-            <CategoryTable categories={categories} timeframe={timeframe} scoreHistory={scoreHistory} macroFit={macro?.macroFitByCategory ?? {}} topSubSectors={topSubSectorByParent} />
+            <CategoryTable categories={categories} timeframe={timeframe} scoreHistory={scoreHistory} topSubSectors={topSubSectorByParent} />
           ) : (
             <div className="text-slate-500 text-sm py-8 text-center">
               No categories loaded.

@@ -52,7 +52,8 @@ public class CategoryService {
             SignalType.COMPOSITE_TREND_20D,
             SignalType.RS_120,
             SignalType.FLOW_20D,
-            SignalType.PERSISTENCE_20D);
+            SignalType.PERSISTENCE_20D,
+            SignalType.MACRO_FIT);
     // Exclude duplicates when rsType is one of the already-listed types (e.g. RS_60 = default)
     var uniqueTypes = typesToFetch.stream().distinct().toList();
     Map<SignalType, Map<String, BigDecimal>> signals =
@@ -74,6 +75,8 @@ public class CategoryService {
         signals.getOrDefault(SignalType.FLOW_20D, Collections.emptyMap());
     Map<String, BigDecimal> persistence20dByCategoryId =
         signals.getOrDefault(SignalType.PERSISTENCE_20D, Collections.emptyMap());
+    Map<String, BigDecimal> macroFitByCategoryId =
+        signals.getOrDefault(SignalType.MACRO_FIT, Collections.emptyMap());
 
     // Primary sort: timeframe RS signal; secondary: composite score (tiebreaker)
     var sortedRows =
@@ -106,7 +109,8 @@ public class CategoryService {
                         compositeTrend20dByCategoryId,
                         rs120ByCategoryId,
                         flow20dByCategoryId,
-                        persistence20dByCategoryId))
+                        persistence20dByCategoryId,
+                        macroFitByCategoryId))
             .toList();
 
     LocalDate asOfDate =

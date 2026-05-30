@@ -52,6 +52,9 @@ public interface CategoryMapper {
               + "compositeByCategoryId.get(row.category().id().name()), "
               + "rrgQuadrantByCategoryId.containsKey(row.category().id().name()) ? String.valueOf(rrgQuadrantByCategoryId.get(row.category().id().name()).intValue()) : null, "
               + "compositeTrend20dByCategoryId.get(row.category().id().name())))")
+  @Mapping(
+      target = "macroFit",
+      expression = "java(macroFitByCategoryId.get(row.category().id().name()))")
   CategorySummaryDto toDto(
       CategoryRepository.CategoryPriceRow row,
       int rank,
@@ -63,5 +66,6 @@ public interface CategoryMapper {
       Map<String, BigDecimal> compositeTrend20dByCategoryId,
       Map<String, BigDecimal> rs120ByCategoryId,
       Map<String, BigDecimal> flow20dByCategoryId,
-      Map<String, BigDecimal> persistence20dByCategoryId);
+      Map<String, BigDecimal> persistence20dByCategoryId,
+      Map<String, BigDecimal> macroFitByCategoryId);
 }

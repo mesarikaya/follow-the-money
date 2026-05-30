@@ -33,4 +33,6 @@ public record CategorySummaryDto(
     @Schema(description = "Date of the latest closing price; null if not yet ingested")
         LocalDate priceDate,
     @Schema(description = "Trade signal: BUY, WATCH, HOLD, or REDUCE; null until signals computed")
-        String tradeSignal) {}
+        String tradeSignal,
+    @Schema(description = "MACRO_FIT win rate in current regime [0,1]; null for sub-sectors or until signals computed")
+        BigDecimal macroFit) {}

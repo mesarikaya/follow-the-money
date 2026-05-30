@@ -9,10 +9,14 @@ import static org.mockito.Mockito.when;
 import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.alerts.repository.AlertRulesRepository;
 import com.ftm.app.api.dto.AlertDto;
+import com.ftm.app.api.dto.AlertRuleDto;
 import com.ftm.app.api.dto.AlertsResponse;
 import com.ftm.app.api.mapper.AlertMapper;
 import com.ftm.app.domain.Alert;
+import com.ftm.app.domain.AlertRule;
 import com.ftm.app.domain.AlertStatus;
+import com.ftm.app.domain.Severity;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -99,5 +103,59 @@ class AlertServiceTest {
     assertThatThrownBy(() -> alertService.acknowledgeAlert(99L))
         .isInstanceOf(NoSuchElementException.class)
         .hasMessageContaining("99");
+  }
+
+  private AlertRule alertRule(String ruleId, boolean enabled) {
+    return new AlertRule(ruleId, enabled, null, 3, new BigDecimal("0.65"), Severity.ACTION, null, null, null);
+  }
+
+  @Test
+  @DisplayName("getAlertRules returns all rules mapped to dtos")
+  void shouldReturnAllAlertRules() {
+    AlertRule r1 = alertRule("rrg_transition", true);
+    AlertRule r2 = alertRule("composite_breakout", false);
+    when(alertRulesRepository.findAll()).thenReturn(List.of(r1, r2));
+
+    List<AlertRuleDto> result = alertService.getAlertRules();
+
+    assertThat(result).hasSize(2);
+    assertThat(result.get(0).ruleId()).isEqualTo("rrg_transition");
+    assertThat(result.get(0).enabled()).isTrue();
+    assertThat(result.get(1).ruleId()).isEqualTo("composite_breakout");
+    assertThat(result.get(1).enabled()).isFalse();
+  }
+
+  @Test
+  @DisplayName("getAlertRules returns empty list when no rules configured")
+  void shouldReturnEmptyListWhenNoRulesConfigured() {
+    when(alertRulesRepository.findAll()).thenReturn(List.of());
+
+    List<AlertRuleDto> result = alertService.getAlertRules();
+
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  @DisplayName("setRuleEnabled updates rule and returns updated dto")
+  void shouldSetRuleEnabled() {
+    AlertRule updatedRule = alertRule("rrg_transition", false);
+    when(alertRulesRepository.updateEnabled("rrg_transition", false)).thenReturn(true);
+    when(alertRulesRepository.findById("rrg_transition")).thenReturn(Optional.of(updatedRule));
+
+    AlertRuleDto result = alertService.setRuleEnabled("rrg_transition", false);
+
+    assertThat(result.ruleId()).isEqualTo("rrg_transition");
+    assertThat(result.enabled()).isFalse();
+    verify(alertRulesRepository).updateEnabled("rrg_transition", false);
+  }
+
+  @Test
+  @DisplayName("setRuleEnabled throws NoSuchElementException when rule not found")
+  void shouldThrowWhenRuleNotFound() {
+    when(alertRulesRepository.updateEnabled("unknown_rule", true)).thenReturn(false);
+
+    assertThatThrownBy(() -> alertService.setRuleEnabled("unknown_rule", true))
+        .isInstanceOf(NoSuchElementException.class)
+        .hasMessageContaining("unknown_rule");
   }
 }

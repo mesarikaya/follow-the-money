@@ -21,6 +21,7 @@ export type CategorySummary = {
   latestClose: number | null;
   priceDate: string | null;
   tradeSignal: string | null;
+  macroFit: number | null;
 };
 
 export type CategoriesResponse = {

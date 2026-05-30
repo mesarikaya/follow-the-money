@@ -4,6 +4,7 @@ import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.alerts.repository.AlertRulesRepository;
 import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.domain.*;
+import com.ftm.app.signals.domain.MacroRegime;
 import com.ftm.app.signals.event.SignalsUpdatedEvent;
 import com.ftm.app.signals.repository.RotationEventRepository;
 import com.ftm.app.signals.repository.SignalRepository;
@@ -343,12 +344,7 @@ public class AlertRulesEngine {
   }
 
   private String resolveRegimeName(int ordinal) {
-    return switch (ordinal) {
-      case 0 -> "STAGFLATION";
-      case 1 -> "RISK_OFF_FLIGHT";
-      case 2 -> "RISK_ON_GROWTH";
-      case 3 -> "RISK_ON_DEFENSIVE";
-      default -> "UNKNOWN";
-    };
+    MacroRegime[] values = MacroRegime.values();
+    return ordinal >= 0 && ordinal < values.length ? values[ordinal].name() : "UNKNOWN";
   }
 }

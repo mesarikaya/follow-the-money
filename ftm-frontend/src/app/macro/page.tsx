@@ -2,19 +2,17 @@ import { fetchMacro } from "@/lib/api";
 import type { MacroResponse, MacroIndicators } from "@/lib/api";
 
 const REGIME_STYLES: Record<string, { label: string; color: string; ring: string; bg: string }> = {
-  RISK_ON_GROWTH:     { label: "Risk On — Growth",     color: "text-emerald-300", ring: "border-emerald-600", bg: "bg-emerald-900/30" },
-  RISK_ON_DEFENSIVE:  { label: "Risk On — Defensive",  color: "text-blue-300",    ring: "border-blue-600",    bg: "bg-blue-900/30"    },
-  RISK_OFF_DEFENSIVE: { label: "Risk Off — Defensive", color: "text-orange-300",  ring: "border-orange-600",  bg: "bg-orange-900/30"  },
-  RISK_OFF_FLIGHT:    { label: "Risk Off — Flight",    color: "text-red-300",     ring: "border-red-600",     bg: "bg-red-900/30"     },
-  STAGFLATION:        { label: "Stagflation",           color: "text-amber-300",   ring: "border-amber-600",   bg: "bg-amber-900/30"   },
+  RISK_ON_GROWTH:    { label: "Risk On — Growth",    color: "text-emerald-300", ring: "border-emerald-600", bg: "bg-emerald-900/30" },
+  RISK_ON_DEFENSIVE: { label: "Risk On — Defensive", color: "text-blue-300",    ring: "border-blue-600",    bg: "bg-blue-900/30"    },
+  RISK_OFF_FLIGHT:   { label: "Risk Off — Flight",   color: "text-red-300",     ring: "border-red-600",     bg: "bg-red-900/30"     },
+  STAGFLATION:       { label: "Stagflation",          color: "text-amber-300",   ring: "border-amber-600",   bg: "bg-amber-900/30"   },
 };
 
 const REGIME_DESCRIPTIONS: Record<string, string> = {
-  RISK_ON_GROWTH:     "Spread positive, VIX low, inflation contained. Equities and cyclicals favored.",
-  RISK_ON_DEFENSIVE:  "Spread narrow or flat, VIX moderate. Rotate toward quality and dividend sectors.",
-  RISK_OFF_DEFENSIVE: "Spread inverted, VIX elevated. Shift toward bonds, utilities, staples.",
-  RISK_OFF_FLIGHT:    "Spread deeply inverted, VIX spiking, USD surging. Gold and Treasuries lead.",
-  STAGFLATION:        "Inflation above 3%, breakeven rising, growth slowing. Commodities and energy.",
+  RISK_ON_GROWTH:    "Spread positive, VIX low, inflation contained. Equities and cyclicals favored.",
+  RISK_ON_DEFENSIVE: "Spread narrow or flat, VIX moderate. Rotate toward quality and dividend sectors.",
+  RISK_OFF_FLIGHT:   "Spread deeply inverted, VIX spiking, USD surging. Gold and Treasuries lead.",
+  STAGFLATION:       "Inflation above 3%, breakeven rising, growth slowing. Commodities and energy.",
 };
 
 const REGIME_PLAYBOOK: Record<string, { leaders: string[]; laggards: string[]; note: string }> = {
@@ -27,11 +25,6 @@ const REGIME_PLAYBOOK: Record<string, { leaders: string[]; laggards: string[]; n
     leaders:  ["Healthcare (XLV)", "Financials (XLF)", "Quality (QUAL)", "Consumer Staples (XLP)", "Dividend payers"],
     laggards: ["Speculative growth tech", "High-beta small caps", "Momentum (MTUM)", "Crypto proxies"],
     note: "Late-cycle risk-on: prefer quality over momentum. Watch for spread narrowing as a regime shift signal.",
-  },
-  RISK_OFF_DEFENSIVE: {
-    leaders:  ["Utilities (XLU)", "Consumer Staples (XLP)", "Healthcare (XLV)", "Long Bonds (TLT)", "Low Volatility (USMV)"],
-    laggards: ["Technology (XLK)", "Consumer Discretionary (XLY)", "Financials (XLF)", "Momentum (MTUM)"],
-    note: "Yield curve inverted, VIX rising. Rotate toward defensive sectors and duration. Reduce cyclical exposure.",
   },
   RISK_OFF_FLIGHT: {
     leaders:  ["Gold (GLD)", "Long Treasuries (TLT)", "USD (UUP)", "Low Volatility (USMV)", "Utilities (XLU)"],
@@ -110,11 +103,10 @@ function IndicatorCard({
 }
 
 const REGIME_BAR_COLOR: Record<string, string> = {
-  RISK_ON_GROWTH:     "bg-green-600",
-  RISK_ON_DEFENSIVE:  "bg-blue-600",
-  RISK_OFF_DEFENSIVE: "bg-orange-500",
-  RISK_OFF_FLIGHT:    "bg-red-600",
-  STAGFLATION:        "bg-amber-500",
+  RISK_ON_GROWTH:    "bg-green-600",
+  RISK_ON_DEFENSIVE: "bg-blue-600",
+  RISK_OFF_FLIGHT:   "bg-red-600",
+  STAGFLATION:       "bg-amber-500",
 };
 
 function RegimeTimeline({ history }: { history: MacroResponse["regimeHistory"] }) {
@@ -171,7 +163,7 @@ function RegimeTimeline({ history }: { history: MacroResponse["regimeHistory"] }
         </div>
 
         <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
-          {(["RISK_ON_GROWTH", "RISK_ON_DEFENSIVE", "RISK_OFF_DEFENSIVE", "RISK_OFF_FLIGHT", "STAGFLATION"] as const).map((key) => (
+          {(["RISK_ON_GROWTH", "RISK_ON_DEFENSIVE", "RISK_OFF_FLIGHT", "STAGFLATION"] as const).map((key) => (
             <span key={key} className="flex items-center gap-1.5">
               <span className={`w-3 h-3 rounded-sm inline-block ${REGIME_BAR_COLOR[key]}`} />
               {REGIME_STYLES[key]?.label ?? key}

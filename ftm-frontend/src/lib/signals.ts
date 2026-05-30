@@ -1,8 +1,12 @@
-import { CategorySummary } from "@/lib/api";
-
 export type TradeSignal = "BUY" | "WATCH" | "HOLD" | "REDUCE";
 
-export function deriveTradeSignal(cat: CategorySummary): TradeSignal | null {
+export type SignalSource = {
+  compositeScore: number | null;
+  rrgQuadrant: string | null;
+  compositeTrend20d: number | null;
+};
+
+export function deriveTradeSignal(cat: SignalSource): TradeSignal | null {
   const score = cat.compositeScore;
   const quadrant = cat.rrgQuadrant != null ? Number(cat.rrgQuadrant) : null;
   const trend20d = cat.compositeTrend20d;
@@ -19,7 +23,7 @@ export function deriveTradeSignal(cat: CategorySummary): TradeSignal | null {
   return "HOLD";
 }
 
-export function countBuyConditions(cat: CategorySummary): number {
+export function countBuyConditions(cat: SignalSource): number {
   const score = cat.compositeScore;
   const quadrant = cat.rrgQuadrant != null ? Number(cat.rrgQuadrant) : null;
   const trend20d = cat.compositeTrend20d;
@@ -31,7 +35,7 @@ export function countBuyConditions(cat: CategorySummary): number {
   return count;
 }
 
-export function missingBuyConditions(cat: CategorySummary): string[] {
+export function missingBuyConditions(cat: SignalSource): string[] {
   const score = cat.compositeScore ?? 0;
   const quadrant = cat.rrgQuadrant != null ? Number(cat.rrgQuadrant) : null;
   const trend20d = cat.compositeTrend20d;

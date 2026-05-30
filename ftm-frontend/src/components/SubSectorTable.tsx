@@ -2,11 +2,19 @@
 
 import { useState } from "react";
 import { SubSectorSummary } from "@/lib/api";
+import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 
 type SortCol = "rs60" | "rs20" | "rs120" | "momentum" | "compositeScore" | "quadrant" | "acceleration" | "compositeTrend5d";
 type SortDir = "asc" | "desc";
 
 const QUADRANT_ORDER: Record<string, number> = { "4": 0, "3": 1, "2": 2, "1": 3 };
+
+const TRADE_SIGNAL_CONFIG: Record<TradeSignal, { label: string; className: string }> = {
+  BUY:    { label: "BUY",    className: "bg-green-500/20 text-green-300 border border-green-500/40" },
+  WATCH:  { label: "WATCH",  className: "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30" },
+  HOLD:   { label: "HOLD",   className: "bg-slate-600/30 text-slate-400 border border-slate-500/30" },
+  REDUCE: { label: "REDUCE", className: "bg-red-500/15 text-red-400 border border-red-500/30" },
+};
 
 const QUADRANT_CONFIG: Record<string, {
   label: string;
@@ -249,6 +257,8 @@ export default function SubSectorTable({
           {sorted.map((subSector, idx) => {
             const qConfig = subSector.rrgQuadrant ? QUADRANT_CONFIG[subSector.rrgQuadrant] : null;
             const rowBorderClass = qConfig?.rowBorderClass ?? "border-l-slate-700/40";
+            const signal = deriveTradeSignal(subSector);
+            const signalCfg = signal ? TRADE_SIGNAL_CONFIG[signal] : null;
             return (
               <tr
                 key={subSector.id}
@@ -298,16 +308,27 @@ export default function SubSectorTable({
                   )}
                 </td>
                 <td className="px-4 py-2.5 text-center">
-                  {qConfig ? (
-                    <span
-                      className={`text-[11px] font-semibold px-2 py-0.5 rounded ${qConfig.badgeClass}`}
-                      style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.02em" }}
-                    >
-                      {qConfig.label}
-                    </span>
-                  ) : (
-                    <span className="text-slate-600 text-xs">—</span>
-                  )}
+                  <div className="flex flex-col items-center gap-1">
+                    {signalCfg ? (
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded ${signalCfg.className}`}
+                        style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.06em" }}
+                        title={`Trade signal: ${signal} — derived from composite score, RRG quadrant, and 20d trend`}
+                      >
+                        {signalCfg.label}
+                      </span>
+                    ) : (
+                      <span className="text-slate-600 text-xs">—</span>
+                    )}
+                    {qConfig && (
+                      <span
+                        className={`text-[9px] ${qConfig.colorClass} opacity-70`}
+                        style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.03em" }}
+                      >
+                        {qConfig.label}
+                      </span>
+                    )}
+                  </div>
                 </td>
               </tr>
             );

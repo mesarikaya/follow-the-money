@@ -1,13 +1,20 @@
 package com.ftm.app.api.controller;
 
+import static org.instancio.Select.field;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ftm.app.api.dto.MacroIndicatorsDto;
+import com.ftm.app.api.dto.MacroRegimeHistoryEntry;
 import com.ftm.app.api.dto.MacroResponse;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
 import com.ftm.app.api.service.MacroService;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import org.instancio.Instancio;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -42,5 +49,37 @@ class MacroControllerTest {
         .perform(get("/macro"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.regime").value(macroResponse.regime()));
+  }
+
+  @Test
+  @DisplayName("GET /macro response includes asOfDate, regimeHistory, and macroFitByCategory fields")
+  void shouldIncludeFullResponseStructure() throws Exception {
+    LocalDate today = LocalDate.of(2024, 6, 1);
+    MacroIndicatorsDto indicators = Instancio.create(MacroIndicatorsDto.class);
+    MacroResponse response = new MacroResponse(
+        today,
+        "RISK_ON_GROWTH",
+        indicators,
+        null,
+        List.of(new MacroRegimeHistoryEntry(today.minusDays(7), "RISK_ON_GROWTH")),
+        Map.of("TECH", new BigDecimal("0.78")));
+    when(macroService.getMacroResponse()).thenReturn(response);
+
+    mockMvc
+        .perform(get("/macro"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.asOfDate").value("2024-06-01"))
+        .andExpect(jsonPath("$.regime").value("RISK_ON_GROWTH"))
+        .andExpect(jsonPath("$.regimeHistory.length()").value(1))
+        .andExpect(jsonPath("$.regimeHistory[0].regime").value("RISK_ON_GROWTH"))
+        .andExpect(jsonPath("$.macroFitByCategory.TECH").value(0.78));
+  }
+
+  @Test
+  @DisplayName("GET /macro returns 500 when service throws")
+  void shouldReturn500OnServiceError() throws Exception {
+    when(macroService.getMacroResponse()).thenThrow(new RuntimeException("DB unavailable"));
+
+    mockMvc.perform(get("/macro")).andExpect(status().isInternalServerError());
   }
 }

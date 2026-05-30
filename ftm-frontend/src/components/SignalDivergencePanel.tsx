@@ -8,7 +8,9 @@ type DivergenceType =
   | "RS_ACCEL_EMERGING"
   | "RS_DECEL_FADING"
   | "REGIME_TAILWIND_WEAK_SCORE"
-  | "REGIME_HEADWIND_STRONG_SCORE";
+  | "REGIME_HEADWIND_STRONG_SCORE"
+  | "PERSIST_HIGH_SCORE_LOW"
+  | "PERSIST_LOW_SCORE_HIGH";
 
 const DIVERGENCE_CONFIG: Record<
   DivergenceType,
@@ -54,6 +56,20 @@ const DIVERGENCE_CONFIG: Record<
     note: "historically weak regime, strong current score",
     interpretation: "This sector has a low historical win rate in the current macro regime, but the composite score is elevated. Momentum running against the macro — watch for regime-driven reversal.",
     scoreBadgeClass: "bg-rose-900/30 text-rose-300 border border-rose-700/30",
+    quadrantLabel: "",
+  },
+  PERSIST_HIGH_SCORE_LOW: {
+    title: "Persist ↑ / Score Lagging",
+    note: "daily outperformance consistent, composite not yet confirming",
+    interpretation: "Sector beats benchmark consistently (≥12/20 days) but composite score is weak (<45). Breadth of outperformance is strong — composite may be lagging the daily reality. Potential early entry.",
+    scoreBadgeClass: "bg-teal-900/30 text-teal-300 border border-teal-700/30",
+    quadrantLabel: "",
+  },
+  PERSIST_LOW_SCORE_HIGH: {
+    title: "Persist ↓ / Score Elevated",
+    note: "high composite, thin daily outperformance",
+    interpretation: "Composite score is high (≥65) but persistence is weak (<7/20 days). Score may be propped by a few big-move days rather than consistent outperformance. Watch for fragile leadership reversing.",
+    scoreBadgeClass: "bg-yellow-900/30 text-yellow-300 border border-yellow-700/30",
     quadrantLabel: "",
   },
 };
@@ -106,6 +122,7 @@ export default function SignalDivergencePanel({ categories }: { categories: Cate
   const divergences: DivergenceEntry[] = [];
   const rsSignals: DivergenceEntry[] = [];
   const regimeSignals: DivergenceEntry[] = [];
+  const persistSignals: DivergenceEntry[] = [];
 
   for (const cat of categories) {
     if (cat.type !== "EQUITY_SECTOR") continue;
@@ -137,9 +154,17 @@ export default function SignalDivergencePanel({ categories }: { categories: Cate
         regimeSignals.push({ cat, type: "REGIME_HEADWIND_STRONG_SCORE" });
       }
     }
+
+    if (cat.persistence20d != null && score != null) {
+      if (cat.persistence20d >= 12 && score < 0.45) {
+        persistSignals.push({ cat, type: "PERSIST_HIGH_SCORE_LOW" });
+      } else if (cat.persistence20d < 7 && score >= 0.65) {
+        persistSignals.push({ cat, type: "PERSIST_LOW_SCORE_HIGH" });
+      }
+    }
   }
 
-  if (divergences.length === 0 && rsSignals.length === 0 && regimeSignals.length === 0) return null;
+  if (divergences.length === 0 && rsSignals.length === 0 && regimeSignals.length === 0 && persistSignals.length === 0) return null;
 
   const peaks    = divergences.filter(d => d.type === "SCORE_HIGH_RRG_WEAKENING");
   const recovers = divergences.filter(d => d.type === "SCORE_LOW_RRG_IMPROVING");
@@ -147,8 +172,11 @@ export default function SignalDivergencePanel({ categories }: { categories: Cate
   const decelFading   = rsSignals.filter(d => d.type === "RS_DECEL_FADING");
   const regimeTailwind = regimeSignals.filter(d => d.type === "REGIME_TAILWIND_WEAK_SCORE");
   const regimeHeadwind = regimeSignals.filter(d => d.type === "REGIME_HEADWIND_STRONG_SCORE");
+  const persistHighLow = persistSignals.filter(d => d.type === "PERSIST_HIGH_SCORE_LOW");
+  const persistLowHigh = persistSignals.filter(d => d.type === "PERSIST_LOW_SCORE_HIGH");
   const hasRsRow = accelEmerging.length > 0 || decelFading.length > 0;
   const hasRegimeRow = regimeTailwind.length > 0 || regimeHeadwind.length > 0;
+  const hasPersistRow = persistHighLow.length > 0 || persistLowHigh.length > 0;
 
   return (
     <div className="space-y-3">
@@ -237,6 +265,36 @@ export default function SignalDivergencePanel({ categories }: { categories: Cate
               <p className="text-[11px] text-slate-600 py-2">None</p>
             ) : (
               regimeHeadwind.map(e => <DivergenceRow key={e.cat.id} entry={e} />)
+            )}
+          </div>
+        </div>
+      )}
+
+      {hasPersistRow && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-slate-800/40 border border-teal-800/30 rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Persist ↑ Score Lagging</span>
+              <span className="text-[10px] text-slate-600 ml-auto">≥12/20d beats benchmark</span>
+            </div>
+            {persistHighLow.length === 0 ? (
+              <p className="text-[11px] text-slate-600 py-2">None</p>
+            ) : (
+              persistHighLow.map(e => <DivergenceRow key={e.cat.id} entry={e} />)
+            )}
+          </div>
+
+          <div className="bg-slate-800/40 border border-yellow-800/30 rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 shrink-0" />
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Persist ↓ Score Elevated</span>
+              <span className="text-[10px] text-slate-600 ml-auto">&lt;7/20d beats benchmark</span>
+            </div>
+            {persistLowHigh.length === 0 ? (
+              <p className="text-[11px] text-slate-600 py-2">None</p>
+            ) : (
+              persistLowHigh.map(e => <DivergenceRow key={e.cat.id} entry={e} />)
             )}
           </div>
         </div>

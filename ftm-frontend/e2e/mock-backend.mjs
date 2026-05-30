@@ -366,14 +366,12 @@ const server = http.createServer(async (req, res) => {
   } else if (path === "/api/v1/alerts/rules" && req.method === "GET") {
     res.writeHead(200);
     res.end(JSON.stringify(ALERT_RULES_RESPONSE));
-  } else if (/^\/api\/v1\/alerts\/rules\/[^/]+$/.test(path) && req.method === "PATCH") {
-    const ruleId = path.split("/").pop();
-    const body = await new Promise((resolve) => {
-      let data = ""; req.on("data", (c) => { data += c; }); req.on("end", () => resolve(JSON.parse(data)));
-    });
+  } else if (/^\/api\/v1\/alerts\/rules\/[^/]+\/enabled$/.test(path) && req.method === "PUT") {
+    const ruleId = path.split("/").at(-2);
+    const enabled = url.searchParams.get("enabled") === "true";
     const rule = ALERT_RULES_RESPONSE.find(r => r.ruleId === ruleId) ?? ALERT_RULES_RESPONSE[0];
     res.writeHead(200);
-    res.end(JSON.stringify({ ...rule, enabled: body.enabled ?? rule.enabled }));
+    res.end(JSON.stringify({ ...rule, enabled }));
   } else if (/^\/api\/v1\/alerts\/\d+\/acknowledge$/.test(path) && req.method === "POST") {
     res.writeHead(200);
     res.end(JSON.stringify({ ...ALERTS_RESPONSE.alerts[0], status: "ACKNOWLEDGED", acknowledgedAt: "2026-05-15T11:00:00Z" }));

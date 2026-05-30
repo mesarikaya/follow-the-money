@@ -141,4 +141,37 @@ class AlertControllerTest {
         .perform(put("/alerts/rules/unknown_rule/enabled").param("enabled", "true"))
         .andExpect(status().isNotFound());
   }
+
+  @Test
+  @DisplayName("POST /alerts/bulk-dismiss returns dismissed count")
+  void shouldBulkDismiss() throws Exception {
+    when(alertService.acknowledgeAllActive()).thenReturn(5);
+
+    mockMvc
+        .perform(post("/alerts/bulk-dismiss"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.dismissed").value(5));
+  }
+
+  @Test
+  @DisplayName("POST /alerts/bulk-dismiss returns zero when no active alerts")
+  void shouldBulkDismissWithNoActiveAlerts() throws Exception {
+    when(alertService.acknowledgeAllActive()).thenReturn(0);
+
+    mockMvc
+        .perform(post("/alerts/bulk-dismiss"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.dismissed").value(0));
+  }
+
+  @Test
+  @DisplayName("GET /alerts/active/count returns active alert count")
+  void shouldReturnActiveAlertCount() throws Exception {
+    when(alertService.countActiveAlerts()).thenReturn(3);
+
+    mockMvc
+        .perform(get("/alerts/active/count"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.active").value(3));
+  }
 }

@@ -24,7 +24,9 @@ class CompositeScoreServiceTest {
     @Test
     @DisplayName("returns empty map when all inputs are empty")
     void shouldReturnEmptyMapWhenAllInputsEmpty() {
-      var result = service.computeCompositeScores(Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
+      var result =
+          service.computeCompositeScores(
+              Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
 
       assertThat(result).isEmpty();
     }
@@ -33,7 +35,8 @@ class CompositeScoreServiceTest {
     @DisplayName("excludes category when all its signal components are null")
     void shouldExcludeCategoryWhenAllComponentsNull() {
       var rs60 = Map.of(TECH, new BigDecimal("1.05"));
-      var result = service.computeCompositeScores(rs60, Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
+      var result =
+          service.computeCompositeScores(rs60, Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
 
       // TECH has rs60 but no other signals; still has a score (weight redistributed)
       assertThat(result).containsKey(TECH);
@@ -48,7 +51,8 @@ class CompositeScoreServiceTest {
       var macroFit = Map.of(TECH, new BigDecimal("0.65"));
       var rrgQuad = Map.of(TECH, new BigDecimal("4")); // Leading
 
-      var result = service.computeCompositeScores(rs60, Map.of(), flow20d, momentum, macroFit, rrgQuad);
+      var result =
+          service.computeCompositeScores(rs60, Map.of(), flow20d, momentum, macroFit, rrgQuad);
 
       assertThat(result).containsKey(TECH);
       BigDecimal score = result.get(TECH);
@@ -69,7 +73,8 @@ class CompositeScoreServiceTest {
       var macroFit = Map.of(TECH, new BigDecimal("0.65"));
       var rrgQuad = Map.of(TECH, new BigDecimal("4"));
 
-      var result = service.computeCompositeScores(rs60, rs120, flow20d, momentum, macroFit, rrgQuad);
+      var result =
+          service.computeCompositeScores(rs60, rs120, flow20d, momentum, macroFit, rrgQuad);
 
       assertThat(result.get(TECH)).isEqualByComparingTo("0.550000");
     }
@@ -83,7 +88,8 @@ class CompositeScoreServiceTest {
       var macroFit = Map.of(TECH, new BigDecimal("0.60"), FINL, new BigDecimal("0.60"));
       var rrgQuad = Map.of(TECH, new BigDecimal("4"), FINL, new BigDecimal("4"));
 
-      var result = service.computeCompositeScores(rs60, Map.of(), flow20d, momentum, macroFit, rrgQuad);
+      var result =
+          service.computeCompositeScores(rs60, Map.of(), flow20d, momentum, macroFit, rrgQuad);
 
       assertThat(result.get(TECH)).isGreaterThan(result.get(FINL));
     }
@@ -101,7 +107,8 @@ class CompositeScoreServiceTest {
       var macroFit = Map.of(TECH, new BigDecimal("0.60"), FINL, new BigDecimal("0.60"));
       var rrgQuad = Map.of(TECH, new BigDecimal("4"), FINL, new BigDecimal("4"));
 
-      var result = service.computeCompositeScores(rs60, Map.of(), flow20d, momentum, macroFit, rrgQuad);
+      var result =
+          service.computeCompositeScores(rs60, Map.of(), flow20d, momentum, macroFit, rrgQuad);
 
       // Both have scores; TECH's higher RS-60 should still dominate
       assertThat(result).containsKeys(TECH, FINL);
@@ -119,7 +126,8 @@ class CompositeScoreServiceTest {
       var macroFit = Map.of(TECH, new BigDecimal("0.55"), FINL, new BigDecimal("0.55"));
       var rrgQuad = Map.of(TECH, new BigDecimal("4"), FINL, new BigDecimal("1"));
 
-      var result = service.computeCompositeScores(rs60, Map.of(), flow20d, momentum, macroFit, rrgQuad);
+      var result =
+          service.computeCompositeScores(rs60, Map.of(), flow20d, momentum, macroFit, rrgQuad);
 
       assertThat(result.get(TECH)).isGreaterThan(result.get(FINL));
     }
@@ -134,7 +142,8 @@ class CompositeScoreServiceTest {
       var macroFit = Map.of(TECH, new BigDecimal("0.55"), FINL, new BigDecimal("0.55"));
       var rrgQuad = Map.of(TECH, new BigDecimal("99"), FINL, new BigDecimal("1"));
 
-      var result = service.computeCompositeScores(rs60, Map.of(), flow20d, momentum, macroFit, rrgQuad);
+      var result =
+          service.computeCompositeScores(rs60, Map.of(), flow20d, momentum, macroFit, rrgQuad);
 
       assertThat(result.get(TECH)).isEqualByComparingTo(result.get(FINL));
     }
@@ -177,7 +186,8 @@ class CompositeScoreServiceTest {
       var rrgQuad =
           Map.of(TECH, new BigDecimal("4"), FINL, new BigDecimal("3"), HLTH, new BigDecimal("2"));
 
-      var result = service.computeCompositeScores(rs60, Map.of(), flow20d, momentum, macroFit, rrgQuad);
+      var result =
+          service.computeCompositeScores(rs60, Map.of(), flow20d, momentum, macroFit, rrgQuad);
 
       assertThat(result.get(TECH)).isGreaterThan(result.get(FINL));
       assertThat(result.get(FINL)).isGreaterThan(result.get(HLTH));
@@ -195,7 +205,8 @@ class CompositeScoreServiceTest {
       var macroFit = Map.of(TECH, new BigDecimal("0.65")); // FINL missing
       var rrgQuad = Map.of(TECH, new BigDecimal("4")); // FINL missing
 
-      var result = service.computeCompositeScores(rs60, Map.of(), flow20d, momentum, macroFit, rrgQuad);
+      var result =
+          service.computeCompositeScores(rs60, Map.of(), flow20d, momentum, macroFit, rrgQuad);
 
       assertThat(result).containsKeys(TECH, FINL);
       // FINL only has RS-60; score is non-null but based solely on that component
@@ -231,7 +242,8 @@ class CompositeScoreServiceTest {
       var rs60 = Map.of(TECH, BigDecimal.ONE);
       var rrgQuad = Map.of(TECH, new BigDecimal("1"));
 
-      var result = service.computeCompositeScores(rs60, Map.of(), Map.of(), Map.of(), Map.of(), rrgQuad);
+      var result =
+          service.computeCompositeScores(rs60, Map.of(), Map.of(), Map.of(), Map.of(), rrgQuad);
 
       // Weights: RS_60=0.25, RRG=0.10 → total=0.35
       // Score = (0.25×0.5 + 0.10×0.0) / 0.35 = 0.125/0.35 ≈ 0.357143

@@ -111,7 +111,8 @@ public class BacktestEngine {
 
     dsl.select(SIGNALS.SIGNAL_DATE, SIGNALS.CATEGORY_ID, SIGNALS.VALUE)
         .from(SIGNALS)
-        .join(CATEGORIES).on(CATEGORIES.ID.eq(SIGNALS.CATEGORY_ID))
+        .join(CATEGORIES)
+        .on(CATEGORIES.ID.eq(SIGNALS.CATEGORY_ID))
         .where(SIGNALS.SIGNAL_TYPE.eq(SignalType.COMPOSITE.name()))
         .and(SIGNALS.SIGNAL_DATE.between(startDate, endDate))
         .and(scopeCondition)

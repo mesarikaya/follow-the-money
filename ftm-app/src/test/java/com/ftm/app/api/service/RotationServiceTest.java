@@ -17,7 +17,7 @@ import com.ftm.app.domain.SignalType;
 import com.ftm.app.signals.repository.RotationEventRepository;
 import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDate; // used in any(LocalDate.class) matchers
 import java.util.List;
 import java.util.Map;
 import org.instancio.Instancio;
@@ -92,13 +92,10 @@ class RotationServiceTest {
   void shouldMapRotationEventsWithCategoryNames() {
     Category tech = techCategory();
     RotationEvent event =
-        new RotationEvent(
-            LocalDate.now(),
-            CategoryId.TECH,
-            RotationEventType.FLOW_SURGE,
-            new BigDecimal("0.75"),
-            "{}",
-            "Strong inflows");
+        Instancio.of(RotationEvent.class)
+            .set(field(RotationEvent::categoryId), CategoryId.TECH)
+            .set(field(RotationEvent::eventType), RotationEventType.FLOW_SURGE)
+            .create();
     when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc()).thenReturn(List.of(tech));
     when(signalRepository.findLatestByTypes(anyList())).thenReturn(noSignals());
     when(rotationEventRepository.findRecentEvents(any(LocalDate.class))).thenReturn(List.of(event));

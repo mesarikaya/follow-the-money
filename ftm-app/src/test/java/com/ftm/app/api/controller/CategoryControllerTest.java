@@ -1,6 +1,7 @@
 package com.ftm.app.api.controller;
 
 import static org.instancio.Select.field;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -11,6 +12,7 @@ import com.ftm.app.api.dto.CategoriesResponse;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
 import com.ftm.app.api.service.CategoryService;
 import java.util.List;
+import java.util.Map;
 import org.instancio.Instancio;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -65,5 +67,40 @@ class CategoryControllerTest {
         .perform(get("/categories").param("timeframe", "WEEK"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.timeframe").value("WEEK"));
+  }
+
+  @Test
+  @DisplayName("GET /categories/score-history returns 200 with map of category histories")
+  void shouldReturnScoreHistory() throws Exception {
+    when(categoryService.getCompositeScoreHistory(anyInt()))
+        .thenReturn(Map.of("TECH", List.of(0.70, 0.75, 0.72), "FINL", List.of(0.50, 0.55)));
+
+    mockMvc
+        .perform(get("/categories/score-history"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.TECH.length()").value(3))
+        .andExpect(jsonPath("$.FINL.length()").value(2));
+  }
+
+  @Test
+  @DisplayName("GET /categories/score-history?days=60 passes explicit days to service")
+  void shouldPassExplicitDaysToService() throws Exception {
+    when(categoryService.getCompositeScoreHistory(60)).thenReturn(Map.of("TECH", List.of(0.68)));
+
+    mockMvc
+        .perform(get("/categories/score-history").param("days", "60"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.TECH[0]").value(0.68));
+  }
+
+  @Test
+  @DisplayName("GET /categories/score-history returns 200 with empty map when no history")
+  void shouldReturnEmptyMapWhenNoHistory() throws Exception {
+    when(categoryService.getCompositeScoreHistory(anyInt())).thenReturn(Map.of());
+
+    mockMvc
+        .perform(get("/categories/score-history"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(0));
   }
 }

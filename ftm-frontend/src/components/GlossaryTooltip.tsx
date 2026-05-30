@@ -27,7 +27,7 @@ const TERMS: Record<string, { short: string; detail: string }> = {
   "Macro Fit": {
     short: "Historical win rate in the current macro regime.",
     detail:
-      "Based on how often this sector outperformed SPY when the macro regime was similar to today (Risk-On, Risk-Off, Late Cycle, etc.). A 70% macro fit means the sector beat the benchmark 70% of the time in similar past environments.",
+      "Fraction of historical periods in the current macro regime (Risk-On Growth, Risk-On Defensive, Risk-Off/Flight-to-Safety, or Stagflation) where this sector's RS-60 was positive. A 70% macro fit means the sector outperformed its benchmark 70% of the time in past environments matching today's regime. Weight: 10% of composite score.",
   },
   "RRG": {
     short: "Relative Rotation Graph — visualises sector rotation cycles.",
@@ -94,7 +94,7 @@ const TERMS: Record<string, { short: string; detail: string }> = {
   "Regime": {
     short: "Current macro environment classification.",
     detail:
-      "Derived from yield curve shape, credit spreads, inflation indicators, and economic growth signals. Five regimes: Risk-On (growth, equities lead), Risk-Off (defensive sectors lead), Late Cycle (inflation rising, energy/materials strong), Early Recovery (cyclicals emerge), Transitional (mixed signals).",
+      "Derived from the 10Y–2Y yield spread, VIX, and 10-year breakeven inflation. Four regimes: Risk-On Growth (steep curve, calm VIX — equities and cyclicals lead), Risk-On Defensive (flat curve, calm VIX — quality and stability favoured), Risk-Off/Flight-to-Safety (VIX >25 or inverted curve — cash, gold, bonds), Stagflation (steep curve, high inflation — energy, materials, real assets).",
   },
   "Alpha": {
     short: "Return above the SPY benchmark.",

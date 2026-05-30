@@ -501,6 +501,44 @@ class AlertRulesEngineTest {
     verify(alertRepository, never()).insert(any());
   }
 
+  // ===== Auto-Resolution Tests =====
+
+  @Test
+  @DisplayName("resolveStaleAlerts: resolves composite_breakdown when score recovers above 0.35")
+  void shouldResolveBreakdownAlertWhenScoreRecovers() {
+    stubTopLevelCategories("MATL");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+
+    // Score is now 0.42 — above the 0.35 threshold — alert should resolve
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("MATL", new BigDecimal("0.42")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).resolveAlertsByRuleAndCategory("composite_breakdown", "MATL");
+  }
+
+  @Test
+  @DisplayName("resolveStaleAlerts: resolves composite_breakout when score falls back below 0.70")
+  void shouldResolveBreakoutAlertWhenScoreFallsBack() {
+    stubTopLevelCategories("TECH");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+
+    // Score is now 0.65 — below the 0.70 breakout threshold — alert should resolve
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.65")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).resolveAlertsByRuleAndCategory("composite_breakout", "TECH");
+  }
+
   @Test
   @DisplayName("composite_breakdown enabled: no duplicate when active alert already exists")
   void shouldNotCreateBreakdownAlertWhenActiveAlertAlreadyExists() {

@@ -68,13 +68,43 @@ public class AlertRulesEngine {
 
     Set<String> topLevelCategoryIds = categoryRepository.findTopLevelActiveCategoryIds();
 
+    int alertsResolved = resolveStaleAlerts(signalDate, topLevelCategoryIds);
+
     int alertsCreated = 0;
     alertsCreated += evaluateRotationEventAlerts(signalDate);
     alertsCreated += evaluateMacroRegimeShift(signalDate);
     alertsCreated += evaluateRsAccelerationCrossover(signalDate, topLevelCategoryIds);
 
     log.info(
-        "Alert rule evaluation complete: {} alerts created for date={}", alertsCreated, signalDate);
+        "Alert rule evaluation complete: {} created, {} resolved for date={}",
+        alertsCreated, alertsResolved, signalDate);
+  }
+
+  private int resolveStaleAlerts(LocalDate signalDate, Set<String> topLevelCategoryIds) {
+    Map<String, BigDecimal> currentComposites =
+        signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
+
+    int resolved = 0;
+    for (String categoryId : topLevelCategoryIds) {
+      BigDecimal composite = currentComposites.get(categoryId);
+      if (composite == null) continue;
+
+      // Breakdown alert: condition was score < 0.35; resolve when score recovers to ≥ 0.35
+      if (composite.compareTo(new BigDecimal("0.35")) >= 0) {
+        resolved +=
+            alertRepository.resolveAlertsByRuleAndCategory(RULE_COMPOSITE_BREAKDOWN, categoryId);
+      }
+      // Breakout alert: condition was score > 0.70; resolve when score falls back to ≤ 0.70
+      if (composite.compareTo(new BigDecimal("0.70")) <= 0) {
+        resolved +=
+            alertRepository.resolveAlertsByRuleAndCategory(RULE_COMPOSITE_BREAKOUT, categoryId);
+      }
+    }
+
+    if (resolved > 0) {
+      log.info("Resolved {} stale composite alert(s) for date={}", resolved, signalDate);
+    }
+    return resolved;
   }
 
   private int evaluateRotationEventAlerts(LocalDate signalDate) {

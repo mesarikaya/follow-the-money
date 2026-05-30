@@ -182,11 +182,25 @@ function SectorCard({ sector, history, subSectorCount }: { sector: CategorySumma
       </div>
 
       {/* Signal stats row */}
-      <div className="grid grid-cols-3 gap-2 mb-3 py-2 border-y border-slate-700/40">
+      <div className="grid grid-cols-3 gap-2 mb-2 py-2 border-y border-slate-700/40">
         <ScoreStat value={sector.compositeScore} trend5d={sector.compositeTrend5d} trend20d={sector.compositeTrend20d} />
         <RsStat label="RS 60d" value={sector.rs60} rs120={sector.rs120} />
         <RankStat rank={sector.rank} />
       </div>
+      {sector.macroFit != null && (
+        <div className="flex items-center gap-2 mb-2" title={`Macro Fit: ${Math.round(sector.macroFit * 100)}% — historical RS win rate in the current macro regime`}>
+          <span className="text-[9px] text-slate-600 uppercase tracking-widest shrink-0" style={{ fontFamily: "var(--font-jetbrains-mono)" }}>Regime</span>
+          <div className="flex-1 h-1 rounded-full bg-slate-700/60 overflow-hidden">
+            <div
+              className={`h-full rounded-full ${sector.macroFit >= 0.6 ? "bg-violet-500" : sector.macroFit >= 0.4 ? "bg-violet-400/60" : "bg-slate-600"}`}
+              style={{ width: `${Math.round(sector.macroFit * 100)}%` }}
+            />
+          </div>
+          <span className={`text-[9px] tabular-nums shrink-0 ${sector.macroFit >= 0.6 ? "text-violet-400" : sector.macroFit >= 0.4 ? "text-violet-500" : "text-slate-600"}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+            {Math.round(sector.macroFit * 100)}%
+          </span>
+        </div>
+      )}
 
       {/* Footer: sparkline + sub-sector count + flow indicator + drill-down hint */}
       <div className="flex items-center justify-between gap-2">

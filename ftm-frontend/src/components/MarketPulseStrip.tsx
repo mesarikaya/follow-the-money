@@ -49,6 +49,14 @@ export default function MarketPulseStrip({ categories }: Props) {
   const persistLow   = equities.filter(c => c.persistence20d != null && c.persistence20d < 7).length;
   const hasPersist   = equities.some(c => c.persistence20d != null);
 
+  const fullSignalCount = equities.filter(c =>
+    c.compositeScore != null &&
+    c.persistence20d != null &&
+    c.macroFit != null &&
+    c.rs60 != null
+  ).length;
+  const signalCompleteness = equities.length > 0 ? Math.round((fullSignalCount / equities.length) * 100) : 0;
+
   const scoreColor =
     avgScore >= 70 ? "text-emerald-400" :
     avgScore >= 40 ? "text-amber-400" :
@@ -101,6 +109,12 @@ export default function MarketPulseStrip({ categories }: Props) {
         value={persistLabel}
         sub={hasPersist ? `${persistLow} low (<7d)` : undefined}
         valueClass={persistColor}
+      />
+      <StatCell
+        label="Signal Quality"
+        value={`${signalCompleteness}%`}
+        sub={`${fullSignalCount}/${equities.length} complete`}
+        valueClass={signalCompleteness >= 90 ? "text-emerald-400" : signalCompleteness >= 70 ? "text-amber-400" : "text-red-400"}
         divider={false}
       />
     </div>

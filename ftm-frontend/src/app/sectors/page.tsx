@@ -187,18 +187,30 @@ function SectorCard({ sector, history, subSectorCount }: { sector: CategorySumma
         <RsStat label="RS 60d" value={sector.rs60} rs120={sector.rs120} />
         <RankStat rank={sector.rank} />
       </div>
-      {sector.macroFit != null && (
-        <div className="flex items-center gap-2 mb-2" title={`Macro Fit: ${Math.round(sector.macroFit * 100)}% — historical RS win rate in the current macro regime`}>
-          <span className="text-[9px] text-slate-600 uppercase tracking-widest shrink-0" style={{ fontFamily: "var(--font-jetbrains-mono)" }}>Regime</span>
-          <div className="flex-1 h-1 rounded-full bg-slate-700/60 overflow-hidden">
-            <div
-              className={`h-full rounded-full ${sector.macroFit >= 0.6 ? "bg-violet-500" : sector.macroFit >= 0.4 ? "bg-violet-400/60" : "bg-slate-600"}`}
-              style={{ width: `${Math.round(sector.macroFit * 100)}%` }}
-            />
-          </div>
-          <span className={`text-[9px] tabular-nums shrink-0 ${sector.macroFit >= 0.6 ? "text-violet-400" : sector.macroFit >= 0.4 ? "text-violet-500" : "text-slate-600"}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
-            {Math.round(sector.macroFit * 100)}%
-          </span>
+      {(sector.macroFit != null || sector.persistence20d != null) && (
+        <div className="flex items-center gap-3 mb-2 pt-1">
+          {sector.macroFit != null && (
+            <div className="flex items-center gap-2 flex-1" title={`Macro Fit: ${Math.round(sector.macroFit * 100)}% — historical RS win rate in the current macro regime`}>
+              <span className="text-[9px] text-slate-600 uppercase tracking-widest shrink-0" style={{ fontFamily: "var(--font-jetbrains-mono)" }}>Regime</span>
+              <div className="flex-1 h-1 rounded-full bg-slate-700/60 overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${sector.macroFit >= 0.6 ? "bg-violet-500" : sector.macroFit >= 0.4 ? "bg-violet-400/60" : "bg-slate-600"}`}
+                  style={{ width: `${Math.round(sector.macroFit * 100)}%` }}
+                />
+              </div>
+              <span className={`text-[9px] tabular-nums shrink-0 ${sector.macroFit >= 0.6 ? "text-violet-400" : sector.macroFit >= 0.4 ? "text-violet-500" : "text-slate-600"}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+                {Math.round(sector.macroFit * 100)}%
+              </span>
+            </div>
+          )}
+          {sector.persistence20d != null && (
+            <span
+              className={`text-[9px] font-mono px-1.5 py-0.5 rounded shrink-0 ${sector.persistence20d >= 12 ? "text-cyan-400 bg-cyan-900/20" : sector.persistence20d >= 7 ? "text-slate-500 bg-slate-700/20" : "text-orange-400 bg-orange-900/20"}`}
+              title={`Persistence: ${sector.persistence20d}/20 trading days beat benchmark (${sector.persistence20d >= 12 ? "strong" : sector.persistence20d >= 7 ? "moderate" : "weak"})`}
+            >
+              P{sector.persistence20d}/20
+            </span>
+          )}
         </div>
       )}
 

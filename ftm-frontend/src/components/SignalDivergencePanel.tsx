@@ -6,7 +6,9 @@ type DivergenceType =
   | "SCORE_HIGH_RRG_WEAKENING"
   | "SCORE_LOW_RRG_IMPROVING"
   | "RS_ACCEL_EMERGING"
-  | "RS_DECEL_FADING";
+  | "RS_DECEL_FADING"
+  | "REGIME_TAILWIND_WEAK_SCORE"
+  | "REGIME_HEADWIND_STRONG_SCORE";
 
 const DIVERGENCE_CONFIG: Record<
   DivergenceType,
@@ -38,6 +40,20 @@ const DIVERGENCE_CONFIG: Record<
     note: "RS decelerating, composite still high",
     interpretation: "Near-term RS (60d) falling below long-term baseline (120d) while composite score remains elevated. Composite lags the reversal — watch for distribution before score falls.",
     scoreBadgeClass: "bg-orange-900/30 text-orange-300 border border-orange-700/30",
+    quadrantLabel: "",
+  },
+  REGIME_TAILWIND_WEAK_SCORE: {
+    title: "Regime ↑ / Score Lagging",
+    note: "historically strong regime, weak current score",
+    interpretation: "This sector has a high historical win rate in the current macro regime, but the composite score is currently weak. Regime tailwind not yet showing up in price — watch for early-entry opportunity.",
+    scoreBadgeClass: "bg-violet-900/30 text-violet-300 border border-violet-700/30",
+    quadrantLabel: "",
+  },
+  REGIME_HEADWIND_STRONG_SCORE: {
+    title: "Regime ↓ / Score Elevated",
+    note: "historically weak regime, strong current score",
+    interpretation: "This sector has a low historical win rate in the current macro regime, but the composite score is elevated. Momentum running against the macro — watch for regime-driven reversal.",
+    scoreBadgeClass: "bg-rose-900/30 text-rose-300 border border-rose-700/30",
     quadrantLabel: "",
   },
 };
@@ -89,6 +105,7 @@ function DivergenceRow({ entry }: { entry: DivergenceEntry }) {
 export default function SignalDivergencePanel({ categories }: { categories: CategorySummary[] }) {
   const divergences: DivergenceEntry[] = [];
   const rsSignals: DivergenceEntry[] = [];
+  const regimeSignals: DivergenceEntry[] = [];
 
   for (const cat of categories) {
     if (cat.type !== "EQUITY_SECTOR") continue;
@@ -112,15 +129,26 @@ export default function SignalDivergencePanel({ categories }: { categories: Cate
         rsSignals.push({ cat, type: "RS_DECEL_FADING" });
       }
     }
+
+    if (cat.macroFit != null && score != null) {
+      if (cat.macroFit >= 0.65 && score < 0.45) {
+        regimeSignals.push({ cat, type: "REGIME_TAILWIND_WEAK_SCORE" });
+      } else if (cat.macroFit <= 0.35 && score >= 0.65) {
+        regimeSignals.push({ cat, type: "REGIME_HEADWIND_STRONG_SCORE" });
+      }
+    }
   }
 
-  if (divergences.length === 0 && rsSignals.length === 0) return null;
+  if (divergences.length === 0 && rsSignals.length === 0 && regimeSignals.length === 0) return null;
 
   const peaks    = divergences.filter(d => d.type === "SCORE_HIGH_RRG_WEAKENING");
   const recovers = divergences.filter(d => d.type === "SCORE_LOW_RRG_IMPROVING");
   const accelEmerging = rsSignals.filter(d => d.type === "RS_ACCEL_EMERGING");
   const decelFading   = rsSignals.filter(d => d.type === "RS_DECEL_FADING");
+  const regimeTailwind = regimeSignals.filter(d => d.type === "REGIME_TAILWIND_WEAK_SCORE");
+  const regimeHeadwind = regimeSignals.filter(d => d.type === "REGIME_HEADWIND_STRONG_SCORE");
   const hasRsRow = accelEmerging.length > 0 || decelFading.length > 0;
+  const hasRegimeRow = regimeTailwind.length > 0 || regimeHeadwind.length > 0;
 
   return (
     <div className="space-y-3">
@@ -179,6 +207,36 @@ export default function SignalDivergencePanel({ categories }: { categories: Cate
               <p className="text-[11px] text-slate-600 py-2">None</p>
             ) : (
               decelFading.map(e => <DivergenceRow key={e.cat.id} entry={e} />)
+            )}
+          </div>
+        </div>
+      )}
+
+      {hasRegimeRow && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-slate-800/40 border border-violet-800/30 rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-500 shrink-0" />
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Regime Tailwind ↑</span>
+              <span className="text-[10px] text-slate-600 ml-auto">fit ≥65%, score weak</span>
+            </div>
+            {regimeTailwind.length === 0 ? (
+              <p className="text-[11px] text-slate-600 py-2">None</p>
+            ) : (
+              regimeTailwind.map(e => <DivergenceRow key={e.cat.id} entry={e} />)
+            )}
+          </div>
+
+          <div className="bg-slate-800/40 border border-rose-800/30 rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Regime Headwind ↓</span>
+              <span className="text-[10px] text-slate-600 ml-auto">fit ≤35%, score elevated</span>
+            </div>
+            {regimeHeadwind.length === 0 ? (
+              <p className="text-[11px] text-slate-600 py-2">None</p>
+            ) : (
+              regimeHeadwind.map(e => <DivergenceRow key={e.cat.id} entry={e} />)
             )}
           </div>
         </div>

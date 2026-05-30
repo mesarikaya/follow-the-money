@@ -21,6 +21,7 @@ import com.ftm.app.domain.SignalType;
 import com.ftm.app.signals.event.SignalsUpdatedEvent;
 import com.ftm.app.signals.repository.RotationEventRepository;
 import com.ftm.app.signals.repository.SignalRepository;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -96,11 +97,17 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("rs_accel_crossover")));
   }
 
-  private void stubRrgAndBreakoutDisabled() {
+  private void stubBreakdownDisabled() {
+    when(alertRulesRepository.findById("composite_breakdown"))
+        .thenReturn(Optional.of(disabled("composite_breakdown")));
+  }
+
+  private void stubRrgAndBreakoutAndBreakdownDisabled() {
     when(alertRulesRepository.findById("rrg_transition"))
         .thenReturn(Optional.of(disabled("rrg_transition")));
     when(alertRulesRepository.findById("composite_breakout"))
         .thenReturn(Optional.of(disabled("composite_breakout")));
+    stubBreakdownDisabled();
   }
 
   // ===== RRG Transition Tests =====
@@ -118,6 +125,7 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(enabled("rrg_transition", Severity.INFO)));
     when(alertRulesRepository.findById("composite_breakout"))
         .thenReturn(Optional.of(disabled("composite_breakout")));
+    stubBreakdownDisabled();
     when(alertRepository.existsActiveAlert("rrg_transition", "TECH")).thenReturn(false);
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
@@ -146,6 +154,7 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(enabled("rrg_transition", Severity.ACTION)));
     when(alertRulesRepository.findById("composite_breakout"))
         .thenReturn(Optional.of(disabled("composite_breakout")));
+    stubBreakdownDisabled();
     when(alertRepository.existsActiveAlert("rrg_transition", "FINL")).thenReturn(false);
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
@@ -168,6 +177,7 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("rrg_transition")));
     when(alertRulesRepository.findById("composite_breakout"))
         .thenReturn(Optional.of(disabled("composite_breakout")));
+    stubBreakdownDisabled();
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
@@ -187,6 +197,7 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(enabled("rrg_transition", Severity.INFO)));
     when(alertRulesRepository.findById("composite_breakout"))
         .thenReturn(Optional.of(disabled("composite_breakout")));
+    stubBreakdownDisabled();
     when(alertRepository.existsActiveAlert("rrg_transition", "TECH")).thenReturn(true);
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
@@ -210,6 +221,7 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("rrg_transition")));
     when(alertRulesRepository.findById("composite_breakout"))
         .thenReturn(Optional.of(enabled("composite_breakout", Severity.ACTION)));
+    stubBreakdownDisabled();
     when(alertRepository.existsActiveAlert("composite_breakout", "TECH")).thenReturn(false);
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
@@ -229,7 +241,7 @@ class AlertRulesEngineTest {
   @DisplayName("macro_regime_shift enabled: inserts alert when regime ordinal changes")
   void shouldCreateMacroAlertWhenRegimeChanges() {
     stubTopLevelCategories("TECH");
-    stubRrgAndBreakoutDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
     stubRsAccelDisabled();
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
 
@@ -258,7 +270,7 @@ class AlertRulesEngineTest {
   @DisplayName("macro_regime_shift: no alert when regime ordinal is unchanged")
   void shouldNotCreateMacroAlertWhenRegimeUnchanged() {
     stubTopLevelCategories("TECH");
-    stubRrgAndBreakoutDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
     stubRsAccelDisabled();
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
 
@@ -280,7 +292,7 @@ class AlertRulesEngineTest {
   @DisplayName("macro_regime_shift: no alert when no previous signal date exists")
   void shouldNotCreateMacroAlertWhenNoPreviousSignalDate() {
     stubTopLevelCategories("TECH");
-    stubRrgAndBreakoutDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
     stubRsAccelDisabled();
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
 
@@ -302,7 +314,7 @@ class AlertRulesEngineTest {
   void shouldCreateBullishCrossoverAlert() {
     stubTopLevelCategories("TECH");
     stubMacroDisabled();
-    stubRrgAndBreakoutDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
 
     when(alertRulesRepository.findById("rs_accel_crossover"))
@@ -333,7 +345,7 @@ class AlertRulesEngineTest {
   void shouldCreateBearishCrossoverAlert() {
     stubTopLevelCategories("TECH");
     stubMacroDisabled();
-    stubRrgAndBreakoutDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
 
     when(alertRulesRepository.findById("rs_accel_crossover"))
@@ -363,7 +375,7 @@ class AlertRulesEngineTest {
   void shouldNotCreateCrossoverAlertWhenRelationshipUnchanged() {
     stubTopLevelCategories("TECH");
     stubMacroDisabled();
-    stubRrgAndBreakoutDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
 
     when(alertRulesRepository.findById("rs_accel_crossover"))
@@ -391,7 +403,7 @@ class AlertRulesEngineTest {
     // SEMI is a sub-sector (has parent TECH), not top-level
     stubTopLevelCategories("TECH"); // SEMI not included
     stubMacroDisabled();
-    stubRrgAndBreakoutDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
 
     when(alertRulesRepository.findById("rs_accel_crossover"))
@@ -419,7 +431,7 @@ class AlertRulesEngineTest {
   void shouldNotCreateCrossoverAlertWhenNoPreviousDate() {
     stubTopLevelCategories("TECH");
     stubMacroDisabled();
-    stubRrgAndBreakoutDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
 
     when(alertRulesRepository.findById("rs_accel_crossover"))
@@ -430,6 +442,81 @@ class AlertRulesEngineTest {
     when(signalRepository.findByTypeAndDate(SignalType.RS_120, DATE))
         .thenReturn(Map.of("TECH", new BigDecimal("1.020")));
     when(signalRepository.findPreviousSignalDate(SignalType.RS_60, DATE)).thenReturn(null);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  // ===== Composite Breakdown Tests =====
+
+  @Test
+  @DisplayName("composite_breakdown enabled: inserts alert for COMPOSITE_BREAKDOWN event")
+  void shouldCreateBreakdownAlertForCompositeBreakdownEvent() {
+    stubTopLevelCategories("ENRG");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+
+    RotationEvent event = rotationEvent(CategoryId.ENRG, RotationEventType.COMPOSITE_BREAKDOWN);
+
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of(event));
+    when(alertRulesRepository.findById("rrg_transition"))
+        .thenReturn(Optional.of(disabled("rrg_transition")));
+    when(alertRulesRepository.findById("composite_breakout"))
+        .thenReturn(Optional.of(disabled("composite_breakout")));
+    when(alertRulesRepository.findById("composite_breakdown"))
+        .thenReturn(Optional.of(enabled("composite_breakdown", Severity.WARNING)));
+    when(alertRepository.existsActiveAlert("composite_breakdown", "ENRG")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("composite_breakdown");
+    assertThat(inserted.categoryId()).isEqualTo(CategoryId.ENRG);
+    assertThat(inserted.severity()).isEqualTo(Severity.WARNING);
+    assertThat(inserted.status()).isEqualTo(AlertStatus.ACTIVE);
+    assertThat(inserted.message()).contains("ENRG").contains("REDUCE");
+  }
+
+  @Test
+  @DisplayName("composite_breakdown disabled: no alert inserted")
+  void shouldNotCreateBreakdownAlertWhenRuleDisabled() {
+    stubTopLevelCategories("ENRG");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+
+    RotationEvent event = rotationEvent(CategoryId.ENRG, RotationEventType.COMPOSITE_BREAKDOWN);
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of(event));
+    when(alertRulesRepository.findById("rrg_transition"))
+        .thenReturn(Optional.of(disabled("rrg_transition")));
+    when(alertRulesRepository.findById("composite_breakout"))
+        .thenReturn(Optional.of(disabled("composite_breakout")));
+    when(alertRulesRepository.findById("composite_breakdown"))
+        .thenReturn(Optional.of(disabled("composite_breakdown")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("composite_breakdown enabled: no duplicate when active alert already exists")
+  void shouldNotCreateBreakdownAlertWhenActiveAlertAlreadyExists() {
+    stubTopLevelCategories("MATL");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+
+    RotationEvent event = rotationEvent(CategoryId.MATL, RotationEventType.COMPOSITE_BREAKDOWN);
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of(event));
+    when(alertRulesRepository.findById("rrg_transition"))
+        .thenReturn(Optional.of(disabled("rrg_transition")));
+    when(alertRulesRepository.findById("composite_breakout"))
+        .thenReturn(Optional.of(disabled("composite_breakout")));
+    when(alertRulesRepository.findById("composite_breakdown"))
+        .thenReturn(Optional.of(enabled("composite_breakdown", Severity.WARNING)));
+    when(alertRepository.existsActiveAlert("composite_breakdown", "MATL")).thenReturn(true);
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 

@@ -36,6 +36,7 @@ public class AlertRulesEngine {
 
   private static final String RULE_RRG_TRANSITION = "rrg_transition";
   private static final String RULE_COMPOSITE_BREAKOUT = "composite_breakout";
+  private static final String RULE_COMPOSITE_BREAKDOWN = "composite_breakdown";
   private static final String RULE_MACRO_REGIME_SHIFT = "macro_regime_shift";
   private static final String RULE_RS_ACCEL_CROSSOVER = "rs_accel_crossover";
 
@@ -87,6 +88,11 @@ public class AlertRulesEngine {
             .findById(RULE_COMPOSITE_BREAKOUT)
             .map(AlertRule::enabled)
             .orElse(false);
+    boolean breakdownRuleEnabled =
+        alertRulesRepository
+            .findById(RULE_COMPOSITE_BREAKDOWN)
+            .map(AlertRule::enabled)
+            .orElse(false);
     Severity rrgSeverity =
         alertRulesRepository
             .findById(RULE_RRG_TRANSITION)
@@ -97,6 +103,11 @@ public class AlertRulesEngine {
             .findById(RULE_COMPOSITE_BREAKOUT)
             .map(AlertRule::severity)
             .orElse(Severity.ACTION);
+    Severity breakdownSeverity =
+        alertRulesRepository
+            .findById(RULE_COMPOSITE_BREAKDOWN)
+            .map(AlertRule::severity)
+            .orElse(Severity.WARNING);
 
     int count = 0;
     for (RotationEvent rotationEvent : todaysEvents) {
@@ -129,6 +140,24 @@ public class AlertRulesEngine {
                   String.format(
                       "%s composite score crossed breakout threshold (confidence: %d%%)",
                       categoryId, Math.round(rotationEvent.confidence().doubleValue() * 100)),
+                  buildBreakoutSnapshot(rotationEvent),
+                  AlertStatus.ACTIVE));
+          count++;
+        }
+      }
+
+      if (breakdownRuleEnabled
+          && rotationEvent.eventType() == RotationEventType.COMPOSITE_BREAKDOWN) {
+        if (!alertRepository.existsActiveAlert(RULE_COMPOSITE_BREAKDOWN, categoryId)) {
+          alertRepository.insert(
+              new Alert(
+                  OffsetDateTime.now(),
+                  rotationEvent.categoryId(),
+                  RULE_COMPOSITE_BREAKDOWN,
+                  breakdownSeverity,
+                  String.format(
+                      "%s composite score fell below REDUCE threshold (0.35) — consider reducing exposure",
+                      categoryId),
                   buildBreakoutSnapshot(rotationEvent),
                   AlertStatus.ACTIVE));
           count++;
@@ -208,7 +237,7 @@ public class AlertRulesEngine {
               "entered Weakening quadrant (Leading → Weakening) — rotation peak";
           case ENTERING_LAGGING ->
               "entered Lagging quadrant (Weakening → Lagging) — losing relative strength";
-          default -> "entered Improving quadrant (Lagging → Improving)";
+          default -> "entered Improving quadrant — strengthening momentum";
         };
     return String.format("%s %s", rotationEvent.categoryId().name(), transitionDescription);
   }

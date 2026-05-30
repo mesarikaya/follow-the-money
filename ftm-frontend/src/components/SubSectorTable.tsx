@@ -77,20 +77,34 @@ function TrendPip({ value, label }: { value: number | null | undefined; label: s
   );
 }
 
-function ScoreBar({ score }: { score: number | null }) {
+function ScoreBar({ score, macroFit }: { score: number | null; macroFit?: number | null }) {
   if (score == null) return <span className="text-slate-600 text-xs">—</span>;
   const pct = Math.round(score * 100);
   const filledCount = Math.round(score * 5);
   const barColor = score >= 0.7 ? "bg-green-500" : score >= 0.4 ? "bg-yellow-500" : "bg-red-500";
   const textColor = score >= 0.7 ? "text-green-400" : score >= 0.4 ? "text-yellow-400" : "text-red-400";
+  const macroFitPct = macroFit != null ? Math.round(macroFit * 100) : null;
   return (
-    <div className="flex items-center justify-center gap-1" title={`Composite score: ${pct}/100`}>
-      <div className="flex gap-0.5">
-        {Array.from({ length: 5 }, (_, i) => (
-          <div key={i} className={`w-1.5 h-3 rounded-[2px] ${i < filledCount ? barColor : "bg-slate-700"}`} />
-        ))}
+    <div className="flex flex-col items-center gap-0.5" title={`Composite score: ${pct}/100${macroFitPct != null ? ` · Macro fit: ${macroFitPct}%` : ""}`}>
+      <div className="flex items-center gap-1">
+        <div className="flex gap-0.5">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div key={i} className={`w-1.5 h-3 rounded-[2px] ${i < filledCount ? barColor : "bg-slate-700"}`} />
+          ))}
+        </div>
+        <span className={`text-[11px] tabular-nums font-medium ${textColor}`}>{pct}</span>
       </div>
-      <span className={`text-[11px] tabular-nums font-medium ${textColor}`}>{pct}</span>
+      {macroFitPct != null && (
+        <div className="flex items-center gap-1 w-full justify-center">
+          <div className="w-10 h-0.5 rounded-full bg-slate-700/60 overflow-hidden">
+            <div
+              className={`h-full rounded-full ${macroFitPct >= 60 ? "bg-violet-500" : macroFitPct >= 40 ? "bg-violet-400/50" : "bg-slate-600"}`}
+              style={{ width: `${macroFitPct}%` }}
+            />
+          </div>
+          <span className={`text-[8px] tabular-nums ${macroFitPct >= 60 ? "text-violet-400" : "text-slate-600"}`}>{macroFitPct}%</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -311,7 +325,7 @@ export default function SubSectorTable({
                 </td>
                 <td className="px-4 py-2.5 font-medium text-slate-200">{subSector.name}</td>
                 <td className="px-4 py-2.5">
-                  <ScoreBar score={subSector.compositeScore} />
+                  <ScoreBar score={subSector.compositeScore} macroFit={subSector.macroFit} />
                 </td>
                 <td className="px-4 py-2.5 text-center">
                   {subSector.compositeTrend5d != null ? (

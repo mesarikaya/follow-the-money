@@ -10,6 +10,7 @@ const RULE_SHORT: Record<string, string> = {
   composite_breakdown: "Breakdown",
   macro_regime_shift:  "Regime",
   rs_accel_crossover:  "RS Cross",
+  persistence_low:     "Persist↓",
 };
 
 const SEV_STYLES: Record<string, { strip: string; badge: string; dot: string }> = {

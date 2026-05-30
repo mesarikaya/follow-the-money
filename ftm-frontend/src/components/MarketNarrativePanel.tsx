@@ -7,11 +7,10 @@ import { deriveTradeSignal, countBuyConditions, missingBuyConditions, TradeSigna
 import GlossaryTooltip from "@/components/GlossaryTooltip";
 
 const REGIME_LABELS: Record<string, string> = {
-  RISK_ON:         "Risk-On",
-  RISK_OFF:        "Risk-Off",
-  LATE_CYCLE:      "Late Cycle",
-  EARLY_RECOVERY:  "Early Recovery",
-  TRANSITIONAL:    "Transitional",
+  RISK_ON_GROWTH:    "Risk-On Growth",
+  RISK_ON_DEFENSIVE: "Risk-On Defensive",
+  RISK_OFF_FLIGHT:   "Risk-Off / Flight-to-Safety",
+  STAGFLATION:       "Stagflation",
 };
 
 
@@ -83,6 +82,19 @@ function buildNarrative(
   if (reduceSignals.length > 0) {
     const names = reduceSignals.map(c => c.etfTicker).join(", ");
     lines.push(`**Trim / Avoid:** ${names} — weak score with deteriorating momentum.`);
+  }
+
+  // Regime alignment callout — sectors with high macroFit AND a bullish signal
+  const regimeAligned = equities
+    .filter(c => (c.macroFit ?? 0) >= 0.6 && (getSignal(c) === "BUY" || getSignal(c) === "WATCH"))
+    .sort((a, b) => (b.macroFit ?? 0) - (a.macroFit ?? 0))
+    .slice(0, 3);
+
+  if (regimeAligned.length > 0) {
+    const names = regimeAligned
+      .map(c => `${c.etfTicker} (${Math.round((c.macroFit ?? 0) * 100)}%)`)
+      .join(", ");
+    lines.push(`**Regime-aligned opportunity:** ${names} — historically strong in this regime AND currently signaling.`);
   }
 
   // Top sub-sector callout

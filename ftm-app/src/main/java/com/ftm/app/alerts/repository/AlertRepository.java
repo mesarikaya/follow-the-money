@@ -8,6 +8,7 @@ import com.ftm.app.domain.CategoryId;
 import com.ftm.app.domain.Severity;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.jooq.DSLContext;
 import org.jooq.JSONB;
 import org.springframework.stereotype.Repository;
@@ -75,6 +76,13 @@ public class AlertRepository {
         .where(ALERTS.ID.eq(alertId))
         .and(ALERTS.STATUS.eq(AlertStatus.ACTIVE.name()))
         .execute();
+  }
+
+  public Optional<Alert> findById(Long alertId) {
+    return dsl.selectFrom(ALERTS)
+        .where(ALERTS.ID.eq(alertId))
+        .fetchOptional()
+        .map(this::mapRecord);
   }
 
   public int resolveAlertsByRuleAndCategory(String ruleId, String categoryId) {

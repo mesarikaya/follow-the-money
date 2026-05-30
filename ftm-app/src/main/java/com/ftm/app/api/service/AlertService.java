@@ -39,10 +39,8 @@ public class AlertService {
       throw new NoSuchElementException("Alert not found or already acknowledged: " + alertId);
     }
     log.info("Alert acknowledged: id={}", alertId);
-    return alertRepository.findRecentAlerts(RECENT_ALERTS_LIMIT).stream()
-        .filter(a -> a.id().equals(alertId))
+    return alertRepository.findById(alertId)
         .map(alertMapper::toDto)
-        .findFirst()
-        .orElseThrow();
+        .orElseThrow(() -> new NoSuchElementException("Alert not found after acknowledge: " + alertId));
   }
 }

@@ -79,6 +79,23 @@ class MacroServiceTest {
   }
 
   @Test
+  @DisplayName("getMacroResponse calls findPreviousPerSeries with the asOfDate from latest indicators")
+  void shouldCallFindPreviousPerSeriesWithAsOfDate() {
+    LocalDate today = LocalDate.now();
+    MacroIndicator vix = indicator("VIXCLS", new BigDecimal("18.5"), today);
+    when(macroIndicatorRepository.findLatestPerSeries()).thenReturn(List.of(vix));
+    when(macroRegimeService.classifyCurrentRegime()).thenReturn(MacroRegime.RISK_ON_GROWTH);
+    when(signalRepository.findMacroRegimeHistory(anyInt())).thenReturn(List.of());
+    when(macroRegimeService.computeMacroFitByCategory(MacroRegime.RISK_ON_GROWTH)).thenReturn(Map.of());
+    when(macroIndicatorRepository.findPreviousPerSeries(today)).thenReturn(List.of());
+
+    macroService.getMacroResponse();
+
+    // verify findPreviousPerSeries was called with the latest indicator's date
+    verify(macroIndicatorRepository).findPreviousPerSeries(today);
+  }
+
+  @Test
   @DisplayName("getMacroResponse maps VIXCLS value to indicators dto")
   void shouldMapVixToIndicatorsDto() {
     LocalDate today = LocalDate.now();

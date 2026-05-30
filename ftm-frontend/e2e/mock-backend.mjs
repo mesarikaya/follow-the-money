@@ -26,6 +26,8 @@ const CATEGORIES_RESPONSE = {
       rank: 1,
       latestClose: 192.5,
       priceDate: "2026-05-15",
+      tradeSignal: "BUY",
+      macroFit: 0.78,
     },
     {
       id: "HLTH",
@@ -44,6 +46,8 @@ const CATEGORIES_RESPONSE = {
       rank: 2,
       latestClose: 145.3,
       priceDate: "2026-05-15",
+      tradeSignal: "WATCH",
+      macroFit: 0.63,
     },
     {
       id: "ENRG",
@@ -62,6 +66,8 @@ const CATEGORIES_RESPONSE = {
       rank: 3,
       latestClose: 87.4,
       priceDate: "2026-05-15",
+      tradeSignal: "REDUCE",
+      macroFit: 0.48,
     },
     {
       id: "GOLD",
@@ -80,6 +86,8 @@ const CATEGORIES_RESPONSE = {
       rank: 4,
       latestClose: 310.2,
       priceDate: "2026-05-15",
+      tradeSignal: "WATCH",
+      macroFit: 0.35,
     },
     {
       id: "TLTD",
@@ -98,6 +106,8 @@ const CATEGORIES_RESPONSE = {
       rank: 5,
       latestClose: 88.6,
       priceDate: "2026-05-15",
+      tradeSignal: "HOLD",
+      macroFit: 0.28,
     },
     {
       id: "CASH",
@@ -116,6 +126,8 @@ const CATEGORIES_RESPONSE = {
       rank: 6,
       latestClose: 91.1,
       priceDate: "2026-05-15",
+      tradeSignal: null,
+      macroFit: null,
     },
   ],
 };
@@ -144,8 +156,8 @@ const MACRO_RESPONSE = {
     wtiCrudeOilPrice: 81.2,
   },
   regimeHistory: [
-    { date: "2026-02-28", regime: "RISK_OFF_DEFENSIVE" },
-    { date: "2026-03-07", regime: "RISK_OFF_DEFENSIVE" },
+    { date: "2026-02-28", regime: "RISK_OFF_FLIGHT" },
+    { date: "2026-03-07", regime: "RISK_OFF_FLIGHT" },
     { date: "2026-03-14", regime: "RISK_ON_GROWTH" },
     { date: "2026-03-21", regime: "RISK_ON_GROWTH" },
     { date: "2026-03-28", regime: "RISK_ON_GROWTH" },
@@ -276,6 +288,13 @@ const ALERTS_RESPONSE = {
   ],
 };
 
+const ALERT_RULES_RESPONSE = [
+  { ruleId: "rrg_transition",     enabled: true,  description: "Alert when a sector transitions RRG quadrant",         lookbackDays: 5,  threshold: 0.65, severity: "ACTION" },
+  { ruleId: "composite_breakout", enabled: true,  description: "Alert when composite score crosses 0.65 threshold",    lookbackDays: 3,  threshold: 0.65, severity: "INFO"   },
+  { ruleId: "rs_accel_crossover", enabled: false, description: "Alert when 20-day RS acceleration crosses zero",       lookbackDays: 10, threshold: 0.00, severity: "INFO"   },
+  { ruleId: "macro_regime_shift", enabled: true,  description: "Alert on macro regime change (rolling 4-week window)", lookbackDays: 28, threshold: 0.50, severity: "URGENT" },
+];
+
 const INGEST_RESPONSE = {
   runIds: ["00000000-0000-0000-0000-000000000001"],
   status: "queued",
@@ -344,6 +363,17 @@ const server = http.createServer(async (req, res) => {
   } else if (path === "/api/v1/alerts" && req.method === "GET") {
     res.writeHead(200);
     res.end(JSON.stringify(ALERTS_RESPONSE));
+  } else if (path === "/api/v1/alerts/rules" && req.method === "GET") {
+    res.writeHead(200);
+    res.end(JSON.stringify(ALERT_RULES_RESPONSE));
+  } else if (/^\/api\/v1\/alerts\/rules\/[^/]+$/.test(path) && req.method === "PATCH") {
+    const ruleId = path.split("/").pop();
+    const body = await new Promise((resolve) => {
+      let data = ""; req.on("data", (c) => { data += c; }); req.on("end", () => resolve(JSON.parse(data)));
+    });
+    const rule = ALERT_RULES_RESPONSE.find(r => r.ruleId === ruleId) ?? ALERT_RULES_RESPONSE[0];
+    res.writeHead(200);
+    res.end(JSON.stringify({ ...rule, enabled: body.enabled ?? rule.enabled }));
   } else if (/^\/api\/v1\/alerts\/\d+\/acknowledge$/.test(path) && req.method === "POST") {
     res.writeHead(200);
     res.end(JSON.stringify({ ...ALERTS_RESPONSE.alerts[0], status: "ACKNOWLEDGED", acknowledgedAt: "2026-05-15T11:00:00Z" }));

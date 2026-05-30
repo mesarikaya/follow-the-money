@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { AlertDto, fetchAlerts, acknowledgeAlert } from "@/lib/api";
+import { AlertDto, fetchAlerts, acknowledgeAlert, bulkDismissAlerts } from "@/lib/api";
 
 const RULE_SHORT: Record<string, string> = {
   rrg_transition:      "RRG",
@@ -23,6 +23,7 @@ const SEV_STYLES: Record<string, { strip: string; badge: string; dot: string }> 
 export default function ActiveAlertsStrip() {
   const [alerts, setAlerts] = useState<AlertDto[]>([]);
   const [dismissing, setDismissing] = useState<number | null>(null);
+  const [bulkDismissing, setBulkDismissing] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
   const load = useCallback(async () => {
@@ -50,6 +51,16 @@ export default function ActiveAlertsStrip() {
     }
   };
 
+  const dismissAll = async () => {
+    setBulkDismissing(true);
+    try {
+      await bulkDismissAlerts();
+      await load();
+    } catch {} finally {
+      setBulkDismissing(false);
+    }
+  };
+
   if (alerts.length === 0) return null;
 
   const topSeverity = alerts[0].severity;
@@ -66,6 +77,15 @@ export default function ActiveAlertsStrip() {
         <Link href="/alerts" className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors ml-1">
           See all →
         </Link>
+        {alerts.length > 1 && (
+          <button
+            onClick={dismissAll}
+            disabled={bulkDismissing}
+            className="text-[10px] text-slate-600 hover:text-slate-400 border border-slate-700/50 hover:border-slate-600 px-2 py-0.5 rounded transition-colors disabled:opacity-40"
+          >
+            {bulkDismissing ? "…" : "Dismiss all"}
+          </button>
+        )}
         <button
           onClick={() => setCollapsed(c => !c)}
           className="ml-auto text-[10px] text-slate-600 hover:text-slate-400 transition-colors"

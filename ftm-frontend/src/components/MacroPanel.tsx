@@ -1,5 +1,70 @@
 import { MacroResponse, MacroIndicators } from "@/lib/api";
 
+type SignalReading = {
+  label: string;
+  colorClass: string;
+  barPct: number;
+};
+
+function interpretIndicator(key: keyof MacroIndicators, value: number | null): SignalReading | null {
+  if (value == null) return null;
+  switch (key) {
+    case "vix": {
+      if (value < 15) return { label: "Calm", colorClass: "text-emerald-400", barPct: 15 };
+      if (value < 20) return { label: "Low Fear", colorClass: "text-emerald-300", barPct: 30 };
+      if (value < 25) return { label: "Elevated", colorClass: "text-amber-400", barPct: 55 };
+      if (value < 30) return { label: "High Fear", colorClass: "text-orange-400", barPct: 70 };
+      return { label: "Panic", colorClass: "text-red-400", barPct: 90 };
+    }
+    case "yieldSpread10y2y": {
+      if (value > 1.0) return { label: "Steep Curve", colorClass: "text-emerald-400", barPct: 85 };
+      if (value > 0.5) return { label: "Normal", colorClass: "text-emerald-300", barPct: 65 };
+      if (value > 0.0) return { label: "Flattening", colorClass: "text-amber-400", barPct: 45 };
+      if (value > -0.5) return { label: "Inverted", colorClass: "text-orange-400", barPct: 25 };
+      return { label: "Deep Inversion", colorClass: "text-red-400", barPct: 10 };
+    }
+    case "tenYearYield": {
+      if (value < 3.5) return { label: "Accommodative", colorClass: "text-emerald-400", barPct: 25 };
+      if (value < 4.5) return { label: "Neutral", colorClass: "text-slate-400", barPct: 50 };
+      if (value < 5.5) return { label: "Restrictive", colorClass: "text-amber-400", barPct: 70 };
+      return { label: "Very High", colorClass: "text-red-400", barPct: 90 };
+    }
+    case "twoYearYield": {
+      if (value < 3.5) return { label: "Low", colorClass: "text-emerald-400", barPct: 25 };
+      if (value < 4.5) return { label: "Moderate", colorClass: "text-slate-400", barPct: 50 };
+      if (value < 5.5) return { label: "High", colorClass: "text-amber-400", barPct: 75 };
+      return { label: "Very High", colorClass: "text-red-400", barPct: 90 };
+    }
+    case "breakevenInflation": {
+      if (value < 1.5) return { label: "Deflation Risk", colorClass: "text-blue-400", barPct: 10 };
+      if (value < 2.0) return { label: "Below Target", colorClass: "text-slate-400", barPct: 35 };
+      if (value < 2.5) return { label: "On Target", colorClass: "text-emerald-400", barPct: 55 };
+      if (value < 3.0) return { label: "Above Target", colorClass: "text-amber-400", barPct: 75 };
+      return { label: "High Inflation", colorClass: "text-red-400", barPct: 90 };
+    }
+    case "fedFundsRate": {
+      if (value < 2.0) return { label: "Accommodative", colorClass: "text-emerald-400", barPct: 20 };
+      if (value < 3.5) return { label: "Neutral", colorClass: "text-slate-400", barPct: 45 };
+      if (value < 5.0) return { label: "Restrictive", colorClass: "text-amber-400", barPct: 70 };
+      return { label: "Very Tight", colorClass: "text-red-400", barPct: 90 };
+    }
+    case "usdIndex": {
+      if (value < 95) return { label: "Weak USD", colorClass: "text-emerald-400", barPct: 25 };
+      if (value < 103) return { label: "Neutral", colorClass: "text-slate-400", barPct: 50 };
+      if (value < 110) return { label: "Strong USD", colorClass: "text-amber-400", barPct: 70 };
+      return { label: "Very Strong", colorClass: "text-orange-400", barPct: 88 };
+    }
+    case "wtiCrudeOilPrice": {
+      if (value < 50) return { label: "Low", colorClass: "text-emerald-400", barPct: 20 };
+      if (value < 75) return { label: "Moderate", colorClass: "text-slate-400", barPct: 45 };
+      if (value < 95) return { label: "Elevated", colorClass: "text-amber-400", barPct: 70 };
+      return { label: "High — Inflationary", colorClass: "text-red-400", barPct: 88 };
+    }
+    default:
+      return null;
+  }
+}
+
 const REGIME_COLORS: Record<string, string> = {
   RISK_ON_GROWTH:    "bg-emerald-900/50 text-emerald-300 border-emerald-700",
   RISK_ON_DEFENSIVE: "bg-blue-900/50 text-blue-300 border-blue-700",
@@ -126,19 +191,33 @@ function MacroCard({
   previousValue: number | null;
 }) {
   const trend = trendArrow(value, previousValue, config.lowerIsBetter);
+  const reading = interpretIndicator(config.key, value);
   return (
     <div
-      className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3"
+      className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 space-y-1.5"
       title={config.tooltip}
     >
-      <div className="text-xs text-slate-500 mb-1">{config.label}</div>
-      <div className="text-lg font-semibold tabular-nums text-slate-100 leading-tight">
-        {config.format(value)}
+      <div className="text-xs text-slate-500">{config.label}</div>
+      <div className="flex items-baseline gap-2">
+        <span className="text-lg font-semibold tabular-nums text-slate-100 leading-tight">
+          {config.format(value)}
+        </span>
+        {trend && (
+          <span className={`flex items-center gap-0.5 text-[11px] ${trend.colorClass}`}>
+            <span>{trend.arrow}</span>
+            {trend.deltaStr && <span className="tabular-nums">{trend.deltaStr}</span>}
+          </span>
+        )}
       </div>
-      {trend && (
-        <div className={`flex items-center gap-1 text-[11px] mt-0.5 ${trend.colorClass}`}>
-          <span>{trend.arrow}</span>
-          {trend.deltaStr && <span className="tabular-nums">{trend.deltaStr}</span>}
+      {reading && (
+        <div className="space-y-1">
+          <span className={`text-[10px] font-medium ${reading.colorClass}`}>{reading.label}</span>
+          <div className="h-1 bg-slate-700 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${reading.colorClass.replace("text-", "bg-")}`}
+              style={{ width: `${reading.barPct}%` }}
+            />
+          </div>
         </div>
       )}
     </div>

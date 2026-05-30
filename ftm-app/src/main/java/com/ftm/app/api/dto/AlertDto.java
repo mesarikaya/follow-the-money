@@ -9,6 +9,7 @@ public record AlertDto(
     String ruleId,
     String severity,
     String message,
+    String triggerSnapshot,
     String status,
     OffsetDateTime resolvedAt,
     OffsetDateTime acknowledgedAt) {}

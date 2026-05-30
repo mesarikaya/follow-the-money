@@ -117,7 +117,8 @@ export default function MarketNarrativePanel({ categories, macro, topSubSectors 
   if (equities.length < 3) return null;
 
   const narrative = buildNarrative(equities, macro, topSubSectors);
-  const buySignals = equities.filter(c => deriveTradeSignal(c) === "BUY");
+  const getSignal = (c: CategorySummary) => (c.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(c);
+  const buySignals = equities.filter(c => getSignal(c) === "BUY");
 
   return (
     <div className="bg-slate-800/50 border border-slate-700/60 rounded-xl overflow-hidden">

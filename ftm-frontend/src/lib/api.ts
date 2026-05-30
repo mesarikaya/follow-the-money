@@ -164,6 +164,7 @@ export type AlertDto = {
   ruleId: string;
   severity: "INFO" | "WARNING" | "ACTION";
   message: string;
+  triggerSnapshot: string | null;
   status: "ACTIVE" | "RESOLVED" | "ACKNOWLEDGED";
   resolvedAt: string | null;
   acknowledgedAt: string | null;

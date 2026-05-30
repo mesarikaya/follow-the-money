@@ -3,6 +3,37 @@
 import { useEffect, useState, useCallback } from "react";
 import { fetchAlerts, acknowledgeAlert, AlertsResponse, AlertDto } from "@/lib/api";
 
+function parseSnapshot(raw: string | null): Record<string, unknown> | null {
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+
+function SnapshotViewer({ raw }: { raw: string | null }) {
+  const [open, setOpen] = useState(false);
+  const data = parseSnapshot(raw);
+  if (!data) return null;
+  return (
+    <div className="mt-1.5">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors"
+      >
+        {open ? "▲ hide details" : "▼ signal snapshot"}
+      </button>
+      {open && (
+        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+          {Object.entries(data).map(([key, val]) => (
+            <span key={key} className="text-[10px] font-mono">
+              <span className="text-slate-600">{key}:</span>{" "}
+              <span className="text-slate-300">{String(val)}</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const SEVERITY_STYLES: Record<string, { badge: string; row: string }> = {
   ACTION:  { badge: "bg-red-900/80 text-red-300 border border-red-700/50",    row: "bg-red-950/20"    },
   WARNING: { badge: "bg-amber-900/80 text-amber-300 border border-amber-700/50", row: "bg-amber-950/15" },
@@ -165,6 +196,7 @@ export default function AlertsPage() {
                       <span className="text-xs text-slate-600 ml-auto">{formatAlertDate(alert.createdAt)}</span>
                     </div>
                     <p className="text-sm text-slate-300">{alert.message}</p>
+                    <SnapshotViewer raw={alert.triggerSnapshot} />
                   </div>
                   <button
                     onClick={() => handleAcknowledge(alert.id)}
@@ -193,21 +225,23 @@ export default function AlertsPage() {
                       <th className="text-left px-4 py-2.5">Category</th>
                       <th className="text-left px-4 py-2.5">Severity</th>
                       <th className="text-left px-4 py-2.5">Rule</th>
+                      <th className="text-left px-4 py-2.5">Message</th>
                       <th className="text-left px-4 py-2.5">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
                     {historyAlerts.map((alert: AlertDto) => (
-                      <tr key={alert.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="px-4 py-2 text-xs text-slate-500">{formatDateShort(alert.createdAt)}</td>
+                      <tr key={alert.id} className="hover:bg-slate-800/40 transition-colors" title={alert.message}>
+                        <td className="px-4 py-2 text-xs text-slate-500 whitespace-nowrap">{formatDateShort(alert.createdAt)}</td>
                         <td className="px-4 py-2 font-mono text-blue-300 font-medium text-xs">{alert.categoryId ?? "—"}</td>
                         <td className="px-4 py-2">
                           <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${severityBadgeCls(alert.severity)}`}>
                             {alert.severity}
                           </span>
                         </td>
-                        <td className="px-4 py-2 text-xs text-slate-400">{RULE_LABELS[alert.ruleId] ?? alert.ruleId}</td>
-                        <td className={`px-4 py-2 text-xs ${STATUS_STYLES[alert.status] ?? "text-slate-500"}`}>{alert.status}</td>
+                        <td className="px-4 py-2 text-xs text-slate-400 whitespace-nowrap">{RULE_LABELS[alert.ruleId] ?? alert.ruleId}</td>
+                        <td className="px-4 py-2 text-xs text-slate-500 max-w-[280px] truncate">{alert.message}</td>
+                        <td className={`px-4 py-2 text-xs whitespace-nowrap ${STATUS_STYLES[alert.status] ?? "text-slate-500"}`}>{alert.status}</td>
                       </tr>
                     ))}
                   </tbody>

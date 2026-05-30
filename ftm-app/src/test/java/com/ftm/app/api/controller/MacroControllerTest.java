@@ -6,7 +6,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.ftm.app.api.dto.MacroIndicatorsDto;
 import com.ftm.app.api.dto.MacroRegimeHistoryEntry;
 import com.ftm.app.api.dto.MacroResponse;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
@@ -52,17 +51,22 @@ class MacroControllerTest {
   }
 
   @Test
-  @DisplayName("GET /macro response includes asOfDate, regimeHistory, and macroFitByCategory fields")
+  @DisplayName(
+      "GET /macro response includes asOfDate, regimeHistory, and macroFitByCategory fields")
   void shouldIncludeFullResponseStructure() throws Exception {
     LocalDate today = LocalDate.of(2024, 6, 1);
-    MacroIndicatorsDto indicators = Instancio.create(MacroIndicatorsDto.class);
-    MacroResponse response = new MacroResponse(
-        today,
-        "RISK_ON_GROWTH",
-        indicators,
-        null,
-        List.of(new MacroRegimeHistoryEntry(today.minusDays(7), "RISK_ON_GROWTH")),
-        Map.of("TECH", new BigDecimal("0.78")));
+    MacroRegimeHistoryEntry historyEntry =
+        Instancio.of(MacroRegimeHistoryEntry.class)
+            .set(field(MacroRegimeHistoryEntry::date), today.minusDays(7))
+            .set(field(MacroRegimeHistoryEntry::regime), "RISK_ON_GROWTH")
+            .create();
+    MacroResponse response =
+        Instancio.of(MacroResponse.class)
+            .set(field(MacroResponse::asOfDate), today)
+            .set(field(MacroResponse::regime), "RISK_ON_GROWTH")
+            .set(field(MacroResponse::regimeHistory), List.of(historyEntry))
+            .set(field(MacroResponse::macroFitByCategory), Map.of("TECH", new BigDecimal("0.78")))
+            .create();
     when(macroService.getMacroResponse()).thenReturn(response);
 
     mockMvc

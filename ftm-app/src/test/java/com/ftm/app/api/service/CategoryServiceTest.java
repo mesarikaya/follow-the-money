@@ -201,7 +201,8 @@ class CategoryServiceTest {
   }
 
   @Test
-  @DisplayName("getCategoriesResponse treats null timeframe as MONTH (uses RS_60, not RS_20 or RS_120)")
+  @DisplayName(
+      "getCategoriesResponse treats null timeframe as MONTH (uses RS_60, not RS_20 or RS_120)")
   void shouldTreatNullTimeframeAsMonth() {
     when(categoryRepository.findAllWithLatestPrice()).thenReturn(List.of());
     when(signalRepository.findLatestByTypes(any())).thenReturn(Map.of());
@@ -218,17 +219,32 @@ class CategoryServiceTest {
   @Test
   @DisplayName("getCategoriesResponse returns one DTO per row with sequential ranks")
   void shouldReturnOneDtoPerRowWithSequentialRanks() {
-    Category tech = new Category(CategoryId.TECH, "Technology", CategoryType.EQUITY_SECTOR, "XLK", "SPY", 1, true, null);
-    Category hlth = new Category(CategoryId.HLTH, "Health Care", CategoryType.EQUITY_SECTOR, "XLV", "SPY", 5, true, null);
-    CategoryPriceRow row1 = new CategoryPriceRow(tech, new BigDecimal("185.00"), LocalDate.of(2024, 6, 1));
-    CategoryPriceRow row2 = new CategoryPriceRow(hlth, new BigDecimal("145.00"), LocalDate.of(2024, 6, 1));
+    Category tech =
+        new Category(
+            CategoryId.TECH, "Technology", CategoryType.EQUITY_SECTOR, "XLK", "SPY", 1, true, null);
+    Category hlth =
+        new Category(
+            CategoryId.HLTH,
+            "Health Care",
+            CategoryType.EQUITY_SECTOR,
+            "XLV",
+            "SPY",
+            5,
+            true,
+            null);
+    CategoryPriceRow row1 =
+        new CategoryPriceRow(tech, new BigDecimal("185.00"), LocalDate.of(2024, 6, 1));
+    CategoryPriceRow row2 =
+        new CategoryPriceRow(hlth, new BigDecimal("145.00"), LocalDate.of(2024, 6, 1));
     when(categoryRepository.findAllWithLatestPrice()).thenReturn(List.of(row1, row2));
     when(signalRepository.findLatestByTypes(any())).thenReturn(Map.of());
     CategorySummaryDto dto1 = Instancio.create(CategorySummaryDto.class);
     CategorySummaryDto dto2 = Instancio.create(CategorySummaryDto.class);
-    when(categoryMapper.toDto(eq(row1), eq(1), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+    when(categoryMapper.toDto(
+            eq(row1), eq(1), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(dto1);
-    when(categoryMapper.toDto(eq(row2), eq(2), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+    when(categoryMapper.toDto(
+            eq(row2), eq(2), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(dto2);
 
     CategoriesResponse result = categoryService.getCategoriesResponse("MONTH");

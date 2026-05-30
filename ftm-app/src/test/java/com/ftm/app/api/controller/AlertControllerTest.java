@@ -99,7 +99,11 @@ class AlertControllerTest {
   @Test
   @DisplayName("GET /alerts/rules returns list of alert rules")
   void shouldReturnAlertRules() throws Exception {
-    AlertRuleDto rule = new AlertRuleDto("composite_breakout", true, "ACTION", null, null);
+    AlertRuleDto rule =
+        Instancio.of(AlertRuleDto.class)
+            .set(field(AlertRuleDto::ruleId), "composite_breakout")
+            .set(field(AlertRuleDto::enabled), true)
+            .create();
     when(alertService.getAlertRules()).thenReturn(List.of(rule));
 
     mockMvc
@@ -113,7 +117,11 @@ class AlertControllerTest {
   @Test
   @DisplayName("PUT /alerts/rules/{id}/enabled toggles a rule and returns updated dto")
   void shouldToggleAlertRule() throws Exception {
-    AlertRuleDto updated = new AlertRuleDto("rrg_transition", false, "INFO", null, null);
+    AlertRuleDto updated =
+        Instancio.of(AlertRuleDto.class)
+            .set(field(AlertRuleDto::ruleId), "rrg_transition")
+            .set(field(AlertRuleDto::enabled), false)
+            .create();
     when(alertService.setRuleEnabled("rrg_transition", false)).thenReturn(updated);
 
     mockMvc

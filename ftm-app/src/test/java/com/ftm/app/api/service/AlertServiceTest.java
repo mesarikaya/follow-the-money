@@ -106,7 +106,8 @@ class AlertServiceTest {
   }
 
   private AlertRule alertRule(String ruleId, boolean enabled) {
-    return new AlertRule(ruleId, enabled, null, 3, new BigDecimal("0.65"), Severity.ACTION, null, null, null);
+    return new AlertRule(
+        ruleId, enabled, null, 3, new BigDecimal("0.65"), Severity.ACTION, null, null, null);
   }
 
   @Test

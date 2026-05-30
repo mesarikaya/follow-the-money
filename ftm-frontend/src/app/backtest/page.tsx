@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { runBacktest, fetchRecentBacktests, BacktestResult, EquityCurvePoint, RebalanceEvent } from "@/lib/api";
+import { runBacktest, fetchRecentBacktests, fetchCategories, fetchMacro, BacktestResult, EquityCurvePoint, RebalanceEvent, CategorySummary } from "@/lib/api";
 import { CATEGORY_ETF_MAP } from "@/lib/sectors";
+import { deriveTradeSignal } from "@/lib/signals";
 
 const DEFAULT_START_DATE = "2021-01-04";
 const DEFAULT_END_DATE   = new Date().toISOString().split("T")[0];
@@ -363,9 +364,13 @@ export default function BacktesterPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [recentRuns, setRecentRuns] = useState<BacktestResult[]>([]);
+  const [liveCategories, setLiveCategories] = useState<CategorySummary[]>([]);
+  const [liveRegime, setLiveRegime] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRecentBacktests().then(setRecentRuns).catch(() => {});
+    fetchCategories("MONTH").then(r => setLiveCategories(r.categories)).catch(() => {});
+    fetchMacro().then(r => setLiveRegime(r.regime)).catch(() => {});
   }, []);
 
   const handleRun = async () => {
@@ -404,6 +409,24 @@ export default function BacktesterPage() {
   const inputCls = "w-full text-xs font-mono bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-slate-200 focus:border-blue-500 focus:outline-none";
   const labelCls = "text-xs text-slate-500 block mb-1";
 
+  type LiveCat = CategorySummary & { signal: "BUY" | "WATCH" | "HOLD" | "REDUCE" | null };
+  const withSignals: LiveCat[] = liveCategories.map(cat => ({
+    ...cat,
+    signal: (cat.tradeSignal as "BUY" | "WATCH" | "HOLD" | "REDUCE" | null) ?? deriveTradeSignal(cat),
+  }));
+  const buySignals = withSignals.filter(c => c.signal === "BUY").sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
+  const watchSignals = withSignals.filter(c => c.signal === "WATCH").sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0)).slice(0, 6);
+  const reduceSignals = withSignals.filter(c => c.signal === "REDUCE").slice(0, 4);
+  const topNLive = withSignals.filter(c => c.signal === "BUY" || c.signal === "WATCH").sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0)).slice(0, topN);
+  const hasLiveData = liveCategories.length > 0 && liveCategories.some(c => c.compositeScore != null);
+
+  const REGIME_LABEL: Record<string, { label: string; color: string }> = {
+    RISK_ON_GROWTH:    { label: "Risk-On Growth",     color: "text-green-400"  },
+    RISK_ON_DEFENSIVE: { label: "Risk-On Defensive",  color: "text-cyan-400"   },
+    RISK_OFF_FLIGHT:   { label: "Risk-Off / Flight",  color: "text-orange-400" },
+    STAGFLATION:       { label: "Stagflation",        color: "text-red-400"    },
+  };
+
   return (
     <div className="flex flex-col h-full">
       <header className="px-6 py-4 border-b border-slate-700 shrink-0">
@@ -420,10 +443,164 @@ export default function BacktesterPage() {
       </header>
 
       <main className="flex-1 overflow-auto p-6">
+
+        {/* Live Recommendations Panel */}
+        {hasLiveData && (
+          <div className="mb-5 bg-slate-800/60 border border-slate-700/60 rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-700/60 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                <span className="text-sm font-semibold text-slate-200">Live Signal — What the Strategy Holds Today</span>
+              </div>
+              <div className="flex items-center gap-3">
+                {liveRegime && (() => {
+                  const rc = REGIME_LABEL[liveRegime];
+                  return rc ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-slate-700/60 border border-slate-600/60">
+                      Regime: <span className={`font-semibold ${rc.color}`}>{rc.label}</span>
+                    </span>
+                  ) : null;
+                })()}
+                <span className="text-[10px] text-slate-500">Based on current composite scores</span>
+              </div>
+            </div>
+            <div className="p-4 space-y-3">
+
+              {/* Top-N portfolio preview */}
+              {topNLive.length > 0 && (
+                <div>
+                  <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <span>Top-{topN} Holdings (current strategy picks)</span>
+                    <span className="text-slate-600">— equal-weighted if run today</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {topNLive.map((cat, i) => {
+                      const sig = cat.signal;
+                      const score = cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : null;
+                      const rrg = cat.rrgQuadrant;
+                      const quadrantLabel = rrg === "4" ? "↗ Leading" : rrg === "3" ? "↖ Improving" : rrg === "2" ? "↘ Weakening" : rrg === "1" ? "↙ Lagging" : null;
+                      const sigCls = sig === "BUY"
+                        ? "bg-green-900/50 border-green-700/60 text-green-300"
+                        : sig === "WATCH"
+                        ? "bg-cyan-900/40 border-cyan-700/50 text-cyan-300"
+                        : "bg-slate-700/50 border-slate-600/60 text-slate-400";
+                      return (
+                        <div key={cat.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${sigCls}`}
+                          title={`${cat.name} (${cat.etfTicker}) — Score: ${score ?? "??"}/100${quadrantLabel ? ` — RRG: ${quadrantLabel}` : ""}${cat.macroFit != null ? ` — Macro fit: ${Math.round(cat.macroFit * 100)}%` : ""}`}>
+                          <span className="text-[10px] text-slate-500 tabular-nums w-3 shrink-0">{i + 1}</span>
+                          <span className="font-mono font-bold text-sm">{cat.etfTicker}</span>
+                          <span className="text-[10px] text-slate-400 hidden md:inline">{cat.name}</span>
+                          {score != null && (
+                            <span className="text-[10px] tabular-nums opacity-70">{score}/100</span>
+                          )}
+                          {sig && (
+                            <span className={`text-[9px] font-bold uppercase opacity-80`}>{sig}</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {topNLive.length < topN && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-600/40 bg-slate-700/20 text-slate-600 text-[10px]">
+                        {topN - topNLive.length}× CASH (BIL) — no qualifying signal
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* BUY / WATCH / REDUCE breakdown */}
+              <div className="grid grid-cols-3 gap-3 pt-2 border-t border-slate-700/40">
+                <div>
+                  <div className="text-[10px] text-green-400 uppercase tracking-wider mb-1.5 font-semibold">BUY ({buySignals.length})</div>
+                  <div className="flex flex-wrap gap-1">
+                    {buySignals.length === 0 && <span className="text-[10px] text-slate-600">None</span>}
+                    {buySignals.map(cat => (
+                      <span key={cat.id} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-green-900/40 text-green-300 border border-green-800/50"
+                        title={`${cat.name} — Score: ${cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : "??"}${cat.macroFit != null ? `, Macro fit: ${Math.round(cat.macroFit * 100)}%` : ""}`}>
+                        {cat.etfTicker}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mt-1 text-[9px] text-slate-600">score ≥65 + RRG 3/4 + positive trend</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-cyan-400 uppercase tracking-wider mb-1.5 font-semibold">WATCH ({watchSignals.length})</div>
+                  <div className="flex flex-wrap gap-1">
+                    {watchSignals.length === 0 && <span className="text-[10px] text-slate-600">None</span>}
+                    {watchSignals.map(cat => (
+                      <span key={cat.id} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-900/30 text-cyan-300 border border-cyan-800/40"
+                        title={`${cat.name} — Score: ${cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : "??"}${cat.macroFit != null ? `, Macro fit: ${Math.round(cat.macroFit * 100)}%` : ""}`}>
+                        {cat.etfTicker}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mt-1 text-[9px] text-slate-600">score ≥50 + improving RRG or trend</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-red-400 uppercase tracking-wider mb-1.5 font-semibold">REDUCE ({reduceSignals.length})</div>
+                  <div className="flex flex-wrap gap-1">
+                    {reduceSignals.length === 0 && <span className="text-[10px] text-slate-600">None</span>}
+                    {reduceSignals.map(cat => (
+                      <span key={cat.id} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-red-900/30 text-red-400 border border-red-800/40"
+                        title={`${cat.name} — Score: ${cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : "??"}`}>
+                        {cat.etfTicker}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mt-1 text-[9px] text-slate-600">score &lt;35 + lagging/weakening RRG</div>
+                </div>
+              </div>
+
+              <div className="text-[10px] text-slate-600 pt-1 border-t border-slate-700/30">
+                Live data — scores update after each market close. Hover any ticker for details. BUY = all three conditions aligned; WATCH = two conditions met; run a backtest below to see historical performance.
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-4 gap-5 min-h-0">
 
           {/* Left column: parameters */}
           <div className="col-span-1">
+
+            {/* Quick Presets */}
+            <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-3 mb-4">
+              <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 font-semibold">Quick Presets</div>
+              <div className="flex flex-col gap-1.5">
+                {([
+                  {
+                    label: "Conservative Rotation",
+                    desc: "Monthly rebalance, top 3 GICS sectors, no threshold",
+                    apply: () => { setRebalanceFrequency("MONTHLY"); setTopN(3); setCategoryScope("EQUITY_SECTORS_ONLY"); setSignalThreshold(""); },
+                  },
+                  {
+                    label: "Balanced All-Asset",
+                    desc: "Monthly, top 5 including Gold & Bonds as defensive",
+                    apply: () => { setRebalanceFrequency("MONTHLY"); setTopN(5); setCategoryScope("TOP_LEVEL_ONLY"); setSignalThreshold(""); },
+                  },
+                  {
+                    label: "Aggressive Momentum",
+                    desc: "Weekly, top 3, min score 0.50 — only strong signals",
+                    apply: () => { setRebalanceFrequency("WEEKLY"); setTopN(3); setCategoryScope("EQUITY_SECTORS_ONLY"); setSignalThreshold("0.50"); },
+                  },
+                  {
+                    label: "Quality Filter",
+                    desc: "Quarterly rebalance, top 5, min score 0.60",
+                    apply: () => { setRebalanceFrequency("QUARTERLY"); setTopN(5); setCategoryScope("TOP_LEVEL_ONLY"); setSignalThreshold("0.60"); },
+                  },
+                ] as const).map(preset => (
+                  <button
+                    key={preset.label}
+                    onClick={preset.apply}
+                    className="text-left px-2.5 py-2 rounded-lg bg-slate-700/40 border border-slate-600/40 hover:bg-slate-700/70 hover:border-slate-500/60 transition-colors group"
+                  >
+                    <div className="text-[11px] font-semibold text-slate-300 group-hover:text-slate-100">{preset.label}</div>
+                    <div className="text-[9px] text-slate-600 group-hover:text-slate-500 mt-0.5">{preset.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 sticky top-0">
               <h2 className="text-sm font-semibold text-slate-200 mb-4">Strategy Parameters</h2>
               <div className="flex flex-col gap-4">

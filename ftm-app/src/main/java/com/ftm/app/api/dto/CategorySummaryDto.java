@@ -34,5 +34,7 @@ public record CategorySummaryDto(
         LocalDate priceDate,
     @Schema(description = "Trade signal: BUY, WATCH, HOLD, or REDUCE; null until signals computed")
         String tradeSignal,
-    @Schema(description = "MACRO_FIT win rate in current regime [0,1]; null for sub-sectors or until signals computed")
+    @Schema(
+            description =
+                "MACRO_FIT win rate in current regime [0,1]; null for sub-sectors or until signals computed")
         BigDecimal macroFit) {}

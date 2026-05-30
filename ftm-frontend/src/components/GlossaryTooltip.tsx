@@ -75,6 +75,32 @@ const TERMS: Record<string, { short: string; detail: string }> = {
     detail:
       "Two negative conditions aligned. The sector's signal is weak AND deteriorating. Consider trimming exposure and rotating into higher-scoring sectors.",
   },
+  // Rotation mechanics
+  "Score Trend": {
+    short: "How fast the composite score is rising or falling.",
+    detail:
+      "The 5-day trend shows short-term momentum; the 20-day trend shows whether the sector is on a sustained upswing or decline. A positive 20d trend alongside a BUY signal is the strongest entry confirmation — it means the score has been rising for a month, not just spiking today.",
+  },
+  "RS Acceleration": {
+    short: "RS-60 is rising faster than RS-120 — momentum building.",
+    detail:
+      "When the 60-day relative strength is significantly higher than the 120-day, the sector is gaining momentum versus its benchmark. The ↗ arrow indicates this state. It's an early signal that rotation is starting — the sector is outperforming AND the pace of outperformance is increasing.",
+  },
+  "Breadth": {
+    short: "How many sectors are simultaneously strong or weak.",
+    detail:
+      "Market breadth counts the number of sectors meeting threshold conditions. High breadth (many strong sectors) suggests a rising-tide bull market. Low breadth (few leaders) means the rally is narrow and fragile. Regime-fit breadth counts sectors historically strong in the current macro regime.",
+  },
+  "Conviction": {
+    short: "How many of 4 buy criteria the sector meets simultaneously.",
+    detail:
+      "Four independent conditions: composite score ≥60, RRG quadrant 3 or 4 (improving/leading), positive 20-day trend, and macro fit ≥60%. A sector meeting all 4 has the strongest possible setup. Three out of four is still actionable. Two or fewer is speculative.",
+  },
+  "Position Sizing": {
+    short: "How much capital to allocate to each sector signal.",
+    detail:
+      "This tool does not provide explicit position sizing. For a starting framework: BUY sectors can receive full weight (e.g. equal share of equity allocation). WATCH sectors can receive half weight. HOLD sectors maintain existing positions. REDUCE sectors receive zero new capital. Risk-off regimes (VIX >25) warrant reducing overall equity allocation, not sector weighting alone.",
+  },
   // Market structure
   "Sharpe Ratio": {
     short: "Return per unit of risk (higher is better).",

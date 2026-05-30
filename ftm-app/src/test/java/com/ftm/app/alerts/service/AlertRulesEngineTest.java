@@ -21,7 +21,6 @@ import com.ftm.app.domain.SignalType;
 import com.ftm.app.signals.event.SignalsUpdatedEvent;
 import com.ftm.app.signals.repository.RotationEventRepository;
 import com.ftm.app.signals.repository.SignalRepository;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -76,6 +75,13 @@ class AlertRulesEngineTest {
         .create();
   }
 
+  private RotationEvent rotationEvent(CategoryId categoryId, RotationEventType eventType) {
+    return Instancio.of(RotationEvent.class)
+        .set(field(RotationEvent::categoryId), categoryId)
+        .set(field(RotationEvent::eventType), eventType)
+        .create();
+  }
+
   private void stubTopLevelCategories(String... ids) {
     when(categoryRepository.findTopLevelActiveCategoryIds()).thenReturn(Set.of(ids));
   }
@@ -106,15 +112,7 @@ class AlertRulesEngineTest {
     stubMacroDisabled();
     stubRsAccelDisabled();
 
-    RotationEvent event =
-        new RotationEvent(
-            DATE,
-            CategoryId.TECH,
-            RotationEventType.ENTERING_IMPROVING,
-            new BigDecimal("0.800"),
-            "{}",
-            "");
-
+    RotationEvent event = rotationEvent(CategoryId.TECH, RotationEventType.ENTERING_IMPROVING);
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of(event));
     when(alertRulesRepository.findById("rrg_transition"))
         .thenReturn(Optional.of(enabled("rrg_transition", Severity.INFO)));
@@ -141,14 +139,7 @@ class AlertRulesEngineTest {
     stubMacroDisabled();
     stubRsAccelDisabled();
 
-    RotationEvent event =
-        new RotationEvent(
-            DATE,
-            CategoryId.FINL,
-            RotationEventType.ENTERING_LEADING,
-            new BigDecimal("0.900"),
-            "{}",
-            "");
+    RotationEvent event = rotationEvent(CategoryId.FINL, RotationEventType.ENTERING_LEADING);
 
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of(event));
     when(alertRulesRepository.findById("rrg_transition"))
@@ -171,15 +162,7 @@ class AlertRulesEngineTest {
     stubMacroDisabled();
     stubRsAccelDisabled();
 
-    RotationEvent event =
-        new RotationEvent(
-            DATE,
-            CategoryId.TECH,
-            RotationEventType.ENTERING_IMPROVING,
-            new BigDecimal("0.800"),
-            "{}",
-            "");
-
+    RotationEvent event = rotationEvent(CategoryId.TECH, RotationEventType.ENTERING_IMPROVING);
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of(event));
     when(alertRulesRepository.findById("rrg_transition"))
         .thenReturn(Optional.of(disabled("rrg_transition")));
@@ -198,15 +181,7 @@ class AlertRulesEngineTest {
     stubMacroDisabled();
     stubRsAccelDisabled();
 
-    RotationEvent event =
-        new RotationEvent(
-            DATE,
-            CategoryId.TECH,
-            RotationEventType.ENTERING_IMPROVING,
-            new BigDecimal("0.800"),
-            "{}",
-            "");
-
+    RotationEvent event = rotationEvent(CategoryId.TECH, RotationEventType.ENTERING_IMPROVING);
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of(event));
     when(alertRulesRepository.findById("rrg_transition"))
         .thenReturn(Optional.of(enabled("rrg_transition", Severity.INFO)));
@@ -228,14 +203,7 @@ class AlertRulesEngineTest {
     stubMacroDisabled();
     stubRsAccelDisabled();
 
-    RotationEvent event =
-        new RotationEvent(
-            DATE,
-            CategoryId.TECH,
-            RotationEventType.COMPOSITE_BREAKOUT,
-            new BigDecimal("0.750"),
-            "{}",
-            "");
+    RotationEvent event = rotationEvent(CategoryId.TECH, RotationEventType.COMPOSITE_BREAKOUT);
 
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of(event));
     when(alertRulesRepository.findById("rrg_transition"))

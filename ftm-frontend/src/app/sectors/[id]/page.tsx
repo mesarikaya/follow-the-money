@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { fetchSubSectors, SubSectorSummary } from "@/lib/api";
+import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 import SubSectorTable from "@/components/SubSectorTable";
 import RefreshButton from "@/components/RefreshButton";
 
@@ -43,10 +44,13 @@ export default async function SectorDrilldownPage({ params }: Props) {
   }
 
   const quadrantCounts: Record<string, SubSectorSummary[]> = { "4": [], "3": [], "2": [], "1": [] };
+  const signalCounts: Record<string, SubSectorSummary[]> = { BUY: [], WATCH: [], HOLD: [], REDUCE: [] };
   for (const s of subSectors) {
     if (s.rrgQuadrant && quadrantCounts[s.rrgQuadrant]) {
       quadrantCounts[s.rrgQuadrant].push(s);
     }
+    const sig = (s.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(s);
+    if (sig && signalCounts[sig]) signalCounts[sig].push(s);
   }
 
   return (
@@ -164,6 +168,29 @@ export default async function SectorDrilldownPage({ params }: Props) {
                 );
               })}
             </div>
+
+            {/* Trade signal summary strip */}
+            {subSectors.some(s => s.compositeScore != null) && (
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-[10px] text-slate-600 uppercase tracking-wider shrink-0">Trade Signal</span>
+                {([
+                  { key: "BUY",    cls: "bg-green-900/40 text-green-300 border-green-700/50"  },
+                  { key: "WATCH",  cls: "bg-cyan-900/30 text-cyan-300 border-cyan-700/40"     },
+                  { key: "HOLD",   cls: "bg-slate-700/40 text-slate-400 border-slate-600/50"  },
+                  { key: "REDUCE", cls: "bg-red-900/30 text-red-400 border-red-700/40"        },
+                ] as const).map(({ key, cls }) => {
+                  const count = signalCounts[key]?.length ?? 0;
+                  const tickers = (signalCounts[key] ?? []).map(s => s.etfTicker).join(", ");
+                  return (
+                    <div key={key} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${cls}`} title={tickers || undefined}>
+                      <span className="text-[10px] font-bold" style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.06em" }}>{key}</span>
+                      <span className="text-sm font-bold" style={{ fontFamily: "var(--font-jetbrains-mono)" }}>{count}</span>
+                      {tickers && <span className="text-[9px] opacity-60 hidden xl:inline">{tickers}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Sortable sub-sector table */}
             <SubSectorTable

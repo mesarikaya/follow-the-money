@@ -7,13 +7,14 @@ function conviction(cat: CategorySummary): number {
   if ((cat.compositeScore ?? 0) >= 0.60) score++;
   if (cat.rrgQuadrant === "4" || cat.rrgQuadrant === "3") score++;
   if ((cat.compositeTrend20d ?? 0) > 0) score++;
+  if ((cat.macroFit ?? 0) >= 0.60) score++;
   return score;
 }
 
 function ConvictionDots({ count }: { count: number }) {
   return (
-    <span className="flex gap-px" title={`${count}/3 signals aligned`}>
-      {[0, 1, 2].map(i => (
+    <span className="flex gap-px" title={`${count}/4 signals aligned`}>
+      {[0, 1, 2, 3].map(i => (
         <span
           key={i}
           className={`w-1 h-1 rounded-full ${i < count ? "bg-current opacity-80" : "bg-slate-600 opacity-40"}`}
@@ -59,7 +60,7 @@ export default function AllocationBar({ categories }: Props) {
                 key={cat.id}
                 href={`/sectors/${cat.id}`}
                 className="flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-900/30 border border-emerald-700/40 hover:border-emerald-500/60 transition-colors group"
-                title={`${cat.name} — Score ${pct}/100 · ${c}/3 signals aligned`}
+                title={`${cat.name} — Score ${pct}/100 · ${c}/4 signals aligned`}
               >
                 <span className="font-mono font-bold text-emerald-300 group-hover:text-emerald-200 text-[11px]">
                   {cat.etfTicker}
@@ -87,7 +88,7 @@ export default function AllocationBar({ categories }: Props) {
                 key={cat.id}
                 href={`/sectors/${cat.id}`}
                 className="flex items-center gap-1.5 px-2 py-1 rounded bg-red-900/20 border border-red-800/30 hover:border-red-600/50 transition-colors group"
-                title={`${cat.name} — Score ${pct}/100 · ${c}/3 signals aligned`}
+                title={`${cat.name} — Score ${pct}/100 · ${c}/4 signals aligned`}
               >
                 <span className="font-mono font-bold text-red-400 group-hover:text-red-300 text-[11px]">
                   {cat.etfTicker}
@@ -103,7 +104,7 @@ export default function AllocationBar({ categories }: Props) {
       </div>
 
       <div className="shrink-0 self-end text-[9px] text-slate-700 leading-relaxed text-right">
-        ●●● = score + RRG + trend<br />
+        ●●●● = score + RRG + trend + regime<br />
         all signals aligned
       </div>
     </div>

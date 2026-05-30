@@ -201,6 +201,21 @@ class CategoryServiceTest {
   }
 
   @Test
+  @DisplayName("getCategoriesResponse treats null timeframe as MONTH (uses RS_60, not RS_20 or RS_120)")
+  void shouldTreatNullTimeframeAsMonth() {
+    when(categoryRepository.findAllWithLatestPrice()).thenReturn(List.of());
+    when(signalRepository.findLatestByTypes(any())).thenReturn(Map.of());
+
+    categoryService.getCategoriesResponse(null);
+
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Collection<SignalType>> captor = ArgumentCaptor.forClass(Collection.class);
+    verify(signalRepository).findLatestByTypes(captor.capture());
+    assertThat(captor.getValue()).contains(SignalType.RS_60);
+    assertThat(captor.getValue()).doesNotContain(SignalType.RS_20);
+  }
+
+  @Test
   @DisplayName("getCategoriesResponse returns one DTO per row with sequential ranks")
   void shouldReturnOneDtoPerRowWithSequentialRanks() {
     Category tech = new Category(CategoryId.TECH, "Technology", CategoryType.EQUITY_SECTOR, "XLK", "SPY", 1, true, null);

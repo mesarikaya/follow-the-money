@@ -1,21 +1,7 @@
 import Link from "next/link";
-import { fetchCategories, fetchCategoryScoreHistory, CategorySummary } from "@/lib/api";
+import { fetchCategories, fetchCategoryScoreHistory, fetchSubSectors, CategorySummary } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import Sparkline from "@/components/Sparkline";
-
-const SUB_SECTOR_COUNTS: Record<string, number> = {
-  TECH: 8,
-  HLTH: 6,
-  FINL: 6,
-  DISR: 6,
-  INDU: 5,
-  ENRG: 8,
-  MATL: 7,
-  UTIL: 3,
-  REIT: 5,
-  STPL: 3,
-  COMM: 5,
-};
 
 const QUADRANT_CONFIG: Record<string, {
   label: string;
@@ -136,11 +122,10 @@ function RankStat({ rank }: { rank: number }) {
   );
 }
 
-function SectorCard({ sector, history }: { sector: CategorySummary; history: number[] }) {
+function SectorCard({ sector, history, subSectorCount }: { sector: CategorySummary; history: number[]; subSectorCount: number }) {
   const quadrant = sector.rrgQuadrant ?? null;
   const qConfig = quadrant ? QUADRANT_CONFIG[quadrant] : null;
   const leftBorderClass = qConfig?.leftBorderClass ?? "border-l-slate-700";
-  const subSectorCount = SUB_SECTOR_COUNTS[sector.id] ?? 0;
 
   return (
     <Link
@@ -225,15 +210,28 @@ const QUADRANT_STRIP_CONFIG: Array<{ key: string; label: string; colorClass: str
 export default async function SectorsHubPage() {
   let sectors: CategorySummary[] = [];
   let scoreHistory: Record<string, number[]> = {};
+  let subSectorCounts: Record<string, number> = {};
   let error: string | null = null;
 
+  const sectorIds = Array.from(SECTOR_DRILLDOWN_IDS);
+
   try {
-    const [categoriesResponse, historyResponse] = await Promise.all([
+    const [categoriesResponse, historyResponse, ...subSectorResults] = await Promise.allSettled([
       fetchCategories("MONTH"),
-      fetchCategoryScoreHistory(30).catch(() => ({})),
+      fetchCategoryScoreHistory(30),
+      ...sectorIds.map((id) => fetchSubSectors(id)),
     ]);
-    sectors = categoriesResponse.categories.filter((c) => SECTOR_DRILLDOWN_IDS.has(c.id));
-    scoreHistory = historyResponse;
+
+    if (categoriesResponse.status === "fulfilled") {
+      sectors = categoriesResponse.value.categories.filter((c) => SECTOR_DRILLDOWN_IDS.has(c.id));
+    } else {
+      throw categoriesResponse.reason;
+    }
+    scoreHistory = historyResponse.status === "fulfilled" ? historyResponse.value : {};
+
+    subSectorResults.forEach((result, i) => {
+      subSectorCounts[sectorIds[i]] = result.status === "fulfilled" ? result.value.length : 0;
+    });
   } catch (err) {
     error = err instanceof Error ? err.message : "Failed to load sectors";
   }
@@ -260,7 +258,7 @@ export default async function SectorsHubPage() {
             className="text-[11px] text-slate-500"
             style={{ fontFamily: "var(--font-jetbrains-mono)" }}
           >
-            11 GICS sectors · 62 sub-sector ETFs
+            11 GICS sectors · {Object.values(subSectorCounts).reduce((a, b) => a + b, 0)} sub-sector ETFs
           </span>
         </div>
         <p className="text-xs text-slate-500 mt-1 max-w-xl">
@@ -305,7 +303,7 @@ export default async function SectorsHubPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {sectors.map((sector) => (
-            <SectorCard key={sector.id} sector={sector} history={scoreHistory[sector.id] ?? []} />
+            <SectorCard key={sector.id} sector={sector} history={scoreHistory[sector.id] ?? []} subSectorCount={subSectorCounts[sector.id] ?? 0} />
           ))}
         </div>
 

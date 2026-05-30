@@ -121,6 +121,7 @@ export type PortfolioAllocationEntry = {
   allocationPct: number;
   compositeScore: number | null;
   optimalAllocationPct: number | null;
+  tradeSignal: string | null;
 };
 
 export type RebalanceSuggestion = {

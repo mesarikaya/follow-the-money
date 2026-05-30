@@ -7,6 +7,7 @@ import {
   HoldingDto, HoldingsUploadResponse, updateHolding, deleteHolding, createHolding,
 } from "@/lib/api";
 import AllocationDonutChart from "@/components/AllocationDonutChart";
+import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 
 const ALIGNMENT_CONFIG = {
   ALIGNED:    { label: "Aligned",    colorClass: "text-emerald-400", barClass: "bg-emerald-500" },
@@ -27,6 +28,13 @@ const COMPOSITE_OPTIMAL_TOOLTIP =
 const COMPOSITE_SCORE_TOOLTIP =
   "Composite signal score (0–100): a weighted combination of relative-strength, momentum, " +
   "and macro-regime signals for this category. Higher = stronger current signal.";
+
+const SIGNAL_CONFIG: Record<TradeSignal, { className: string }> = {
+  BUY:    { className: "bg-green-500/20 text-green-300 border border-green-500/40" },
+  WATCH:  { className: "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30" },
+  HOLD:   { className: "bg-slate-600/30 text-slate-400 border border-slate-500/30" },
+  REDUCE: { className: "bg-red-500/15 text-red-400 border border-red-500/30" },
+};
 
 type SortField = "ticker" | "categoryId" | "quantity" | "avgCostLocal" | "currentPriceLocal" | "marketValueEur" | "unrealizedPnlPct";
 type SortDir = "asc" | "desc";
@@ -453,6 +461,7 @@ export default function PortfolioPage() {
                 <span className="text-[10px] text-slate-600 w-6 text-right shrink-0 cursor-help" title={COMPOSITE_SCORE_TOOLTIP}>
                   CS
                 </span>
+                <span className="text-[10px] text-slate-600 w-14 text-center shrink-0">Signal</span>
               </div>
 
               <ul className="space-y-2">
@@ -483,6 +492,16 @@ export default function PortfolioPage() {
                     >
                       {entry.compositeScore != null ? Math.round(entry.compositeScore * 100) : "—"}
                     </span>
+                    {(() => {
+                      const sig = (entry.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(entry);
+                      if (!sig) return <span className="w-14 shrink-0" />;
+                      const cfg = SIGNAL_CONFIG[sig];
+                      return (
+                        <span className={`w-14 shrink-0 text-center text-[9px] font-bold px-1.5 py-0.5 rounded ${cfg.className}`}>
+                          {sig}
+                        </span>
+                      );
+                    })()}
                   </li>
                 ))}
               </ul>

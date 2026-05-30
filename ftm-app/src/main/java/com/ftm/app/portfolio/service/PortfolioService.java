@@ -5,6 +5,7 @@ import com.ftm.app.api.dto.PortfolioResponse;
 import com.ftm.app.api.dto.PortfolioResponse.PortfolioAllocationEntry;
 import com.ftm.app.api.dto.RebalanceSuggestionDto;
 import com.ftm.app.api.repository.CategoryRepository;
+import com.ftm.app.api.service.TradeSignalDeriver;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.CategoryId;
 import com.ftm.app.domain.Portfolio;
@@ -59,6 +60,12 @@ public class PortfolioService {
     Map<String, BigDecimal> compositeScoreByCategoryId =
         signalRepository.findLatestByType(SignalType.COMPOSITE);
 
+    Map<String, BigDecimal> rrgQuadrantByCategoryId =
+        signalRepository.findLatestByType(SignalType.RRG_QUADRANT);
+
+    Map<String, BigDecimal> compositeTrend20dByCategoryId =
+        signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_20D);
+
     Map<String, BigDecimal> optimalAllocationByCategoryId =
         alignmentService.computeCompositeOptimalAllocation(compositeScoreByCategoryId);
 
@@ -73,13 +80,19 @@ public class PortfolioService {
             .map(
                 category -> {
                   String categoryId = category.id().name();
+                  BigDecimal compositeScore = compositeScoreByCategoryId.get(categoryId);
+                  BigDecimal rrgQuadrantRaw = rrgQuadrantByCategoryId.get(categoryId);
+                  String rrgQuadrant =
+                      rrgQuadrantRaw != null ? String.valueOf(rrgQuadrantRaw.intValue()) : null;
+                  BigDecimal trend20d = compositeTrend20dByCategoryId.get(categoryId);
                   return new PortfolioAllocationEntry(
                       categoryId,
                       category.name(),
                       category.type().name(),
                       currentAllocationByCategoryId.getOrDefault(categoryId, BigDecimal.ZERO),
-                      compositeScoreByCategoryId.get(categoryId),
-                      optimalAllocationByCategoryId.get(categoryId));
+                      compositeScore,
+                      optimalAllocationByCategoryId.get(categoryId),
+                      TradeSignalDeriver.derive(compositeScore, rrgQuadrant, trend20d));
                 })
             .sorted(Comparator.comparing(PortfolioAllocationEntry::categoryId))
             .toList();

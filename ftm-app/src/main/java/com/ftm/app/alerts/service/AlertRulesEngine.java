@@ -115,6 +115,7 @@ public class AlertRulesEngine {
       if (breakoutRuleEnabled
           && rotationEvent.eventType() == RotationEventType.COMPOSITE_BREAKOUT) {
         if (!alertRepository.existsActiveAlert(RULE_COMPOSITE_BREAKOUT, categoryId)) {
+          int scorePercent = Math.round(rotationEvent.confidence().floatValue() * 100);
           alertRepository.insert(
               new Alert(
                   OffsetDateTime.now(),
@@ -122,8 +123,8 @@ public class AlertRulesEngine {
                   RULE_COMPOSITE_BREAKOUT,
                   breakoutSeverity,
                   String.format(
-                      "%s composite score crossed breakout threshold (confidence: %d%%)",
-                      categoryId, Math.round(rotationEvent.confidence().doubleValue() * 100)),
+                      "%s composite score reached %d — crossed breakout threshold (70)",
+                      categoryId, scorePercent),
                   buildBreakoutSnapshot(rotationEvent),
                   AlertStatus.ACTIVE));
           count++;
@@ -133,6 +134,7 @@ public class AlertRulesEngine {
       if (breakdownRuleEnabled
           && rotationEvent.eventType() == RotationEventType.COMPOSITE_BREAKDOWN) {
         if (!alertRepository.existsActiveAlert(RULE_COMPOSITE_BREAKDOWN, categoryId)) {
+          int scorePercent = Math.round((1.0 - rotationEvent.confidence().doubleValue()) * 100);
           alertRepository.insert(
               new Alert(
                   OffsetDateTime.now(),
@@ -140,8 +142,8 @@ public class AlertRulesEngine {
                   RULE_COMPOSITE_BREAKDOWN,
                   breakdownSeverity,
                   String.format(
-                      "%s composite score fell below REDUCE threshold (0.35) — consider reducing exposure",
-                      categoryId),
+                      "%s composite score fell to %d — crossed REDUCE threshold (35)",
+                      categoryId, scorePercent),
                   buildBreakoutSnapshot(rotationEvent),
                   AlertStatus.ACTIVE));
           count++;

@@ -53,6 +53,7 @@ const RULE_LABELS: Record<string, string> = {
   composite_breakdown: "Composite Breakdown",
   macro_regime_shift:  "Macro Regime Shift",
   rs_accel_crossover:  "RS Accel Crossover",
+  persistence_low:     "Persistence Low",
   flow_inflow_5d:      "Flow Inflow (5d)",
   flow_inflow_10d:     "Flow Inflow (10d)",
   flow_inflow_20d:     "Flow Inflow (20d)",
@@ -66,8 +67,9 @@ const BUILTIN_RULES = [
   { id: "composite_breakout",  label: "Composite Breakout",   condition: "composite_score > 0.70",    severity: "ACTION",  note: "Category score crosses above 0.70 — entering strong signal territory" },
   { id: "composite_breakdown", label: "Composite Breakdown",  condition: "composite_score < 0.35",    severity: "WARNING", note: "Category score falls below 0.35 — REDUCE threshold crossed" },
   { id: "macro_regime_shift", label: "Macro Regime Shift",  condition: "regime changes",            severity: "WARNING", note: "Macro regime classification changes on new data" },
-  { id: "rs_accel_crossover", label: "RS Accel Crossover",  condition: "rs_60 crosses rs_120",      severity: "INFO",    note: "Near-term RS crosses long-term RS baseline — momentum acceleration or deceleration shift" },
-  { id: "flow_inflow_20d",    label: "Flow Inflow (20d)",   condition: "flow_20d > threshold",      severity: "INFO",    note: "Sustained 20-day inflow above baseline" },
+  { id: "rs_accel_crossover", label: "RS Accel Crossover",  condition: "rs_60 crosses rs_120",          severity: "INFO",    note: "Near-term RS crosses long-term RS baseline — momentum acceleration or deceleration shift" },
+  { id: "persistence_low",    label: "Persistence Low",     condition: "persistence_20d < threshold",   severity: "WARNING", note: "Sector beats its benchmark on fewer than 7 of the last 20 trading days — breadth of outperformance deteriorating" },
+  { id: "flow_inflow_20d",    label: "Flow Inflow (20d)",   condition: "flow_20d > threshold",          severity: "INFO",    note: "Sustained 20-day inflow above baseline" },
   { id: "flow_outflow_20d",   label: "Flow Outflow (20d)",  condition: "flow_20d < threshold",      severity: "WARNING", note: "Sustained 20-day outflow below baseline" },
 ];
 

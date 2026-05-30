@@ -16,6 +16,7 @@ import MarketNarrativePanel from "@/components/MarketNarrativePanel";
 import SignalReadinessPanel from "@/components/SignalReadinessPanel";
 import ActiveAlertsStrip from "@/components/ActiveAlertsStrip";
 import ScoreTrajectorySummary from "@/components/ScoreTrajectorySummary";
+import ScoreDistributionPanel from "@/components/ScoreDistributionPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +78,8 @@ export default async function Home({ searchParams }: Props) {
         )}
 
         {categories.length > 0 && <SignalReadinessPanel categories={categories} />}
+
+        {categories.length > 0 && <ScoreDistributionPanel categories={categories} />}
 
         {categories.length > 0 && Object.keys(scoreHistory).length > 0 && (
           <ScoreTrajectorySummary categories={categories} scoreHistory={scoreHistory} />

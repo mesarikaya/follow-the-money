@@ -33,6 +33,10 @@ public class CacheConfig {
     manager.registerCustomCache(
         "sub-sectors-latest",
         Caffeine.newBuilder().maximumSize(50).expireAfterWrite(1, TimeUnit.HOURS).build());
+    // Evicted on SignalsUpdatedEvent — keyed by lookback days; avoids 4 DB queries per call
+    manager.registerCustomCache(
+        "transitions-latest",
+        Caffeine.newBuilder().maximumSize(20).expireAfterWrite(1, TimeUnit.HOURS).build());
     return manager;
   }
 }

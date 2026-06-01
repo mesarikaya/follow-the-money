@@ -174,6 +174,7 @@ public class CategoryService {
         .toList();
   }
 
+  @Cacheable(value = "transitions-latest", key = "#lookbackDays")
   public List<SignalTransitionDto> getSignalTransitions(int lookbackDays) {
     int clamped = Math.max(1, Math.min(lookbackDays, 90));
     Map<String, Category> categoriesById =

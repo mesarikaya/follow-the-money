@@ -40,6 +40,7 @@ public class CacheEvictionListener {
     evict("rrg-latest");
     evict("rotation-latest");
     evict("sub-sectors-latest");
+    evict("transitions-latest");
   }
 
   private void evict(String cacheName) {

@@ -85,6 +85,8 @@ function formatDateShort(isoString: string): string {
   } catch { return isoString; }
 }
 
+const AUTO_REFRESH_SECS = 60;
+
 export default function AlertsPage() {
   const [alertsResponse, setAlertsResponse] = useState<AlertsResponse | null>(null);
   const [alertRules, setAlertRules] = useState<AlertRuleDto[] | null>(null);
@@ -93,6 +95,7 @@ export default function AlertsPage() {
   const [togglingRule, setTogglingRule] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [acknowledgeError, setAcknowledgeError] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState(AUTO_REFRESH_SECS);
 
   const loadAlerts = useCallback(async () => {
     try {
@@ -111,7 +114,23 @@ export default function AlertsPage() {
     } catch { /* rules are optional */ }
   }, []);
 
+  const handleManualRefresh = useCallback(async () => {
+    setCountdown(AUTO_REFRESH_SECS);
+    await Promise.all([loadAlerts(), loadRules()]);
+  }, [loadAlerts, loadRules]);
+
   useEffect(() => { loadAlerts(); loadRules(); }, [loadAlerts, loadRules]);
+
+  // Auto-refresh countdown: reload alerts every 60s
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown(s => {
+        if (s <= 1) { loadAlerts(); return AUTO_REFRESH_SECS; }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [loadAlerts]);
 
   const handleToggleRule = async (ruleId: string, currentEnabled: boolean) => {
     setTogglingRule(ruleId);
@@ -184,7 +203,15 @@ export default function AlertsPage() {
           {urgentCount > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-300 inline-block animate-pulse" /> {urgentCount} Urgent</span>}
           {actionCount > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> {actionCount} Action</span>}
           {warningCount > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> {warningCount} Warning</span>}
-          {alertsResponse && <span className="text-slate-600">· {BUILTIN_RULES.length} rules defined</span>}
+          {alertRules && <span className="text-slate-600">· {alertRules.length} rules loaded</span>}
+          <button
+            onClick={handleManualRefresh}
+            className="flex items-center gap-1 text-slate-500 hover:text-slate-300 border border-slate-700 hover:border-slate-500 px-2 py-1 rounded transition-colors"
+            title="Refresh alerts now"
+          >
+            <span className="text-[11px]">⟳</span>
+            <span className="tabular-nums text-[10px]">{countdown}s</span>
+          </button>
         </div>
       </header>
 
@@ -312,6 +339,7 @@ export default function AlertsPage() {
                     <tr className="border-b border-slate-700 bg-slate-800/80 text-slate-400 text-xs uppercase tracking-wider">
                       <th className="text-left px-4 py-2.5">Rule</th>
                       <th className="text-left px-4 py-2.5">Severity</th>
+                      <th className="text-left px-4 py-2.5">Thresholds</th>
                       <th className="text-right px-4 py-2.5">Enabled</th>
                     </tr>
                   </thead>
@@ -329,6 +357,23 @@ export default function AlertsPage() {
                             <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${severityBadgeCls(rule.severity)}`}>
                               {rule.severity}
                             </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col gap-0.5">
+                              {rule.compositeThreshold != null && (
+                                <span className="text-[10px] font-mono text-slate-500">
+                                  score <span className="text-slate-400">{rule.compositeThreshold.toFixed(2)}</span>
+                                </span>
+                              )}
+                              {rule.persistenceDays != null && (
+                                <span className="text-[10px] font-mono text-slate-500">
+                                  persist &lt; <span className="text-slate-400">{rule.persistenceDays}d</span>
+                                </span>
+                              )}
+                              {rule.compositeThreshold == null && rule.persistenceDays == null && (
+                                <span className="text-[10px] text-slate-700">—</span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-right">
                             <button

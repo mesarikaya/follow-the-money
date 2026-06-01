@@ -53,6 +53,33 @@ function EquityCurveChart({ curve, rebalanceDates }: { curve: EquityCurvePoint[]
     "Z",
   ].join(" ");
 
+  // Alpha region segments: green where portfolio > spy, red where portfolio < spy
+  type AlphaSeg = { points: { x: number; yPort: number; ySpy: number }[]; above: boolean };
+  const alphaSegments: AlphaSeg[] = [];
+  {
+    let segPoints: AlphaSeg["points"] = [];
+    let segAbove = normalized[0].portfolioValue >= normalized[0].spyValue;
+    for (let i = 0; i < normalized.length; i++) {
+      const x = toX(i);
+      segPoints.push({ x, yPort: toY(normalized[i].portfolioValue), ySpy: toY(normalized[i].spyValue) });
+      if (i < normalized.length - 1) {
+        const d0 = normalized[i].portfolioValue - normalized[i].spyValue;
+        const d1 = normalized[i + 1].portfolioValue - normalized[i + 1].spyValue;
+        if ((d0 >= 0) !== (d1 >= 0)) {
+          const t = Math.abs(d0) / (Math.abs(d0) + Math.abs(d1));
+          const cx = toX(i) + t * (toX(i + 1) - toX(i));
+          const cv = normalized[i].portfolioValue + t * (normalized[i + 1].portfolioValue - normalized[i].portfolioValue);
+          const cy = toY(cv);
+          segPoints.push({ x: cx, yPort: cy, ySpy: cy });
+          alphaSegments.push({ points: segPoints, above: segAbove });
+          segPoints = [{ x: cx, yPort: cy, ySpy: cy }];
+          segAbove = !segAbove;
+        }
+      }
+    }
+    if (segPoints.length > 0) alphaSegments.push({ points: segPoints, above: segAbove });
+  }
+
   // Max drawdown period: find peak→trough segment with largest drawdown
   let maxDD = 0;
   let ddPeakIdx = 0;
@@ -141,7 +168,14 @@ function EquityCurveChart({ curve, rebalanceDates }: { curve: EquityCurvePoint[]
         </>
       )}
 
-      <path d={fillPath} fill="#3b82f6" fillOpacity="0.05" />
+      {/* Alpha region shading: green = strategy ahead, red = SPY ahead */}
+      {alphaSegments.map((seg, i) => {
+        const fwd = seg.points.map(p => `${p.x.toFixed(1)},${p.yPort.toFixed(1)}`).join(" L ");
+        const bwd = [...seg.points].reverse().map(p => `${p.x.toFixed(1)},${p.ySpy.toFixed(1)}`).join(" L ");
+        const d = `M ${fwd} L ${bwd} Z`;
+        return <path key={i} d={d} fill={seg.above ? "#10b981" : "#ef4444"} fillOpacity="0.13" />;
+      })}
+      <path d={fillPath} fill="#3b82f6" fillOpacity="0.03" />
       <polyline points={spyPoints} fill="none" stroke="#64748b" strokeWidth="1.5" strokeDasharray="5,3" opacity="0.7" />
       <polyline points={portfolioPoints} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 

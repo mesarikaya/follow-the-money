@@ -226,9 +226,10 @@ function buildScoreTooltip(cat: import("@/lib/api").CategorySummary, macroFitVal
   let velocityStr = "";
   if (persist5d != null && persist20d != null) {
     const rate5d = Math.round((persist5d / 5) * 100);
-    const rate20d = Math.round((persist20d / 20) * 100);
-    const delta = rate5d - rate20d;
-    velocityStr = `Breadth velocity: 5d ${rate5d}% vs 20d ${rate20d}% (${delta > 0 ? "+" : ""}${delta}pp — ${delta > 4 ? "accelerating ⚡" : delta < -4 ? "decelerating ⬇" : "neutral"})`;
+    const prior15 = persist20d - persist5d;
+    const rate15 = Math.round((prior15 / 15) * 100);
+    const delta = rate5d - rate15;
+    velocityStr = `Breadth velocity: recent-5d ${rate5d}% vs prior-15d ${rate15}% (${delta > 0 ? "+" : ""}${delta}pp — ${delta > 4 ? "accelerating ⚡" : delta < -4 ? "decelerating ⬇" : "neutral"})`;
   }
   const momPts = cat.momentum != null ? Math.round(cat.momentum * 100) : null;
   const momStr = momPts != null ? `${momPts > 0 ? "+" : ""}${momPts} pts (10d RS change — ${momPts > 1 ? "accelerating ▲" : momPts < -1 ? "decelerating ▼" : "flat →"})` : "n/a";

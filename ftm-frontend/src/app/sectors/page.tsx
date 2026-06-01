@@ -203,14 +203,30 @@ function SectorCard({ sector, history, subSectorCount }: { sector: CategorySumma
               </span>
             </div>
           )}
-          {sector.persistence20d != null && (
-            <span
-              className={`text-[9px] font-mono px-1.5 py-0.5 rounded shrink-0 ${sector.persistence20d >= 12 ? "text-cyan-400 bg-cyan-900/20" : sector.persistence20d >= 7 ? "text-slate-500 bg-slate-700/20" : "text-orange-400 bg-orange-900/20"}`}
-              title={`Persistence: ${sector.persistence20d}/20 trading days beat benchmark (${sector.persistence20d >= 12 ? "strong" : sector.persistence20d >= 7 ? "moderate" : "weak"})`}
-            >
-              P{sector.persistence20d}/20
-            </span>
-          )}
+          {sector.persistence20d != null && (() => {
+            const p20 = sector.persistence20d;
+            const p5 = sector.persistence5d;
+            let velocityIcon: string | null = null;
+            let velocityTitle = "";
+            if (p5 != null) {
+              const rate5d = p5 / 5;
+              const prior15 = p20 - p5;
+              const rate15 = prior15 / 15;
+              const delta = Math.round((rate5d - rate15) * 100);
+              if (Math.abs(delta) >= 5) {
+                velocityIcon = delta > 0 ? "⚡" : "⬇";
+                velocityTitle = ` · ${delta > 0 ? "+" : ""}${delta}pp breadth velocity`;
+              }
+            }
+            return (
+              <span
+                className={`text-[9px] font-mono px-1.5 py-0.5 rounded shrink-0 ${p20 >= 12 ? "text-cyan-400 bg-cyan-900/20" : p20 >= 7 ? "text-slate-500 bg-slate-700/20" : "text-orange-400 bg-orange-900/20"}`}
+                title={`Persistence: ${p20}/20 trading days beat benchmark (${p20 >= 12 ? "strong" : p20 >= 7 ? "moderate" : "weak"})${velocityTitle}`}
+              >
+                P{p20}/20{velocityIcon && <span className="ml-0.5">{velocityIcon}</span>}
+              </span>
+            );
+          })()}
         </div>
       )}
 

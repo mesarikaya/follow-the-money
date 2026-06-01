@@ -53,6 +53,36 @@ function TrendPip({
   );
 }
 
+function computeStreak(history: number[]): number {
+  if (history.length < 2) return 0;
+  const last = history[history.length - 1];
+  const prev = history[history.length - 2];
+  const direction = last > prev ? 1 : last < prev ? -1 : 0;
+  if (direction === 0) return 0;
+  let count = 1;
+  for (let i = history.length - 2; i > 0; i--) {
+    if (direction === 1 && history[i] > history[i - 1]) count++;
+    else if (direction === -1 && history[i] < history[i - 1]) count++;
+    else break;
+  }
+  return direction * count;
+}
+
+function StreakBadge({ streak }: { streak: number }) {
+  if (Math.abs(streak) < 3) return null;
+  const isUp = streak > 0;
+  const label = `${isUp ? "↑" : "↓"}${Math.abs(streak)}d`;
+  const className = isUp
+    ? "text-emerald-400 bg-emerald-900/20 border border-emerald-800/40"
+    : "text-red-400 bg-red-900/20 border border-red-800/40";
+  const title = `${Math.abs(streak)} consecutive day${Math.abs(streak) > 1 ? "s" : ""} of ${isUp ? "improving" : "declining"} composite score`;
+  return (
+    <span className={`inline-block px-1 py-0 rounded text-[8px] tabular-nums font-mono ${className}`} title={title}>
+      {label}
+    </span>
+  );
+}
+
 function ScoreBar({
   score,
   trend5d,
@@ -410,8 +440,9 @@ export default function CategoryTable({
                   </td>
                   {hasHistory && (
                     <td className="px-3 py-2.5">
-                      <div className="flex justify-center">
+                      <div className="flex flex-col items-center gap-0.5">
                         <Sparkline values={history} />
+                        <StreakBadge streak={computeStreak(history)} />
                       </div>
                     </td>
                   )}

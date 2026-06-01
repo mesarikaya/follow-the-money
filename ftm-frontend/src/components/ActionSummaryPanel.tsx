@@ -55,6 +55,79 @@ const SIGNAL_STYLES: Record<"BUY" | "REDUCE", {
   REDUCE: { border: "border-red-700/50",    badge: "bg-red-900/50 text-red-400 border-red-700/50",      dot: "bg-red-500",   arrow: "↓", label: "Consider Reducing"  },
 };
 
+function computeEntryQuality(card: ActionCard, side: "BUY" | "REDUCE"): { label: string; className: string; title: string } | null {
+  if (side !== "BUY") return null;
+
+  let score = 0;
+  const reasons: string[] = [];
+
+  // Price position: reward pullbacks, penalize near-peak entries
+  if (card.drawdownFromHigh != null) {
+    if (card.drawdownFromHigh <= -0.20) {
+      score += 30;
+      reasons.push(`deep pullback (${(card.drawdownFromHigh * 100).toFixed(0)}% from 52w high)`);
+    } else if (card.drawdownFromHigh <= -0.08) {
+      score += 15;
+      reasons.push(`moderate pullback (${(card.drawdownFromHigh * 100).toFixed(0)}%)`);
+    } else if (card.drawdownFromHigh >= -0.03) {
+      score -= 15;
+      reasons.push(`near 52w high — elevated entry risk`);
+    }
+  }
+
+  // Win rate
+  if (card.winRate != null) {
+    if (card.winRate >= 0.65) {
+      score += 25;
+      reasons.push(`strong historical win rate (${Math.round(card.winRate * 100)}%)`);
+    } else if (card.winRate >= 0.50) {
+      score += 10;
+      reasons.push(`moderate win rate (${Math.round(card.winRate * 100)}%)`);
+    } else {
+      score -= 10;
+      reasons.push(`weak win rate (${Math.round(card.winRate * 100)}%)`);
+    }
+  }
+
+  // Score percentile: near 12-month lows = better entry
+  if (card.scorePercentile252d != null) {
+    const pct = card.scorePercentile252d * 100;
+    if (pct >= 85) {
+      score -= 10;
+      reasons.push(`score near 12-month high (P${Math.round(pct)})`);
+    } else if (pct <= 25) {
+      score += 10;
+      reasons.push(`score near 12-month low (P${Math.round(pct)}) — early-cycle entry`);
+    }
+  }
+
+  // Base: BUY signal confirmed = start at 30
+  score += 30;
+
+  const normalizedScore = Math.max(0, Math.min(100, score));
+
+  if (normalizedScore >= 65) return {
+    label: "Excellent",
+    className: "text-emerald-400 bg-emerald-900/20 border-emerald-700/40",
+    title: `Entry quality: Excellent (${normalizedScore}/100)\n${reasons.join(" · ")}`,
+  };
+  if (normalizedScore >= 45) return {
+    label: "Good",
+    className: "text-cyan-400 bg-cyan-900/15 border-cyan-700/40",
+    title: `Entry quality: Good (${normalizedScore}/100)\n${reasons.join(" · ")}`,
+  };
+  if (normalizedScore >= 30) return {
+    label: "Fair",
+    className: "text-amber-400 bg-amber-900/15 border-amber-700/40",
+    title: `Entry quality: Fair (${normalizedScore}/100)\n${reasons.join(" · ")}`,
+  };
+  return {
+    label: "Risky",
+    className: "text-red-400 bg-red-900/15 border-red-700/40",
+    title: `Entry quality: Risky (${normalizedScore}/100)\n${reasons.join(" · ")}`,
+  };
+}
+
 function ActionCard({ card, side }: { card: ActionCard; side: "BUY" | "REDUCE" }) {
   const style = SIGNAL_STYLES[side];
   const scorePct = Math.round(card.score * 100);
@@ -63,6 +136,7 @@ function ActionCard({ card, side }: { card: ActionCard; side: "BUY" | "REDUCE" }
   const trendPts = card.scoreTrend20d != null ? Math.round(card.scoreTrend20d * 100) : null;
   const rrgLabel: Record<string, string> = { "4": "Leading ↗", "3": "Improving ↖", "2": "Weakening ↘", "1": "Lagging ↙" };
   const hasDrilldown = SECTOR_DRILLDOWN_IDS.has(card.id);
+  const entryQuality = computeEntryQuality(card, side);
 
   return (
     <div className={`flex-1 min-w-0 bg-slate-800/60 border ${style.border} rounded-xl p-4 flex flex-col gap-2`}>
@@ -71,12 +145,22 @@ function ActionCard({ card, side }: { card: ActionCard; side: "BUY" | "REDUCE" }
           <span className={`w-2 h-2 rounded-full ${style.dot} shrink-0`} />
           <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">{style.label}</span>
         </div>
-        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${style.badge}`}>
-          {card.signal}
-          {card.signalDaysActive != null && card.signalDaysActive >= 2 && (
-            <span className="ml-1 opacity-70 font-normal">{card.signalDaysActive}d</span>
+        <div className="flex items-center gap-1.5">
+          {entryQuality && (
+            <span
+              className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${entryQuality.className}`}
+              title={entryQuality.title}
+            >
+              {entryQuality.label}
+            </span>
           )}
-        </span>
+          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${style.badge}`}>
+            {card.signal}
+            {card.signalDaysActive != null && card.signalDaysActive >= 2 && (
+              <span className="ml-1 opacity-70 font-normal">{card.signalDaysActive}d</span>
+            )}
+          </span>
+        </div>
       </div>
 
       <div className="min-w-0">

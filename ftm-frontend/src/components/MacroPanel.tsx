@@ -65,6 +65,74 @@ function interpretIndicator(key: keyof MacroIndicators, value: number | null): S
   }
 }
 
+const REGIME_BAR: Record<string, string> = {
+  RISK_ON_GROWTH:    "bg-emerald-600",
+  RISK_ON_DEFENSIVE: "bg-blue-600",
+  RISK_OFF_FLIGHT:   "bg-red-700",
+  STAGFLATION:       "bg-amber-600",
+};
+
+const REGIME_SHORT: Record<string, string> = {
+  RISK_ON_GROWTH:    "Growth",
+  RISK_ON_DEFENSIVE: "Defensive",
+  RISK_OFF_FLIGHT:   "Risk-Off",
+  STAGFLATION:       "Stagflation",
+};
+
+function fmtDate(iso: string): string {
+  const parts = iso.slice(0, 10).split("-");
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${months[parseInt(parts[1], 10) - 1]} ${parseInt(parts[2], 10)}`;
+}
+
+function RegimeTimeline({ history }: { history: { date: string; regime: string }[] }) {
+  if (!history || history.length < 5) return null;
+  type Segment = { regime: string; start: string; end: string; count: number };
+  const segments: Segment[] = [];
+  for (const entry of history) {
+    const last = segments[segments.length - 1];
+    if (last && last.regime === entry.regime) {
+      last.end = entry.date;
+      last.count++;
+    } else {
+      segments.push({ regime: entry.regime, start: entry.date, end: entry.date, count: 1 });
+    }
+  }
+  const total = history.length;
+  const startDate = fmtDate(history[0].date);
+  const endDate = fmtDate(history[history.length - 1].date);
+  const regimesPresent = [...new Set(segments.map(s => s.regime))];
+  return (
+    <div className="rounded-lg border border-slate-700/60 bg-slate-800/40 px-4 py-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-widest">Regime History</span>
+        <span className="text-[9px] text-slate-600">{startDate} → {endDate} · {total}d</span>
+      </div>
+      <div className="flex h-2.5 rounded-full overflow-hidden gap-px">
+        {segments.map((seg, i) => (
+          <div
+            key={i}
+            className={`${REGIME_BAR[seg.regime] ?? "bg-slate-600"}`}
+            style={{ width: `${(seg.count / total) * 100}%`, minWidth: "2px" }}
+            title={`${REGIME_SHORT[seg.regime] ?? seg.regime}: ${fmtDate(seg.start)} → ${fmtDate(seg.end)} (${seg.count}d)`}
+          />
+        ))}
+      </div>
+      <div className="flex gap-3 flex-wrap">
+        {regimesPresent.map(regime => (
+          <span key={regime} className="flex items-center gap-1.5 text-[9px] text-slate-400">
+            <span className={`w-2 h-2 rounded-sm ${REGIME_BAR[regime] ?? "bg-slate-600"}`} />
+            {REGIME_SHORT[regime] ?? regime}
+            <span className="text-slate-600">
+              ({segments.filter(s => s.regime === regime).reduce((sum, s) => sum + s.count, 0)}d)
+            </span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const REGIME_COLORS: Record<string, string> = {
   RISK_ON_GROWTH:    "bg-emerald-900/50 text-emerald-300 border-emerald-700",
   RISK_ON_DEFENSIVE: "bg-blue-900/50 text-blue-300 border-blue-700",
@@ -225,7 +293,7 @@ function MacroCard({
 }
 
 export default function MacroPanel({ macro }: { macro: MacroResponse }) {
-  const { indicators, previousIndicators, regime, asOfDate } = macro;
+  const { indicators, previousIndicators, regime, asOfDate, regimeHistory } = macro;
   const regimeClass = REGIME_COLORS[regime] ?? "bg-slate-700 text-slate-300 border-slate-600";
   const implication = REGIME_IMPLICATIONS[regime] ?? null;
 
@@ -256,6 +324,8 @@ export default function MacroPanel({ macro }: { macro: MacroResponse }) {
           </div>
         </div>
       )}
+
+      <RegimeTimeline history={regimeHistory ?? []} />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3">
         {CARD_CONFIGS.map((config) => (

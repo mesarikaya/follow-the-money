@@ -17,7 +17,7 @@ const BUCKET_COLOR = [
   "bg-green-400",
 ];
 
-type BucketEntry = { ticker: string; score: number; signal: TradeSignal | null };
+type BucketEntry = { ticker: string; score: number; signal: TradeSignal | null; persistence: number | null };
 
 type Props = { categories: CategorySummary[] };
 
@@ -30,7 +30,7 @@ export default function ScoreDistributionPanel({ categories }: Props) {
     const score = Math.round((cat.compositeScore ?? 0) * 100);
     const idx = Math.min(Math.floor(score / 20), 4);
     const signal = (cat.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(cat);
-    buckets[idx].push({ ticker: cat.etfTicker, score, signal });
+    buckets[idx].push({ ticker: cat.etfTicker, score, signal, persistence: cat.persistence20d ?? null });
   }
 
   const maxCount = Math.max(...buckets.map(b => b.length), 1);
@@ -59,6 +59,13 @@ export default function ScoreDistributionPanel({ categories }: Props) {
       <div className="px-4 py-3 flex items-end gap-2">
         {buckets.map((bucket, i) => {
           const barHeightPct = maxCount > 0 ? (bucket.length / maxCount) * 100 : 0;
+          const persistEntries = bucket.filter(e => e.persistence != null);
+          const avgPersist = persistEntries.length > 0
+            ? Math.round(persistEntries.reduce((s, e) => s + (e.persistence ?? 0), 0) / persistEntries.length)
+            : null;
+          const persistColor = avgPersist == null ? "text-slate-600" :
+            avgPersist >= 12 ? "text-cyan-400" :
+            avgPersist >= 7  ? "text-slate-400" : "text-orange-400";
           return (
             <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
               {/* Ticker chips above bar */}
@@ -67,7 +74,7 @@ export default function ScoreDistributionPanel({ categories }: Props) {
                   <div
                     key={entry.ticker}
                     className={`text-[8px] font-mono px-1 py-0.5 rounded ${entry.signal ? SIGNAL_COLOR[entry.signal] : "bg-slate-600"} text-white leading-none w-full text-center`}
-                    title={`${entry.ticker}: score ${entry.score}/100${entry.signal ? ` · ${entry.signal}` : ""}`}
+                    title={`${entry.ticker}: score ${entry.score}/100${entry.signal ? ` · ${entry.signal}` : ""}${entry.persistence != null ? ` · P${entry.persistence}/20` : ""}`}
                   >
                     {entry.ticker}
                   </div>
@@ -87,6 +94,14 @@ export default function ScoreDistributionPanel({ categories }: Props) {
 
               {/* Range label */}
               <div className="text-[8px] text-slate-600 whitespace-nowrap">{BUCKET_LABELS[i]}</div>
+
+              {/* Avg persistence */}
+              <div
+                className={`text-[8px] tabular-nums font-medium ${persistColor}`}
+                title={avgPersist != null ? `Avg persistence: ${avgPersist}/20d outperforming benchmark` : "No persistence data"}
+              >
+                {avgPersist != null ? `P̄${avgPersist}` : "—"}
+              </div>
             </div>
           );
         })}
@@ -94,6 +109,10 @@ export default function ScoreDistributionPanel({ categories }: Props) {
 
       <div className="px-4 py-1.5 border-t border-slate-700/30 text-[9px] text-slate-600 flex items-center gap-4 flex-wrap">
         <span>{bearishCount} below 40 · {bullishCount} above 60</span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-sm bg-cyan-500/60 inline-block" />
+          <span className="text-slate-600">P̄ = avg 20d persistence</span>
+        </span>
         <span className="ml-auto flex items-center gap-3">
           {(["BUY", "WATCH", "HOLD", "REDUCE"] as TradeSignal[]).map(sig => (
             <span key={sig} className="flex items-center gap-1">

@@ -2,17 +2,21 @@ package com.ftm.app.api.service;
 
 import com.ftm.app.api.dto.CategoriesResponse;
 import com.ftm.app.api.dto.PriceLevelDto;
+import com.ftm.app.api.dto.SignalTransitionDto;
 import com.ftm.app.api.dto.SignalWinRateDto;
 import com.ftm.app.api.mapper.CategoryMapper;
 import com.ftm.app.api.repository.CategoryRepository;
+import com.ftm.app.domain.Category;
 import com.ftm.app.domain.SignalType;
 import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -168,6 +172,48 @@ public class CategoryService {
     return signalRepository.findBuySignalWinRates(clamped).stream()
         .map(r -> new SignalWinRateDto(r.categoryId(), r.signalCount(), r.winRate(), r.avgReturn30d()))
         .toList();
+  }
+
+  public List<SignalTransitionDto> getSignalTransitions(int lookbackDays) {
+    int clamped = Math.max(1, Math.min(lookbackDays, 90));
+    Map<String, Category> categoriesById =
+        categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc().stream()
+            .filter(c -> c.parentId() == null)
+            .collect(Collectors.toMap(c -> c.id().name(), c -> c));
+
+    return signalRepository.findSignalSnapshotPairs(clamped).stream()
+        .map(pair -> {
+          String currentRrg = pair.currentRrg() != null ? String.valueOf(pair.currentRrg().intValue()) : null;
+          String prevRrg    = pair.previousRrg() != null ? String.valueOf(pair.previousRrg().intValue()) : null;
+          String currentSignal = TradeSignalDeriver.derive(pair.currentScore(), currentRrg, pair.currentTrend());
+          String previousSignal = TradeSignalDeriver.derive(pair.previousScore(), prevRrg, pair.previousTrend());
+          if (Objects.equals(currentSignal, previousSignal)) return null;
+          Category cat = categoriesById.get(pair.categoryId());
+          String categoryName = cat != null ? cat.name() : pair.categoryId();
+          String etfTicker = cat != null ? cat.etfTicker() : "";
+          int daysAgo = pair.comparisonDate() != null
+              ? (int) ChronoUnit.DAYS.between(pair.comparisonDate(), LocalDate.now())
+              : clamped;
+          return new SignalTransitionDto(
+              pair.categoryId(), categoryName, etfTicker,
+              previousSignal, currentSignal,
+              pair.currentScore().doubleValue(),
+              pair.comparisonDate(), daysAgo);
+        })
+        .filter(Objects::nonNull)
+        .sorted(Comparator.comparing(
+            t -> signalPriority(t.currentSignal()),
+            Comparator.naturalOrder()))
+        .toList();
+  }
+
+  private int signalPriority(String signal) {
+    return switch (signal == null ? "" : signal) {
+      case "BUY"    -> 0;
+      case "WATCH"  -> 1;
+      case "REDUCE" -> 2;
+      default       -> 3;
+    };
   }
 
   private SignalType rsTypeForTimeframe(String timeframe) {

@@ -306,6 +306,81 @@ public class SignalRepository {
   public record BuySignalWinRateRow(
       String categoryId, int signalCount, BigDecimal winRate, BigDecimal avgReturn30d) {}
 
+  /**
+   * Returns two signal snapshots (current + N-days-ago) for computing signal transitions.
+   *
+   * <p>Each row contains COMPOSITE, RRG_QUADRANT, and COMPOSITE_TREND_20D values for a category
+   * at both the current date and the latest available date that is at least {@code lookbackDays}
+   * calendar days before the current date.
+   */
+  public List<SignalSnapshotPair> findSignalSnapshotPairs(int lookbackDays) {
+    return dsl.resultQuery("""
+        WITH
+        latest_date AS (
+          SELECT MAX(signal_date) AS dt FROM signals WHERE signal_type = 'COMPOSITE'
+        ),
+        past_date AS (
+          SELECT MAX(signal_date) AS dt
+          FROM signals
+          WHERE signal_type = 'COMPOSITE'
+            AND signal_date <= (SELECT dt FROM latest_date) - INTERVAL '{days} days'
+        ),
+        current_signals AS (
+          SELECT s.category_id,
+                 MAX(CASE WHEN s.signal_type = 'COMPOSITE'          THEN s.value END) AS composite_score,
+                 MAX(CASE WHEN s.signal_type = 'RRG_QUADRANT'       THEN s.value END) AS rrg_quadrant,
+                 MAX(CASE WHEN s.signal_type = 'COMPOSITE_TREND_20D' THEN s.value END) AS trend_20d
+          FROM signals s, latest_date
+          WHERE s.signal_date = latest_date.dt
+            AND s.signal_type IN ('COMPOSITE','RRG_QUADRANT','COMPOSITE_TREND_20D')
+          GROUP BY s.category_id
+        ),
+        past_signals AS (
+          SELECT s.category_id,
+                 MAX(CASE WHEN s.signal_type = 'COMPOSITE'          THEN s.value END) AS composite_score,
+                 MAX(CASE WHEN s.signal_type = 'RRG_QUADRANT'       THEN s.value END) AS rrg_quadrant,
+                 MAX(CASE WHEN s.signal_type = 'COMPOSITE_TREND_20D' THEN s.value END) AS trend_20d
+          FROM signals s, past_date
+          WHERE s.signal_date = past_date.dt
+            AND s.signal_type IN ('COMPOSITE','RRG_QUADRANT','COMPOSITE_TREND_20D')
+          GROUP BY s.category_id
+        )
+        SELECT
+          c.category_id,
+          c.composite_score  AS cur_score,
+          c.rrg_quadrant     AS cur_rrg,
+          c.trend_20d        AS cur_trend,
+          p.composite_score  AS prev_score,
+          p.rrg_quadrant     AS prev_rrg,
+          p.trend_20d        AS prev_trend,
+          past_date.dt       AS comparison_date
+        FROM current_signals c
+        JOIN past_signals p ON c.category_id = p.category_id
+        CROSS JOIN past_date
+        WHERE c.composite_score IS NOT NULL AND p.composite_score IS NOT NULL
+        """.replace("{days}", String.valueOf(lookbackDays)))
+        .fetch()
+        .map(r -> new SignalSnapshotPair(
+            r.get("category_id",     String.class),
+            r.get("cur_score",       BigDecimal.class),
+            r.get("cur_rrg",         BigDecimal.class),
+            r.get("cur_trend",       BigDecimal.class),
+            r.get("prev_score",      BigDecimal.class),
+            r.get("prev_rrg",        BigDecimal.class),
+            r.get("prev_trend",      BigDecimal.class),
+            r.get("comparison_date", java.time.LocalDate.class)));
+  }
+
+  public record SignalSnapshotPair(
+      String categoryId,
+      BigDecimal currentScore,
+      BigDecimal currentRrg,
+      BigDecimal currentTrend,
+      BigDecimal previousScore,
+      BigDecimal previousRrg,
+      BigDecimal previousTrend,
+      java.time.LocalDate comparisonDate) {}
+
   public Map<String, List<BigDecimal>> findCompositeScoreHistory(
       int days, Collection<String> categoryIds) {
     if (categoryIds.isEmpty()) return Map.of();

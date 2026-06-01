@@ -442,6 +442,20 @@ export type PriceLevelDto = {
 export const fetchPriceLevels = () =>
   get<PriceLevelDto[]>("/api/v1/categories/price-levels");
 
+export type SignalTransitionDto = {
+  categoryId: string;
+  categoryName: string;
+  etfTicker: string;
+  previousSignal: string | null;
+  currentSignal: string;
+  currentScore: number;
+  comparisonDate: string;
+  daysAgo: number;
+};
+
+export const fetchSignalTransitions = (days = 7) =>
+  get<SignalTransitionDto[]>(`/api/v1/categories/transitions?days=${days}`);
+
 export type TickerMappingDto = {
   ticker: string;
   categoryId: string;

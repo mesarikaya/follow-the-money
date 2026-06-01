@@ -2,6 +2,7 @@ package com.ftm.app.api.controller;
 
 import com.ftm.app.api.dto.CategoriesResponse;
 import com.ftm.app.api.dto.PriceLevelDto;
+import com.ftm.app.api.dto.SignalTransitionDto;
 import com.ftm.app.api.dto.SignalWinRateDto;
 import com.ftm.app.api.service.CategoryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -71,5 +72,17 @@ public class CategoryController {
   public ResponseEntity<List<SignalWinRateDto>> getWinRates(
       @RequestParam(defaultValue = "365") @Min(90) @Max(730) int lookbackDays) {
     return ResponseEntity.ok(categoryService.getBuySignalWinRates(lookbackDays));
+  }
+
+  @GetMapping("/transitions")
+  @Operation(
+      summary = "Recent signal transitions",
+      description =
+          "Returns categories whose derived trade signal changed between today and a comparison "
+              + "date that is at least {days} calendar days in the past. Ordered by signal priority "
+              + "(BUY → WATCH → REDUCE → HOLD). Lookback clamped to [1, 90] days.")
+  public ResponseEntity<List<SignalTransitionDto>> getSignalTransitions(
+      @RequestParam(defaultValue = "7") @Min(1) @Max(90) int days) {
+    return ResponseEntity.ok(categoryService.getSignalTransitions(days));
   }
 }

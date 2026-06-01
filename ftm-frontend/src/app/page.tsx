@@ -1,4 +1,4 @@
-import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, SubSectorSummary } from "@/lib/api";
+import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, fetchWinRates, SignalWinRateDto, SubSectorSummary } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import CategoryTable from "@/components/CategoryTable";
 import MacroPanel from "@/components/MacroPanel";
@@ -31,14 +31,21 @@ export default async function Home({ searchParams }: Props) {
 
   const sectorIds = Array.from(SECTOR_DRILLDOWN_IDS);
 
-  const [categoriesResult, macroResult, rotationResult, scoreHistoryResult, ...subSectorResults] =
+  const [categoriesResult, macroResult, rotationResult, scoreHistoryResult, winRatesResult, ...subSectorResults] =
     await Promise.allSettled([
       fetchCategories(timeframe),
       fetchMacro(),
       fetchRotation(),
       fetchCategoryScoreHistory(30),
+      fetchWinRates(365),
       ...sectorIds.map((id) => fetchSubSectors(id)),
     ]);
+
+  const winRates: SignalWinRateDto[] =
+    winRatesResult.status === "fulfilled" ? winRatesResult.value : [];
+
+  const winRateByCategory: Record<string, SignalWinRateDto> = {};
+  winRates.forEach(w => { winRateByCategory[w.categoryId] = w; });
 
   const topSubSectorByParent: Record<string, SubSectorSummary> = {};
   subSectorResults.forEach((result, i) => {
@@ -73,7 +80,7 @@ export default async function Home({ searchParams }: Props) {
 
         {categories.length > 0 && <MarketPulseStrip categories={categories} />}
 
-        {categories.length > 0 && <ActionSummaryPanel categories={categories} />}
+        {categories.length > 0 && <ActionSummaryPanel categories={categories} winRateByCategory={winRateByCategory} />}
 
         <ActiveAlertsStrip />
 

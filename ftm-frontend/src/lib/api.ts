@@ -415,8 +415,18 @@ export const bulkDismissAlerts = () =>
     return res.json() as Promise<{ dismissed: number }>;
   });
 
+export type SignalWinRateDto = {
+  categoryId: string;
+  signalCount: number;
+  winRate: number | null;
+  avgReturn30d: number | null;
+};
+
 export const fetchSubSectors = (parent = "TECH") =>
   get<SubSectorSummary[]>(`/api/v1/sub-sectors?parent=${parent}`);
+
+export const fetchWinRates = (lookbackDays = 365) =>
+  get<SignalWinRateDto[]>(`/api/v1/categories/win-rates?lookbackDays=${lookbackDays}`);
 
 export type TickerMappingDto = {
   ticker: string;

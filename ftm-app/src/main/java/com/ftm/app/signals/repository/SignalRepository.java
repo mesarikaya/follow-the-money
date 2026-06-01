@@ -256,6 +256,56 @@ public class SignalRepository {
         .fetchMap(r -> r.get("category_id", String.class), r -> r.get("days_active", Integer.class));
   }
 
+  public List<BuySignalWinRateRow> findBuySignalWinRates(int lookbackDays) {
+    return dsl.resultQuery("""
+        WITH daily_signals AS (
+          SELECT category_id, signal_date, value,
+                 LAG(value) OVER (PARTITION BY category_id ORDER BY signal_date) AS prev_value
+          FROM signals
+          WHERE signal_type = 'COMPOSITE'
+        ),
+        new_buy_signals AS (
+          SELECT category_id, signal_date
+          FROM daily_signals
+          WHERE value >= 0.65 AND (prev_value IS NULL OR prev_value < 0.65)
+          AND signal_date >= CURRENT_DATE - INTERVAL '{0} days'
+        ),
+        forward_prices AS (
+          SELECT nbs.category_id, nbs.signal_date,
+                 p_entry.adj_close AS entry_price,
+                 p_fwd.adj_close   AS fwd_price
+          FROM new_buy_signals nbs
+          JOIN raw_prices p_entry
+            ON p_entry.category_id = nbs.category_id AND p_entry.trade_date = nbs.signal_date
+          JOIN LATERAL (
+            SELECT adj_close FROM raw_prices
+            WHERE category_id = nbs.category_id
+              AND trade_date > nbs.signal_date + INTERVAL '28 days'
+              AND trade_date <= nbs.signal_date + INTERVAL '40 days'
+            ORDER BY trade_date ASC LIMIT 1
+          ) p_fwd ON true
+          WHERE p_entry.adj_close > 0
+        )
+        SELECT category_id,
+               COUNT(*)::int                                                              AS signal_count,
+               ROUND(AVG(CASE WHEN fwd_price > entry_price THEN 1.0 ELSE 0.0 END)::numeric, 3) AS win_rate,
+               ROUND(AVG((fwd_price - entry_price) / entry_price)::numeric, 4)           AS avg_return_30d
+        FROM forward_prices
+        GROUP BY category_id
+        HAVING COUNT(*) >= 2
+        ORDER BY win_rate DESC
+        """.replace("{0}", String.valueOf(lookbackDays)))
+        .fetch()
+        .map(r -> new BuySignalWinRateRow(
+            r.get("category_id", String.class),
+            r.get("signal_count", Integer.class),
+            r.get("win_rate", BigDecimal.class),
+            r.get("avg_return_30d", BigDecimal.class)));
+  }
+
+  public record BuySignalWinRateRow(
+      String categoryId, int signalCount, BigDecimal winRate, BigDecimal avgReturn30d) {}
+
   public Map<String, List<BigDecimal>> findCompositeScoreHistory(
       int days, Collection<String> categoryIds) {
     if (categoryIds.isEmpty()) return Map.of();

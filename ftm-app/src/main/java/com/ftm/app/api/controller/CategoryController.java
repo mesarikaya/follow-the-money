@@ -1,6 +1,7 @@
 package com.ftm.app.api.controller;
 
 import com.ftm.app.api.dto.CategoriesResponse;
+import com.ftm.app.api.dto.SignalWinRateDto;
 import com.ftm.app.api.service.CategoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -47,5 +48,17 @@ public class CategoryController {
   public ResponseEntity<Map<String, List<Double>>> getScoreHistory(
       @RequestParam(defaultValue = "30") @Min(5) @Max(120) int days) {
     return ResponseEntity.ok(categoryService.getCompositeScoreHistory(days));
+  }
+
+  @GetMapping("/win-rates")
+  @Operation(
+      summary = "Historical BUY signal win rates",
+      description =
+          "For each category with at least 2 BUY signal transitions in the lookback window, "
+              + "returns the fraction of signals followed by a positive 30-day forward return "
+              + "and the average return. Lookback is clamped to [90, 730] days.")
+  public ResponseEntity<List<SignalWinRateDto>> getWinRates(
+      @RequestParam(defaultValue = "365") @Min(90) @Max(730) int lookbackDays) {
+    return ResponseEntity.ok(categoryService.getBuySignalWinRates(lookbackDays));
   }
 }

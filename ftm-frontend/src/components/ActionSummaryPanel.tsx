@@ -1,6 +1,6 @@
 "use client";
 
-import { CategorySummary } from "@/lib/api";
+import { CategorySummary, SignalWinRateDto } from "@/lib/api";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 import Link from "next/link";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
@@ -16,6 +16,9 @@ type ActionCard = {
   realizedVol20d: number | null;
   signalDaysActive: number | null;
   rrgQuadrant: string | null;
+  winRate: number | null;
+  avgReturn30d: number | null;
+  winRateSignalCount: number | null;
 };
 
 const SIGNAL_STYLES: Record<"BUY" | "REDUCE", {
@@ -101,29 +104,55 @@ function ActionCard({ card, side }: { card: ActionCard; side: "BUY" | "REDUCE" }
             </span>
           </div>
         )}
+
+        {card.winRate != null && (
+          <div
+            className="flex flex-col"
+            title={`Historical BUY signal win rate over last 12 months (${card.winRateSignalCount} signals). Fraction of new BUY signals followed by positive 30-day return.`}
+          >
+            <span className="text-[9px] text-slate-600 uppercase">Win%</span>
+            <span className={`text-[10px] font-mono font-semibold ${card.winRate >= 0.65 ? "text-green-400" : card.winRate >= 0.50 ? "text-yellow-400" : "text-slate-400"}`}>
+              {Math.round(card.winRate * 100)}%
+              {card.avgReturn30d != null && (
+                <span className={`ml-0.5 text-[8px] ${card.avgReturn30d > 0 ? "text-emerald-500" : "text-red-500"}`}>
+                  ({card.avgReturn30d > 0 ? "+" : ""}{(card.avgReturn30d * 100).toFixed(1)}%)
+                </span>
+              )}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-type Props = { categories: CategorySummary[] };
+type Props = {
+  categories: CategorySummary[];
+  winRateByCategory?: Record<string, SignalWinRateDto>;
+};
 
-export default function ActionSummaryPanel({ categories }: Props) {
+export default function ActionSummaryPanel({ categories, winRateByCategory = {} }: Props) {
   const getSignal = (c: CategorySummary): TradeSignal | null =>
     (c.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(c);
 
-  const toCard = (c: CategorySummary, signal: TradeSignal): ActionCard => ({
-    id: c.id,
-    name: c.name,
-    etfTicker: c.etfTicker,
-    signal,
-    score: c.compositeScore ?? 0,
-    scoreTrend20d: c.compositeTrend20d ?? null,
-    rs60: c.rs60 ?? null,
-    realizedVol20d: c.realizedVol20d ?? null,
-    signalDaysActive: c.signalDaysActive ?? null,
-    rrgQuadrant: c.rrgQuadrant ?? null,
-  });
+  const toCard = (c: CategorySummary, signal: TradeSignal): ActionCard => {
+    const wr = winRateByCategory[c.id];
+    return {
+      id: c.id,
+      name: c.name,
+      etfTicker: c.etfTicker,
+      signal,
+      score: c.compositeScore ?? 0,
+      scoreTrend20d: c.compositeTrend20d ?? null,
+      rs60: c.rs60 ?? null,
+      realizedVol20d: c.realizedVol20d ?? null,
+      signalDaysActive: c.signalDaysActive ?? null,
+      rrgQuadrant: c.rrgQuadrant ?? null,
+      winRate: wr?.winRate ?? null,
+      avgReturn30d: wr?.avgReturn30d ?? null,
+      winRateSignalCount: wr?.signalCount ?? null,
+    };
+  };
 
   const buySignals = categories
     .filter(c => getSignal(c) === "BUY")

@@ -1,6 +1,7 @@
 package com.ftm.app.api.service;
 
 import com.ftm.app.api.dto.CategoriesResponse;
+import com.ftm.app.api.dto.SignalWinRateDto;
 import com.ftm.app.api.mapper.CategoryMapper;
 import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.domain.SignalType;
@@ -148,6 +149,13 @@ public class CategoryService {
                     e.getValue().stream()
                         .map(v -> v == null ? null : v.doubleValue())
                         .collect(Collectors.toList())));
+  }
+
+  public List<SignalWinRateDto> getBuySignalWinRates(int lookbackDays) {
+    int clamped = Math.max(90, Math.min(lookbackDays, 730));
+    return signalRepository.findBuySignalWinRates(clamped).stream()
+        .map(r -> new SignalWinRateDto(r.categoryId(), r.signalCount(), r.winRate(), r.avgReturn30d()))
+        .toList();
   }
 
   private SignalType rsTypeForTimeframe(String timeframe) {

@@ -80,12 +80,11 @@ public class RelativeStrengthCalculator {
   }
 
   /**
-   * Counts how many daily returns in the last {@code period} trading days the category
-   * outperformed the benchmark on a day-by-day basis. Returns an integer count in [0, period].
-   * A value of 14 means the sector beat its benchmark on 14 of the last 20 trading days —
-   * measuring breadth of outperformance rather than just the cumulative return.
-   * Returns null when fewer than 2 data points are available.
-   * Prices must be in ascending chronological order (oldest first).
+   * Counts how many daily returns in the last {@code period} trading days the category outperformed
+   * the benchmark on a day-by-day basis. Returns an integer count in [0, period]. A value of 14
+   * means the sector beat its benchmark on 14 of the last 20 trading days — measuring breadth of
+   * outperformance rather than just the cumulative return. Returns null when fewer than 2 data
+   * points are available. Prices must be in ascending chronological order (oldest first).
    */
   public BigDecimal computePersistence(
       List<BigDecimal> catPrices, List<BigDecimal> benchPrices, int period) {

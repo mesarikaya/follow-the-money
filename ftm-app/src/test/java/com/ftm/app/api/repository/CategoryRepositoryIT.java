@@ -35,9 +35,9 @@ class CategoryRepositoryIT {
   void shouldReturnAllActiveSeededCategories() {
     List<Category> categories = repository.findAllByActiveTrueOrderByDisplayOrderAsc();
 
-    // 19 top-level + 4 TECH sub-sectors (V7) + 4 factor ETFs (V8) + 58 universal sub-sectors (V9) =
-    // 85; FTRS stays inactive
-    assertThat(categories).hasSize(85);
+    // 19 top-level + 4 TECH sub-sectors (V7) + 4 factor ETFs (V8) + sub-sectors (V9/V18/V19) =
+    // 102; FTRS stays inactive
+    assertThat(categories).hasSize(102);
   }
 
   @Test
@@ -72,7 +72,7 @@ class CategoryRepositoryIT {
 
     List<Category> categories = repository.findAllByActiveTrueOrderByDisplayOrderAsc();
 
-    assertThat(categories).hasSize(84);
+    assertThat(categories).hasSize(101);
     assertThat(categories).extracting(Category::id).doesNotContain(CategoryId.CASH);
   }
 

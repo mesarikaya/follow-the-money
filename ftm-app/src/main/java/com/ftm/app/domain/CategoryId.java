@@ -113,5 +113,12 @@ public enum CategoryId {
   TECH_IOTC,
   UTIL_CLNR,
   HLTH_DRUG,
-  REIT_HLTH
+  REIT_HLTH,
+  // V19 additions
+  TECH_SOXX,
+  ENRG_QCLN,
+  COMM_HERO,
+  FINL_BLOK,
+  MATL_CPER,
+  INDU_SHLD
 }

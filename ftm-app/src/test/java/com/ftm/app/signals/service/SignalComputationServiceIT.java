@@ -39,7 +39,7 @@ class SignalComputationServiceIT {
 
   @Test
   @DisplayName(
-      "computeAndStore backfills all dates and writes all 9 signal types for the latest date when data is sufficient")
+      "computeAndStore backfills all dates and writes all signal types for the latest date when data is sufficient")
   void shouldComputeAllSignalTypesWhenDataSufficient() {
     insertCategoryPrices("TECH", SIGNAL_DATE, 130);
     insertBenchmarkPrices("SPY", SIGNAL_DATE, 130);
@@ -48,7 +48,7 @@ class SignalComputationServiceIT {
 
     List<SignalRepository.HistoryRow> allSignals = signalRepository.findByCategoryId("TECH");
 
-    // Latest date must have all 9 expected signal types
+    // Latest date must have all expected signal types
     List<SignalRepository.HistoryRow> latestDateSignals =
         allSignals.stream().filter(row -> row.signalDate().equals(SIGNAL_DATE)).toList();
     assertThat(latestDateSignals)
@@ -65,6 +65,7 @@ class SignalComputationServiceIT {
             SignalType.RRG_MOM,
             SignalType.RRG_QUADRANT,
             SignalType.MACRO_REGIME,
+            SignalType.PERSISTENCE_20D,
             SignalType.COMPOSITE);
 
     // Backfill must have computed signals for multiple dates (not just the latest)
@@ -79,7 +80,7 @@ class SignalComputationServiceIT {
   @DisplayName(
       "computeAndStore omits signals requiring more data than available, but always writes MACRO_REGIME for the latest date")
   void shouldOmitSignalTypesWithInsufficientData() {
-    // 25 prices: enough for RS_20 (needs 21) but not RS_60/RS_120/RRG; MACRO_REGIME always written
+    // 25 prices: enough for RS_20 (needs 21) and PERSISTENCE_20D (needs 20) but not RS_60/RS_120/RRG; MACRO_REGIME always written
     insertCategoryPrices("TECH", SIGNAL_DATE, 25);
     insertBenchmarkPrices("SPY", SIGNAL_DATE, 25);
 
@@ -92,7 +93,7 @@ class SignalComputationServiceIT {
         allSignals.stream().filter(row -> row.signalDate().equals(SIGNAL_DATE)).toList();
     assertThat(latestDateSignals)
         .extracting(SignalRepository.HistoryRow::signalType)
-        .containsExactlyInAnyOrder(SignalType.RS_20, SignalType.MACRO_REGIME);
+        .containsExactlyInAnyOrder(SignalType.RS_20, SignalType.MACRO_REGIME, SignalType.PERSISTENCE_20D);
   }
 
   @Test

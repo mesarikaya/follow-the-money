@@ -145,7 +145,8 @@ public class SignalComputationService {
         addIfNotNull(pendingRows, signalDate, categoryId, SignalType.RS_60, rs60);
         addIfNotNull(pendingRows, signalDate, categoryId, SignalType.RS_120, rs120);
         addIfNotNull(pendingRows, signalDate, categoryId, SignalType.MOM, momentum);
-        addIfNotNull(pendingRows, signalDate, categoryId, SignalType.PERSISTENCE_20D, persistence20d);
+        addIfNotNull(
+            pendingRows, signalDate, categoryId, SignalType.PERSISTENCE_20D, persistence20d);
 
         if (rs60 != null) rs60ByCategoryId.put(categoryId, rs60);
         if (rs120 != null) rs120ByCategoryId.put(categoryId, rs120);

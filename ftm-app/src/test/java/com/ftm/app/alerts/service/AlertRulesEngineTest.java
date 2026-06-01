@@ -3,6 +3,7 @@ package com.ftm.app.alerts.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.instancio.Select.field;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -60,6 +61,15 @@ class AlertRulesEngineTest {
             rotationEventRepository,
             signalRepository,
             categoryRepository);
+    // resolveStaleAlerts always calls these; lenient prevents PotentialStubbingProblem
+    // in tests that stub other SignalTypes (RS_60, RS_120, MACRO_REGIME).
+    // Tests that need meaningful values for these types override these stubs inline.
+    lenient()
+        .when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of());
+    lenient()
+        .when(signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, DATE))
+        .thenReturn(Map.of());
   }
 
   private AlertRule enabled(String ruleId, Severity severity) {
@@ -81,6 +91,7 @@ class AlertRulesEngineTest {
     return Instancio.of(RotationEvent.class)
         .set(field(RotationEvent::categoryId), categoryId)
         .set(field(RotationEvent::eventType), eventType)
+        .set(field(RotationEvent::detectedDate), DATE)
         .create();
   }
 
@@ -501,7 +512,8 @@ class AlertRulesEngineTest {
   // ===== Persistence Low Tests =====
 
   @Test
-  @DisplayName("persistence_low enabled: inserts alert when sector beats benchmark fewer than threshold days")
+  @DisplayName(
+      "persistence_low enabled: inserts alert when sector beats benchmark fewer than threshold days")
   void shouldCreatePersistenceLowAlertWhenDaysBelowThreshold() {
     stubTopLevelCategories("TECH");
     stubMacroDisabled();
@@ -510,7 +522,8 @@ class AlertRulesEngineTest {
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
 
     when(alertRulesRepository.findById("persistence_low"))
-        .thenReturn(Optional.of(enabledWithPersistenceDays("persistence_low", Severity.WARNING, 7)));
+        .thenReturn(
+            Optional.of(enabledWithPersistenceDays("persistence_low", Severity.WARNING, 7)));
     when(signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, DATE))
         .thenReturn(Map.of("TECH", new BigDecimal("5")));
     when(alertRepository.existsActiveAlert("persistence_low", "TECH")).thenReturn(false);
@@ -537,7 +550,8 @@ class AlertRulesEngineTest {
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
 
     when(alertRulesRepository.findById("persistence_low"))
-        .thenReturn(Optional.of(enabledWithPersistenceDays("persistence_low", Severity.WARNING, 7)));
+        .thenReturn(
+            Optional.of(enabledWithPersistenceDays("persistence_low", Severity.WARNING, 7)));
     // 12/20 days — above threshold of 7
     when(signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, DATE))
         .thenReturn(Map.of("TECH", new BigDecimal("12")));
@@ -557,7 +571,8 @@ class AlertRulesEngineTest {
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
 
     when(alertRulesRepository.findById("persistence_low"))
-        .thenReturn(Optional.of(enabledWithPersistenceDays("persistence_low", Severity.WARNING, 7)));
+        .thenReturn(
+            Optional.of(enabledWithPersistenceDays("persistence_low", Severity.WARNING, 7)));
     when(signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, DATE))
         .thenReturn(Map.of("TECH", new BigDecimal("4")));
     when(alertRepository.existsActiveAlert("persistence_low", "TECH")).thenReturn(true);
@@ -583,7 +598,8 @@ class AlertRulesEngineTest {
   }
 
   @Test
-  @DisplayName("resolveStaleAlerts: resolves persistence_low alert when persistence recovers to >= 8 days")
+  @DisplayName(
+      "resolveStaleAlerts: resolves persistence_low alert when persistence recovers to >= 8 days")
   void shouldResolvePersistenceLowAlertWhenPersistenceRecovers() {
     stubTopLevelCategories("TECH");
     stubMacroDisabled();

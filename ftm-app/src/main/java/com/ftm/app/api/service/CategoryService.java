@@ -1,6 +1,7 @@
 package com.ftm.app.api.service;
 
 import com.ftm.app.api.dto.CategoriesResponse;
+import com.ftm.app.api.dto.PriceLevelDto;
 import com.ftm.app.api.dto.SignalWinRateDto;
 import com.ftm.app.api.mapper.CategoryMapper;
 import com.ftm.app.api.repository.CategoryRepository;
@@ -149,6 +150,14 @@ public class CategoryService {
                     e.getValue().stream()
                         .map(v -> v == null ? null : v.doubleValue())
                         .collect(Collectors.toList())));
+  }
+
+  public List<PriceLevelDto> getPriceLevels() {
+    return categoryRepository.findPriceLevels().stream()
+        .map(r -> new PriceLevelDto(
+            r.categoryId(), r.currentPrice(), r.high252d(), r.low252d(),
+            r.drawdownFromHigh(), r.positionInRange(), r.daysOfData()))
+        .toList();
   }
 
   public List<SignalWinRateDto> getBuySignalWinRates(int lookbackDays) {

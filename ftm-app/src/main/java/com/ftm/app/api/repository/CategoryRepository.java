@@ -109,6 +109,61 @@ public class CategoryRepository {
             .fetchInto(String.class));
   }
 
+  public List<PriceLevelRow> findPriceLevels() {
+    return dsl.resultQuery("""
+        WITH categorized AS (
+          SELECT category_id, trade_date, adj_close,
+                 ROW_NUMBER() OVER (PARTITION BY category_id ORDER BY trade_date DESC) AS rn
+          FROM raw_prices
+          WHERE adj_close > 0
+          AND trade_date >= CURRENT_DATE - INTERVAL '400 days'
+        ),
+        current_prices AS (
+          SELECT category_id, adj_close AS current_price
+          FROM categorized WHERE rn = 1
+        ),
+        yearly_range AS (
+          SELECT category_id,
+                 MAX(adj_close) AS high_252d,
+                 MIN(adj_close) AS low_252d,
+                 COUNT(*)::int  AS days_of_data
+          FROM categorized
+          WHERE rn <= 252
+          GROUP BY category_id
+        )
+        SELECT cp.category_id,
+               cp.current_price,
+               yr.high_252d,
+               yr.low_252d,
+               yr.days_of_data,
+               ROUND((cp.current_price - yr.high_252d) / yr.high_252d, 4)    AS drawdown_from_high,
+               ROUND(CASE WHEN (yr.high_252d - yr.low_252d) > 0
+                 THEN (cp.current_price - yr.low_252d) / (yr.high_252d - yr.low_252d)
+                 ELSE 0.5 END, 4)                                             AS position_in_range
+        FROM current_prices cp
+        JOIN yearly_range yr ON cp.category_id = yr.category_id
+        WHERE yr.days_of_data >= 30
+        """)
+        .fetch()
+        .map(r -> new PriceLevelRow(
+            r.get("category_id", String.class),
+            r.get("current_price", BigDecimal.class),
+            r.get("high_252d", BigDecimal.class),
+            r.get("low_252d", BigDecimal.class),
+            r.get("drawdown_from_high", BigDecimal.class),
+            r.get("position_in_range", BigDecimal.class),
+            r.get("days_of_data", Integer.class)));
+  }
+
+  public record PriceLevelRow(
+      String categoryId,
+      BigDecimal currentPrice,
+      BigDecimal high252d,
+      BigDecimal low252d,
+      BigDecimal drawdownFromHigh,
+      BigDecimal positionInRange,
+      int daysOfData) {}
+
   public List<Category> findSubCategoriesByParentId(String parentId) {
     return dsl.selectFrom(CATEGORIES)
         .where(CATEGORIES.PARENT_ID.eq(parentId))

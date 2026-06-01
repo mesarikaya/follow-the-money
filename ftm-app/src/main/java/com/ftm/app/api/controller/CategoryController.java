@@ -1,6 +1,7 @@
 package com.ftm.app.api.controller;
 
 import com.ftm.app.api.dto.CategoriesResponse;
+import com.ftm.app.api.dto.PriceLevelDto;
 import com.ftm.app.api.dto.SignalWinRateDto;
 import com.ftm.app.api.service.CategoryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -48,6 +49,16 @@ public class CategoryController {
   public ResponseEntity<Map<String, List<Double>>> getScoreHistory(
       @RequestParam(defaultValue = "30") @Min(5) @Max(120) int days) {
     return ResponseEntity.ok(categoryService.getCompositeScoreHistory(days));
+  }
+
+  @GetMapping("/price-levels")
+  @Operation(
+      summary = "52-week price range context for all categories",
+      description =
+          "Returns the 52-week high/low, current price drawdown from peak, and position within the "
+              + "annual range for each category with at least 30 trading days of price data.")
+  public ResponseEntity<List<PriceLevelDto>> getPriceLevels() {
+    return ResponseEntity.ok(categoryService.getPriceLevels());
   }
 
   @GetMapping("/win-rates")

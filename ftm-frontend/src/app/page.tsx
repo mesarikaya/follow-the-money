@@ -1,4 +1,4 @@
-import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, fetchWinRates, SignalWinRateDto, SubSectorSummary } from "@/lib/api";
+import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, fetchWinRates, fetchPriceLevels, SignalWinRateDto, PriceLevelDto, SubSectorSummary } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import CategoryTable from "@/components/CategoryTable";
 import MacroPanel from "@/components/MacroPanel";
@@ -31,13 +31,14 @@ export default async function Home({ searchParams }: Props) {
 
   const sectorIds = Array.from(SECTOR_DRILLDOWN_IDS);
 
-  const [categoriesResult, macroResult, rotationResult, scoreHistoryResult, winRatesResult, ...subSectorResults] =
+  const [categoriesResult, macroResult, rotationResult, scoreHistoryResult, winRatesResult, priceLevelsResult, ...subSectorResults] =
     await Promise.allSettled([
       fetchCategories(timeframe),
       fetchMacro(),
       fetchRotation(),
       fetchCategoryScoreHistory(30),
       fetchWinRates(365),
+      fetchPriceLevels(),
       ...sectorIds.map((id) => fetchSubSectors(id)),
     ]);
 
@@ -46,6 +47,12 @@ export default async function Home({ searchParams }: Props) {
 
   const winRateByCategory: Record<string, SignalWinRateDto> = {};
   winRates.forEach(w => { winRateByCategory[w.categoryId] = w; });
+
+  const priceLevels: PriceLevelDto[] =
+    priceLevelsResult.status === "fulfilled" ? priceLevelsResult.value : [];
+
+  const priceLevelByCategory: Record<string, PriceLevelDto> = {};
+  priceLevels.forEach(p => { priceLevelByCategory[p.categoryId] = p; });
 
   const topSubSectorByParent: Record<string, SubSectorSummary> = {};
   subSectorResults.forEach((result, i) => {
@@ -80,7 +87,7 @@ export default async function Home({ searchParams }: Props) {
 
         {categories.length > 0 && <MarketPulseStrip categories={categories} />}
 
-        {categories.length > 0 && <ActionSummaryPanel categories={categories} winRateByCategory={winRateByCategory} />}
+        {categories.length > 0 && <ActionSummaryPanel categories={categories} winRateByCategory={winRateByCategory} priceLevelByCategory={priceLevelByCategory} />}
 
         <ActiveAlertsStrip />
 

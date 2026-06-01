@@ -428,6 +428,19 @@ export const fetchSubSectors = (parent = "TECH") =>
 export const fetchWinRates = (lookbackDays = 365) =>
   get<SignalWinRateDto[]>(`/api/v1/categories/win-rates?lookbackDays=${lookbackDays}`);
 
+export type PriceLevelDto = {
+  categoryId: string;
+  currentPrice: number | null;
+  high52w: number | null;
+  low52w: number | null;
+  drawdownFromHigh: number | null;
+  positionInRange: number | null;
+  daysOfData: number;
+};
+
+export const fetchPriceLevels = () =>
+  get<PriceLevelDto[]>("/api/v1/categories/price-levels");
+
 export type TickerMappingDto = {
   ticker: string;
   categoryId: string;

@@ -1,6 +1,6 @@
 "use client";
 
-import { CategorySummary, SignalWinRateDto } from "@/lib/api";
+import { CategorySummary, SignalWinRateDto, PriceLevelDto } from "@/lib/api";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 import Link from "next/link";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
@@ -19,6 +19,8 @@ type ActionCard = {
   winRate: number | null;
   avgReturn30d: number | null;
   winRateSignalCount: number | null;
+  drawdownFromHigh: number | null;
+  positionInRange: number | null;
 };
 
 const SIGNAL_STYLES: Record<"BUY" | "REDUCE", {
@@ -121,6 +123,23 @@ function ActionCard({ card, side }: { card: ActionCard; side: "BUY" | "REDUCE" }
             </span>
           </div>
         )}
+
+        {card.drawdownFromHigh != null && (
+          <div
+            className="flex flex-col"
+            title={`52-week price range position: ${card.positionInRange != null ? Math.round(card.positionInRange * 100) + "% of range" : "—"}. Drawdown from 52w high: ${(card.drawdownFromHigh * 100).toFixed(1)}%.`}
+          >
+            <span className="text-[9px] text-slate-600 uppercase">52wR</span>
+            <span className={`text-[10px] font-mono ${card.drawdownFromHigh >= -0.05 ? "text-amber-400" : card.drawdownFromHigh >= -0.15 ? "text-slate-400" : "text-cyan-400"}`}
+              title={`${(card.drawdownFromHigh * 100).toFixed(1)}% from 52w high — ${card.drawdownFromHigh >= -0.05 ? "near peak (overbought risk)" : card.drawdownFromHigh >= -0.15 ? "moderate pullback" : "deep pullback (potential value entry)"}`}
+            >
+              {(card.drawdownFromHigh * 100).toFixed(0)}%
+              {card.positionInRange != null && (
+                <span className="text-[8px] text-slate-600 ml-0.5">P{Math.round(card.positionInRange * 100)}</span>
+              )}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -129,14 +148,16 @@ function ActionCard({ card, side }: { card: ActionCard; side: "BUY" | "REDUCE" }
 type Props = {
   categories: CategorySummary[];
   winRateByCategory?: Record<string, SignalWinRateDto>;
+  priceLevelByCategory?: Record<string, PriceLevelDto>;
 };
 
-export default function ActionSummaryPanel({ categories, winRateByCategory = {} }: Props) {
+export default function ActionSummaryPanel({ categories, winRateByCategory = {}, priceLevelByCategory = {} }: Props) {
   const getSignal = (c: CategorySummary): TradeSignal | null =>
     (c.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(c);
 
   const toCard = (c: CategorySummary, signal: TradeSignal): ActionCard => {
     const wr = winRateByCategory[c.id];
+    const pl = priceLevelByCategory[c.id];
     return {
       id: c.id,
       name: c.name,
@@ -151,6 +172,8 @@ export default function ActionSummaryPanel({ categories, winRateByCategory = {} 
       winRate: wr?.winRate ?? null,
       avgReturn30d: wr?.avgReturn30d ?? null,
       winRateSignalCount: wr?.signalCount ?? null,
+      drawdownFromHigh: pl?.drawdownFromHigh ?? null,
+      positionInRange: pl?.positionInRange ?? null,
     };
   };
 

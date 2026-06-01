@@ -14,6 +14,14 @@ const REGIME_LABELS: Record<string, string> = {
 };
 
 
+const VOL_FLOOR = 0.05;
+const VOL_DEFAULT = 0.10;
+
+function volAdjustedWeight(score: number, vol: number | null): number {
+  const effectiveVol = vol != null && vol > VOL_FLOOR ? vol : VOL_DEFAULT;
+  return score / effectiveVol;
+}
+
 function buildNarrative(
   equities: CategorySummary[],
   macro: MacroResponse | null,
@@ -55,19 +63,28 @@ function buildNarrative(
     lines.push(`RS momentum is narrowing — only ${accelCount} sectors are accelerating relative to the benchmark.`);
   }
 
-  // BUY signals with score-weighted allocations
+  // BUY signals with vol-adjusted allocations (consistent with backend optimal allocation)
   if (buySignals.length > 0) {
-    const totalScore = buySignals.reduce((sum, c) => sum + (c.compositeScore ?? 0), 0);
+    const totalWeight = buySignals.reduce((sum, c) => sum + volAdjustedWeight(c.compositeScore ?? 0, c.realizedVol20d ?? null), 0);
     const names = buySignals
       .map(c => {
         const sub = topSubSectors[c.id];
         const subPart = sub ? ` (→ ${sub.etfTicker})` : "";
-        const allocPct = totalScore > 0 ? Math.round(((c.compositeScore ?? 0) / totalScore) * 100) : 0;
+        const weight = volAdjustedWeight(c.compositeScore ?? 0, c.realizedVol20d ?? null);
+        const allocPct = totalWeight > 0 ? Math.round((weight / totalWeight) * 100) : 0;
         const allocStr = allocPct > 0 ? ` ~${allocPct}%` : "";
-        return `${c.etfTicker}${allocStr}${subPart}`;
+        const ageStr = c.signalDaysActive != null && c.signalDaysActive >= 5 ? ` ${c.signalDaysActive}d` : "";
+        return `${c.etfTicker}${allocStr}${ageStr}${subPart}`;
       })
       .join(", ");
-    lines.push(`**Add / Overweight:** ${names} — all three signals aligned. Proportional to score.`);
+    lines.push(`**Add / Overweight:** ${names} — all three signals aligned. Risk-adjusted weights (score ÷ volatility).`);
+
+    // Sustained conviction callout for long-running BUY signals
+    const sustained = buySignals.filter(c => c.signalDaysActive != null && c.signalDaysActive >= 10);
+    if (sustained.length > 0) {
+      const names = sustained.map(c => `${c.etfTicker} (${c.signalDaysActive}d)`).join(", ");
+      lines.push(`**Sustained conviction:** ${names} — BUY signal persisting for 10+ trading days signals durable institutional positioning.`);
+    }
   } else {
     lines.push(`No sectors currently meet all three BUY criteria simultaneously. See WATCH sectors below.`);
   }
@@ -85,6 +102,20 @@ function buildNarrative(
   if (reduceSignals.length > 0) {
     const names = reduceSignals.map(c => c.etfTicker).join(", ");
     lines.push(`**Trim / Avoid:** ${names} — weak score with deteriorating momentum.`);
+  }
+
+  // High-vol warning for BUY sectors
+  const highVolBuys = buySignals.filter(c => c.realizedVol20d != null && c.realizedVol20d >= 0.30);
+  if (highVolBuys.length > 0) {
+    const names = highVolBuys.map(c => `${c.etfTicker} (${Math.round((c.realizedVol20d ?? 0) * 100)}%vol)`).join(", ");
+    lines.push(`**Elevated volatility:** ${names} — valid BUY signals but high realized vol means position sizing should be proportionally smaller.`);
+  }
+
+  // Fresh BUY signals (just entered BUY — high expected return zone)
+  const freshBuys = buySignals.filter(c => c.signalDaysActive != null && c.signalDaysActive <= 3);
+  if (freshBuys.length > 0) {
+    const names = freshBuys.map(c => c.etfTicker).join(", ");
+    lines.push(`**Fresh entry point:** ${names} — BUY signal fired within the last 3 trading days. Early-entry signals typically carry the highest expected return.`);
   }
 
   // Regime alignment callout — sectors with high macroFit AND a bullish signal

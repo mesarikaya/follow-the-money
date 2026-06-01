@@ -154,4 +154,64 @@ class AlignmentServiceTest {
     assertThat(optimal).containsOnlyKeys("XLK");
     assertThat(optimal.get("XLK")).isEqualByComparingTo(new BigDecimal("100.00"));
   }
+
+  @Test
+  void volatilityAdjustedAllocationFavorsLowerVolCategory() {
+    // XLK: score=0.80, vol=0.30 → weight=2.667; XLF: score=0.80, vol=0.15 → weight=5.333
+    // total=8.0; XLK=33.33%, XLF=66.67% — lower vol XLF gets double the allocation
+    Map<String, BigDecimal> scores =
+        Map.of("XLK", new BigDecimal("0.80"), "XLF", new BigDecimal("0.80"));
+    Map<String, BigDecimal> vols =
+        Map.of("XLK", new BigDecimal("0.30"), "XLF", new BigDecimal("0.15"));
+
+    Map<String, BigDecimal> optimal =
+        alignmentService.computeVolatilityAdjustedOptimalAllocation(scores, vols);
+
+    assertThat(optimal.get("XLF").doubleValue())
+        .isCloseTo(optimal.get("XLK").doubleValue() * 2, within(0.1));
+  }
+
+  @Test
+  void volatilityAdjustedAllocationUsesDefaultVolWhenMissing() {
+    // XLK: score=0.60, vol=0.20 → weight=3.0; XLF: score=0.60, vol=missing → default 10% → weight=6.0
+    // XLF gets more allocation because its "effective" vol is lower than actual XLK vol
+    Map<String, BigDecimal> scores =
+        Map.of("XLK", new BigDecimal("0.60"), "XLF", new BigDecimal("0.60"));
+    Map<String, BigDecimal> vols = Map.of("XLK", new BigDecimal("0.20"));
+
+    Map<String, BigDecimal> optimal =
+        alignmentService.computeVolatilityAdjustedOptimalAllocation(scores, vols);
+
+    assertThat(optimal).containsOnlyKeys("XLK", "XLF");
+    assertThat(optimal.get("XLK").doubleValue()).isCloseTo(33.33, within(0.5));
+    assertThat(optimal.get("XLF").doubleValue()).isCloseTo(66.67, within(0.5));
+  }
+
+  @Test
+  void volatilityAdjustedAllocationFloorsVolAtFivePercent() {
+    // vol=0.02 should be floored to 0.05; weight=score/0.05
+    Map<String, BigDecimal> scores =
+        Map.of("XLK", new BigDecimal("0.50"), "XLF", new BigDecimal("0.50"));
+    Map<String, BigDecimal> vols =
+        Map.of("XLK", new BigDecimal("0.02"), "XLF", new BigDecimal("0.05"));
+
+    Map<String, BigDecimal> optimal =
+        alignmentService.computeVolatilityAdjustedOptimalAllocation(scores, vols);
+
+    // Both floored/at-floor → equal weights
+    assertThat(optimal.get("XLK").doubleValue()).isCloseTo(50.0, within(0.5));
+    assertThat(optimal.get("XLF").doubleValue()).isCloseTo(50.0, within(0.5));
+  }
+
+  @Test
+  void volatilityAdjustedAllocationReturnsEmptyWhenNoPositiveScores() {
+    Map<String, BigDecimal> scores = new java.util.HashMap<>();
+    scores.put("XLK", null);
+    scores.put("XLF", BigDecimal.ZERO);
+
+    Map<String, BigDecimal> optimal =
+        alignmentService.computeVolatilityAdjustedOptimalAllocation(scores, Map.of());
+
+    assertThat(optimal).isEmpty();
+  }
 }

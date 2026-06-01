@@ -66,8 +66,12 @@ public class PortfolioService {
     Map<String, BigDecimal> compositeTrend20dByCategoryId =
         signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_20D);
 
+    Map<String, BigDecimal> realizedVol20dByCategoryId =
+        signalRepository.findRealizedVolatility20d();
+
     Map<String, BigDecimal> optimalAllocationByCategoryId =
-        alignmentService.computeCompositeOptimalAllocation(compositeScoreByCategoryId);
+        alignmentService.computeVolatilityAdjustedOptimalAllocation(
+            compositeScoreByCategoryId, realizedVol20dByCategoryId);
 
     BigDecimal alignmentScore =
         alignmentService.computeAlignmentScore(

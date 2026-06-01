@@ -11,11 +11,13 @@ import org.springframework.stereotype.Service;
 /**
  * Computes the composite score per category using weighted min-max normalized signals.
  *
- * <p>COMPOSITE = 0.25 × norm(RS_60) + 0.10 × norm(RS_120) + 0.25 × norm(FLOW_20D) + 0.20 ×
- * norm(MOM) + 0.10 × norm(MACRO_FIT) + 0.10 × relativeRotationGraphScore
+ * <p>COMPOSITE = 0.25 × norm(RS_60) + 0.10 × norm(RS_120) + 0.20 × norm(PERSISTENCE_20D) + 0.10
+ * × norm(FLOW_20D) + 0.15 × norm(MOM) + 0.10 × norm(MACRO_FIT) + 0.10 ×
+ * relativeRotationGraphScore
  *
- * <p>RS_60 captures medium-term RS; RS_120 provides long-term confirmation — categories
- * outperforming on both timeframes receive higher composite scores.
+ * <p>RS_60 captures medium-term RS; RS_120 provides long-term confirmation; PERSISTENCE_20D
+ * measures breadth consistency — categories with sustained outperformance across days receive
+ * higher composite scores. FLOW_20D weight is reserved for when AUM data becomes available.
  *
  * <p>norm() = min-max normalization across all categories on a given date.
  * relativeRotationGraphScore: Leading=1.0, Improving=0.7, Weakening=0.3, Lagging=0.0. Null
@@ -26,8 +28,9 @@ public class CompositeScoreService {
 
   private static final BigDecimal RS_60_WEIGHT = new BigDecimal("0.25");
   private static final BigDecimal RS_120_WEIGHT = new BigDecimal("0.10");
-  private static final BigDecimal FLOW_20_DAY_WEIGHT = new BigDecimal("0.25");
-  private static final BigDecimal MOMENTUM_WEIGHT = new BigDecimal("0.20");
+  private static final BigDecimal PERSISTENCE_20D_WEIGHT = new BigDecimal("0.20");
+  private static final BigDecimal FLOW_20_DAY_WEIGHT = new BigDecimal("0.10");
+  private static final BigDecimal MOMENTUM_WEIGHT = new BigDecimal("0.15");
   private static final BigDecimal MACRO_FIT_WEIGHT = new BigDecimal("0.10");
   private static final BigDecimal RELATIVE_ROTATION_GRAPH_WEIGHT = new BigDecimal("0.10");
 
@@ -43,9 +46,10 @@ public class CompositeScoreService {
   /**
    * Computes the composite score for each category.
    *
-   * @param rs60ByCategoryId raw RS_60 values per category (may contain nulls)
+   * @param rs60ByCategoryId raw RS_60 values per category
    * @param rs120ByCategoryId raw RS_120 values per category (long-term RS confirmation)
-   * @param flow20DayByCategoryId raw FLOW_20D values per category (may be null if AUM unavailable)
+   * @param persistence20dByCategoryId PERSISTENCE_20D breadth consistency per category
+   * @param flow20DayByCategoryId raw FLOW_20D values per category (may be empty if AUM unavailable)
    * @param momentumByCategoryId raw MOM values per category
    * @param macroFitByCategoryId MACRO_FIT win-rate in [0,1] per category
    * @param rrgQuadrantByCategoryId RRG quadrant (1=Lagging, 2=Weakening, 3=Improving, 4=Leading)
@@ -54,6 +58,7 @@ public class CompositeScoreService {
   public Map<String, BigDecimal> computeCompositeScores(
       Map<String, BigDecimal> rs60ByCategoryId,
       Map<String, BigDecimal> rs120ByCategoryId,
+      Map<String, BigDecimal> persistence20dByCategoryId,
       Map<String, BigDecimal> flow20DayByCategoryId,
       Map<String, BigDecimal> momentumByCategoryId,
       Map<String, BigDecimal> macroFitByCategoryId,
@@ -63,6 +68,7 @@ public class CompositeScoreService {
         collectAllCategoryIds(
             rs60ByCategoryId,
             rs120ByCategoryId,
+            persistence20dByCategoryId,
             flow20DayByCategoryId,
             momentumByCategoryId,
             macroFitByCategoryId,
@@ -70,6 +76,8 @@ public class CompositeScoreService {
 
     Map<String, BigDecimal> normalizedRs60 = normalize(rs60ByCategoryId, allCategoryIds);
     Map<String, BigDecimal> normalizedRs120 = normalize(rs120ByCategoryId, allCategoryIds);
+    Map<String, BigDecimal> normalizedPersistence20d =
+        normalize(persistence20dByCategoryId, allCategoryIds);
     Map<String, BigDecimal> normalizedFlow20Day = normalize(flow20DayByCategoryId, allCategoryIds);
     Map<String, BigDecimal> normalizedMomentum = normalize(momentumByCategoryId, allCategoryIds);
     Map<String, BigDecimal> normalizedMacroFit = normalize(macroFitByCategoryId, allCategoryIds);
@@ -82,6 +90,7 @@ public class CompositeScoreService {
           computeWeightedScore(
               normalizedRs60.get(categoryId),
               normalizedRs120.get(categoryId),
+              normalizedPersistence20d.get(categoryId),
               normalizedFlow20Day.get(categoryId),
               normalizedMomentum.get(categoryId),
               normalizedMacroFit.get(categoryId),
@@ -96,6 +105,7 @@ public class CompositeScoreService {
   private BigDecimal computeWeightedScore(
       BigDecimal normalizedRs60,
       BigDecimal normalizedRs120,
+      BigDecimal normalizedPersistence20d,
       BigDecimal normalizedFlow20Day,
       BigDecimal normalizedMomentum,
       BigDecimal normalizedMacroFit,
@@ -103,6 +113,7 @@ public class CompositeScoreService {
     BigDecimal[][] weightedComponents = {
       {RS_60_WEIGHT, normalizedRs60},
       {RS_120_WEIGHT, normalizedRs120},
+      {PERSISTENCE_20D_WEIGHT, normalizedPersistence20d},
       {FLOW_20_DAY_WEIGHT, normalizedFlow20Day},
       {MOMENTUM_WEIGHT, normalizedMomentum},
       {MACRO_FIT_WEIGHT, normalizedMacroFit},

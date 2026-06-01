@@ -123,6 +123,7 @@ public class SignalComputationService {
 
       Map<String, BigDecimal> rs60ByCategoryId = new HashMap<>();
       Map<String, BigDecimal> rs120ByCategoryId = new HashMap<>();
+      Map<String, BigDecimal> persistence20dByCategoryId = new HashMap<>();
       Map<String, BigDecimal> momentumByCategoryId = new HashMap<>();
       Map<String, BigDecimal> rrgQuadrantByCategoryId = new HashMap<>();
 
@@ -153,6 +154,7 @@ public class SignalComputationService {
 
         if (rs60 != null) rs60ByCategoryId.put(categoryId, rs60);
         if (rs120 != null) rs120ByCategoryId.put(categoryId, rs120);
+        if (persistence20d != null) persistence20dByCategoryId.put(categoryId, persistence20d);
         if (momentum != null) momentumByCategoryId.put(categoryId, momentum);
 
         List<BigDecimal> rs20Series =
@@ -177,6 +179,7 @@ public class SignalComputationService {
           compositeScoreService.computeCompositeScores(
               rs60ByCategoryId,
               rs120ByCategoryId,
+              persistence20dByCategoryId,
               Map.of(),
               momentumByCategoryId,
               macroFitByCategoryId,

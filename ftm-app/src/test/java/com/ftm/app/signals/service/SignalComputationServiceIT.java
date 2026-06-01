@@ -79,9 +79,10 @@ class SignalComputationServiceIT {
 
   @Test
   @DisplayName(
-      "computeAndStore omits signals requiring more data than available, but always writes MACRO_REGIME for the latest date")
+      "computeAndStore omits RS_60/RS_120/RRG with 25 prices, but computes COMPOSITE from PERSISTENCE_20D")
   void shouldOmitSignalTypesWithInsufficientData() {
-    // 25 prices: enough for RS_20 (needs 21) and PERSISTENCE_20D (needs 20) but not RS_60/RS_120/RRG; MACRO_REGIME always written
+    // 25 prices: RS_20 (needs 21) and PERSISTENCE_20D (needs ~21) are available.
+    // RS_60/RS_120/RRG remain absent. COMPOSITE is computed because PERSISTENCE_20D now feeds it.
     insertCategoryPrices("TECH", SIGNAL_DATE, 25);
     insertBenchmarkPrices("SPY", SIGNAL_DATE, 25);
 
@@ -89,13 +90,20 @@ class SignalComputationServiceIT {
 
     List<SignalRepository.HistoryRow> allSignals = signalRepository.findByCategoryId("TECH");
 
-    // Latest date must have only the signal types possible with 25 prices
+    // Latest date: signals possible with 25 prices including composite-from-persistence
     List<SignalRepository.HistoryRow> latestDateSignals =
         allSignals.stream().filter(row -> row.signalDate().equals(SIGNAL_DATE)).toList();
     assertThat(latestDateSignals)
         .extracting(SignalRepository.HistoryRow::signalType)
         .containsExactlyInAnyOrder(
-            SignalType.RS_20, SignalType.MACRO_REGIME, SignalType.PERSISTENCE_5D, SignalType.PERSISTENCE_20D);
+            SignalType.RS_20,
+            SignalType.MACRO_REGIME,
+            SignalType.PERSISTENCE_5D,
+            SignalType.PERSISTENCE_20D,
+            SignalType.COMPOSITE,
+            SignalType.COMPOSITE_TREND_5D,
+            SignalType.COMPOSITE_TREND_10D,
+            SignalType.COMPOSITE_TREND_20D);
   }
 
   @Test

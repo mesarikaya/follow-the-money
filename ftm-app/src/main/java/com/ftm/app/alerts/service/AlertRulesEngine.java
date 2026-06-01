@@ -52,8 +52,12 @@ public class AlertRulesEngine {
   private static final String RULE_PERSISTENCE_LOW = "persistence_low";
   private static final String RULE_BREADTH_VELOCITY_ACCEL = "breadth_velocity_accel";
   private static final String RULE_BREADTH_VELOCITY_DECEL = "breadth_velocity_decel";
+  private static final String RULE_TRADE_SIGNAL_BUY = "trade_signal_buy";
+  private static final String RULE_TRADE_SIGNAL_REDUCE = "trade_signal_reduce";
   private static final BigDecimal PERSISTENCE_RECOVERY_THRESHOLD = new BigDecimal("8");
   private static final int BREADTH_VELOCITY_THRESHOLD_PP = 10;
+  private static final BigDecimal BUY_SCORE_THRESHOLD = new BigDecimal("0.65");
+  private static final BigDecimal REDUCE_SCORE_THRESHOLD = new BigDecimal("0.35");
 
   private final AlertRepository alertRepository;
   private final AlertRulesRepository alertRulesRepository;
@@ -92,6 +96,7 @@ public class AlertRulesEngine {
     alertsCreated += evaluateRsAccelerationCrossover(signalDate, topLevelCategoryIds);
     alertsCreated += evaluatePersistenceLow(signalDate, equityCategoryIds);
     alertsCreated += evaluateBreadthVelocity(signalDate, equityCategoryIds);
+    alertsCreated += evaluateTradeSignalTransitions(signalDate, topLevelCategoryIds);
 
     log.info(
         "Alert rule evaluation complete: {} created, {} resolved for date={}",
@@ -121,6 +126,18 @@ public class AlertRulesEngine {
         if (composite.compareTo(new BigDecimal("0.70")) <= 0) {
           resolved +=
               alertRepository.resolveAlertsByRuleAndCategory(RULE_COMPOSITE_BREAKOUT, categoryId);
+        }
+      }
+
+      // Trade signal alerts: resolve when conditions no longer hold
+      if (composite != null) {
+        // BUY alert resolves when composite drops below 0.60 (signal weakening)
+        if (composite.compareTo(new BigDecimal("0.60")) < 0) {
+          resolved += alertRepository.resolveAlertsByRuleAndCategory(RULE_TRADE_SIGNAL_BUY, categoryId);
+        }
+        // REDUCE alert resolves when composite recovers above 0.40
+        if (composite.compareTo(new BigDecimal("0.40")) >= 0) {
+          resolved += alertRepository.resolveAlertsByRuleAndCategory(RULE_TRADE_SIGNAL_REDUCE, categoryId);
         }
       }
 
@@ -515,6 +532,100 @@ public class AlertRulesEngine {
           log.info(
               "breadth_velocity_decel: category={} velocityPp={} p5d={} p20d={}",
               categoryId, velocityPp, p5.intValue(), p20.intValue());
+        }
+      }
+    }
+    return count;
+  }
+
+  private int evaluateTradeSignalTransitions(LocalDate signalDate, Set<String> topLevelCategoryIds) {
+    Optional<AlertRule> buyRule = alertRulesRepository.findById(RULE_TRADE_SIGNAL_BUY);
+    Optional<AlertRule> reduceRule = alertRulesRepository.findById(RULE_TRADE_SIGNAL_REDUCE);
+
+    boolean buyEnabled = buyRule.map(AlertRule::enabled).orElse(false);
+    boolean reduceEnabled = reduceRule.map(AlertRule::enabled).orElse(false);
+    if (!buyEnabled && !reduceEnabled) return 0;
+
+    Severity buySeverity = buyRule.map(AlertRule::severity).orElse(Severity.ACTION);
+    Severity reduceSeverity = reduceRule.map(AlertRule::severity).orElse(Severity.WARNING);
+
+    Map<String, BigDecimal> composite = signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
+    Map<String, BigDecimal> rrgQuadrant = signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
+    Map<String, BigDecimal> trend20d = signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, signalDate);
+
+    LocalDate prevDate = signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, signalDate);
+    Map<String, BigDecimal> prevComposite = prevDate != null
+        ? signalRepository.findByTypeAndDate(SignalType.COMPOSITE, prevDate) : Map.of();
+    Map<String, BigDecimal> prevRrg = prevDate != null
+        ? signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, prevDate) : Map.of();
+    Map<String, BigDecimal> prevTrend = prevDate != null
+        ? signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, prevDate) : Map.of();
+
+    int count = 0;
+    for (String categoryId : topLevelCategoryIds) {
+      BigDecimal score = composite.get(categoryId);
+      BigDecimal rrg = rrgQuadrant.get(categoryId);
+      BigDecimal trend = trend20d.get(categoryId);
+      if (score == null) continue;
+
+      int rrgInt = rrg != null ? rrg.intValue() : 0;
+      boolean buyNow = score.compareTo(BUY_SCORE_THRESHOLD) >= 0
+          && (rrgInt == 3 || rrgInt == 4)
+          && trend != null && trend.compareTo(BigDecimal.ZERO) > 0;
+
+      boolean reduceNow = score.compareTo(REDUCE_SCORE_THRESHOLD) < 0
+          && (rrgInt == 1 || rrgInt == 2);
+
+      CategoryId catId;
+      try {
+        catId = CategoryId.valueOf(categoryId);
+      } catch (IllegalArgumentException e) {
+        continue;
+      }
+
+      if (buyEnabled && buyNow) {
+        BigDecimal prevScore = prevComposite.get(categoryId);
+        BigDecimal prevRrgVal = prevRrg.get(categoryId);
+        BigDecimal prevTrendVal = prevTrend.get(categoryId);
+        int prevRrgInt = prevRrgVal != null ? prevRrgVal.intValue() : 0;
+        boolean buyPrev = prevScore != null && prevScore.compareTo(BUY_SCORE_THRESHOLD) >= 0
+            && (prevRrgInt == 3 || prevRrgInt == 4)
+            && prevTrendVal != null && prevTrendVal.compareTo(BigDecimal.ZERO) > 0;
+
+        if (!buyPrev && !alertRepository.existsActiveAlert(RULE_TRADE_SIGNAL_BUY, categoryId)) {
+          int scorePct = score.multiply(BigDecimal.valueOf(100)).intValue();
+          String rrgLabel = rrgInt == 4 ? "Leading" : "Improving";
+          alertRepository.insert(new Alert(
+              OffsetDateTime.now(), catId, RULE_TRADE_SIGNAL_BUY, buySeverity,
+              String.format("%s full BUY signal triggered: score=%d, RRG=%s, 20d trend positive — all three conditions aligned",
+                  categoryId, scorePct, rrgLabel),
+              String.format("{\"score\":%d,\"rrgQuadrant\":%d,\"trend20d\":%.4f,\"signalDate\":\"%s\"}",
+                  scorePct, rrgInt, trend.doubleValue(), signalDate),
+              AlertStatus.ACTIVE));
+          count++;
+          log.info("trade_signal_buy: category={} score={} rrg={}", categoryId, scorePct, rrgLabel);
+        }
+      }
+
+      if (reduceEnabled && reduceNow) {
+        BigDecimal prevScore = prevComposite.get(categoryId);
+        BigDecimal prevRrgVal = prevRrg.get(categoryId);
+        int prevRrgInt = prevRrgVal != null ? prevRrgVal.intValue() : 0;
+        boolean reducePrev = prevScore != null && prevScore.compareTo(REDUCE_SCORE_THRESHOLD) < 0
+            && (prevRrgInt == 1 || prevRrgInt == 2);
+
+        if (!reducePrev && !alertRepository.existsActiveAlert(RULE_TRADE_SIGNAL_REDUCE, categoryId)) {
+          int scorePct = score.multiply(BigDecimal.valueOf(100)).intValue();
+          String rrgLabel = rrgInt == 1 ? "Lagging" : "Weakening";
+          alertRepository.insert(new Alert(
+              OffsetDateTime.now(), catId, RULE_TRADE_SIGNAL_REDUCE, reduceSeverity,
+              String.format("%s REDUCE signal: score=%d with %s RRG — consider trimming position",
+                  categoryId, scorePct, rrgLabel),
+              String.format("{\"score\":%d,\"rrgQuadrant\":%d,\"signalDate\":\"%s\"}",
+                  scorePct, rrgInt, signalDate),
+              AlertStatus.ACTIVE));
+          count++;
+          log.info("trade_signal_reduce: category={} score={} rrg={}", categoryId, scorePct, rrgLabel);
         }
       }
     }

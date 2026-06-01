@@ -131,6 +131,7 @@ function RsBarRow({ category, maxAbs }: { category: CategorySummary; maxAbs: num
 function FlowSignalRow({ category, maxAbsZ }: { category: CategorySummary; maxAbsZ: number }) {
   const z = category.flow20d;
   const persist = category.persistence20d;
+  const persist5d = category.persistence5d;
   if (z === null && persist === null) return null;
 
   const absZ = Math.abs(z ?? 0);
@@ -141,6 +142,25 @@ function FlowSignalRow({ category, maxAbsZ }: { category: CategorySummary; maxAb
   const zColor = z == null ? "text-slate-600" : Math.abs(z) < 0.5 ? "text-slate-400" : isPos ? "text-emerald-400" : "text-red-400";
   const barColor = z == null ? "bg-slate-700" : isPos ? "bg-emerald-500" : "bg-red-500";
   const persistColor = persist == null ? "text-slate-600" : persist >= 14 ? "text-emerald-400" : persist >= 8 ? "text-slate-400" : "text-red-400";
+
+  let velocityEl: React.ReactNode = null;
+  if (persist5d != null && persist != null) {
+    const rate5d = persist5d / 5;
+    const prior15 = persist - persist5d;
+    const rate15 = prior15 / 15;
+    const velocityPct = Math.round((rate5d - rate15) * 100);
+    if (Math.abs(velocityPct) >= 5) {
+      const isAccel = velocityPct > 0;
+      velocityEl = (
+        <span
+          className={`text-[9px] shrink-0 ${isAccel ? "text-emerald-400" : "text-red-400"}`}
+          title={`Breadth velocity: recent-5d ${Math.round(rate5d * 100)}% vs prior-15d ${Math.round(rate15 * 100)}% (${velocityPct > 0 ? "+" : ""}${velocityPct}pp)`}
+        >
+          {isAccel ? "⚡" : "⬇"}
+        </span>
+      );
+    }
+  }
 
   return (
     <div className="flex items-center gap-3 py-1.5 border-b border-slate-700/20 last:border-0">
@@ -155,11 +175,12 @@ function FlowSignalRow({ category, maxAbsZ }: { category: CategorySummary; maxAb
           {z == null ? "—" : `${isPos ? "+" : ""}${z.toFixed(2)}σ`}
         </span>
       </div>
-      <span className={`text-xs tabular-nums w-16 text-right shrink-0 ${persistColor}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}
-        title="Positive-flow days out of last 20">
+      <span className={`text-xs tabular-nums shrink-0 ${persistColor}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}
+        title={`Breadth: ${persist != null ? `${persist}/20 days outperformed benchmark` : "n/a"}`}>
         {persist != null ? `${persist}/20` : "—"}
         {persistPct != null && <span className="text-slate-600 text-[9px] ml-0.5">({persistPct}%)</span>}
       </span>
+      {velocityEl ?? <span className="w-3 shrink-0" />}
     </div>
   );
 }

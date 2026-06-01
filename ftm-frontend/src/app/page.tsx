@@ -1,4 +1,4 @@
-import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, fetchWinRates, fetchPriceLevels, SignalWinRateDto, PriceLevelDto, SubSectorSummary } from "@/lib/api";
+import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, fetchWinRates, fetchPriceLevels, fetchSignalTransitions, SignalWinRateDto, PriceLevelDto, SubSectorSummary, SignalTransitionDto } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import CategoryTable from "@/components/CategoryTable";
 import MacroPanel from "@/components/MacroPanel";
@@ -19,6 +19,7 @@ import ScoreTrajectorySummary from "@/components/ScoreTrajectorySummary";
 import ScoreDistributionPanel from "@/components/ScoreDistributionPanel";
 import MarketPulseStrip from "@/components/MarketPulseStrip";
 import ActionSummaryPanel from "@/components/ActionSummaryPanel";
+import ScoreMoversPanel from "@/components/ScoreMoversPanel";
 import SignalTransitionsPanel from "@/components/SignalTransitionsPanel";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,7 @@ export default async function Home({ searchParams }: Props) {
 
   const sectorIds = Array.from(SECTOR_DRILLDOWN_IDS);
 
-  const [categoriesResult, macroResult, rotationResult, scoreHistoryResult, winRatesResult, priceLevelsResult, ...subSectorResults] =
+  const [categoriesResult, macroResult, rotationResult, scoreHistoryResult, winRatesResult, priceLevelsResult, transitionsResult, ...subSectorResults] =
     await Promise.allSettled([
       fetchCategories(timeframe),
       fetchMacro(),
@@ -40,6 +41,7 @@ export default async function Home({ searchParams }: Props) {
       fetchCategoryScoreHistory(30),
       fetchWinRates(365),
       fetchPriceLevels(),
+      fetchSignalTransitions(7),
       ...sectorIds.map((id) => fetchSubSectors(id)),
     ]);
 
@@ -54,6 +56,9 @@ export default async function Home({ searchParams }: Props) {
 
   const priceLevelByCategory: Record<string, PriceLevelDto> = {};
   priceLevels.forEach(p => { priceLevelByCategory[p.categoryId] = p; });
+
+  const signalTransitions: SignalTransitionDto[] =
+    transitionsResult.status === "fulfilled" ? transitionsResult.value : [];
 
   const topSubSectorByParent: Record<string, SubSectorSummary> = {};
   subSectorResults.forEach((result, i) => {
@@ -90,7 +95,9 @@ export default async function Home({ searchParams }: Props) {
 
         {categories.length > 0 && <ActionSummaryPanel categories={categories} winRateByCategory={winRateByCategory} priceLevelByCategory={priceLevelByCategory} scoreHistory={scoreHistory} />}
 
-        <SignalTransitionsPanel days={7} />
+        {categories.length > 0 && <ScoreMoversPanel categories={categories} />}
+
+        <SignalTransitionsPanel transitions={signalTransitions} days={7} />
 
         <ActiveAlertsStrip />
 

@@ -1,6 +1,7 @@
-import { fetchSignalTransitions, SignalTransitionDto } from "@/lib/api";
+import { SignalTransitionDto } from "@/lib/api";
 import Link from "next/link";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
+
 
 const SIGNAL_STYLE: Record<string, { badge: string; text: string }> = {
   BUY:    { badge: "bg-green-900/60 text-green-300 border-green-700/50",  text: "text-green-400"  },
@@ -28,14 +29,7 @@ function directionLabel(prev: string | null, current: string): { label: string; 
   return { label: "→ Lateral", color: "text-slate-400" };
 }
 
-export default async function SignalTransitionsPanel({ days = 7 }: { days?: number }) {
-  let transitions: SignalTransitionDto[] = [];
-  try {
-    transitions = await fetchSignalTransitions(days);
-  } catch {
-    return null;
-  }
-
+export default function SignalTransitionsPanel({ transitions, days = 7 }: { transitions: SignalTransitionDto[]; days?: number }) {
   if (transitions.length === 0) return null;
 
   return (
@@ -79,10 +73,24 @@ export default async function SignalTransitionsPanel({ days = 7 }: { days?: numb
                   <SignalBadge signal={t.previousSignal} />
                   <span className="text-slate-600 text-[10px]">→</span>
                   <SignalBadge signal={t.currentSignal} />
+                  {t.signalDaysActive != null && t.signalDaysActive >= 2 && (
+                    <span className="text-[8px] text-slate-600 font-mono">{t.signalDaysActive}d</span>
+                  )}
                 </div>
-                <span className={`text-xs font-mono font-semibold ml-auto ${scoreColor}`}>
-                  {score}
-                </span>
+                <div className="flex items-center gap-2 ml-auto">
+                  {t.scorePercentile252d != null && (() => {
+                    const pct = Math.round(t.scorePercentile252d! * 100);
+                    if (pct >= 85) return <span className="text-[8px] text-amber-500 font-mono" title={`Score at ${pct}th percentile of past year — near 12-month high`}>P{pct}</span>;
+                    if (pct <= 20) return <span className="text-[8px] text-cyan-500 font-mono" title={`Score at ${pct}th percentile of past year — near 12-month low, early-cycle`}>P{pct}</span>;
+                    return null;
+                  })()}
+                  {t.macroFit != null && (() => {
+                    const fitPct = Math.round(t.macroFit! * 100);
+                    if (fitPct >= 60) return <span className="text-[8px] text-violet-400 font-mono" title={`Macro Fit: ${fitPct}% — strong historical alignment with current regime`}>M{fitPct}%</span>;
+                    return null;
+                  })()}
+                  <span className={`text-xs font-mono font-semibold ${scoreColor}`}>{score}</span>
+                </div>
               </div>
               <div className="text-[9px] text-slate-600">
                 {t.daysAgo}d ago · as of {t.comparisonDate}

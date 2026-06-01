@@ -181,6 +181,12 @@ public class CategoryService {
             .filter(c -> c.parentId() == null)
             .collect(Collectors.toMap(c -> c.id().name(), c -> c));
 
+    Map<String, BigDecimal> scorePercentile252d = signalRepository.findScorePercentile252d();
+    Map<String, Integer> signalDaysActive = signalRepository.findSignalDaysActive(new BigDecimal("0.50"));
+    Map<String, BigDecimal> macroFitByCategory = signalRepository
+        .findLatestByTypes(List.of(SignalType.MACRO_FIT))
+        .getOrDefault(SignalType.MACRO_FIT, Collections.emptyMap());
+
     return signalRepository.findSignalSnapshotPairs(clamped).stream()
         .map(pair -> {
           String currentRrg = pair.currentRrg() != null ? String.valueOf(pair.currentRrg().intValue()) : null;
@@ -194,11 +200,17 @@ public class CategoryService {
           int daysAgo = pair.comparisonDate() != null
               ? (int) ChronoUnit.DAYS.between(pair.comparisonDate(), LocalDate.now())
               : clamped;
+          BigDecimal pct = scorePercentile252d.get(pair.categoryId());
+          BigDecimal fit = macroFitByCategory.get(pair.categoryId());
+          Integer daysActive = signalDaysActive.get(pair.categoryId());
           return new SignalTransitionDto(
               pair.categoryId(), categoryName, etfTicker,
               previousSignal, currentSignal,
               pair.currentScore().doubleValue(),
-              pair.comparisonDate(), daysAgo);
+              pair.comparisonDate(), daysAgo,
+              pct != null ? pct.doubleValue() : null,
+              fit != null ? fit.doubleValue() : null,
+              daysActive);
         })
         .filter(Objects::nonNull)
         .sorted(Comparator.comparing(

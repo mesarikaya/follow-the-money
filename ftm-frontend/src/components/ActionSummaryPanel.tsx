@@ -1,7 +1,7 @@
 "use client";
 
 import { CategorySummary, SignalWinRateDto, PriceLevelDto } from "@/lib/api";
-import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
+import { deriveTradeSignal, countBuyConditions, missingBuyConditions, TradeSignal } from "@/lib/signals";
 import Link from "next/link";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 
@@ -308,7 +308,12 @@ export default function ActionSummaryPanel({ categories, winRateByCategory = {},
     .sort((a, b) => (a.compositeScore ?? 1) - (b.compositeScore ?? 1))
     .slice(0, 2);
 
-  if (buySignals.length === 0 && reduceSignals.length === 0) return null;
+  const watchOnDeck = categories
+    .filter(c => getSignal(c) === "WATCH" && countBuyConditions(c) === 2)
+    .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0))
+    .slice(0, 4);
+
+  if (buySignals.length === 0 && reduceSignals.length === 0 && watchOnDeck.length === 0) return null;
 
   return (
     <section className="space-y-2">
@@ -324,6 +329,28 @@ export default function ActionSummaryPanel({ categories, winRateByCategory = {},
           <ActionCard key={c.id} card={toCard(c, "REDUCE")} side="REDUCE" />
         ))}
       </div>
+
+      {watchOnDeck.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap pt-0.5">
+          <span className="text-[9px] text-cyan-700 font-semibold uppercase tracking-widest shrink-0">On Deck</span>
+          <span className="text-[9px] text-slate-600 shrink-0">1 condition from BUY:</span>
+          {watchOnDeck.map(c => {
+            const missing = missingBuyConditions(c);
+            const score = Math.round((c.compositeScore ?? 0) * 100);
+            return (
+              <span
+                key={c.id}
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-cyan-900/15 border border-cyan-700/30 text-cyan-400 text-[10px] font-mono"
+                title={`${c.name} — Score ${score}/100 · Missing: ${missing.join(", ")}`}
+              >
+                <span className="font-bold">{c.etfTicker}</span>
+                <span className="text-cyan-700 text-[8px]">{score}</span>
+                <span className="text-slate-600 text-[8px]">missing {missing[0]}</span>
+              </span>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }

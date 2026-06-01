@@ -16,4 +16,7 @@ public record SignalTransitionDto(
     String currentSignal,
     double currentScore,
     LocalDate comparisonDate,
-    int daysAgo) {}
+    int daysAgo,
+    Double scorePercentile252d,
+    Double macroFit,
+    Integer signalDaysActive) {}

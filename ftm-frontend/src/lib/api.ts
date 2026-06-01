@@ -451,6 +451,9 @@ export type SignalTransitionDto = {
   currentScore: number;
   comparisonDate: string;
   daysAgo: number;
+  scorePercentile252d: number | null;
+  macroFit: number | null;
+  signalDaysActive: number | null;
 };
 
 export const fetchSignalTransitions = (days = 7) =>

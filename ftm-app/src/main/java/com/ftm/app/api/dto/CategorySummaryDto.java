@@ -37,4 +37,8 @@ public record CategorySummaryDto(
     @Schema(
             description =
                 "MACRO_FIT win rate in current regime [0,1]; null for sub-sectors or until signals computed")
-        BigDecimal macroFit) {}
+        BigDecimal macroFit,
+    @Schema(
+            description =
+                "MOM — 10-day change in RS_60 ratio; positive = accelerating relative strength")
+        BigDecimal momentum) {}

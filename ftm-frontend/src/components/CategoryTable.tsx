@@ -59,12 +59,14 @@ function ScoreBar({
   trend20d,
   macroFit,
   persistence20d,
+  momentum,
 }: {
   score: number | null;
   trend5d: number | null;
   trend20d: number | null;
   macroFit?: number | null;
   persistence20d?: number | null;
+  momentum?: number | null;
 }) {
   if (score == null) return <span className="text-slate-600 text-xs">—</span>;
   const pct = Math.round(score * 100);
@@ -74,11 +76,14 @@ function ScoreBar({
   const macroFitColor = macroFitPct != null ? (macroFitPct >= 60 ? "bg-violet-500" : macroFitPct >= 40 ? "bg-violet-400/60" : "bg-slate-600") : null;
   const persistPct = persistence20d != null ? Math.round((persistence20d / 20) * 100) : null;
   const persistColor = persistPct != null ? (persistPct >= 60 ? "text-emerald-500" : persistPct >= 40 ? "text-slate-500" : "text-red-500") : null;
+  const momPts = momentum != null ? Math.round(momentum * 100) : null;
+  const momColor = momPts != null ? (momPts > 1 ? "text-emerald-400" : momPts < -1 ? "text-red-400" : "text-slate-600") : null;
+  const momArrow = momPts != null ? (momPts > 1 ? "▲" : momPts < -1 ? "▼" : null) : null;
 
   return (
     <div
       className="flex flex-col gap-0.5"
-      title={`Composite signal score: ${pct}/100.${macroFitPct != null ? `\nMacro Fit: ${macroFitPct}% — historical win rate in current macro regime.` : ""}${persistence20d != null ? `\nPersistence: ${persistence20d}/20 days outperformed benchmark.` : ""}`}
+      title={`Composite signal score: ${pct}/100.${macroFitPct != null ? `\nMacro Fit: ${macroFitPct}% — historical win rate in current macro regime.` : ""}${persistence20d != null ? `\nPersistence: ${persistence20d}/20 days outperformed benchmark.` : ""}${momPts != null ? `\nMomentum (MOM): ${momPts > 0 ? "+" : ""}${momPts} pts — 10-day RS change.` : ""}`}
     >
       <div className="flex items-center gap-1.5">
         <div className="flex gap-0.5">
@@ -97,6 +102,11 @@ function ScoreBar({
         {persistPct != null && (
           <span className={`text-[8px] tabular-nums ${persistColor}`} title={`Persistence: ${persistence20d}/20 days outperformed benchmark (${persistPct}%)`}>
             {persistence20d}d
+          </span>
+        )}
+        {momArrow != null && momColor != null && (
+          <span className={`text-[8px] tabular-nums ${momColor}`} title={`Momentum: ${momPts! > 0 ? "+" : ""}${momPts} pts (10-day RS change)`}>
+            {momArrow}
           </span>
         )}
       </div>
@@ -147,17 +157,20 @@ function buildScoreTooltip(cat: import("@/lib/api").CategorySummary, macroFitVal
   const trend5dPts = cat.compositeTrend5d != null ? Math.round(cat.compositeTrend5d * 100) : null;
   const trend20dPts = cat.compositeTrend20d != null ? Math.round(cat.compositeTrend20d * 100) : null;
   const persistStr = cat.persistence20d != null ? `${cat.persistence20d}/20 days outperformed benchmark` : "n/a (computing)";
+  const momPts = cat.momentum != null ? Math.round(cat.momentum * 100) : null;
+  const momStr = momPts != null ? `${momPts > 0 ? "+" : ""}${momPts} pts (10d RS change — ${momPts > 1 ? "accelerating ▲" : momPts < -1 ? "decelerating ▼" : "flat →"})` : "n/a";
   return [
     `Composite Score: ${pct ?? "—"}/100`,
     ``,
     `RS-60 (25% weight): ${rs60Str}`,
     `RS-120 (10% weight, confirmation): ${rs120Str}`,
     `Flow 20d: n/a (AUM data unavailable)`,
-    `Momentum (20% weight): ${trend5dPts != null ? `5d ${trend5dPts > 0 ? "+" : ""}${trend5dPts}pt` : "—"}`,
+    `Momentum (20% weight): ${momStr}`,
     `Macro Fit (10% weight): ${macroFitStr}`,
     `RRG (10% weight): ${rrgLabel}`,
     `Persistence 20d: ${persistStr}`,
     ``,
+    trend5dPts != null ? `5d score trend: ${trend5dPts > 0 ? "+" : ""}${trend5dPts} pts` : "",
     trend20dPts != null ? `20d score trend: ${trend20dPts > 0 ? "+" : ""}${trend20dPts} pts` : "",
   ].filter(Boolean).join("\n");
 }
@@ -404,7 +417,7 @@ export default function CategoryTable({
                   )}
                   <td className="px-4 py-2.5" title={buildScoreTooltip(cat, cat.macroFit ?? null)}>
                     <div className="flex justify-center">
-                      <ScoreBar score={cat.compositeScore} trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} macroFit={cat.macroFit ?? null} persistence20d={cat.persistence20d ?? null} />
+                      <ScoreBar score={cat.compositeScore} trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} macroFit={cat.macroFit ?? null} persistence20d={cat.persistence20d ?? null} momentum={cat.momentum ?? null} />
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-right">

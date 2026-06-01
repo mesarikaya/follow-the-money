@@ -240,10 +240,10 @@ class CategoryServiceTest {
     CategorySummaryDto dto1 = Instancio.create(CategorySummaryDto.class);
     CategorySummaryDto dto2 = Instancio.create(CategorySummaryDto.class);
     when(categoryMapper.toDto(
-            eq(row1), eq(1), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+            eq(row1), eq(1), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(dto1);
     when(categoryMapper.toDto(
-            eq(row2), eq(2), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+            eq(row2), eq(2), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(dto2);
 
     CategoriesResponse result = categoryService.getCategoriesResponse("MONTH");

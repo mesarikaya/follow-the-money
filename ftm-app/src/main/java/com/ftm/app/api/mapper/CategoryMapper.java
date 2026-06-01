@@ -55,6 +55,9 @@ public interface CategoryMapper {
   @Mapping(
       target = "macroFit",
       expression = "java(macroFitByCategoryId.get(row.category().id().name()))")
+  @Mapping(
+      target = "momentum",
+      expression = "java(momentumByCategoryId.get(row.category().id().name()))")
   CategorySummaryDto toDto(
       CategoryRepository.CategoryPriceRow row,
       int rank,
@@ -67,5 +70,6 @@ public interface CategoryMapper {
       Map<String, BigDecimal> rs120ByCategoryId,
       Map<String, BigDecimal> flow20dByCategoryId,
       Map<String, BigDecimal> persistence20dByCategoryId,
-      Map<String, BigDecimal> macroFitByCategoryId);
+      Map<String, BigDecimal> macroFitByCategoryId,
+      Map<String, BigDecimal> momentumByCategoryId);
 }

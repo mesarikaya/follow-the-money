@@ -165,6 +165,12 @@ export default function MarketNarrativePanel({ categories, macro, topSubSectors 
   const narrative = buildNarrative(equities, macro, topSubSectors);
   const getSignal = (c: CategorySummary) => (c.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(c);
   const buySignals = equities.filter(c => getSignal(c) === "BUY");
+  const reduceSignals = equities.filter(c => getSignal(c) === "REDUCE");
+  const watchSignals = equities.filter(c =>
+    getSignal(c) === "WATCH" && countBuyConditions(c) === 2
+  ).slice(0, 3);
+
+  const hasActionRow = buySignals.length > 0 || reduceSignals.length > 0 || watchSignals.length > 0;
 
   return (
     <div className="bg-slate-800/50 border border-slate-700/60 rounded-xl overflow-hidden">
@@ -173,16 +179,27 @@ export default function MarketNarrativePanel({ categories, macro, topSubSectors 
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Market Narrative</span>
           <span className="text-[10px] text-slate-600">auto-generated · {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
         </div>
-        {buySignals.length > 0 && (
-          <span className="text-[10px] font-semibold text-green-400 bg-green-900/30 border border-green-800/40 px-2 py-0.5 rounded">
-            {buySignals.length} BUY signal{buySignals.length > 1 ? "s" : ""} active
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {buySignals.length > 0 && (
+            <span className="text-[10px] font-semibold text-green-400 bg-green-900/30 border border-green-800/40 px-2 py-0.5 rounded">
+              {buySignals.length} BUY
+            </span>
+          )}
+          {watchSignals.length > 0 && (
+            <span className="text-[10px] font-semibold text-cyan-400 bg-cyan-900/20 border border-cyan-800/40 px-2 py-0.5 rounded">
+              {watchSignals.length} pre-signal
+            </span>
+          )}
+          {reduceSignals.length > 0 && (
+            <span className="text-[10px] font-semibold text-red-400 bg-red-900/20 border border-red-800/40 px-2 py-0.5 rounded">
+              {reduceSignals.length} REDUCE
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="px-4 py-3 space-y-2">
         {narrative.map((line, i) => {
-          // Parse **bold** markers
           const parts = line.split(/\*\*(.+?)\*\*/g);
           return (
             <p key={i} className="text-xs text-slate-300 leading-relaxed">
@@ -196,19 +213,68 @@ export default function MarketNarrativePanel({ categories, macro, topSubSectors 
         })}
       </div>
 
-      {buySignals.length > 0 && (
-        <div className="px-4 pb-3 pt-0 flex items-center gap-2 flex-wrap">
-          {buySignals.map(cat => (
-            <Link
-              key={cat.id}
-              href={`/sectors/${cat.id}`}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-900/30 border border-green-700/50 text-green-300 text-[11px] font-mono font-bold hover:border-green-500/70 transition-colors"
-              title={`Drill into ${cat.name}`}
-            >
-              {cat.etfTicker} →
-            </Link>
-          ))}
-          <span className="text-[10px] text-slate-600 ml-1">click to drill into sector sub-groups</span>
+      {hasActionRow && (
+        <div className="px-4 pb-3 pt-0 flex flex-col gap-2">
+          {buySignals.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[9px] text-green-600 font-semibold uppercase tracking-widest w-12 shrink-0">Add</span>
+              {buySignals.map(cat => (
+                SECTOR_DRILLDOWN_IDS.has(cat.id) ? (
+                  <Link
+                    key={cat.id}
+                    href={`/sectors/${cat.id}`}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-900/30 border border-green-700/50 text-green-300 text-[11px] font-mono font-bold hover:border-green-500/70 transition-colors"
+                    title={`${cat.name} — ${Math.round((cat.compositeScore ?? 0) * 100)} score${cat.signalDaysActive ? `, ${cat.signalDaysActive}d` : ""}`}
+                  >
+                    {cat.etfTicker}
+                    {cat.signalDaysActive != null && cat.signalDaysActive >= 5 && (
+                      <span className="text-[8px] opacity-60 font-normal">{cat.signalDaysActive}d</span>
+                    )}
+                  </Link>
+                ) : (
+                  <span
+                    key={cat.id}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-900/30 border border-green-700/50 text-green-300 text-[11px] font-mono font-bold"
+                    title={`${cat.name} — ${Math.round((cat.compositeScore ?? 0) * 100)} score`}
+                  >
+                    {cat.etfTicker}
+                  </span>
+                )
+              ))}
+            </div>
+          )}
+          {watchSignals.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[9px] text-cyan-600 font-semibold uppercase tracking-widest w-12 shrink-0">Watch</span>
+              {watchSignals.map(cat => (
+                <span
+                  key={cat.id}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-cyan-900/20 border border-cyan-700/40 text-cyan-400 text-[11px] font-mono"
+                  title={`${cat.name} — ${Math.round((cat.compositeScore ?? 0) * 100)} score, missing: ${missingBuyConditions(cat).join(", ")}`}
+                >
+                  {cat.etfTicker}
+                  <span className="text-[8px] text-cyan-700">2/3</span>
+                </span>
+              ))}
+            </div>
+          )}
+          {reduceSignals.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[9px] text-red-600 font-semibold uppercase tracking-widest w-12 shrink-0">Trim</span>
+              {reduceSignals.map(cat => (
+                <span
+                  key={cat.id}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-900/20 border border-red-700/40 text-red-400 text-[11px] font-mono font-bold"
+                  title={`${cat.name} — ${Math.round((cat.compositeScore ?? 0) * 100)} score, weak momentum`}
+                >
+                  {cat.etfTicker}
+                </span>
+              ))}
+            </div>
+          )}
+          {buySignals.some(c => SECTOR_DRILLDOWN_IDS.has(c.id)) && (
+            <span className="text-[9px] text-slate-700">Add = click to drill into sub-sectors · Watch = 2 of 3 BUY conditions met</span>
+          )}
         </div>
       )}
 

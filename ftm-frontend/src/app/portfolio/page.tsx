@@ -5,6 +5,7 @@ import {
   fetchPortfolio, savePortfolio, PortfolioResponse, PortfolioAllocationEntry,
   fetchHoldings, uploadHoldings, downloadHoldingsTemplate, refreshHoldingPrices,
   HoldingDto, HoldingsUploadResponse, updateHolding, deleteHolding, createHolding,
+  fetchPriceLevels, PriceLevelDto, fetchWinRates, SignalWinRateDto,
 } from "@/lib/api";
 import AllocationDonutChart from "@/components/AllocationDonutChart";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
@@ -78,6 +79,8 @@ function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: 
 
 export default function PortfolioPage() {
   const [portfolio, setPortfolio] = useState<PortfolioResponse | null>(null);
+  const [priceLevelByCategory, setPriceLevelByCategory] = useState<Record<string, PriceLevelDto>>({});
+  const [winRateByCategory, setWinRateByCategory] = useState<Record<string, SignalWinRateDto>>({});
   const [editedAllocations, setEditedAllocations] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -125,6 +128,16 @@ export default function PortfolioPage() {
   useEffect(() => {
     loadPortfolio();
     fetchHoldings().then(setHoldings).catch(() => setHoldings([]));
+    fetchPriceLevels().then(levels => {
+      const map: Record<string, PriceLevelDto> = {};
+      levels.forEach(pl => { map[pl.categoryId] = pl; });
+      setPriceLevelByCategory(map);
+    }).catch(() => {});
+    fetchWinRates(365).then(rates => {
+      const map: Record<string, SignalWinRateDto> = {};
+      rates.forEach(wr => { map[wr.categoryId] = wr; });
+      setWinRateByCategory(map);
+    }).catch(() => {});
   }, [loadPortfolio]);
 
   const handleAllocationChange = (categoryId: string, value: string) => {
@@ -537,46 +550,87 @@ export default function PortfolioPage() {
                     : "No composite scores available to compute suggestions. Run signal computation first."}
                 </p>
               ) : (
-                <ul className="space-y-3">
-                  {portfolio.rebalanceSuggestions.map((suggestion) => {
-                    const isIncrease = suggestion.action === "INCREASE";
-                    const confirmed = suggestion.signalAligned;
-                    const signalColor: Record<string, string> = {
-                      BUY:    "text-green-400",
-                      WATCH:  "text-cyan-400",
-                      HOLD:   "text-slate-500",
-                      REDUCE: "text-red-400",
-                    };
-                    return (
-                      <li key={suggestion.categoryId} className={`flex flex-col gap-1 ${confirmed ? "" : "opacity-60"}`}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            {confirmed && (
-                              <span className="text-amber-400 text-[10px]" title="Signal-confirmed: trade signal matches rebalance direction">★</span>
-                            )}
-                            <span className="text-xs font-medium text-slate-200">{suggestion.categoryName}</span>
+                <>
+                  {/* Near-peak warning: highlight if BUY increases are mostly at 52w highs */}
+                  {(() => {
+                    const increaseSignals = portfolio.rebalanceSuggestions.filter(s => s.action === "INCREASE" && s.signalAligned);
+                    const nearPeak = increaseSignals.filter(s => {
+                      const pl = priceLevelByCategory[s.categoryId];
+                      return pl != null && pl.drawdownFromHigh >= -0.05;
+                    });
+                    if (nearPeak.length >= 2) {
+                      return (
+                        <div className="mb-3 px-2.5 py-1.5 bg-amber-900/20 border border-amber-700/30 rounded text-[10px] text-amber-400">
+                          {nearPeak.length} of {increaseSignals.length} BUY signals near 52-week high — consider scaling in gradually
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                  <ul className="space-y-3">
+                    {portfolio.rebalanceSuggestions.map((suggestion) => {
+                      const isIncrease = suggestion.action === "INCREASE";
+                      const confirmed = suggestion.signalAligned;
+                      const pl = priceLevelByCategory[suggestion.categoryId];
+                      const wr = winRateByCategory[suggestion.categoryId];
+                      const signalColor: Record<string, string> = {
+                        BUY:    "text-green-400",
+                        WATCH:  "text-cyan-400",
+                        HOLD:   "text-slate-500",
+                        REDUCE: "text-red-400",
+                      };
+                      const entryQuality: { label: string; className: string; title: string } | null = (() => {
+                        if (!pl || !isIncrease) return null;
+                        if (pl.drawdownFromHigh >= -0.05) return { label: "near peak", className: "text-amber-400 bg-amber-900/20 border-amber-700/30", title: `${(pl.drawdownFromHigh * 100).toFixed(1)}% from 52w high — elevated entry risk` };
+                        if (pl.drawdownFromHigh <= -0.15) return { label: `${(pl.drawdownFromHigh * 100).toFixed(0)}% pullback`, className: "text-cyan-400 bg-cyan-900/20 border-cyan-700/30", title: `${(pl.drawdownFromHigh * 100).toFixed(1)}% from 52w high — potential value entry` };
+                        return { label: `${(pl.drawdownFromHigh * 100).toFixed(0)}% off high`, className: "text-slate-400 bg-slate-800 border-slate-700/50", title: `${(pl.drawdownFromHigh * 100).toFixed(1)}% from 52w high — moderate pullback` };
+                      })();
+                      return (
+                        <li key={suggestion.categoryId} className={`flex flex-col gap-1 ${confirmed ? "" : "opacity-60"}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              {confirmed && (
+                                <span className="text-amber-400 text-[10px]" title="Signal-confirmed: trade signal matches rebalance direction">★</span>
+                              )}
+                              <span className="text-xs font-medium text-slate-200">{suggestion.categoryName}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {suggestion.tradeSignal && (
+                                <span className={`text-[9px] font-bold ${signalColor[suggestion.tradeSignal] ?? "text-slate-500"}`}>
+                                  {suggestion.tradeSignal}
+                                </span>
+                              )}
+                              {suggestion.compositeScorePct != null && (
+                                <span className="text-[9px] text-slate-600 font-mono">{suggestion.compositeScorePct}</span>
+                              )}
+                              <span className={`text-xs font-semibold ${isIncrease ? "text-emerald-400" : "text-red-400"}`}>
+                                {isIncrease ? "↑" : "↓"} {isIncrease ? "+" : ""}{suggestion.deltaPct.toFixed(1)}%
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            {suggestion.tradeSignal && (
-                              <span className={`text-[9px] font-bold ${signalColor[suggestion.tradeSignal] ?? "text-slate-500"}`}>
-                                {suggestion.tradeSignal}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-slate-500">
+                              {suggestion.currentAllocationPct.toFixed(1)}% → {suggestion.optimalAllocationPct.toFixed(1)}% optimal
+                            </span>
+                            {entryQuality && (
+                              <span className={`text-[9px] px-1 py-0.5 rounded border ${entryQuality.className}`} title={entryQuality.title}>
+                                {entryQuality.label}
                               </span>
                             )}
-                            {suggestion.compositeScorePct != null && (
-                              <span className="text-[9px] text-slate-600 font-mono">{suggestion.compositeScorePct}</span>
+                            {wr != null && isIncrease && suggestion.tradeSignal === "BUY" && (
+                              <span
+                                className={`text-[9px] font-mono ${wr.winRate >= 0.65 ? "text-green-400" : wr.winRate >= 0.50 ? "text-yellow-400" : "text-slate-500"}`}
+                                title={`Historical win rate: ${Math.round(wr.winRate * 100)}% over ${wr.signalCount} BUY signals (30-day forward return). Avg: ${wr.avgReturn30d != null ? (wr.avgReturn30d * 100).toFixed(1) : "n/a"}%`}
+                              >
+                                {Math.round(wr.winRate * 100)}% win
+                              </span>
                             )}
-                            <span className={`text-xs font-semibold ${isIncrease ? "text-emerald-400" : "text-red-400"}`}>
-                              {isIncrease ? "↑" : "↓"} {isIncrease ? "+" : ""}{suggestion.deltaPct.toFixed(1)}%
-                            </span>
                           </div>
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {suggestion.currentAllocationPct.toFixed(1)}% → {suggestion.optimalAllocationPct.toFixed(1)}% optimal
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
               )}
               </div>
             </div>

@@ -138,6 +138,9 @@ export type RebalanceSuggestion = {
   currentAllocationPct: number;
   optimalAllocationPct: number;
   deltaPct: number;
+  tradeSignal: string | null;
+  compositeScorePct: number | null;
+  signalAligned: boolean;
 };
 
 export type PortfolioResponse = {

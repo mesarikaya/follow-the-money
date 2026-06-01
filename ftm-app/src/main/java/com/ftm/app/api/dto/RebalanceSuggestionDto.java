@@ -8,4 +8,7 @@ public record RebalanceSuggestionDto(
     String action,
     BigDecimal currentAllocationPct,
     BigDecimal optimalAllocationPct,
-    BigDecimal deltaPct) {}
+    BigDecimal deltaPct,
+    String tradeSignal,
+    Integer compositeScorePct,
+    boolean signalAligned) {}

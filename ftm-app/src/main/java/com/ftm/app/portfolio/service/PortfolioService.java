@@ -99,7 +99,12 @@ public class PortfolioService {
 
     List<RebalanceSuggestionDto> rebalanceSuggestions =
         buildRebalanceSuggestions(
-            categoriesById, currentAllocationByCategoryId, optimalAllocationByCategoryId);
+            categoriesById,
+            currentAllocationByCategoryId,
+            optimalAllocationByCategoryId,
+            compositeScoreByCategoryId,
+            rrgQuadrantByCategoryId,
+            compositeTrend20dByCategoryId);
 
     log.debug(
         "Portfolio loaded: {} allocations, alignment={}", allocationEntries.size(), alignmentScore);
@@ -148,7 +153,10 @@ public class PortfolioService {
   private List<RebalanceSuggestionDto> buildRebalanceSuggestions(
       Map<String, Category> categoriesById,
       Map<String, BigDecimal> currentAllocationByCategoryId,
-      Map<String, BigDecimal> optimalAllocationByCategoryId) {
+      Map<String, BigDecimal> optimalAllocationByCategoryId,
+      Map<String, BigDecimal> compositeScoreByCategoryId,
+      Map<String, BigDecimal> rrgQuadrantByCategoryId,
+      Map<String, BigDecimal> compositeTrend20dByCategoryId) {
 
     List<RebalanceSuggestionDto> suggestions = new ArrayList<>();
 
@@ -161,16 +169,26 @@ public class PortfolioService {
       BigDecimal delta = optimalPct.subtract(currentPct).setScale(2, RoundingMode.HALF_UP);
       String action = delta.compareTo(BigDecimal.ZERO) >= 0 ? "INCREASE" : "DECREASE";
       String categoryName =
-          categoriesById.containsKey(categoryId)
-              ? categoriesById.get(categoryId).name()
-              : categoryId;
-      suggestions.add(
-          new RebalanceSuggestionDto(
-              categoryId, categoryName, action, currentPct, optimalPct, delta));
+          categoriesById.containsKey(categoryId) ? categoriesById.get(categoryId).name() : categoryId;
+
+      BigDecimal compositeScore = compositeScoreByCategoryId.get(categoryId);
+      BigDecimal rrgRaw = rrgQuadrantByCategoryId.get(categoryId);
+      String rrgQuadrant = rrgRaw != null ? String.valueOf(rrgRaw.intValue()) : null;
+      BigDecimal trend20d = compositeTrend20dByCategoryId.get(categoryId);
+      String tradeSignal = TradeSignalDeriver.derive(compositeScore, rrgQuadrant, trend20d);
+      int compositeScorePct = compositeScore != null ? compositeScore.multiply(BigDecimal.valueOf(100)).intValue() : 0;
+
+      // Signal is aligned when: INCREASE backed by BUY, or DECREASE backed by REDUCE
+      boolean signalAligned =
+          ("INCREASE".equals(action) && "BUY".equals(tradeSignal))
+          || ("DECREASE".equals(action) && "REDUCE".equals(tradeSignal));
+
+      suggestions.add(new RebalanceSuggestionDto(
+          categoryId, categoryName, action, currentPct, optimalPct, delta,
+          tradeSignal, compositeScorePct, signalAligned));
     }
 
-    // Categories with current allocation but NO optimal target (e.g. CASH/BIL, untracked)
-    // These should be reduced to 0% — signals say to deploy into signal-tracked categories
+    // Untracked categories (CASH/BIL, etc.) with current allocation — always suggest reducing
     for (Map.Entry<String, BigDecimal> entry : currentAllocationByCategoryId.entrySet()) {
       String categoryId = entry.getKey();
       if (optimalAllocationByCategoryId.containsKey(categoryId)) continue;
@@ -178,12 +196,10 @@ public class PortfolioService {
       if (currentPct.compareTo(BigDecimal.ZERO) <= 0) continue;
       BigDecimal delta = BigDecimal.ZERO.subtract(currentPct).setScale(2, RoundingMode.HALF_UP);
       String categoryName =
-          categoriesById.containsKey(categoryId)
-              ? categoriesById.get(categoryId).name()
-              : categoryId;
-      suggestions.add(
-          new RebalanceSuggestionDto(
-              categoryId, categoryName, "DECREASE", currentPct, BigDecimal.ZERO, delta));
+          categoriesById.containsKey(categoryId) ? categoriesById.get(categoryId).name() : categoryId;
+      suggestions.add(new RebalanceSuggestionDto(
+          categoryId, categoryName, "DECREASE", currentPct, BigDecimal.ZERO, delta,
+          null, null, true));
     }
 
     return suggestions.stream()

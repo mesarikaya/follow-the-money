@@ -522,13 +522,13 @@ export default function PortfolioPage() {
                 <h2 className="text-sm font-semibold text-slate-200">Rebalance Suggestions</h2>
                 <span
                   className="text-[10px] text-slate-600 cursor-help"
-                  title="These suggestions show categories where your current allocation differs from the composite-optimal target by more than 0.5%. The optimal targets sum to 100% across all active categories."
+                  title="Signal-confirmed suggestions: INCREASE backed by BUY signal, DECREASE backed by REDUCE. Others shown with lower confidence. Sorted by delta magnitude."
                 >
                   (?)
                 </span>
               </div>
               <p className="text-[10px] text-slate-600 mb-3">
-                Shows categories where |current − optimal| &gt; 0.5%. Untracked positions (cash, BIL) appear as DECREASE to 0%.
+                ★ = signal-confirmed (BUY → INCREASE, REDUCE → DECREASE). Others are allocation-only.
               </p>
               {portfolio.rebalanceSuggestions.length === 0 ? (
                 <p className="text-xs text-slate-500">
@@ -540,16 +540,38 @@ export default function PortfolioPage() {
                 <ul className="space-y-3">
                   {portfolio.rebalanceSuggestions.map((suggestion) => {
                     const isIncrease = suggestion.action === "INCREASE";
+                    const confirmed = suggestion.signalAligned;
+                    const signalColor: Record<string, string> = {
+                      BUY:    "text-green-400",
+                      WATCH:  "text-cyan-400",
+                      HOLD:   "text-slate-500",
+                      REDUCE: "text-red-400",
+                    };
                     return (
-                      <li key={suggestion.categoryId} className="flex flex-col gap-1">
+                      <li key={suggestion.categoryId} className={`flex flex-col gap-1 ${confirmed ? "" : "opacity-60"}`}>
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-slate-200">{suggestion.categoryName}</span>
-                          <span className={`text-xs font-semibold ${isIncrease ? "text-emerald-400" : "text-red-400"}`}>
-                            {isIncrease ? "↑" : "↓"} {isIncrease ? "+" : ""}{suggestion.deltaPct.toFixed(1)}%
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {confirmed && (
+                              <span className="text-amber-400 text-[10px]" title="Signal-confirmed: trade signal matches rebalance direction">★</span>
+                            )}
+                            <span className="text-xs font-medium text-slate-200">{suggestion.categoryName}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {suggestion.tradeSignal && (
+                              <span className={`text-[9px] font-bold ${signalColor[suggestion.tradeSignal] ?? "text-slate-500"}`}>
+                                {suggestion.tradeSignal}
+                              </span>
+                            )}
+                            {suggestion.compositeScorePct != null && (
+                              <span className="text-[9px] text-slate-600 font-mono">{suggestion.compositeScorePct}</span>
+                            )}
+                            <span className={`text-xs font-semibold ${isIncrease ? "text-emerald-400" : "text-red-400"}`}>
+                              {isIncrease ? "↑" : "↓"} {isIncrease ? "+" : ""}{suggestion.deltaPct.toFixed(1)}%
+                            </span>
+                          </div>
                         </div>
                         <div className="text-xs text-slate-500">
-                          {suggestion.currentAllocationPct.toFixed(1)}% current → {suggestion.optimalAllocationPct.toFixed(1)}% optimal
+                          {suggestion.currentAllocationPct.toFixed(1)}% → {suggestion.optimalAllocationPct.toFixed(1)}% optimal
                         </div>
                       </li>
                     );

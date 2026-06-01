@@ -21,7 +21,27 @@ type ActionCard = {
   winRateSignalCount: number | null;
   drawdownFromHigh: number | null;
   positionInRange: number | null;
+  scoreHistory: number[];
 };
+
+function MiniSparkline({ values, side }: { values: number[]; side: "BUY" | "REDUCE" }) {
+  if (values.length < 2) return null;
+  const pts = values.slice(-20);
+  const min = Math.min(...pts);
+  const max = Math.max(...pts);
+  const range = max - min || 0.01;
+  const W = 48, H = 16;
+  const xs = pts.map((_, i) => (i / (pts.length - 1)) * W);
+  const ys = pts.map(v => H - ((v - min) / range) * H);
+  const d = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
+  const color = side === "BUY" ? "#4ade80" : "#f87171";
+  return (
+    <svg width={W} height={H} className="overflow-visible">
+      <path d={d} fill="none" stroke={color} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
+      <circle cx={xs[xs.length - 1].toFixed(1)} cy={ys[ys.length - 1].toFixed(1)} r="1.5" fill={color} opacity="0.9" />
+    </svg>
+  );
+}
 
 const SIGNAL_STYLES: Record<"BUY" | "REDUCE", {
   border: string;
@@ -140,6 +160,13 @@ function ActionCard({ card, side }: { card: ActionCard; side: "BUY" | "REDUCE" }
             </span>
           </div>
         )}
+
+        {card.scoreHistory.length >= 5 && (
+          <div className="flex flex-col ml-auto" title="30-day composite score trend">
+            <span className="text-[9px] text-slate-600 uppercase">30d</span>
+            <MiniSparkline values={card.scoreHistory} side={side} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -149,9 +176,10 @@ type Props = {
   categories: CategorySummary[];
   winRateByCategory?: Record<string, SignalWinRateDto>;
   priceLevelByCategory?: Record<string, PriceLevelDto>;
+  scoreHistory?: Record<string, number[]>;
 };
 
-export default function ActionSummaryPanel({ categories, winRateByCategory = {}, priceLevelByCategory = {} }: Props) {
+export default function ActionSummaryPanel({ categories, winRateByCategory = {}, priceLevelByCategory = {}, scoreHistory = {} }: Props) {
   const getSignal = (c: CategorySummary): TradeSignal | null =>
     (c.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(c);
 
@@ -174,6 +202,7 @@ export default function ActionSummaryPanel({ categories, winRateByCategory = {},
       winRateSignalCount: wr?.signalCount ?? null,
       drawdownFromHigh: pl?.drawdownFromHigh ?? null,
       positionInRange: pl?.positionInRange ?? null,
+      scoreHistory: scoreHistory[c.id] ?? [],
     };
   };
 

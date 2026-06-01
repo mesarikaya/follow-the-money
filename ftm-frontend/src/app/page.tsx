@@ -87,7 +87,7 @@ export default async function Home({ searchParams }: Props) {
 
         {categories.length > 0 && <MarketPulseStrip categories={categories} />}
 
-        {categories.length > 0 && <ActionSummaryPanel categories={categories} winRateByCategory={winRateByCategory} priceLevelByCategory={priceLevelByCategory} />}
+        {categories.length > 0 && <ActionSummaryPanel categories={categories} winRateByCategory={winRateByCategory} priceLevelByCategory={priceLevelByCategory} scoreHistory={scoreHistory} />}
 
         <ActiveAlertsStrip />
 

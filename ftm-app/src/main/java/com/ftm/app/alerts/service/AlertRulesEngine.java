@@ -55,7 +55,9 @@ public class AlertRulesEngine {
   private static final String RULE_TRADE_SIGNAL_BUY = "trade_signal_buy";
   private static final String RULE_TRADE_SIGNAL_REDUCE = "trade_signal_reduce";
   private static final String RULE_SCORE_APPROACHING_BUY = "score_approaching_buy";
+  private static final String RULE_SCORE_APPROACHING_REDUCE = "score_approaching_reduce";
   private static final BigDecimal APPROACHING_BUY_LOWER = new BigDecimal("0.55");
+  private static final BigDecimal APPROACHING_REDUCE_UPPER = new BigDecimal("0.45");
   private static final BigDecimal PERSISTENCE_RECOVERY_THRESHOLD = new BigDecimal("8");
   private static final int BREADTH_VELOCITY_THRESHOLD_PP = 10;
   private static final BigDecimal BUY_SCORE_THRESHOLD = new BigDecimal("0.65");
@@ -100,6 +102,7 @@ public class AlertRulesEngine {
     alertsCreated += evaluateBreadthVelocity(signalDate, equityCategoryIds);
     alertsCreated += evaluateTradeSignalTransitions(signalDate, topLevelCategoryIds);
     alertsCreated += evaluateApproachingBuySignal(signalDate, topLevelCategoryIds);
+    alertsCreated += evaluateApproachingReduceSignal(signalDate, topLevelCategoryIds);
 
     log.info(
         "Alert rule evaluation complete: {} created, {} resolved for date={}",
@@ -146,6 +149,11 @@ public class AlertRulesEngine {
         if (composite.compareTo(new BigDecimal("0.50")) < 0
             || composite.compareTo(BUY_SCORE_THRESHOLD) >= 0) {
           resolved += alertRepository.resolveAlertsByRuleAndCategory(RULE_SCORE_APPROACHING_BUY, categoryId);
+        }
+        // Approaching-reduce resolves when score recovers above 0.50 or drops to full REDUCE zone
+        if (composite.compareTo(new BigDecimal("0.50")) >= 0
+            || composite.compareTo(REDUCE_SCORE_THRESHOLD) < 0) {
+          resolved += alertRepository.resolveAlertsByRuleAndCategory(RULE_SCORE_APPROACHING_REDUCE, categoryId);
         }
       }
 
@@ -702,6 +710,69 @@ public class AlertRulesEngine {
           AlertStatus.ACTIVE));
       count++;
       log.info("score_approaching_buy: category={} score={} ptsNeeded={}", categoryId, scorePct, ptsNeeded);
+    }
+    return count;
+  }
+
+  private int evaluateApproachingReduceSignal(LocalDate signalDate, Set<String> topLevelCategoryIds) {
+    Optional<AlertRule> approachRule = alertRulesRepository.findById(RULE_SCORE_APPROACHING_REDUCE);
+    if (!approachRule.map(AlertRule::enabled).orElse(false)) return 0;
+    Severity severity = approachRule.map(AlertRule::severity).orElse(Severity.WARNING);
+
+    Map<String, BigDecimal> composite = signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
+    Map<String, BigDecimal> rrgQuadrant = signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
+
+    LocalDate prevDate = signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, signalDate);
+    Map<String, BigDecimal> prevComposite = prevDate != null
+        ? signalRepository.findByTypeAndDate(SignalType.COMPOSITE, prevDate) : Map.of();
+
+    int count = 0;
+    for (String categoryId : topLevelCategoryIds) {
+      BigDecimal score = composite.get(categoryId);
+      if (score == null) continue;
+
+      boolean inApproachZone = score.compareTo(REDUCE_SCORE_THRESHOLD) >= 0
+          && score.compareTo(APPROACHING_REDUCE_UPPER) <= 0;
+      if (!inApproachZone) continue;
+
+      BigDecimal prevScore = prevComposite.get(categoryId);
+      boolean wasAbove = prevScore == null || prevScore.compareTo(APPROACHING_REDUCE_UPPER) > 0;
+      if (!wasAbove) continue;
+
+      if (alertRepository.existsActiveAlert(RULE_SCORE_APPROACHING_REDUCE, categoryId)) continue;
+      if (alertRepository.existsActiveAlert(RULE_TRADE_SIGNAL_REDUCE, categoryId)) continue;
+
+      CategoryId catId;
+      try {
+        catId = CategoryId.valueOf(categoryId);
+      } catch (IllegalArgumentException e) {
+        log.debug("score_approaching_reduce: skipping unknown CategoryId={}", categoryId);
+        continue;
+      }
+
+      int scorePct = score.multiply(BigDecimal.valueOf(100)).intValue();
+      int ptsBuffer = scorePct - REDUCE_SCORE_THRESHOLD.multiply(BigDecimal.valueOf(100)).intValue();
+      BigDecimal rrg = rrgQuadrant.get(categoryId);
+      int rrgInt = rrg != null ? rrg.intValue() : 0;
+      String rrgLabel = switch (rrgInt) {
+        case 4 -> "Leading";
+        case 3 -> "Improving";
+        case 2 -> "Weakening";
+        case 1 -> "Lagging";
+        default -> "Unknown";
+      };
+
+      alertRepository.insert(new Alert(
+          OffsetDateTime.now(), catId, RULE_SCORE_APPROACHING_REDUCE, severity,
+          String.format(
+              "%s approaching REDUCE threshold: score %d (only %d pts above REDUCE zone ≤34), RRG %s — monitor for further deterioration",
+              categoryId, scorePct, ptsBuffer, rrgLabel),
+          String.format(
+              "{\"score\":%d,\"ptsBuffer\":%d,\"rrgQuadrant\":%d,\"signalDate\":\"%s\"}",
+              scorePct, ptsBuffer, rrgInt, signalDate),
+          AlertStatus.ACTIVE));
+      count++;
+      log.info("score_approaching_reduce: category={} score={} ptsBuffer={}", categoryId, scorePct, ptsBuffer);
     }
     return count;
   }

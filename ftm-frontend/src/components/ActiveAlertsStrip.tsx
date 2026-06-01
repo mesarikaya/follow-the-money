@@ -15,7 +15,8 @@ const RULE_SHORT: Record<string, string> = {
   breadth_velocity_decel: "Breadth↓",
   trade_signal_buy:       "BUY",
   trade_signal_reduce:    "REDUCE",
-  score_approaching_buy:  "Pre-BUY",
+  score_approaching_buy:    "Pre-BUY",
+  score_approaching_reduce: "Pre-REDUCE",
 };
 
 const SEV_STYLES: Record<string, { strip: string; badge: string; dot: string }> = {

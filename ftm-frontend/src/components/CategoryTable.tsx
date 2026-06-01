@@ -175,6 +175,20 @@ function ScoreBar({
         </span>
         <TrendPip trend={trend5d} label="5d" />
         <TrendPip trend={trend20d} label="20d" />
+        {(() => {
+          if (trend5d == null || trend20d == null) return null;
+          const accel = trend5d - trend20d;
+          if (Math.abs(accel) < 0.04) return null;
+          const isAccel = accel > 0;
+          return (
+            <span
+              className={`text-[7px] font-mono ${isAccel ? "text-cyan-500" : "text-orange-400"}`}
+              title={`Score acceleration: 5d trend (${trend5d > 0 ? "+" : ""}${Math.round(trend5d * 100)}pt) ${isAccel ? ">" : "<"} 20d trend (${trend20d > 0 ? "+" : ""}${Math.round(trend20d * 100)}pt) — momentum is ${isAccel ? "building" : "fading"}`}
+            >
+              {isAccel ? "↗" : "↘"}
+            </span>
+          );
+        })()}
         <VolatilityBadge vol={realizedVol20d ?? null} />
         {persistPct != null && (
           <span className={`text-[8px] tabular-nums ${persistColor}`} title={`Persistence: ${persistence20d}/20 days outperformed benchmark (${persistPct}%)`}>

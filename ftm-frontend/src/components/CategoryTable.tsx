@@ -2,7 +2,7 @@
 
 import { Fragment, useState } from "react";
 import Link from "next/link";
-import { CategorySummary, SubSectorSummary } from "@/lib/api";
+import { CategorySummary, PriceLevelDto, SubSectorSummary } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 import Sparkline from "@/components/Sparkline";
@@ -384,11 +384,13 @@ export default function CategoryTable({
   timeframe = "MONTH",
   scoreHistory = {},
   topSubSectors = {},
+  priceLevels = {},
 }: {
   categories: CategorySummary[];
   timeframe?: string;
   scoreHistory?: Record<string, number[]>;
   topSubSectors?: Record<string, SubSectorSummary>;
+  priceLevels?: Record<string, PriceLevelDto>;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("default");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -517,6 +519,31 @@ export default function CategoryTable({
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-slate-300">
                     {cat.latestClose != null ? `$${Number(cat.latestClose).toFixed(2)}` : "—"}
+                    {(() => {
+                      const pl = priceLevels[cat.id];
+                      if (!pl || pl.positionInRange == null || pl.drawdownFromHigh == null) return null;
+                      const pos = pl.positionInRange;
+                      const dd = pl.drawdownFromHigh;
+                      const ddPct = Math.round(dd * 100);
+                      const barColor = pos >= 0.8 ? "bg-amber-500" : pos >= 0.5 ? "bg-emerald-500" : pos >= 0.2 ? "bg-cyan-500" : "bg-blue-500";
+                      return (
+                        <div
+                          className="mt-1 flex flex-col items-end gap-0.5"
+                          title={`52-week range: position ${Math.round(pos * 100)}% of range. Drawdown from 52w high: ${ddPct}%.${pos >= 0.8 ? " Near 52w high — momentum-following entry." : pos <= 0.2 ? " Near 52w low — potential deep value entry." : ""}`}
+                        >
+                          <div className="relative w-12 h-1 bg-slate-700/60 rounded-full overflow-visible">
+                            <div className={`absolute h-full rounded-full ${barColor} opacity-60`} style={{ width: `${Math.round(pos * 100)}%` }} />
+                            <div
+                              className={`absolute w-1 h-2.5 top-1/2 -translate-y-1/2 -translate-x-0.5 rounded-sm ${barColor}`}
+                              style={{ left: `${Math.round(pos * 100)}%` }}
+                            />
+                          </div>
+                          <span className={`text-[8px] tabular-nums font-mono ${ddPct >= -5 ? "text-amber-500" : ddPct >= -15 ? "text-slate-500" : "text-cyan-500"}`}>
+                            {ddPct}%
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </td>
                   {hasHistory && (
                     <td className="px-3 py-2.5">

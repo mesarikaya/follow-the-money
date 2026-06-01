@@ -92,8 +92,10 @@ function PersistenceVelocity({
 }) {
   if (persistence5d == null || persistence20d == null) return null;
   const rate5d = persistence5d / 5;
-  const rate20d = persistence20d / 20;
-  const velocityPct = Math.round((rate5d - rate20d) * 100);
+  // prior-15d baseline excludes the overlapping recent 5 days
+  const prior15 = persistence20d - persistence5d;
+  const rate15 = prior15 / 15;
+  const velocityPct = Math.round((rate5d - rate15) * 100);
   if (Math.abs(velocityPct) < 5) return null;
   const isAccel = velocityPct > 0;
   const color = isAccel ? "text-emerald-400" : "text-red-400";
@@ -101,7 +103,7 @@ function PersistenceVelocity({
   return (
     <span
       className={`text-[8px] tabular-nums ${color}`}
-      title={`Breadth velocity: 5d hit-rate ${Math.round(rate5d * 100)}% vs 20d baseline ${Math.round(rate20d * 100)}% — ${isAccel ? "accelerating" : "decelerating"} (${velocityPct > 0 ? "+" : ""}${velocityPct}pp)`}
+      title={`Breadth velocity: recent-5d ${Math.round(rate5d * 100)}% vs prior-15d ${Math.round(rate15 * 100)}% — ${isAccel ? "accelerating" : "decelerating"} (${velocityPct > 0 ? "+" : ""}${velocityPct}pp)`}
     >
       {arrow}
     </span>
@@ -235,11 +237,11 @@ function buildScoreTooltip(cat: import("@/lib/api").CategorySummary, macroFitVal
     ``,
     `RS-60 (25% weight): ${rs60Str}`,
     `RS-120 (10% weight, confirmation): ${rs120Str}`,
-    `Flow 20d: n/a (AUM data unavailable)`,
-    `Momentum (20% weight): ${momStr}`,
+    `Persistence 20d (20% weight): ${persist20Str}`,
+    `Momentum (15% weight): ${momStr}`,
     `Macro Fit (10% weight): ${macroFitStr}`,
     `RRG (10% weight): ${rrgLabel}`,
-    `Persistence 20d: ${persist20Str}`,
+    `Flow 20d (10%, reserved — AUM data unavailable)`,
     velocityStr,
     ``,
     trend5dPts != null ? `5d score trend: ${trend5dPts > 0 ? "+" : ""}${trend5dPts} pts` : "",

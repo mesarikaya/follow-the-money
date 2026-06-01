@@ -387,6 +387,22 @@ function MetricCard({ label, value, color, tooltip }: { label: string; value: st
   );
 }
 
+function computeSortino(curve: EquityCurvePoint[], useSpy: boolean): number | null {
+  if (curve.length < 2) return null;
+  const returns: number[] = [];
+  for (let i = 1; i < curve.length; i++) {
+    const prev = useSpy ? curve[i - 1].spyValue : curve[i - 1].portfolioValue;
+    const curr = useSpy ? curve[i].spyValue : curve[i].portfolioValue;
+    if (prev > 0) returns.push((curr - prev) / prev);
+  }
+  if (returns.length === 0) return null;
+  const meanReturn = returns.reduce((s, r) => s + r, 0) / returns.length;
+  const downsideVariance = returns.reduce((s, r) => s + Math.pow(Math.min(r, 0), 2), 0) / returns.length;
+  const downsideStd = Math.sqrt(downsideVariance);
+  if (downsideStd === 0) return null;
+  return (meanReturn / downsideStd) * Math.sqrt(252);
+}
+
 export default function BacktesterPage() {
   const [startDate, setStartDate] = useState(DEFAULT_START_DATE);
   const [endDate, setEndDate] = useState(DEFAULT_END_DATE);
@@ -800,6 +816,11 @@ export default function BacktesterPage() {
                         const calmar = result.annualizedReturnPct / result.maxDrawdownPct;
                         return <MetricCard label="Calmar Ratio" value={calmar.toFixed(2)} color={calmar >= 1.5 ? winColor : calmar >= 0.5 ? neutColor : lossColor} tooltip="Ann. return ÷ max drawdown. >1.5 = good; favored by trend-following funds." />;
                       })()}
+                      {result.equityCurve && (() => {
+                        const sortino = computeSortino(result.equityCurve, false);
+                        if (sortino == null) return null;
+                        return <MetricCard label="Sortino Ratio" value={sortino.toFixed(2)} color={sortino >= 1.5 ? winColor : sortino >= 0.7 ? neutColor : lossColor} tooltip="Ann. return / downside deviation (negative-return days only). Better than Sharpe for asymmetric return profiles. >1.5 = excellent." />;
+                      })()}
                     </div>
                   </div>
                   <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
@@ -815,6 +836,11 @@ export default function BacktesterPage() {
                       {result.spyMaxDrawdownPct != null && result.spyMaxDrawdownPct > 0 && result.spyAnnualizedReturnPct != null && (() => {
                         const spyCalmar = result.spyAnnualizedReturnPct / result.spyMaxDrawdownPct;
                         return <MetricCard label="Calmar Ratio" value={spyCalmar.toFixed(2)} color="text-slate-300" tooltip="SPY ann. return ÷ max drawdown." />;
+                      })()}
+                      {result.equityCurve && (() => {
+                        const spySortino = computeSortino(result.equityCurve, true);
+                        if (spySortino == null) return null;
+                        return <MetricCard label="Sortino Ratio" value={spySortino.toFixed(2)} color="text-slate-300" tooltip="SPY ann. return / downside deviation." />;
                       })()}
                     </div>
                     <div className="mt-3 pt-3 border-t border-slate-700/50 text-[10px] font-mono text-slate-600">

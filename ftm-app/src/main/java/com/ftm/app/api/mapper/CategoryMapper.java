@@ -65,6 +65,9 @@ public interface CategoryMapper {
   @Mapping(
       target = "signalDaysActive",
       expression = "java(signalDaysActiveByCategoryId.get(row.category().id().name()))")
+  @Mapping(
+      target = "realizedVol20d",
+      expression = "java(realizedVol20dByCategoryId.get(row.category().id().name()))")
   CategorySummaryDto toDto(
       CategoryRepository.CategoryPriceRow row,
       int rank,
@@ -80,5 +83,6 @@ public interface CategoryMapper {
       Map<String, BigDecimal> persistence20dByCategoryId,
       Map<String, BigDecimal> macroFitByCategoryId,
       Map<String, BigDecimal> momentumByCategoryId,
-      Map<String, Integer> signalDaysActiveByCategoryId);
+      Map<String, Integer> signalDaysActiveByCategoryId,
+      Map<String, BigDecimal> realizedVol20dByCategoryId);
 }

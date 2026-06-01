@@ -25,6 +25,7 @@ export type CategorySummary = {
   macroFit: number | null;
   momentum: number | null;
   signalDaysActive: number | null;
+  realizedVol20d: number | null;
 };
 
 export type CategoriesResponse = {

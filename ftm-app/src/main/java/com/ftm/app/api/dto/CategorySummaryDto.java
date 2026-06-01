@@ -47,4 +47,8 @@ public record CategorySummaryDto(
     @Schema(
             description =
                 "Consecutive trading days with composite score ≥ 0.50 (any positive signal tier); null when no active signal")
-        Integer signalDaysActive) {}
+        Integer signalDaysActive,
+    @Schema(
+            description =
+                "20-day realized annualized volatility (log-return STDDEV × √252); null until price data available")
+        BigDecimal realizedVol20d) {}

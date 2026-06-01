@@ -214,6 +214,27 @@ public class SignalRepository {
 
   public record MacroRegimeHistoryRow(LocalDate date, BigDecimal regimeOrdinal) {}
 
+  public Map<String, BigDecimal> findRealizedVolatility20d() {
+    return dsl.resultQuery("""
+        WITH daily_returns AS (
+          SELECT category_id,
+                 trade_date,
+                 LN(adj_close / LAG(adj_close) OVER (PARTITION BY category_id ORDER BY trade_date)) AS log_return,
+                 ROW_NUMBER() OVER (PARTITION BY category_id ORDER BY trade_date DESC) AS rn
+          FROM raw_prices
+          WHERE adj_close > 0
+          AND trade_date >= CURRENT_DATE - INTERVAL '60 days'
+        )
+        SELECT category_id,
+               STDDEV(log_return) * SQRT(252) AS annualized_vol
+        FROM daily_returns
+        WHERE rn <= 20 AND log_return IS NOT NULL
+        GROUP BY category_id
+        HAVING COUNT(*) >= 15
+        """)
+        .fetchMap(r -> r.get("category_id", String.class), r -> r.get("annualized_vol", BigDecimal.class));
+  }
+
   public Map<String, Integer> findSignalDaysActive(BigDecimal threshold) {
     return dsl.resultQuery("""
         WITH ranked AS (

@@ -110,6 +110,21 @@ function PersistenceVelocity({
   );
 }
 
+function VolatilityBadge({ vol }: { vol: number | null }) {
+  if (vol == null) return null;
+  const pct = Math.round(vol * 100);
+  const color = pct >= 30 ? "text-red-400" : pct >= 20 ? "text-orange-400" : pct >= 12 ? "text-slate-400" : "text-emerald-500";
+  const label = pct >= 30 ? "HV" : pct >= 20 ? "MV" : "LV";
+  return (
+    <span
+      className={`text-[7px] tabular-nums font-mono ${color}`}
+      title={`20d realized annualized volatility: ${pct}% — ${label === "HV" ? "high risk" : label === "MV" ? "moderate risk" : "low risk"}`}
+    >
+      ~{pct}%
+    </span>
+  );
+}
+
 function ScoreBar({
   score,
   trend5d,
@@ -118,6 +133,7 @@ function ScoreBar({
   persistence5d,
   persistence20d,
   momentum,
+  realizedVol20d,
 }: {
   score: number | null;
   trend5d: number | null;
@@ -126,6 +142,7 @@ function ScoreBar({
   persistence5d?: number | null;
   persistence20d?: number | null;
   momentum?: number | null;
+  realizedVol20d?: number | null;
 }) {
   if (score == null) return <span className="text-slate-600 text-xs">—</span>;
   const pct = Math.round(score * 100);
@@ -158,6 +175,7 @@ function ScoreBar({
         </span>
         <TrendPip trend={trend5d} label="5d" />
         <TrendPip trend={trend20d} label="20d" />
+        <VolatilityBadge vol={realizedVol20d ?? null} />
         {persistPct != null && (
           <span className={`text-[8px] tabular-nums ${persistColor}`} title={`Persistence: ${persistence20d}/20 days outperformed benchmark (${persistPct}%)`}>
             {persistence20d}d
@@ -510,7 +528,7 @@ export default function CategoryTable({
                   )}
                   <td className="px-4 py-2.5" title={buildScoreTooltip(cat, cat.macroFit ?? null)}>
                     <div className="flex justify-center">
-                      <ScoreBar score={cat.compositeScore} trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} macroFit={cat.macroFit ?? null} persistence5d={cat.persistence5d ?? null} persistence20d={cat.persistence20d ?? null} momentum={cat.momentum ?? null} />
+                      <ScoreBar score={cat.compositeScore} trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} macroFit={cat.macroFit ?? null} persistence5d={cat.persistence5d ?? null} persistence20d={cat.persistence20d ?? null} momentum={cat.momentum ?? null} realizedVol20d={cat.realizedVol20d ?? null} />
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-right">

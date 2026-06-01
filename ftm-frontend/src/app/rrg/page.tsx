@@ -32,7 +32,7 @@ export default function RelativeRotationGraphPage() {
               <span className="w-2 h-2 rounded-full bg-slate-500 inline-block" /> Lagging
             </span>
             <span className="ml-1 text-[10px] bg-slate-700/80 border border-slate-600 px-2 py-0.5 rounded text-slate-400">
-              trailing path shown
+              trail length: adjustable in chart
             </span>
           </div>
         </div>

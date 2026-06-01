@@ -50,7 +50,10 @@ public class AlertRulesEngine {
   private static final String RULE_MACRO_REGIME_SHIFT = "macro_regime_shift";
   private static final String RULE_RS_ACCEL_CROSSOVER = "rs_accel_crossover";
   private static final String RULE_PERSISTENCE_LOW = "persistence_low";
+  private static final String RULE_BREADTH_VELOCITY_ACCEL = "breadth_velocity_accel";
+  private static final String RULE_BREADTH_VELOCITY_DECEL = "breadth_velocity_decel";
   private static final BigDecimal PERSISTENCE_RECOVERY_THRESHOLD = new BigDecimal("8");
+  private static final int BREADTH_VELOCITY_THRESHOLD_PP = 10;
 
   private final AlertRepository alertRepository;
   private final AlertRulesRepository alertRulesRepository;
@@ -88,6 +91,7 @@ public class AlertRulesEngine {
     alertsCreated += evaluateMacroRegimeShift(signalDate);
     alertsCreated += evaluateRsAccelerationCrossover(signalDate, topLevelCategoryIds);
     alertsCreated += evaluatePersistenceLow(signalDate, equityCategoryIds);
+    alertsCreated += evaluateBreadthVelocity(signalDate, equityCategoryIds);
 
     log.info(
         "Alert rule evaluation complete: {} created, {} resolved for date={}",
@@ -99,8 +103,10 @@ public class AlertRulesEngine {
   private int resolveStaleAlerts(LocalDate signalDate, Set<String> topLevelCategoryIds) {
     Map<String, BigDecimal> currentComposites =
         signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    Map<String, BigDecimal> currentPersistence =
+    Map<String, BigDecimal> currentPersistence20d =
         signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, signalDate);
+    Map<String, BigDecimal> currentPersistence5d =
+        signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_5D, signalDate);
 
     int resolved = 0;
     for (String categoryId : topLevelCategoryIds) {
@@ -119,10 +125,24 @@ public class AlertRulesEngine {
       }
 
       // Persistence-low alert: resolve when persistence recovers to the moderate band (≥ 8/20d)
-      BigDecimal persistence = currentPersistence.get(categoryId);
-      if (persistence != null && persistence.compareTo(PERSISTENCE_RECOVERY_THRESHOLD) >= 0) {
+      BigDecimal p20 = currentPersistence20d.get(categoryId);
+      if (p20 != null && p20.compareTo(PERSISTENCE_RECOVERY_THRESHOLD) >= 0) {
         resolved +=
             alertRepository.resolveAlertsByRuleAndCategory(RULE_PERSISTENCE_LOW, categoryId);
+      }
+
+      // Breadth velocity alerts: resolve when velocity retreats inside ±threshold
+      BigDecimal p5d = currentPersistence5d.get(categoryId);
+      if (p20 != null && p5d != null) {
+        double rate5d = p5d.doubleValue() / 5.0;
+        double rate15 = (p20.doubleValue() - p5d.doubleValue()) / 15.0;
+        int velocityPp = (int) Math.round((rate5d - rate15) * 100);
+        if (velocityPp < BREADTH_VELOCITY_THRESHOLD_PP) {
+          resolved += alertRepository.resolveAlertsByRuleAndCategory(RULE_BREADTH_VELOCITY_ACCEL, categoryId);
+        }
+        if (velocityPp > -BREADTH_VELOCITY_THRESHOLD_PP) {
+          resolved += alertRepository.resolveAlertsByRuleAndCategory(RULE_BREADTH_VELOCITY_DECEL, categoryId);
+        }
       }
     }
 
@@ -413,6 +433,89 @@ public class AlertRulesEngine {
             nowAbove ? "bullish" : "bearish",
             rs60,
             rs120);
+      }
+    }
+    return count;
+  }
+
+  private int evaluateBreadthVelocity(LocalDate signalDate, Set<String> equityCategoryIds) {
+    Optional<AlertRule> accelRule = alertRulesRepository.findById(RULE_BREADTH_VELOCITY_ACCEL);
+    Optional<AlertRule> decelRule = alertRulesRepository.findById(RULE_BREADTH_VELOCITY_DECEL);
+
+    boolean accelEnabled = accelRule.map(AlertRule::enabled).orElse(false);
+    boolean decelEnabled = decelRule.map(AlertRule::enabled).orElse(false);
+    if (!accelEnabled && !decelEnabled) return 0;
+
+    Severity accelSeverity = accelRule.map(AlertRule::severity).orElse(Severity.INFO);
+    Severity decelSeverity = decelRule.map(AlertRule::severity).orElse(Severity.WARNING);
+
+    Map<String, BigDecimal> persistence20d =
+        signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, signalDate);
+    Map<String, BigDecimal> persistence5d =
+        signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_5D, signalDate);
+
+    if (persistence20d.isEmpty() || persistence5d.isEmpty()) return 0;
+
+    int count = 0;
+    for (String categoryId : equityCategoryIds) {
+      BigDecimal p20 = persistence20d.get(categoryId);
+      BigDecimal p5 = persistence5d.get(categoryId);
+      if (p20 == null || p5 == null) continue;
+
+      double rate5d = p5.doubleValue() / 5.0;
+      double rate15 = (p20.doubleValue() - p5.doubleValue()) / 15.0;
+      int velocityPp = (int) Math.round((rate5d - rate15) * 100);
+
+      CategoryId catId;
+      try {
+        catId = CategoryId.valueOf(categoryId);
+      } catch (IllegalArgumentException e) {
+        log.debug("breadth_velocity: skipping unknown CategoryId={}", categoryId);
+        continue;
+      }
+
+      if (accelEnabled && velocityPp >= BREADTH_VELOCITY_THRESHOLD_PP) {
+        if (!alertRepository.existsActiveAlert(RULE_BREADTH_VELOCITY_ACCEL, categoryId)) {
+          alertRepository.insert(
+              new Alert(
+                  OffsetDateTime.now(),
+                  catId,
+                  RULE_BREADTH_VELOCITY_ACCEL,
+                  accelSeverity,
+                  String.format(
+                      "%s breadth velocity +%dpp — recent-5d hit-rate sharply above prior-15d baseline (P5=%d, P20=%d)",
+                      categoryId, velocityPp, p5.intValue(), p20.intValue()),
+                  String.format(
+                      "{\"velocityPp\":%d,\"persistence5d\":%d,\"persistence20d\":%d,\"signalDate\":\"%s\"}",
+                      velocityPp, p5.intValue(), p20.intValue(), signalDate),
+                  AlertStatus.ACTIVE));
+          count++;
+          log.info(
+              "breadth_velocity_accel: category={} velocityPp=+{} p5d={} p20d={}",
+              categoryId, velocityPp, p5.intValue(), p20.intValue());
+        }
+      }
+
+      if (decelEnabled && velocityPp <= -BREADTH_VELOCITY_THRESHOLD_PP) {
+        if (!alertRepository.existsActiveAlert(RULE_BREADTH_VELOCITY_DECEL, categoryId)) {
+          alertRepository.insert(
+              new Alert(
+                  OffsetDateTime.now(),
+                  catId,
+                  RULE_BREADTH_VELOCITY_DECEL,
+                  decelSeverity,
+                  String.format(
+                      "%s breadth velocity %dpp — recent-5d hit-rate sharply below prior-15d baseline (P5=%d, P20=%d)",
+                      categoryId, velocityPp, p5.intValue(), p20.intValue()),
+                  String.format(
+                      "{\"velocityPp\":%d,\"persistence5d\":%d,\"persistence20d\":%d,\"signalDate\":\"%s\"}",
+                      velocityPp, p5.intValue(), p20.intValue(), signalDate),
+                  AlertStatus.ACTIVE));
+          count++;
+          log.info(
+              "breadth_velocity_decel: category={} velocityPp={} p5d={} p20d={}",
+              categoryId, velocityPp, p5.intValue(), p20.intValue());
+        }
       }
     }
     return count;

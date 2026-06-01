@@ -70,6 +70,9 @@ class AlertRulesEngineTest {
     lenient()
         .when(signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, DATE))
         .thenReturn(Map.of());
+    lenient()
+        .when(signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_5D, DATE))
+        .thenReturn(Map.of());
   }
 
   private AlertRule enabled(String ruleId, Severity severity) {
@@ -128,6 +131,13 @@ class AlertRulesEngineTest {
   private void stubPersistenceLowDisabled() {
     when(alertRulesRepository.findById("persistence_low"))
         .thenReturn(Optional.of(disabled("persistence_low")));
+  }
+
+  private void stubBreadthVelocityDisabled() {
+    when(alertRulesRepository.findById("breadth_velocity_accel"))
+        .thenReturn(Optional.of(disabled("breadth_velocity_accel")));
+    when(alertRulesRepository.findById("breadth_velocity_decel"))
+        .thenReturn(Optional.of(disabled("breadth_velocity_decel")));
   }
 
   private AlertRule enabledWithPersistenceDays(String ruleId, Severity severity, int days) {
@@ -616,6 +626,128 @@ class AlertRulesEngineTest {
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
     verify(alertRepository).resolveAlertsByRuleAndCategory("persistence_low", "TECH");
+  }
+
+  // ===== Breadth Velocity Alert Tests =====
+
+  @Test
+  @DisplayName("breadth_velocity_accel: inserts alert when recent-5d breadth rate exceeds prior-15d by ≥+10pp")
+  void shouldCreateBreadthVelocityAccelAlertWhenVelocityAboveThreshold() {
+    stubTopLevelCategories("TECH");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    stubPersistenceLowDisabled();
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+
+    when(alertRulesRepository.findById("breadth_velocity_accel"))
+        .thenReturn(Optional.of(enabled("breadth_velocity_accel", Severity.INFO)));
+    when(alertRulesRepository.findById("breadth_velocity_decel"))
+        .thenReturn(Optional.of(disabled("breadth_velocity_decel")));
+
+    // p5=4, p20=6: rate5d=4/5=0.8, rate15=(6-4)/15=0.133, velocity≈+67pp ≥ threshold
+    when(signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("4")));
+    when(signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("6")));
+    when(alertRepository.existsActiveAlert("breadth_velocity_accel", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("breadth_velocity_accel");
+    assertThat(inserted.categoryId()).isEqualTo(CategoryId.TECH);
+    assertThat(inserted.severity()).isEqualTo(Severity.INFO);
+    assertThat(inserted.status()).isEqualTo(AlertStatus.ACTIVE);
+    assertThat(inserted.message()).contains("TECH").contains("breadth velocity");
+  }
+
+  @Test
+  @DisplayName("breadth_velocity_accel: no alert when velocity is below threshold")
+  void shouldNotCreateBreadthVelocityAccelAlertWhenVelocityBelowThreshold() {
+    stubTopLevelCategories("TECH");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    stubPersistenceLowDisabled();
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+
+    when(alertRulesRepository.findById("breadth_velocity_accel"))
+        .thenReturn(Optional.of(enabled("breadth_velocity_accel", Severity.INFO)));
+    when(alertRulesRepository.findById("breadth_velocity_decel"))
+        .thenReturn(Optional.of(disabled("breadth_velocity_decel")));
+
+    // p5=2, p20=8: rate5d=2/5=0.4, rate15=(8-2)/15=0.4, velocity=0pp — no alert
+    when(signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("2")));
+    when(signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("8")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("breadth_velocity_decel: inserts alert when recent-5d breadth rate falls below prior-15d by ≥10pp")
+  void shouldCreateBreadthVelocityDecelAlertWhenVelocityBelowNegativeThreshold() {
+    stubTopLevelCategories("FINL");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    stubPersistenceLowDisabled();
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+
+    when(alertRulesRepository.findById("breadth_velocity_accel"))
+        .thenReturn(Optional.of(disabled("breadth_velocity_accel")));
+    when(alertRulesRepository.findById("breadth_velocity_decel"))
+        .thenReturn(Optional.of(enabled("breadth_velocity_decel", Severity.WARNING)));
+
+    // p5=1, p20=10: rate5d=1/5=0.2, rate15=(10-1)/15=0.6, velocity=-40pp ≤ -threshold
+    when(signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_5D, DATE))
+        .thenReturn(Map.of("FINL", new BigDecimal("1")));
+    when(signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, DATE))
+        .thenReturn(Map.of("FINL", new BigDecimal("10")));
+    when(alertRepository.existsActiveAlert("breadth_velocity_decel", "FINL")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("breadth_velocity_decel");
+    assertThat(inserted.categoryId()).isEqualTo(CategoryId.FINL);
+    assertThat(inserted.severity()).isEqualTo(Severity.WARNING);
+    assertThat(inserted.status()).isEqualTo(AlertStatus.ACTIVE);
+    assertThat(inserted.message()).contains("FINL").contains("breadth velocity");
+  }
+
+  @Test
+  @DisplayName("breadth_velocity_decel: no duplicate when active alert already exists")
+  void shouldNotCreateBreadthVelocityDecelAlertWhenActiveAlertExists() {
+    stubTopLevelCategories("FINL");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    stubPersistenceLowDisabled();
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+
+    when(alertRulesRepository.findById("breadth_velocity_accel"))
+        .thenReturn(Optional.of(disabled("breadth_velocity_accel")));
+    when(alertRulesRepository.findById("breadth_velocity_decel"))
+        .thenReturn(Optional.of(enabled("breadth_velocity_decel", Severity.WARNING)));
+
+    when(signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_5D, DATE))
+        .thenReturn(Map.of("FINL", new BigDecimal("1")));
+    when(signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, DATE))
+        .thenReturn(Map.of("FINL", new BigDecimal("10")));
+    when(alertRepository.existsActiveAlert("breadth_velocity_decel", "FINL")).thenReturn(true);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
   }
 
   @Test

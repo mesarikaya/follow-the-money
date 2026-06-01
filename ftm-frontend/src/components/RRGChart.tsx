@@ -11,7 +11,11 @@ const PAD_T = 28;
 const PAD_B = 36;
 const CHART_W = VIEWBOX_W - PAD_L - PAD_R;
 const CHART_H = VIEWBOX_H - PAD_T - PAD_B;
-const TRAIL_LEN = 8;
+const TRAIL_OPTIONS = [
+  { days: 8,  label: "8D",   title: "Last 8 trading days (~2 weeks)" },
+  { days: 20, label: "20D",  title: "Last 20 trading days (~1 month)" },
+  { days: 42, label: "Full", title: "Full 42-day window" },
+] as const;
 
 const QUADRANT_COLORS = {
   leading:   "#22c55e",
@@ -33,10 +37,10 @@ function quadrantLabel(q: QKey): string {
   return { leading: "Leading", improving: "Improving", weakening: "Weakening", lagging: "Lagging" }[q];
 }
 
-function deriveHalfRange(categories: RrgCategoryEntry[]): number {
+function deriveHalfRange(categories: RrgCategoryEntry[], trailLen: number): number {
   let halfRange = 12;
   for (const cat of categories) {
-    for (const p of cat.trail.slice(-TRAIL_LEN)) {
+    for (const p of cat.trail.slice(-trailLen)) {
       halfRange = Math.max(halfRange, Math.abs(p.ratio - 100) + 2, Math.abs(p.momentum - 100) + 2);
     }
   }
@@ -58,8 +62,9 @@ type Props = { categories: RrgCategoryEntry[]; etfTickers?: Record<string, strin
 export default function RRGChart({ categories, etfTickers = {}, maxHeight = "min(72vh, 660px)" }: Props) {
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [trailLen, setTrailLen] = useState(8);
 
-  const halfRange = deriveHalfRange(categories);
+  const halfRange = deriveHalfRange(categories, trailLen);
   const axisMin = 100 - halfRange;
   const axisMax = 100 + halfRange;
 
@@ -76,6 +81,24 @@ export default function RRGChart({ categories, etfTickers = {}, maxHeight = "min
   const anyHovered = hoveredId !== null;
 
   return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-1.5 justify-end">
+        <span className="text-[10px] text-slate-500 mr-1">Trail:</span>
+        {TRAIL_OPTIONS.map(opt => (
+          <button
+            key={opt.days}
+            onClick={() => { setTrailLen(opt.days); setTooltip(null); }}
+            title={opt.title}
+            className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+              trailLen === opt.days
+                ? "bg-slate-600 border-slate-500 text-slate-100"
+                : "bg-transparent border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-400"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
     <div
       className="relative w-full"
       style={{ aspectRatio: `${VIEWBOX_W} / ${VIEWBOX_H}`, maxHeight }}
@@ -202,7 +225,7 @@ export default function RRGChart({ categories, etfTickers = {}, maxHeight = "min
           {categories.map((cat) => {
             if (cat.trail.length === 0) return null;
 
-            const visible = cat.trail.slice(-TRAIL_LEN);
+            const visible = cat.trail.slice(-trailLen);
             const latest = visible[visible.length - 1];
             const q = quadrantOf(latest.ratio, latest.momentum);
             const color = QUADRANT_COLORS[q];
@@ -339,6 +362,7 @@ export default function RRGChart({ categories, etfTickers = {}, maxHeight = "min
           );
         })()}
       </svg>
+    </div>
     </div>
   );
 }

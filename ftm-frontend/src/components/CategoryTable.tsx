@@ -564,6 +564,24 @@ export default function CategoryTable({
                       <div className="flex flex-col items-center gap-0.5">
                         <Sparkline values={history} />
                         <StreakBadge streak={computeStreak(history)} />
+                        {(() => {
+                          if (history.length < 5 || cat.compositeScore == null) return null;
+                          const sorted = [...history].sort((a, b) => a - b);
+                          const below = sorted.filter(v => v < cat.compositeScore!).length;
+                          const pct = Math.round((below / sorted.length) * 100);
+                          if (pct < 15 || pct > 85) {
+                            const isHigh = pct > 85;
+                            return (
+                              <span
+                                className={`text-[7px] tabular-nums ${isHigh ? "text-amber-500" : "text-cyan-500"}`}
+                                title={`30-day percentile rank: current score is at the ${pct}th percentile of the past ${history.length} sessions — ${isHigh ? "near recent highs" : "near recent lows"}`}
+                              >
+                                P{pct}
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     </td>
                   )}

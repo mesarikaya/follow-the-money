@@ -332,6 +332,22 @@ export default function PortfolioPage() {
 
   const alignmentScorePercent = portfolio ? Math.round(portfolio.alignmentScore * 100) : 0;
 
+  const simulatedAlignmentPercent = portfolio && portfolio.rebalanceSuggestions.length > 0 ? (() => {
+    const simAlloc: Record<string, number> = {};
+    portfolio.allocations.forEach(a => { simAlloc[a.categoryId] = a.allocationPct; });
+    portfolio.rebalanceSuggestions.forEach(s => {
+      if (simAlloc[s.categoryId] !== undefined) {
+        simAlloc[s.categoryId] = Math.max(0, simAlloc[s.categoryId] + s.deltaPct);
+      }
+    });
+    let overlap = 0;
+    portfolio.allocations.forEach(a => {
+      if (a.optimalAllocationPct == null) return;
+      overlap += Math.min(simAlloc[a.categoryId] ?? 0, a.optimalAllocationPct);
+    });
+    return Math.round(Math.min(overlap, 100));
+  })() : null;
+
   const portfolioSignalScore = portfolio
     ? Math.round(
         portfolio.allocations.reduce((sum, entry) => {
@@ -546,6 +562,14 @@ export default function PortfolioPage() {
                 >
                   (?)
                 </span>
+                {simulatedAlignmentPercent !== null && (
+                  <span
+                    className="ml-auto text-[10px] text-slate-500"
+                    title="Approximate alignment score after implementing all suggestions (uses vol-adjusted optimal, may differ slightly from server-computed score)"
+                  >
+                    if applied: <span className={`font-semibold ${simulatedAlignmentPercent >= 70 ? "text-emerald-400" : simulatedAlignmentPercent >= 40 ? "text-amber-400" : "text-red-400"}`}>{simulatedAlignmentPercent}%</span> ~aligned
+                  </span>
+                )}
               </div>
               <p className="text-[10px] text-slate-600 mb-3">
                 ★ = signal-confirmed (BUY → INCREASE, REDUCE → DECREASE). Others are allocation-only.

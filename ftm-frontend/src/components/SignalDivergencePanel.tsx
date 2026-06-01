@@ -10,7 +10,9 @@ type DivergenceType =
   | "REGIME_TAILWIND_WEAK_SCORE"
   | "REGIME_HEADWIND_STRONG_SCORE"
   | "PERSIST_HIGH_SCORE_LOW"
-  | "PERSIST_LOW_SCORE_HIGH";
+  | "PERSIST_LOW_SCORE_HIGH"
+  | "VELOCITY_ACCEL_RS_LAGGING"
+  | "VELOCITY_DECEL_RS_STRONG";
 
 const DIVERGENCE_CONFIG: Record<
   DivergenceType,
@@ -70,6 +72,20 @@ const DIVERGENCE_CONFIG: Record<
     note: "high composite, thin daily outperformance",
     interpretation: "Composite score is high (≥65) but persistence is weak (<7/20 days). Score may be propped by a few big-move days rather than consistent outperformance. Watch for fragile leadership reversing.",
     scoreBadgeClass: "bg-yellow-900/30 text-yellow-300 border border-yellow-700/30",
+    quadrantLabel: "",
+  },
+  VELOCITY_ACCEL_RS_LAGGING: {
+    title: "Breadth ⚡ / RS Lagging",
+    note: "daily hit-rate accelerating, RS not yet confirmed",
+    interpretation: "Breadth velocity is strongly accelerating (recent-5d outperformance rate is ≥10pp above the prior-15d baseline), but RS-60 is still near zero or negative. Consistency of outperformance is building ahead of the RS signal — potential early rotation leader.",
+    scoreBadgeClass: "bg-emerald-900/30 text-emerald-300 border border-emerald-700/30",
+    quadrantLabel: "",
+  },
+  VELOCITY_DECEL_RS_STRONG: {
+    title: "Breadth ⬇ / RS Elevated",
+    note: "daily hit-rate decelerating, RS still strong",
+    interpretation: "Breadth velocity is sharply decelerating (recent-5d outperformance rate is ≥10pp below the prior-15d baseline), but RS-60 remains elevated. The breadth of outperformance is deteriorating while the headline RS number hasn't caught up — potential early distribution signal.",
+    scoreBadgeClass: "bg-orange-900/30 text-orange-300 border border-orange-700/30",
     quadrantLabel: "",
   },
 };
@@ -162,6 +178,18 @@ export default function SignalDivergencePanel({ categories }: { categories: Cate
         persistSignals.push({ cat, type: "PERSIST_LOW_SCORE_HIGH" });
       }
     }
+
+    if (cat.persistence5d != null && cat.persistence20d != null && cat.rs60 != null) {
+      const rate5d = cat.persistence5d / 5;
+      const prior15 = cat.persistence20d - cat.persistence5d;
+      const rate15 = prior15 / 15;
+      const velocityPct = Math.round((rate5d - rate15) * 100);
+      if (velocityPct >= 10 && cat.rs60 <= 0.005 && (score ?? 1) < 0.55) {
+        persistSignals.push({ cat, type: "VELOCITY_ACCEL_RS_LAGGING" });
+      } else if (velocityPct <= -10 && cat.rs60 >= 0.01 && (score ?? 0) >= 0.55) {
+        persistSignals.push({ cat, type: "VELOCITY_DECEL_RS_STRONG" });
+      }
+    }
   }
 
   if (divergences.length === 0 && rsSignals.length === 0 && regimeSignals.length === 0 && persistSignals.length === 0) return null;
@@ -174,9 +202,12 @@ export default function SignalDivergencePanel({ categories }: { categories: Cate
   const regimeHeadwind = regimeSignals.filter(d => d.type === "REGIME_HEADWIND_STRONG_SCORE");
   const persistHighLow = persistSignals.filter(d => d.type === "PERSIST_HIGH_SCORE_LOW");
   const persistLowHigh = persistSignals.filter(d => d.type === "PERSIST_LOW_SCORE_HIGH");
+  const velocityAccel  = persistSignals.filter(d => d.type === "VELOCITY_ACCEL_RS_LAGGING");
+  const velocityDecel  = persistSignals.filter(d => d.type === "VELOCITY_DECEL_RS_STRONG");
   const hasRsRow = accelEmerging.length > 0 || decelFading.length > 0;
   const hasRegimeRow = regimeTailwind.length > 0 || regimeHeadwind.length > 0;
   const hasPersistRow = persistHighLow.length > 0 || persistLowHigh.length > 0;
+  const hasVelocityRow = velocityAccel.length > 0 || velocityDecel.length > 0;
 
   return (
     <div className="space-y-3">
@@ -295,6 +326,36 @@ export default function SignalDivergencePanel({ categories }: { categories: Cate
               <p className="text-[11px] text-slate-600 py-2">None</p>
             ) : (
               persistLowHigh.map(e => <DivergenceRow key={e.cat.id} entry={e} />)
+            )}
+          </div>
+        </div>
+      )}
+
+      {hasVelocityRow && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-slate-800/40 border border-emerald-800/30 rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Breadth ⚡ RS Lagging</span>
+              <span className="text-[10px] text-slate-600 ml-auto">velocity +10pp, RS ≈0</span>
+            </div>
+            {velocityAccel.length === 0 ? (
+              <p className="text-[11px] text-slate-600 py-2">None</p>
+            ) : (
+              velocityAccel.map(e => <DivergenceRow key={e.cat.id} entry={e} />)
+            )}
+          </div>
+
+          <div className="bg-slate-800/40 border border-orange-800/30 rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Breadth ⬇ RS Elevated</span>
+              <span className="text-[10px] text-slate-600 ml-auto">velocity −10pp, RS strong</span>
+            </div>
+            {velocityDecel.length === 0 ? (
+              <p className="text-[11px] text-slate-600 py-2">None</p>
+            ) : (
+              velocityDecel.map(e => <DivergenceRow key={e.cat.id} entry={e} />)
             )}
           </div>
         </div>

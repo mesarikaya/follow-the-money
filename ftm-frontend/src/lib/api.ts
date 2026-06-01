@@ -85,6 +85,7 @@ export type SubSectorSummary = {
   compositeTrend5d: number | null;
   compositeTrend20d: number | null;
   tradeSignal: string | null;
+  persistence5d: number | null;
   persistence20d: number | null;
   macroFit: number | null;
 };

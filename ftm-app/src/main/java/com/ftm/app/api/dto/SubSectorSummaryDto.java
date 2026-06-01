@@ -16,5 +16,6 @@ public record SubSectorSummaryDto(
     BigDecimal compositeTrend5d,
     BigDecimal compositeTrend20d,
     String tradeSignal,
+    Integer persistence5d,
     Integer persistence20d,
     BigDecimal macroFit) {}

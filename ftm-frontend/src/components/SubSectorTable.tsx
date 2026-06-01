@@ -109,15 +109,41 @@ function ScoreBar({ score, macroFit }: { score: number | null; macroFit?: number
   );
 }
 
-function PersistenceCell({ value }: { value: number | null }) {
-  if (value == null) return <span className="text-slate-600">—</span>;
-  const pct = Math.round((value / 20) * 100);
+function PersistenceCell({
+  persistence5d,
+  persistence20d,
+}: {
+  persistence5d: number | null;
+  persistence20d: number | null;
+}) {
+  if (persistence20d == null) return <span className="text-slate-600">—</span>;
+  const pct = Math.round((persistence20d / 20) * 100);
   const colorClass = pct >= 60 ? "text-emerald-400" : pct >= 40 ? "text-slate-400" : "text-red-400";
-  const filled = Math.round((value / 20) * 5);
+  const filled = Math.round((persistence20d / 20) * 5);
+
+  let velocityEl: React.ReactNode = null;
+  if (persistence5d != null) {
+    const rate5d = persistence5d / 5;
+    const prior15 = persistence20d - persistence5d;
+    const rate15 = prior15 / 15;
+    const velocityPct = Math.round((rate5d - rate15) * 100);
+    if (Math.abs(velocityPct) >= 5) {
+      const isAccel = velocityPct > 0;
+      velocityEl = (
+        <span
+          className={`text-[8px] tabular-nums ${isAccel ? "text-emerald-400" : "text-red-400"}`}
+          title={`Breadth velocity: recent-5d ${Math.round(rate5d * 100)}% vs prior-15d ${Math.round(rate15 * 100)}% (${velocityPct > 0 ? "+" : ""}${velocityPct}pp)`}
+        >
+          {isAccel ? "⚡" : "⬇"}
+        </span>
+      );
+    }
+  }
+
   return (
     <div
       className="flex items-center gap-1.5 justify-end"
-      title={`Persistence: ${value}/20 days outperformed benchmark (${pct}%)`}
+      title={`Persistence: ${persistence20d}/20 days outperformed benchmark (${pct}%)`}
     >
       <div className="flex gap-0.5">
         {Array.from({ length: 5 }, (_, i) => (
@@ -125,8 +151,9 @@ function PersistenceCell({ value }: { value: number | null }) {
         ))}
       </div>
       <span className={`tabular-nums text-[10px] ${colorClass}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
-        {value}d
+        {persistence20d}d
       </span>
+      {velocityEl}
     </div>
   );
 }
@@ -355,7 +382,10 @@ export default function SubSectorTable({
                   )}
                 </td>
                 <td className="px-4 py-2.5 text-right text-xs">
-                  <PersistenceCell value={subSector.persistence20d} />
+                  <PersistenceCell
+                    persistence5d={subSector.persistence5d}
+                    persistence20d={subSector.persistence20d}
+                  />
                 </td>
                 <td className="px-4 py-2.5 text-center">
                   <div className="flex flex-col items-center gap-1">

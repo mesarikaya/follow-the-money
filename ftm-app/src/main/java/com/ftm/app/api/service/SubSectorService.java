@@ -40,6 +40,7 @@ public class SubSectorService {
                 SignalType.COMPOSITE,
                 SignalType.COMPOSITE_TREND_5D,
                 SignalType.COMPOSITE_TREND_20D,
+                SignalType.PERSISTENCE_5D,
                 SignalType.PERSISTENCE_20D,
                 SignalType.MACRO_FIT));
 
@@ -59,6 +60,8 @@ public class SubSectorService {
         signals.getOrDefault(SignalType.COMPOSITE_TREND_5D, Collections.emptyMap());
     Map<String, BigDecimal> trend20dByCategory =
         signals.getOrDefault(SignalType.COMPOSITE_TREND_20D, Collections.emptyMap());
+    Map<String, BigDecimal> persistence5dByCategory =
+        signals.getOrDefault(SignalType.PERSISTENCE_5D, Collections.emptyMap());
     Map<String, BigDecimal> persistence20dByCategory =
         signals.getOrDefault(SignalType.PERSISTENCE_20D, Collections.emptyMap());
     Map<String, BigDecimal> macroFitByCategory =
@@ -73,8 +76,10 @@ public class SubSectorService {
                   rrgQuadrantValue != null ? String.valueOf(rrgQuadrantValue.intValue()) : null;
               BigDecimal compositeScore = compositeByCategory.get(categoryId);
               BigDecimal trend20d = trend20dByCategory.get(categoryId);
-              BigDecimal persistenceRaw = persistence20dByCategory.get(categoryId);
-              Integer persistence20d = persistenceRaw != null ? persistenceRaw.intValue() : null;
+              BigDecimal persistence5dRaw = persistence5dByCategory.get(categoryId);
+              Integer persistence5d = persistence5dRaw != null ? persistence5dRaw.intValue() : null;
+              BigDecimal persistence20dRaw = persistence20dByCategory.get(categoryId);
+              Integer persistence20d = persistence20dRaw != null ? persistence20dRaw.intValue() : null;
               return new SubSectorSummaryDto(
                   categoryId,
                   category.name(),
@@ -89,6 +94,7 @@ public class SubSectorService {
                   trend5dByCategory.get(categoryId),
                   trend20d,
                   TradeSignalDeriver.derive(compositeScore, rrgQuadrant, trend20d),
+                  persistence5d,
                   persistence20d,
                   macroFitByCategory.get(categoryId));
             })

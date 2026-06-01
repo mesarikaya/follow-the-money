@@ -52,6 +52,7 @@ public class CategoryService {
             SignalType.COMPOSITE_TREND_20D,
             SignalType.RS_120,
             SignalType.FLOW_20D,
+            SignalType.PERSISTENCE_5D,
             SignalType.PERSISTENCE_20D,
             SignalType.MACRO_FIT,
             SignalType.MOM);
@@ -74,6 +75,8 @@ public class CategoryService {
         signals.getOrDefault(SignalType.RS_120, Collections.emptyMap());
     Map<String, BigDecimal> flow20dByCategoryId =
         signals.getOrDefault(SignalType.FLOW_20D, Collections.emptyMap());
+    Map<String, BigDecimal> persistence5dByCategoryId =
+        signals.getOrDefault(SignalType.PERSISTENCE_5D, Collections.emptyMap());
     Map<String, BigDecimal> persistence20dByCategoryId =
         signals.getOrDefault(SignalType.PERSISTENCE_20D, Collections.emptyMap());
     Map<String, BigDecimal> macroFitByCategoryId =
@@ -112,6 +115,7 @@ public class CategoryService {
                         compositeTrend20dByCategoryId,
                         rs120ByCategoryId,
                         flow20dByCategoryId,
+                        persistence5dByCategoryId,
                         persistence20dByCategoryId,
                         macroFitByCategoryId,
                         momentumByCategoryId))

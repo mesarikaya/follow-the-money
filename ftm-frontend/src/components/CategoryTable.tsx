@@ -83,11 +83,37 @@ function StreakBadge({ streak }: { streak: number }) {
   );
 }
 
+function PersistenceVelocity({
+  persistence5d,
+  persistence20d,
+}: {
+  persistence5d: number | null;
+  persistence20d: number | null;
+}) {
+  if (persistence5d == null || persistence20d == null) return null;
+  const rate5d = persistence5d / 5;
+  const rate20d = persistence20d / 20;
+  const velocityPct = Math.round((rate5d - rate20d) * 100);
+  if (Math.abs(velocityPct) < 5) return null;
+  const isAccel = velocityPct > 0;
+  const color = isAccel ? "text-emerald-400" : "text-red-400";
+  const arrow = isAccel ? "⚡" : "⬇";
+  return (
+    <span
+      className={`text-[8px] tabular-nums ${color}`}
+      title={`Breadth velocity: 5d hit-rate ${Math.round(rate5d * 100)}% vs 20d baseline ${Math.round(rate20d * 100)}% — ${isAccel ? "accelerating" : "decelerating"} (${velocityPct > 0 ? "+" : ""}${velocityPct}pp)`}
+    >
+      {arrow}
+    </span>
+  );
+}
+
 function ScoreBar({
   score,
   trend5d,
   trend20d,
   macroFit,
+  persistence5d,
   persistence20d,
   momentum,
 }: {
@@ -95,6 +121,7 @@ function ScoreBar({
   trend5d: number | null;
   trend20d: number | null;
   macroFit?: number | null;
+  persistence5d?: number | null;
   persistence20d?: number | null;
   momentum?: number | null;
 }) {
@@ -134,6 +161,7 @@ function ScoreBar({
             {persistence20d}d
           </span>
         )}
+        <PersistenceVelocity persistence5d={persistence5d ?? null} persistence20d={persistence20d ?? null} />
         {momArrow != null && momColor != null && (
           <span className={`text-[8px] tabular-nums ${momColor}`} title={`Momentum: ${momPts! > 0 ? "+" : ""}${momPts} pts (10-day RS change)`}>
             {momArrow}
@@ -190,7 +218,16 @@ function buildScoreTooltip(cat: import("@/lib/api").CategorySummary, macroFitVal
   const macroFitStr = macroFitVal != null ? `${Math.round(macroFitVal * 100)}% win rate in current regime` : "—";
   const trend5dPts = cat.compositeTrend5d != null ? Math.round(cat.compositeTrend5d * 100) : null;
   const trend20dPts = cat.compositeTrend20d != null ? Math.round(cat.compositeTrend20d * 100) : null;
-  const persistStr = cat.persistence20d != null ? `${cat.persistence20d}/20 days outperformed benchmark` : "n/a (computing)";
+  const persist20Str = cat.persistence20d != null ? `${cat.persistence20d}/20 days outperformed benchmark` : "n/a (computing)";
+  const persist5d = cat.persistence5d;
+  const persist20d = cat.persistence20d;
+  let velocityStr = "";
+  if (persist5d != null && persist20d != null) {
+    const rate5d = Math.round((persist5d / 5) * 100);
+    const rate20d = Math.round((persist20d / 20) * 100);
+    const delta = rate5d - rate20d;
+    velocityStr = `Breadth velocity: 5d ${rate5d}% vs 20d ${rate20d}% (${delta > 0 ? "+" : ""}${delta}pp — ${delta > 4 ? "accelerating ⚡" : delta < -4 ? "decelerating ⬇" : "neutral"})`;
+  }
   const momPts = cat.momentum != null ? Math.round(cat.momentum * 100) : null;
   const momStr = momPts != null ? `${momPts > 0 ? "+" : ""}${momPts} pts (10d RS change — ${momPts > 1 ? "accelerating ▲" : momPts < -1 ? "decelerating ▼" : "flat →"})` : "n/a";
   return [
@@ -202,7 +239,8 @@ function buildScoreTooltip(cat: import("@/lib/api").CategorySummary, macroFitVal
     `Momentum (20% weight): ${momStr}`,
     `Macro Fit (10% weight): ${macroFitStr}`,
     `RRG (10% weight): ${rrgLabel}`,
-    `Persistence 20d: ${persistStr}`,
+    `Persistence 20d: ${persist20Str}`,
+    velocityStr,
     ``,
     trend5dPts != null ? `5d score trend: ${trend5dPts > 0 ? "+" : ""}${trend5dPts} pts` : "",
     trend20dPts != null ? `20d score trend: ${trend20dPts > 0 ? "+" : ""}${trend20dPts} pts` : "",
@@ -459,7 +497,7 @@ export default function CategoryTable({
                   )}
                   <td className="px-4 py-2.5" title={buildScoreTooltip(cat, cat.macroFit ?? null)}>
                     <div className="flex justify-center">
-                      <ScoreBar score={cat.compositeScore} trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} macroFit={cat.macroFit ?? null} persistence20d={cat.persistence20d ?? null} momentum={cat.momentum ?? null} />
+                      <ScoreBar score={cat.compositeScore} trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} macroFit={cat.macroFit ?? null} persistence5d={cat.persistence5d ?? null} persistence20d={cat.persistence20d ?? null} momentum={cat.momentum ?? null} />
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-right">

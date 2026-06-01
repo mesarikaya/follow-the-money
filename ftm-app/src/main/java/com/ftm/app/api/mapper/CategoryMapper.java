@@ -39,6 +39,10 @@ public interface CategoryMapper {
       target = "flow20d",
       expression = "java(flow20dByCategoryId.get(row.category().id().name()))")
   @Mapping(
+      target = "persistence5d",
+      expression =
+          "java(persistence5dByCategoryId.containsKey(row.category().id().name()) ? persistence5dByCategoryId.get(row.category().id().name()).intValue() : null)")
+  @Mapping(
       target = "persistence20d",
       expression =
           "java(persistence20dByCategoryId.containsKey(row.category().id().name()) ? persistence20dByCategoryId.get(row.category().id().name()).intValue() : null)")
@@ -69,6 +73,7 @@ public interface CategoryMapper {
       Map<String, BigDecimal> compositeTrend20dByCategoryId,
       Map<String, BigDecimal> rs120ByCategoryId,
       Map<String, BigDecimal> flow20dByCategoryId,
+      Map<String, BigDecimal> persistence5dByCategoryId,
       Map<String, BigDecimal> persistence20dByCategoryId,
       Map<String, BigDecimal> macroFitByCategoryId,
       Map<String, BigDecimal> momentumByCategoryId);

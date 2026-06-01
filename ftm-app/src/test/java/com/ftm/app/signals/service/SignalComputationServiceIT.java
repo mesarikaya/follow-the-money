@@ -65,6 +65,7 @@ class SignalComputationServiceIT {
             SignalType.RRG_MOM,
             SignalType.RRG_QUADRANT,
             SignalType.MACRO_REGIME,
+            SignalType.PERSISTENCE_5D,
             SignalType.PERSISTENCE_20D,
             SignalType.COMPOSITE);
 
@@ -93,7 +94,8 @@ class SignalComputationServiceIT {
         allSignals.stream().filter(row -> row.signalDate().equals(SIGNAL_DATE)).toList();
     assertThat(latestDateSignals)
         .extracting(SignalRepository.HistoryRow::signalType)
-        .containsExactlyInAnyOrder(SignalType.RS_20, SignalType.MACRO_REGIME, SignalType.PERSISTENCE_20D);
+        .containsExactlyInAnyOrder(
+            SignalType.RS_20, SignalType.MACRO_REGIME, SignalType.PERSISTENCE_5D, SignalType.PERSISTENCE_20D);
   }
 
   @Test

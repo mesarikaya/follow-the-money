@@ -160,7 +160,7 @@ const RS_LABEL: Record<string, string> = {
   YEAR:    "120d",
 };
 
-function RsCell({ value, rs120, period }: { value: number | null; rs120?: number | null; period: string }) {
+function RsCell({ value, rs120, period, rankPct }: { value: number | null; rs120?: number | null; period: string; rankPct?: number | null }) {
   if (value == null) return <span className="text-slate-600">—</span>;
   const pct = (value * 100).toFixed(1);
   const color = value > 0 ? "text-green-400" : value < 0 ? "text-red-400" : "text-slate-400";
@@ -168,11 +168,15 @@ function RsCell({ value, rs120, period }: { value: number | null; rs120?: number
   const accelPts = accel != null ? Math.round(accel * 100) : null;
   const accelColor = accelPts != null && accelPts > 0 ? "text-emerald-400" : "text-red-400";
   const accelArrow = accelPts != null && accelPts > 0 ? "↗" : "↘";
+  const rankColor = rankPct != null ? (rankPct >= 70 ? "text-emerald-500" : rankPct >= 30 ? "text-slate-500" : "text-red-500") : null;
   return (
-    <span className="inline-flex items-center gap-1" title={`${period}-day relative strength vs benchmark. Positive = outperforming.${accelPts != null ? `\nAcceleration vs 120d: ${accelPts > 0 ? "+" : ""}${accelPts} pts` : ""}`}>
+    <span className="inline-flex items-center gap-1" title={`${period}-day relative strength vs benchmark. Positive = outperforming.${accelPts != null ? `\nAcceleration vs 120d: ${accelPts > 0 ? "+" : ""}${accelPts} pts` : ""}${rankPct != null ? `\nRS peer rank: ${rankPct}th percentile among 11 GICS sectors` : ""}`}>
       <span className={`tabular-nums ${color}`}>{value > 0 ? "+" : ""}{pct}%</span>
       {accelPts != null && Math.abs(accelPts) >= 1 && (
         <span className={`text-[9px] tabular-nums ${accelColor}`}>{accelArrow}</span>
+      )}
+      {rankPct != null && rankColor && (
+        <span className={`text-[8px] tabular-nums ${rankColor}`} title={`${rankPct}th percentile RS among 11 GICS sectors`}>P{rankPct}</span>
       )}
     </span>
   );
@@ -328,6 +332,13 @@ export default function CategoryTable({
   const isSorted = sortKey !== "default";
   const sorted = sortCategories(categories, sortKey, sortDir, getSignal);
 
+  // RS percentile rank: rank each top-level equity sector among its 11 GICS peers
+  const equityPeers = sorted.filter(c => SECTOR_DRILLDOWN_IDS.has(c.id) && c.rs60 != null);
+  const sortedByRs = [...equityPeers].sort((a, b) => (a.rs60 ?? 0) - (b.rs60 ?? 0));
+  const rsRankPctMap = new Map<string, number>(
+    sortedByRs.map((c, i) => [c.id, Math.round(((i + 1) / sortedByRs.length) * 100)])
+  );
+
   function handleSort(key: SortKey) {
     if (sortKey === key) {
       if (sortDir === "desc") setSortDir("asc");
@@ -452,7 +463,7 @@ export default function CategoryTable({
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-right">
-                    <RsCell value={cat.rs60} rs120={cat.rs120} period={rsLabel.replace("d", "")} />
+                    <RsCell value={cat.rs60} rs120={cat.rs120} period={rsLabel.replace("d", "")} rankPct={rsRankPctMap.get(cat.id) ?? null} />
                   </td>
                   <td className="px-4 py-2.5 text-center">
                     {cat.macroFit != null ? (

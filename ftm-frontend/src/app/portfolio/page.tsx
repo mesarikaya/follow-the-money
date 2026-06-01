@@ -595,13 +595,19 @@ export default function PortfolioPage() {
                       return (
                         <li key={suggestion.categoryId} className={`flex flex-col gap-1 ${confirmed ? "" : "opacity-60"}`}>
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 min-w-0">
                               {confirmed && (
                                 <span className="text-amber-400 text-[10px]" title="Signal-confirmed: trade signal matches rebalance direction">★</span>
                               )}
-                              <span className="text-xs font-medium text-slate-200">{suggestion.categoryName}</span>
+                              <span className="text-xs font-medium text-slate-200 truncate">{suggestion.categoryName}</span>
+                              {(() => {
+                                const cat = categoryById[suggestion.categoryId];
+                                return cat ? (
+                                  <span className="text-[9px] font-mono text-slate-500 shrink-0">{cat.etfTicker}</span>
+                                ) : null;
+                              })()}
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 shrink-0">
                               {suggestion.tradeSignal && (
                                 <span className={`text-[9px] font-bold ${signalColor[suggestion.tradeSignal] ?? "text-slate-500"}`}>
                                   {suggestion.tradeSignal}
@@ -617,8 +623,16 @@ export default function PortfolioPage() {
                           </div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs text-slate-500">
-                              {suggestion.currentAllocationPct.toFixed(1)}% → {suggestion.optimalAllocationPct.toFixed(1)}% optimal
+                              {suggestion.currentAllocationPct.toFixed(1)}% → {suggestion.optimalAllocationPct.toFixed(1)}%
                             </span>
+                            {totalEur != null && totalEur > 0 && (
+                              <span
+                                className={`text-[9px] font-mono font-semibold ${isIncrease ? "text-emerald-400" : "text-red-400"}`}
+                                title={`Approx. trade size based on total portfolio value €${totalEur.toLocaleString("de-DE", { maximumFractionDigits: 0 })}`}
+                              >
+                                {isIncrease ? "+" : "−"}€{Math.abs(Math.round(suggestion.deltaPct / 100 * totalEur)).toLocaleString("de-DE")}
+                              </span>
+                            )}
                             {entryQuality && (
                               <span className={`text-[9px] px-1 py-0.5 rounded border ${entryQuality.className}`} title={entryQuality.title}>
                                 {entryQuality.label}

@@ -151,7 +151,8 @@ class SubSectorServiceTest {
   }
 
   @Test
-  @DisplayName("getSubSectors maps persistence5d, persistence20d (int) and macroFit (decimal) from signals")
+  @DisplayName(
+      "getSubSectors maps persistence5d, persistence20d (int) and macroFit (decimal) from signals")
   void shouldMapPersistenceAndMacroFit() {
     Category semi = subCategory(CategoryId.SEMI, "TECH");
     when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(List.of(semi));
@@ -179,7 +180,8 @@ class SubSectorServiceTest {
   }
 
   @Test
-  @DisplayName("getSubSectors returns null persistence5d, persistence20d and macroFit when signals absent")
+  @DisplayName(
+      "getSubSectors returns null persistence5d, persistence20d and macroFit when signals absent")
   void shouldReturnNullPersistenceAndMacroFitWhenSignalsAbsent() {
     Category semi = subCategory(CategoryId.SEMI, "TECH");
     when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(List.of(semi));

@@ -11,9 +11,8 @@ import org.springframework.stereotype.Service;
 /**
  * Computes the composite score per category using weighted min-max normalized signals.
  *
- * <p>COMPOSITE = 0.25 × norm(RS_60) + 0.10 × norm(RS_120) + 0.20 × norm(PERSISTENCE_20D) + 0.10
- * × norm(FLOW_20D) + 0.15 × norm(MOM) + 0.10 × norm(MACRO_FIT) + 0.10 ×
- * relativeRotationGraphScore
+ * <p>COMPOSITE = 0.25 × norm(RS_60) + 0.10 × norm(RS_120) + 0.20 × norm(PERSISTENCE_20D) + 0.10 ×
+ * norm(FLOW_20D) + 0.15 × norm(MOM) + 0.10 × norm(MACRO_FIT) + 0.10 × relativeRotationGraphScore
  *
  * <p>RS_60 captures medium-term RS; RS_120 provides long-term confirmation; PERSISTENCE_20D
  * measures breadth consistency — categories with sustained outperformance across days receive

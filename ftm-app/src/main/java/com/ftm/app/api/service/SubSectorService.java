@@ -79,7 +79,8 @@ public class SubSectorService {
               BigDecimal persistence5dRaw = persistence5dByCategory.get(categoryId);
               Integer persistence5d = persistence5dRaw != null ? persistence5dRaw.intValue() : null;
               BigDecimal persistence20dRaw = persistence20dByCategory.get(categoryId);
-              Integer persistence20d = persistence20dRaw != null ? persistence20dRaw.intValue() : null;
+              Integer persistence20d =
+                  persistence20dRaw != null ? persistence20dRaw.intValue() : null;
               return new SubSectorSummaryDto(
                   categoryId,
                   category.name(),

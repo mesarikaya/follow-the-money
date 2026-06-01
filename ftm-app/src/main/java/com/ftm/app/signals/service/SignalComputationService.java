@@ -147,8 +147,7 @@ public class SignalComputationService {
         addIfNotNull(pendingRows, signalDate, categoryId, SignalType.RS_60, rs60);
         addIfNotNull(pendingRows, signalDate, categoryId, SignalType.RS_120, rs120);
         addIfNotNull(pendingRows, signalDate, categoryId, SignalType.MOM, momentum);
-        addIfNotNull(
-            pendingRows, signalDate, categoryId, SignalType.PERSISTENCE_5D, persistence5d);
+        addIfNotNull(pendingRows, signalDate, categoryId, SignalType.PERSISTENCE_5D, persistence5d);
         addIfNotNull(
             pendingRows, signalDate, categoryId, SignalType.PERSISTENCE_20D, persistence20d);
 

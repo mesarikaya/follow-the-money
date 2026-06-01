@@ -43,4 +43,8 @@ public record CategorySummaryDto(
     @Schema(
             description =
                 "MOM — 10-day change in RS_60 ratio; positive = accelerating relative strength")
-        BigDecimal momentum) {}
+        BigDecimal momentum,
+    @Schema(
+            description =
+                "Consecutive trading days with composite score ≥ 0.50 (any positive signal tier); null when no active signal")
+        Integer signalDaysActive) {}

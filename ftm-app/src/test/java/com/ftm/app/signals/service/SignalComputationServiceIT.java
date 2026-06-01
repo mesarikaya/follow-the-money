@@ -67,6 +67,7 @@ class SignalComputationServiceIT {
             SignalType.MACRO_REGIME,
             SignalType.PERSISTENCE_5D,
             SignalType.PERSISTENCE_20D,
+            SignalType.FLOW_20D,
             SignalType.COMPOSITE);
 
     // Backfill must have computed signals for multiple dates (not just the latest)
@@ -100,6 +101,7 @@ class SignalComputationServiceIT {
             SignalType.MACRO_REGIME,
             SignalType.PERSISTENCE_5D,
             SignalType.PERSISTENCE_20D,
+            SignalType.FLOW_20D,
             SignalType.COMPOSITE,
             SignalType.COMPOSITE_TREND_5D,
             SignalType.COMPOSITE_TREND_10D,

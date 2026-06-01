@@ -3,6 +3,8 @@ package com.ftm.app.signals.service;
 import static com.ftm.app.jooq.Tables.BENCHMARK_PRICES;
 import static com.ftm.app.jooq.Tables.RAW_PRICES;
 
+import java.util.Arrays;
+
 import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.SignalType;
@@ -32,7 +34,7 @@ public class SignalComputationService {
   private static final int RRG_MOM_EMA = 5;
   private static final int UPSERT_CHUNK_SIZE = 5_000;
 
-  private record DatePrice(LocalDate date, BigDecimal price) {}
+  private record DatePrice(LocalDate date, BigDecimal price, Long volume) {}
 
   private final CategoryRepository categoryRepository;
   private final SignalRepository signalRepository;
@@ -126,12 +128,13 @@ public class SignalComputationService {
       Map<String, BigDecimal> persistence20dByCategoryId = new HashMap<>();
       Map<String, BigDecimal> momentumByCategoryId = new HashMap<>();
       Map<String, BigDecimal> rrgQuadrantByCategoryId = new HashMap<>();
+      Map<String, BigDecimal> flow20dByCategoryId = new HashMap<>();
 
       for (Category category : categories) {
         String categoryId = category.id().name();
-        List<BigDecimal> categoryPrices =
-            extractPricesInWindow(
-                categoryPricesByCategory.get(categoryId), windowStart, signalDate);
+        List<DatePrice> categoryDatePrices =
+            extractWindowRows(categoryPricesByCategory.get(categoryId), windowStart, signalDate);
+        List<BigDecimal> categoryPrices = categoryDatePrices.stream().map(DatePrice::price).toList();
         List<BigDecimal> benchmarkPrices =
             extractPricesInWindow(
                 benchmarkPricesByTicker.get(category.benchmarkTicker()), windowStart, signalDate);
@@ -151,10 +154,14 @@ public class SignalComputationService {
         addIfNotNull(
             pendingRows, signalDate, categoryId, SignalType.PERSISTENCE_20D, persistence20d);
 
+        BigDecimal flow20d = computeDollarVolumeZScore(categoryDatePrices, 20);
+        addIfNotNull(pendingRows, signalDate, categoryId, SignalType.FLOW_20D, flow20d);
+
         if (rs60 != null) rs60ByCategoryId.put(categoryId, rs60);
         if (rs120 != null) rs120ByCategoryId.put(categoryId, rs120);
         if (persistence20d != null) persistence20dByCategoryId.put(categoryId, persistence20d);
         if (momentum != null) momentumByCategoryId.put(categoryId, momentum);
+        if (flow20d != null) flow20dByCategoryId.put(categoryId, flow20d);
 
         List<BigDecimal> rs20Series =
             rsCalc.computeRsSeries(categoryPrices, benchmarkPrices, RRG_RS_PERIOD);
@@ -179,7 +186,7 @@ public class SignalComputationService {
               rs60ByCategoryId,
               rs120ByCategoryId,
               persistence20dByCategoryId,
-              Map.of(),
+              flow20dByCategoryId,
               momentumByCategoryId,
               macroFitByCategoryId,
               rrgQuadrantByCategoryId);
@@ -272,7 +279,7 @@ public class SignalComputationService {
 
   private Map<String, List<DatePrice>> loadAllCategoryPricesWithDates() {
     return dsl
-        .select(RAW_PRICES.CATEGORY_ID, RAW_PRICES.TRADE_DATE, RAW_PRICES.ADJ_CLOSE)
+        .select(RAW_PRICES.CATEGORY_ID, RAW_PRICES.TRADE_DATE, RAW_PRICES.ADJ_CLOSE, RAW_PRICES.VOLUME)
         .from(RAW_PRICES)
         .orderBy(RAW_PRICES.CATEGORY_ID, RAW_PRICES.TRADE_DATE.asc())
         .fetch()
@@ -281,7 +288,7 @@ public class SignalComputationService {
             Collectors.groupingBy(
                 r -> r.get(RAW_PRICES.CATEGORY_ID),
                 Collectors.mapping(
-                    r -> new DatePrice(r.get(RAW_PRICES.TRADE_DATE), r.get(RAW_PRICES.ADJ_CLOSE)),
+                    r -> new DatePrice(r.get(RAW_PRICES.TRADE_DATE), r.get(RAW_PRICES.ADJ_CLOSE), r.get(RAW_PRICES.VOLUME)),
                     Collectors.toList())));
   }
 
@@ -296,19 +303,39 @@ public class SignalComputationService {
             Collectors.groupingBy(
                 r -> r.get(BENCHMARK_PRICES.TICKER),
                 Collectors.mapping(
-                    r ->
-                        new DatePrice(
-                            r.get(BENCHMARK_PRICES.TRADE_DATE), r.get(BENCHMARK_PRICES.ADJ_CLOSE)),
+                    r -> new DatePrice(r.get(BENCHMARK_PRICES.TRADE_DATE), r.get(BENCHMARK_PRICES.ADJ_CLOSE), null),
                     Collectors.toList())));
   }
 
-  private List<BigDecimal> extractPricesInWindow(
+  private List<DatePrice> extractWindowRows(
       List<DatePrice> allPrices, LocalDate windowStart, LocalDate windowEnd) {
     if (allPrices == null || allPrices.isEmpty()) return List.of();
     return allPrices.stream()
         .filter(dp -> !dp.date().isBefore(windowStart) && !dp.date().isAfter(windowEnd))
+        .toList();
+  }
+
+  private List<BigDecimal> extractPricesInWindow(
+      List<DatePrice> allPrices, LocalDate windowStart, LocalDate windowEnd) {
+    return extractWindowRows(allPrices, windowStart, windowEnd).stream()
         .map(DatePrice::price)
         .toList();
+  }
+
+  private BigDecimal computeDollarVolumeZScore(List<DatePrice> window, int period) {
+    if (window.size() < period) return null;
+    List<DatePrice> recent = window.subList(window.size() - period, window.size());
+    double[] dollarVols = recent.stream()
+        .filter(dp -> dp.price() != null && dp.volume() != null && dp.volume() > 0)
+        .mapToDouble(dp -> dp.price().doubleValue() * dp.volume())
+        .toArray();
+    if (dollarVols.length < period) return null;
+    double mean = Arrays.stream(dollarVols).average().orElse(0);
+    double variance = Arrays.stream(dollarVols).map(v -> Math.pow(v - mean, 2)).average().orElse(0);
+    double stdev = Math.sqrt(variance);
+    if (stdev < 1.0) return BigDecimal.ZERO;
+    double current = dollarVols[dollarVols.length - 1];
+    return BigDecimal.valueOf((current - mean) / stdev).setScale(6, java.math.RoundingMode.HALF_UP);
   }
 
   private void addIfNotNull(

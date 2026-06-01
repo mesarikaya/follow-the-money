@@ -242,7 +242,7 @@ function buildScoreTooltip(cat: import("@/lib/api").CategorySummary, macroFitVal
     `Momentum (15% weight): ${momStr}`,
     `Macro Fit (10% weight): ${macroFitStr}`,
     `RRG (10% weight): ${rrgLabel}`,
-    `Flow 20d (10%, reserved — AUM data unavailable)`,
+    `Flow 20d (10% weight): 20-day dollar volume z-score — positive = inflows above average`,
     velocityStr,
     ``,
     trend5dPts != null ? `5d score trend: ${trend5dPts > 0 ? "+" : ""}${trend5dPts} pts` : "",
@@ -270,6 +270,8 @@ function TradeSignalBadge({ cat }: { cat: CategorySummary }) {
   const trendOk = trend20d != null && trend20d > 0;
   const conditionsMet = (scoreOk ? 1 : 0) + (rrgOk ? 1 : 0) + (trendOk ? 1 : 0);
   const showConditions = signal === "WATCH" || signal === "HOLD";
+  const daysActive = cat.signalDaysActive;
+  const showDays = daysActive != null && daysActive >= 2 && (signal === "BUY" || signal === "WATCH");
   return (
     <div className="flex flex-col items-center gap-0.5">
       <span
@@ -278,6 +280,14 @@ function TradeSignalBadge({ cat }: { cat: CategorySummary }) {
       >
         {cfg.label}
       </span>
+      {showDays && (
+        <span
+          className="text-[8px] text-slate-500 tabular-nums font-mono"
+          title={`Signal active for ${daysActive} consecutive trading days (composite score ≥ 50)`}
+        >
+          {daysActive}d
+        </span>
+      )}
       {showConditions && conditionsMet > 0 && (
         <div
           className="flex gap-0.5 text-[8px]"

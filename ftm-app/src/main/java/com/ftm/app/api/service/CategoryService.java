@@ -83,6 +83,8 @@ public class CategoryService {
         signals.getOrDefault(SignalType.MACRO_FIT, Collections.emptyMap());
     Map<String, BigDecimal> momentumByCategoryId =
         signals.getOrDefault(SignalType.MOM, Collections.emptyMap());
+    Map<String, Integer> signalDaysActiveByCategoryId =
+        signalRepository.findSignalDaysActive(new java.math.BigDecimal("0.50"));
 
     // Primary sort: timeframe RS signal; secondary: composite score (tiebreaker)
     var sortedRows =
@@ -118,7 +120,8 @@ public class CategoryService {
                         persistence5dByCategoryId,
                         persistence20dByCategoryId,
                         macroFitByCategoryId,
-                        momentumByCategoryId))
+                        momentumByCategoryId,
+                        signalDaysActiveByCategoryId))
             .toList();
 
     LocalDate asOfDate =

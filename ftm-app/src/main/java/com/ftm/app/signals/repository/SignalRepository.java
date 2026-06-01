@@ -214,6 +214,27 @@ public class SignalRepository {
 
   public record MacroRegimeHistoryRow(LocalDate date, BigDecimal regimeOrdinal) {}
 
+  public Map<String, Integer> findSignalDaysActive(BigDecimal threshold) {
+    return dsl.resultQuery("""
+        WITH ranked AS (
+          SELECT category_id,
+                 SUM(CASE WHEN value < {0} THEN 1 ELSE 0 END) OVER (
+                   PARTITION BY category_id
+                   ORDER BY signal_date DESC
+                   ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                 ) AS break_count
+          FROM signals
+          WHERE signal_type = 'COMPOSITE'
+          AND signal_date >= CURRENT_DATE - INTERVAL '365 days'
+        )
+        SELECT category_id, COUNT(*)::int AS days_active
+        FROM ranked
+        WHERE break_count = 0
+        GROUP BY category_id
+        """, threshold)
+        .fetchMap(r -> r.get("category_id", String.class), r -> r.get("days_active", Integer.class));
+  }
+
   public Map<String, List<BigDecimal>> findCompositeScoreHistory(
       int days, Collection<String> categoryIds) {
     if (categoryIds.isEmpty()) return Map.of();

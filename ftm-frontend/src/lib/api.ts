@@ -24,6 +24,7 @@ export type CategorySummary = {
   tradeSignal: string | null;
   macroFit: number | null;
   momentum: number | null;
+  signalDaysActive: number | null;
 };
 
 export type CategoriesResponse = {

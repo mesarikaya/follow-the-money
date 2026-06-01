@@ -6,6 +6,7 @@ import {
   fetchHoldings, uploadHoldings, downloadHoldingsTemplate, refreshHoldingPrices,
   HoldingDto, HoldingsUploadResponse, updateHolding, deleteHolding, createHolding,
   fetchPriceLevels, PriceLevelDto, fetchWinRates, SignalWinRateDto,
+  fetchCategories, CategorySummary,
 } from "@/lib/api";
 import AllocationDonutChart from "@/components/AllocationDonutChart";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
@@ -81,6 +82,7 @@ export default function PortfolioPage() {
   const [portfolio, setPortfolio] = useState<PortfolioResponse | null>(null);
   const [priceLevelByCategory, setPriceLevelByCategory] = useState<Record<string, PriceLevelDto>>({});
   const [winRateByCategory, setWinRateByCategory] = useState<Record<string, SignalWinRateDto>>({});
+  const [categoryById, setCategoryById] = useState<Record<string, CategorySummary>>({});
   const [editedAllocations, setEditedAllocations] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -137,6 +139,11 @@ export default function PortfolioPage() {
       const map: Record<string, SignalWinRateDto> = {};
       rates.forEach(wr => { map[wr.categoryId] = wr; });
       setWinRateByCategory(map);
+    }).catch(() => {});
+    fetchCategories("MONTH").then(r => {
+      const map: Record<string, CategorySummary> = {};
+      r.categories.forEach(c => { map[c.id] = c; });
+      setCategoryById(map);
     }).catch(() => {});
   }, [loadPortfolio]);
 
@@ -643,6 +650,134 @@ export default function PortfolioPage() {
           </div>
         )}
 
+        {/* Sector Exposure Rollup */}
+        {holdings && holdings.length > 0 && portfolio && totalEur != null && totalEur > 0 && (() => {
+          const grouped: Record<string, { name: string; totalEur: number; signal: TradeSignal | null; score: number | null; targetPct: number | null }> = {};
+          let unclassifiedEur = 0;
+
+          for (const h of holdings) {
+            const val = h.marketValueEur ?? 0;
+            if (!h.categoryId) { unclassifiedEur += val; continue; }
+            if (!grouped[h.categoryId]) {
+              const cat = categoryById[h.categoryId];
+              const alloc = portfolio.allocations.find(a => a.categoryId === h.categoryId);
+              const sig = cat ? ((cat.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(cat)) : null;
+              grouped[h.categoryId] = {
+                name: cat?.name ?? alloc?.categoryName ?? h.categoryId,
+                totalEur: 0,
+                signal: sig,
+                score: cat?.compositeScore != null ? Math.round(cat.compositeScore * 100) : null,
+                targetPct: alloc?.optimalAllocationPct ?? null,
+              };
+            }
+            grouped[h.categoryId].totalEur += val;
+          }
+
+          const rows = Object.entries(grouped)
+            .map(([id, data]) => ({
+              id,
+              ...data,
+              actualPct: (data.totalEur / totalEur) * 100,
+            }))
+            .sort((a, b) => b.totalEur - a.totalEur);
+
+          if (rows.length === 0) return null;
+
+          return (
+            <section className="space-y-2">
+              <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Sector Exposure vs Target</h2>
+              <div className="overflow-x-auto rounded-xl border border-slate-700/60">
+                <table className="w-full text-xs text-left">
+                  <thead>
+                    <tr className="border-b border-slate-700/60 bg-slate-800/60 text-slate-500 uppercase tracking-wider text-[10px]">
+                      <th className="px-3 py-2">Sector</th>
+                      <th className="px-3 py-2 text-center">Signal</th>
+                      <th className="px-3 py-2 text-right">Actual</th>
+                      <th className="px-3 py-2 text-right">Target</th>
+                      <th className="px-3 py-2 text-right">Gap</th>
+                      <th className="px-3 py-2 text-right">Value</th>
+                      <th className="px-3 py-2">Exposure bar</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {rows.map(row => {
+                      const gap = row.targetPct != null ? row.actualPct - row.targetPct : null;
+                      const isOver = gap != null && gap > 2;
+                      const isUnder = gap != null && gap < -2;
+                      const sig = row.signal;
+                      const cfg = sig ? SIGNAL_CONFIG[sig] : null;
+                      const actionNeeded =
+                        (sig === "BUY" && isUnder) ? "underweight BUY — consider adding" :
+                        (sig === "REDUCE" && isOver) ? "overweight REDUCE — consider trimming" :
+                        null;
+                      return (
+                        <tr key={row.id} className={`hover:bg-slate-800/30 transition-colors ${actionNeeded ? "bg-amber-950/10" : ""}`}>
+                          <td className="px-3 py-2 text-slate-300 font-medium">
+                            <span className="font-mono text-blue-400 text-[10px] mr-1">{row.id}</span>
+                            <span className="text-slate-400">{row.name}</span>
+                            {actionNeeded && (
+                              <span className="ml-2 text-[9px] text-amber-400">{actionNeeded}</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            {cfg && sig ? (
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${cfg.className}`}>{sig}</span>
+                            ) : (
+                              <span className="text-slate-700">—</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono tabular-nums text-slate-200">{row.actualPct.toFixed(1)}%</td>
+                          <td className="px-3 py-2 text-right font-mono tabular-nums text-slate-500">
+                            {row.targetPct != null ? `${row.targetPct.toFixed(1)}%` : "—"}
+                          </td>
+                          <td className={`px-3 py-2 text-right font-mono tabular-nums font-semibold ${
+                            gap == null ? "text-slate-700" :
+                            isOver ? "text-amber-400" :
+                            isUnder ? "text-cyan-400" : "text-slate-500"
+                          }`}>
+                            {gap != null ? `${gap > 0 ? "+" : ""}${gap.toFixed(1)}%` : "—"}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono tabular-nums text-emerald-400">
+                            €{row.totalEur.toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          </td>
+                          <td className="px-3 py-2 min-w-[120px]">
+                            <div className="relative h-2 bg-slate-700/60 rounded-full overflow-visible">
+                              <div
+                                className={`h-full rounded-full ${sig === "BUY" ? "bg-green-500/60" : sig === "REDUCE" ? "bg-red-500/60" : "bg-blue-500/50"}`}
+                                style={{ width: `${Math.min(row.actualPct * 2, 100)}%` }}
+                              />
+                              {row.targetPct != null && (
+                                <div
+                                  className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-emerald-500/80 rounded"
+                                  style={{ left: `${Math.min(row.targetPct * 2, 100)}%` }}
+                                  title={`Target: ${row.targetPct.toFixed(1)}%`}
+                                />
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {unclassifiedEur > 0 && (
+                      <tr className="hover:bg-slate-800/30">
+                        <td className="px-3 py-2 text-amber-400 text-[10px]">Unclassified</td>
+                        <td className="px-3 py-2" />
+                        <td className="px-3 py-2 text-right font-mono tabular-nums text-amber-400">{((unclassifiedEur / totalEur) * 100).toFixed(1)}%</td>
+                        <td className="px-3 py-2" />
+                        <td className="px-3 py-2" />
+                        <td className="px-3 py-2 text-right font-mono tabular-nums text-amber-400">
+                          €{unclassifiedEur.toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </td>
+                        <td className="px-3 py-2" />
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          );
+        })()}
+
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -820,6 +955,8 @@ export default function PortfolioPage() {
                     <th className="px-4 py-2 cursor-pointer select-none hover:text-slate-200 transition-colors" onClick={() => handleSort("categoryId")}>
                       Segment <SortIcon field="categoryId" sortField={sortField} sortDir={sortDir} />
                     </th>
+                    <th className="px-4 py-2 text-center" title="Sector rotation signal for this holding's category">Signal</th>
+                    <th className="px-4 py-2 text-right" title="This holding as % of total portfolio value (EUR)">Wt%</th>
                     <th className="px-4 py-2 text-right cursor-pointer select-none hover:text-slate-200 transition-colors" onClick={() => handleSort("quantity")}>
                       Qty <SortIcon field="quantity" sortField={sortField} sortDir={sortDir} />
                     </th>
@@ -862,6 +999,29 @@ export default function PortfolioPage() {
                           ) : (
                             <span className="text-amber-400 text-[10px]">Unclassified</span>
                           )}
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          {(() => {
+                            const cat = h.categoryId ? categoryById[h.categoryId] : null;
+                            if (!cat) return <span className="text-slate-700 text-[10px]">—</span>;
+                            const sig = (cat.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(cat);
+                            const score = cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : null;
+                            if (!sig) return <span className="text-slate-700 text-[10px]">—</span>;
+                            const cfg = SIGNAL_CONFIG[sig];
+                            return (
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${cfg.className}`}>{sig}</span>
+                                {score != null && (
+                                  <span className={`text-[9px] font-mono ${score >= 65 ? "text-green-400" : score >= 45 ? "text-yellow-400" : "text-red-400"}`}>{score}</span>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums text-slate-500 text-xs">
+                          {totalEur != null && totalEur > 0 && h.marketValueEur != null
+                            ? `${((h.marketValueEur / totalEur) * 100).toFixed(1)}%`
+                            : "—"}
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums text-slate-200">
                           {isEditing ? (

@@ -57,6 +57,20 @@ export default function MarketPulseStrip({ categories }: Props) {
   ).length;
   const signalCompleteness = equities.length > 0 ? Math.round((fullSignalCount / equities.length) * 100) : 0;
 
+  // Sectors entering approach zones (early warning signals)
+  const approachingBuy    = equities.filter(c => (c.compositeScore ?? 0) >= 0.55 && (c.compositeScore ?? 0) < 0.65).length;
+  const approachingReduce = equities.filter(c => (c.compositeScore ?? 0) >= 0.35 && (c.compositeScore ?? 0) <= 0.45).length;
+
+  // Score momentum acceleration: sectors with 5d trend > 20d trend by ≥3 pts
+  const accelCount = equities.filter(c =>
+    c.compositeTrend5d != null && c.compositeTrend20d != null &&
+    (c.compositeTrend5d - c.compositeTrend20d) >= 0.03
+  ).length;
+  const decelCount = equities.filter(c =>
+    c.compositeTrend5d != null && c.compositeTrend20d != null &&
+    (c.compositeTrend5d - c.compositeTrend20d) <= -0.03
+  ).length;
+
   const scoreColor =
     avgScore >= 70 ? "text-emerald-400" :
     avgScore >= 40 ? "text-amber-400" :
@@ -111,10 +125,16 @@ export default function MarketPulseStrip({ categories }: Props) {
         valueClass={persistColor}
       />
       <StatCell
-        label="Signal Quality"
-        value={`${signalCompleteness}%`}
-        sub={`${fullSignalCount}/${equities.length} complete`}
-        valueClass={signalCompleteness >= 90 ? "text-emerald-400" : signalCompleteness >= 70 ? "text-amber-400" : "text-red-400"}
+        label="Pipeline"
+        value={approachingBuy > 0 || approachingReduce > 0 ? `${approachingBuy}↑ ${approachingReduce}↓` : "—"}
+        sub={approachingBuy > 0 || approachingReduce > 0 ? "nearing BUY / REDUCE" : "no pre-signals"}
+        valueClass={approachingBuy > 0 ? "text-cyan-400" : approachingReduce > 0 ? "text-amber-400" : "text-slate-500"}
+      />
+      <StatCell
+        label="Momentum"
+        value={accelCount > 0 || decelCount > 0 ? `${accelCount}↗ / ${decelCount}↘` : "—"}
+        sub={accelCount > 0 || decelCount > 0 ? "score accel vs decel" : undefined}
+        valueClass={accelCount > decelCount ? "text-emerald-400" : decelCount > accelCount ? "text-orange-400" : "text-slate-500"}
         divider={false}
       />
     </div>

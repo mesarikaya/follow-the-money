@@ -22,6 +22,7 @@ type ActionCard = {
   drawdownFromHigh: number | null;
   positionInRange: number | null;
   scoreHistory: number[];
+  scorePercentile252d: number | null;
 };
 
 function MiniSparkline({ values, side }: { values: number[]; side: "BUY" | "REDUCE" }) {
@@ -90,7 +91,7 @@ function ActionCard({ card, side }: { card: ActionCard; side: "BUY" | "REDUCE" }
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex flex-col" title="Composite signal score">
+        <div className="flex flex-col" title={`Composite signal score: ${scorePct}/100${card.scorePercentile252d != null ? ` · 252-day percentile: P${Math.round(card.scorePercentile252d * 100)}` : ""}`}>
           <span className="text-[9px] text-slate-600 uppercase">Score</span>
           <span className={`text-sm font-mono font-semibold ${scorePct >= 65 ? "text-green-400" : scorePct >= 50 ? "text-yellow-400" : "text-red-400"}`}>
             {scorePct}
@@ -99,6 +100,12 @@ function ActionCard({ card, side }: { card: ActionCard; side: "BUY" | "REDUCE" }
                 {trendPts > 0 ? "↑" : "↓"}{Math.abs(trendPts)}
               </span>
             )}
+            {card.scorePercentile252d != null && (() => {
+              const pct = Math.round(card.scorePercentile252d! * 100);
+              if (pct >= 85) return <span className="text-[8px] text-amber-500 ml-0.5">P{pct}</span>;
+              if (pct <= 15) return <span className="text-[8px] text-cyan-500 ml-0.5">P{pct}</span>;
+              return null;
+            })()}
           </span>
         </div>
 
@@ -203,6 +210,7 @@ export default function ActionSummaryPanel({ categories, winRateByCategory = {},
       drawdownFromHigh: pl?.drawdownFromHigh ?? null,
       positionInRange: pl?.positionInRange ?? null,
       scoreHistory: scoreHistory[c.id] ?? [],
+      scorePercentile252d: c.scorePercentile252d ?? null,
     };
   };
 

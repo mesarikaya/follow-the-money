@@ -241,13 +241,14 @@ class CategoryServiceTest {
     CategorySummaryDto dto2 = Instancio.create(CategorySummaryDto.class);
     when(signalRepository.findSignalDaysActive(any())).thenReturn(Map.of());
     when(signalRepository.findRealizedVolatility20d()).thenReturn(Map.of());
+    when(signalRepository.findScorePercentile252d()).thenReturn(Map.of());
     when(categoryMapper.toDto(
             eq(row1), eq(1), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
-            any(), any(), any(), any()))
+            any(), any(), any(), any(), any()))
         .thenReturn(dto1);
     when(categoryMapper.toDto(
             eq(row2), eq(2), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
-            any(), any(), any(), any()))
+            any(), any(), any(), any(), any()))
         .thenReturn(dto2);
 
     CategoriesResponse result = categoryService.getCategoriesResponse("MONTH");

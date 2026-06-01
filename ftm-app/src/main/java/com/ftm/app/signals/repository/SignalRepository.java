@@ -334,4 +334,30 @@ public class SignalRepository {
                     .add(r.get(SIGNALS.VALUE)));
     return result;
   }
+
+  public Map<String, BigDecimal> findScorePercentile252d() {
+    return dsl.resultQuery("""
+        WITH all_scores AS (
+          SELECT category_id,
+                 signal_date,
+                 value,
+                 PERCENT_RANK() OVER (PARTITION BY category_id ORDER BY value) AS pct_rank
+          FROM signals
+          WHERE signal_type = 'COMPOSITE'
+            AND signal_date >= CURRENT_DATE - INTERVAL '252 days'
+        ),
+        latest_dates AS (
+          SELECT category_id, MAX(signal_date) AS latest_date
+          FROM all_scores
+          GROUP BY category_id
+          HAVING COUNT(*) >= 20
+        )
+        SELECT a.category_id, a.pct_rank
+        FROM all_scores a
+        JOIN latest_dates l ON a.category_id = l.category_id AND a.signal_date = l.latest_date
+        """)
+        .fetchMap(
+            r -> r.get("category_id", String.class),
+            r -> r.get("pct_rank", BigDecimal.class));
+  }
 }

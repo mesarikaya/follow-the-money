@@ -565,6 +565,22 @@ export default function CategoryTable({
                         <Sparkline values={history} />
                         <StreakBadge streak={computeStreak(history)} />
                         {(() => {
+                          // Prefer 252-day backend percentile; fall back to 30-day computed
+                          if (cat.scorePercentile252d != null) {
+                            const pct = Math.round(cat.scorePercentile252d * 100);
+                            if (pct >= 85 || pct <= 15) {
+                              const isHigh = pct >= 85;
+                              return (
+                                <span
+                                  className={`text-[7px] tabular-nums font-mono ${isHigh ? "text-amber-400" : "text-cyan-400"}`}
+                                  title={`252-day percentile: current score is at the ${pct}th percentile of the past 12 months — ${isHigh ? "near 12-month highs (late entry risk)" : "near 12-month lows (potential value entry)"}`}
+                                >
+                                  P{pct}
+                                </span>
+                              );
+                            }
+                            return null;
+                          }
                           if (history.length < 5 || cat.compositeScore == null) return null;
                           const sorted = [...history].sort((a, b) => a - b);
                           const below = sorted.filter(v => v < cat.compositeScore!).length;
@@ -574,7 +590,7 @@ export default function CategoryTable({
                             return (
                               <span
                                 className={`text-[7px] tabular-nums ${isHigh ? "text-amber-500" : "text-cyan-500"}`}
-                                title={`30-day percentile rank: current score is at the ${pct}th percentile of the past ${history.length} sessions — ${isHigh ? "near recent highs" : "near recent lows"}`}
+                                title={`30-day percentile rank: current score is at the ${pct}th percentile of the past ${history.length} sessions`}
                               >
                                 P{pct}
                               </span>

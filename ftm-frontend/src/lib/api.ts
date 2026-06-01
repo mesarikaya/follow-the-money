@@ -26,6 +26,7 @@ export type CategorySummary = {
   momentum: number | null;
   signalDaysActive: number | null;
   realizedVol20d: number | null;
+  scorePercentile252d: number | null;
 };
 
 export type CategoriesResponse = {

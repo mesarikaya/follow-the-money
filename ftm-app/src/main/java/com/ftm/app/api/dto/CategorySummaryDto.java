@@ -51,4 +51,9 @@ public record CategorySummaryDto(
     @Schema(
             description =
                 "20-day realized annualized volatility (log-return STDDEV × √252); null until price data available")
-        BigDecimal realizedVol20d) {}
+        BigDecimal realizedVol20d,
+    @Schema(
+            description =
+                "Percentile rank of current composite score within the past 252 trading days for this category [0,1]; "
+                + "0 = all-time low, 1 = all-time high in the window; null until at least 20 data points available")
+        BigDecimal scorePercentile252d) {}

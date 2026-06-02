@@ -984,4 +984,132 @@ class AlertRulesEngineTest {
 
     verify(alertRepository, never()).insert(any());
   }
+
+  // ===== High Conviction Cluster Alert Tests =====
+
+  @Test
+  @DisplayName("high_conviction_cluster: inserts alert when ≥3 sectors reach conviction ≥75")
+  void shouldCreateHighConvictionClusterAlertWhenThreeOrMoreSectorsAreHighConviction() {
+    stubTopLevelCategories("TECH", "FINL", "HLTH");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    stubPersistenceLowDisabled();
+    stubBreadthVelocityDisabled();
+    stubTradeSignalRulesDisabled();
+    when(alertRulesRepository.findById("high_conviction_buy"))
+        .thenReturn(Optional.of(disabled("high_conviction_buy")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+
+    when(alertRulesRepository.findById("high_conviction_cluster"))
+        .thenReturn(Optional.of(enabled("high_conviction_cluster", Severity.ACTION)));
+
+    // All 3 sectors: score=0.82, rrg=4, trend20d=0.05, macroFit=0.80, percentile=0.90 → conviction 83 ≥ 75
+    when(signalRepository.findLatestByTypes(any()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE,
+                    Map.of("TECH", new BigDecimal("0.82"), "FINL", new BigDecimal("0.82"), "HLTH", new BigDecimal("0.82")),
+                SignalType.RRG_QUADRANT,
+                    Map.of("TECH", new BigDecimal("4"), "FINL", new BigDecimal("4"), "HLTH", new BigDecimal("4")),
+                SignalType.COMPOSITE_TREND_20D,
+                    Map.of("TECH", new BigDecimal("0.05"), "FINL", new BigDecimal("0.05"), "HLTH", new BigDecimal("0.05")),
+                SignalType.MACRO_FIT,
+                    Map.of("TECH", new BigDecimal("0.80"), "FINL", new BigDecimal("0.80"), "HLTH", new BigDecimal("0.80")),
+                SignalType.COMPOSITE_TREND_5D,
+                    Map.of("TECH", new BigDecimal("0.06"), "FINL", new BigDecimal("0.06"), "HLTH", new BigDecimal("0.06"))));
+    when(signalRepository.findScorePercentile252d())
+        .thenReturn(Map.of("TECH", new BigDecimal("0.90"), "FINL", new BigDecimal("0.90"), "HLTH", new BigDecimal("0.90")));
+    when(alertRepository.existsActiveAlert("high_conviction_cluster", null)).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("high_conviction_cluster");
+    assertThat(inserted.categoryId()).isNull();
+    assertThat(inserted.severity()).isEqualTo(Severity.ACTION);
+    assertThat(inserted.message()).contains("3").containsIgnoringCase("cluster");
+  }
+
+  @Test
+  @DisplayName("high_conviction_cluster: no alert when fewer than 3 sectors reach conviction ≥75")
+  void shouldNotCreateClusterAlertWhenFewerThanThreeSectorsAreHighConviction() {
+    stubTopLevelCategories("TECH", "FINL", "HLTH");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    stubPersistenceLowDisabled();
+    stubBreadthVelocityDisabled();
+    stubTradeSignalRulesDisabled();
+    when(alertRulesRepository.findById("high_conviction_buy"))
+        .thenReturn(Optional.of(disabled("high_conviction_buy")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+
+    when(alertRulesRepository.findById("high_conviction_cluster"))
+        .thenReturn(Optional.of(enabled("high_conviction_cluster", Severity.ACTION)));
+
+    // TECH=83 (high), FINL=55 (not high), HLTH=55 (not high) — only 1 high-conviction → no cluster
+    when(signalRepository.findLatestByTypes(any()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE,
+                    Map.of("TECH", new BigDecimal("0.82"), "FINL", new BigDecimal("0.68"), "HLTH", new BigDecimal("0.68")),
+                SignalType.RRG_QUADRANT,
+                    Map.of("TECH", new BigDecimal("4"), "FINL", new BigDecimal("3"), "HLTH", new BigDecimal("3")),
+                SignalType.COMPOSITE_TREND_20D,
+                    Map.of("TECH", new BigDecimal("0.05"), "FINL", new BigDecimal("0.02"), "HLTH", new BigDecimal("0.02")),
+                SignalType.MACRO_FIT,
+                    Map.of("TECH", new BigDecimal("0.80"), "FINL", new BigDecimal("0.45"), "HLTH", new BigDecimal("0.45")),
+                SignalType.COMPOSITE_TREND_5D,
+                    Map.of("TECH", new BigDecimal("0.06"), "FINL", new BigDecimal("0.03"), "HLTH", new BigDecimal("0.03"))));
+    when(signalRepository.findScorePercentile252d())
+        .thenReturn(Map.of("TECH", new BigDecimal("0.90"), "FINL", new BigDecimal("0.60"), "HLTH", new BigDecimal("0.60")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("high_conviction_cluster: resolves when cluster drops below 2 sectors")
+  void shouldResolveClusterAlertWhenClusterDropsBelowTwoSectors() {
+    stubTopLevelCategories("TECH", "FINL", "HLTH");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    stubPersistenceLowDisabled();
+    stubBreadthVelocityDisabled();
+    stubTradeSignalRulesDisabled();
+    when(alertRulesRepository.findById("high_conviction_buy"))
+        .thenReturn(Optional.of(disabled("high_conviction_buy")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+
+    when(alertRulesRepository.findById("high_conviction_cluster"))
+        .thenReturn(Optional.of(enabled("high_conviction_cluster", Severity.ACTION)));
+
+    // All 3 sectors below conviction 75 → cluster size = 0, below CLUSTER_RESOLVE_SIZE=2
+    when(signalRepository.findLatestByTypes(any()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE,
+                    Map.of("TECH", new BigDecimal("0.68"), "FINL", new BigDecimal("0.60"), "HLTH", new BigDecimal("0.55")),
+                SignalType.RRG_QUADRANT,
+                    Map.of("TECH", new BigDecimal("3"), "FINL", new BigDecimal("3"), "HLTH", new BigDecimal("3")),
+                SignalType.COMPOSITE_TREND_20D,
+                    Map.of("TECH", new BigDecimal("0.02"), "FINL", new BigDecimal("0.01"), "HLTH", new BigDecimal("0.01")),
+                SignalType.MACRO_FIT,
+                    Map.of("TECH", new BigDecimal("0.45"), "FINL", new BigDecimal("0.40"), "HLTH", new BigDecimal("0.35")),
+                SignalType.COMPOSITE_TREND_5D,
+                    Map.of("TECH", new BigDecimal("0.03"), "FINL", new BigDecimal("0.02"), "HLTH", new BigDecimal("0.01"))));
+    when(signalRepository.findScorePercentile252d())
+        .thenReturn(Map.of("TECH", new BigDecimal("0.60"), "FINL", new BigDecimal("0.50"), "HLTH", new BigDecimal("0.45")));
+    when(alertRepository.existsActiveAlert("high_conviction_cluster", null)).thenReturn(true);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).resolveAlertsByRuleAndCategory("high_conviction_cluster", null);
+    verify(alertRepository, never()).insert(any());
+  }
 }

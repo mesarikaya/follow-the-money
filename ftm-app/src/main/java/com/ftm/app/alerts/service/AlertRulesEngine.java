@@ -62,6 +62,9 @@ public class AlertRulesEngine {
     private static final String RULE_HIGH_CONVICTION_BUY = "high_conviction_buy";
     private static final int HIGH_CONVICTION_THRESHOLD = 75;
     private static final int HIGH_CONVICTION_RESOLVE_THRESHOLD = 65;
+    private static final String RULE_HIGH_CONVICTION_CLUSTER = "high_conviction_cluster";
+    private static final int CLUSTER_MIN_SIZE = 3;
+    private static final int CLUSTER_RESOLVE_SIZE = 2;
     private static final BigDecimal APPROACHING_BUY_LOWER = new BigDecimal("0.55");
     private static final BigDecimal APPROACHING_REDUCE_UPPER = new BigDecimal("0.45");
     private static final BigDecimal PERSISTENCE_RECOVERY_THRESHOLD = new BigDecimal("8");
@@ -110,6 +113,7 @@ public class AlertRulesEngine {
         alertsCreated += evaluateApproachingBuySignal(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateApproachingReduceSignal(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateHighConvictionBuy(signalDate, topLevelCategoryIds);
+        alertsCreated += evaluateHighConvictionCluster(signalDate, topLevelCategoryIds);
 
         log.info(
                 "Alert rule evaluation complete: {} created, {} resolved for date={}",
@@ -946,6 +950,76 @@ public class AlertRulesEngine {
             }
         }
         return count;
+    }
+
+    private int evaluateHighConvictionCluster(LocalDate signalDate, Set<String> topLevelCategoryIds) {
+        Optional<AlertRule> rule = alertRulesRepository.findById(RULE_HIGH_CONVICTION_CLUSTER);
+        if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+        Severity severity = rule.map(AlertRule::severity).orElse(Severity.ACTION);
+
+        Map<SignalType, Map<String, BigDecimal>> signals =
+                signalRepository.findLatestByTypes(
+                        List.of(
+                                SignalType.COMPOSITE,
+                                SignalType.RRG_QUADRANT,
+                                SignalType.COMPOSITE_TREND_20D,
+                                SignalType.MACRO_FIT,
+                                SignalType.COMPOSITE_TREND_5D));
+        Map<String, BigDecimal> compositeByCategory =
+                signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap());
+        Map<String, BigDecimal> rrgByCategory =
+                signals.getOrDefault(SignalType.RRG_QUADRANT, Collections.emptyMap());
+        Map<String, BigDecimal> trend20dByCategory =
+                signals.getOrDefault(SignalType.COMPOSITE_TREND_20D, Collections.emptyMap());
+        Map<String, BigDecimal> macroFitByCategory =
+                signals.getOrDefault(SignalType.MACRO_FIT, Collections.emptyMap());
+        Map<String, BigDecimal> trend5dByCategory =
+                signals.getOrDefault(SignalType.COMPOSITE_TREND_5D, Collections.emptyMap());
+        Map<String, BigDecimal> percentile252dByCategory = signalRepository.findScorePercentile252d();
+
+        // Collect all categories with conviction >= CLUSTER_MIN_THRESHOLD
+        List<String> highConvictionIds = new java.util.ArrayList<>();
+        for (String categoryId : topLevelCategoryIds) {
+            BigDecimal score = compositeByCategory.get(categoryId);
+            if (score == null) continue;
+            String rrgStr = rrgByCategory.containsKey(categoryId)
+                    ? String.valueOf(rrgByCategory.get(categoryId).intValue()) : null;
+            BigDecimal trend20d = trend20dByCategory.get(categoryId);
+            BigDecimal macroFit = macroFitByCategory.get(categoryId);
+            BigDecimal percentile = percentile252dByCategory.get(categoryId);
+            BigDecimal trend5d = trend5dByCategory.get(categoryId);
+            int conviction = TradeSignalDeriver.convictionScore(
+                    score, rrgStr, trend20d, macroFit, percentile, trend5d, null, null);
+            if (conviction >= HIGH_CONVICTION_THRESHOLD) {
+                highConvictionIds.add(categoryId);
+            }
+        }
+
+        int clusterSize = highConvictionIds.size();
+        boolean hasActiveAlert = alertRepository.existsActiveAlert(RULE_HIGH_CONVICTION_CLUSTER, null);
+
+        if (clusterSize >= CLUSTER_MIN_SIZE && !hasActiveAlert) {
+            String tickers = String.join(", ", highConvictionIds.stream().sorted().limit(5).toList());
+            alertRepository.insert(
+                    new Alert(
+                            OffsetDateTime.now(),
+                            null,
+                            RULE_HIGH_CONVICTION_CLUSTER,
+                            severity,
+                            String.format(
+                                    "HIGH CONVICTION CLUSTER: %d sectors at conviction ≥%d — broad RISK-ON regime confirmed (%s)",
+                                    clusterSize, HIGH_CONVICTION_THRESHOLD, tickers),
+                            String.format(
+                                    "{\"clusterSize\":%d,\"sectors\":\"%s\",\"signalDate\":\"%s\"}",
+                                    clusterSize, tickers, signalDate),
+                            AlertStatus.ACTIVE));
+            log.info("high_conviction_cluster: clusterSize={} sectors={}", clusterSize, tickers);
+            return 1;
+        } else if (clusterSize < CLUSTER_RESOLVE_SIZE && hasActiveAlert) {
+            alertRepository.resolveAlertsByRuleAndCategory(RULE_HIGH_CONVICTION_CLUSTER, null);
+            log.info("high_conviction_cluster: resolved, clusterSize dropped to {}", clusterSize);
+        }
+        return 0;
     }
 
     private String resolveRegimeName(int ordinal) {

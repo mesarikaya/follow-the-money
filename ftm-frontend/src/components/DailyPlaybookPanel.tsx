@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CategorySummary, PriceLevelDto, SignalWinRateDto } from "@/lib/api";
+import { CategorySummary, PriceLevelDto, SignalWinRateDto, SubSectorSummary } from "@/lib/api";
 import { deriveTradeSignal, TradeSignal, countBuyConditions, missingBuyConditions } from "@/lib/signals";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import Sparkline from "@/components/Sparkline";
@@ -146,7 +146,7 @@ function ActionLabel({ action }: { action: "BUY" | "TRIM" | "MONITOR" }) {
   );
 }
 
-function PlaybookRow({ entry, scoreHistory }: { entry: PlaybookEntry; scoreHistory: Record<string, number[]> }) {
+function PlaybookRow({ entry, scoreHistory, subSectors }: { entry: PlaybookEntry; scoreHistory: Record<string, number[]>; subSectors?: SubSectorSummary[] }) {
   const cat = entry.category;
   const score = Math.round((cat.compositeScore ?? 0) * 100);
   const hasDrilldown = SECTOR_DRILLDOWN_IDS.has(cat.id);
@@ -239,6 +239,7 @@ function PlaybookRow({ entry, scoreHistory }: { entry: PlaybookEntry; scoreHisto
         {cat.signalDaysActive != null && cat.signalDaysActive >= 2 && (
           <span className="text-[9px] text-slate-700 font-mono">{cat.signalDaysActive}d</span>
         )}
+        <SubSectorBreadth sectorId={cat.id} subSectors={subSectors} signal={entry.signal} />
       </div>
     </div>
   );
@@ -249,13 +250,35 @@ type Props = {
   winRateByCategory: Record<string, SignalWinRateDto>;
   priceLevelByCategory: Record<string, PriceLevelDto>;
   scoreHistory: Record<string, number[]>;
+  subSectorsByParent?: Record<string, SubSectorSummary[]>;
 };
+
+function SubSectorBreadth({ sectorId, subSectors, signal }: { sectorId: string; subSectors: SubSectorSummary[] | undefined; signal: TradeSignal }) {
+  if (!subSectors || subSectors.length === 0) return null;
+  const bullish = subSectors.filter(s => {
+    const q = s.rrgQuadrant != null ? Number(s.rrgQuadrant) : 0;
+    return q === 3 || q === 4;
+  }).length;
+  const bullishPct = Math.round((bullish / subSectors.length) * 100);
+  const color = bullishPct >= 60 ? "text-emerald-600" : bullishPct >= 40 ? "text-amber-600" : "text-slate-600";
+  const barColor = bullishPct >= 60 ? "bg-emerald-500" : bullishPct >= 40 ? "bg-amber-500" : "bg-slate-600";
+
+  return (
+    <span className="flex items-center gap-1" title={`${bullish}/${subSectors.length} sub-sectors in Leading/Improving RRG phase (${bullishPct}% bullish)`}>
+      <span className={`text-[9px] font-mono tabular-nums ${color}`}>{bullish}/{subSectors.length}</span>
+      <span className="relative w-8 h-1 bg-slate-700 rounded-full overflow-hidden">
+        <span className={`absolute inset-y-0 left-0 ${barColor} rounded-full`} style={{ width: `${bullishPct}%` }} />
+      </span>
+    </span>
+  );
+}
 
 export default function DailyPlaybookPanel({
   categories,
   winRateByCategory,
   priceLevelByCategory,
   scoreHistory,
+  subSectorsByParent = {},
 }: Props) {
   const equities = categories.filter(c => c.type === "EQUITY_SECTOR");
   if (equities.length < 3) return null;
@@ -351,7 +374,12 @@ export default function DailyPlaybookPanel({
 
       <div>
         {topEntries.map(entry => (
-          <PlaybookRow key={entry.category.id} entry={entry} scoreHistory={scoreHistory} />
+          <PlaybookRow
+            key={entry.category.id}
+            entry={entry}
+            scoreHistory={scoreHistory}
+            subSectors={subSectorsByParent[entry.category.id]}
+          />
         ))}
       </div>
 

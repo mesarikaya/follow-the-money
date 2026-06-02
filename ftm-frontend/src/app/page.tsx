@@ -64,12 +64,14 @@ export default async function Home({ searchParams }: Props) {
     transitionsResult.status === "fulfilled" ? transitionsResult.value : [];
 
   const topSubSectorByParent: Record<string, SubSectorSummary> = {};
+  const allSubSectorsByParent: Record<string, SubSectorSummary[]> = {};
   subSectorResults.forEach((result, i) => {
     if (result.status === "fulfilled" && result.value.length > 0) {
       const sorted = [...result.value].sort(
         (a, b) => (b.rs60 ?? -Infinity) - (a.rs60 ?? -Infinity)
       );
       topSubSectorByParent[sectorIds[i]] = sorted[0];
+      allSubSectorsByParent[sectorIds[i]] = sorted;
     }
   });
 
@@ -106,6 +108,7 @@ export default async function Home({ searchParams }: Props) {
             winRateByCategory={winRateByCategory}
             priceLevelByCategory={priceLevelByCategory}
             scoreHistory={scoreHistory}
+            subSectorsByParent={allSubSectorsByParent}
           />
         )}
 

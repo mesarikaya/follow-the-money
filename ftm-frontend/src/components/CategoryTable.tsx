@@ -304,6 +304,11 @@ function TradeSignalBadge({ cat }: { cat: CategorySummary }) {
   const showConditions = signal === "WATCH" || signal === "HOLD";
   const daysActive = cat.signalDaysActive;
   const showDays = daysActive != null && daysActive >= 2 && (signal === "BUY" || signal === "WATCH");
+  const conviction = cat.convictionScore;
+  const showConviction = conviction != null && conviction > 0 && (signal === "BUY" || signal === "REDUCE");
+  const convictionColor = conviction != null
+    ? conviction >= 75 ? "text-emerald-400" : conviction >= 55 ? "text-amber-400" : "text-slate-500"
+    : "text-slate-600";
   return (
     <div className="flex flex-col items-center gap-0.5">
       <span
@@ -312,7 +317,15 @@ function TradeSignalBadge({ cat }: { cat: CategorySummary }) {
       >
         {cfg.label}
       </span>
-      {showDays && (
+      {showConviction && (
+        <span
+          className={`text-[8px] tabular-nums font-mono ${convictionColor}`}
+          title={`Conviction score ${conviction}/100: multi-factor quality rating (signal + macro + percentile + momentum + RS accel). ≥75=high, ≥55=medium`}
+        >
+          C{conviction}
+        </span>
+      )}
+      {showDays && !showConviction && (
         <span
           className="text-[8px] text-slate-500 tabular-nums font-mono"
           title={`Signal active for ${daysActive} consecutive trading days (composite score ≥ 50)`}
@@ -350,7 +363,7 @@ function TopSubChip({ sub }: { sub: SubSectorSummary }) {
   );
 }
 
-type SortKey = "default" | "score" | "rs" | "signal" | "close" | "macroFit";
+type SortKey = "default" | "score" | "rs" | "signal" | "close" | "macroFit" | "conviction";
 type SortDir = "asc" | "desc";
 
 const SIGNAL_ORDER: Record<string, number> = { BUY: 0, WATCH: 1, HOLD: 2, REDUCE: 3 };
@@ -382,6 +395,9 @@ function sortCategories(
         break;
       case "macroFit":
         delta = (a.macroFit ?? -1) - (b.macroFit ?? -1);
+        break;
+      case "conviction":
+        delta = (a.convictionScore ?? -1) - (b.convictionScore ?? -1);
         break;
     }
     return dir === "desc" ? -delta : delta;
@@ -482,9 +498,25 @@ export default function CategoryTable({
             <SortTh sortK="macroFit" className="text-center">
               <GlossaryTooltip term="Macro Fit">Regime</GlossaryTooltip>
             </SortTh>
-            <SortTh sortK="signal" className="text-center">
-              <GlossaryTooltip term="RRG">Signal</GlossaryTooltip> / <GlossaryTooltip term="BUY">Action</GlossaryTooltip>
-            </SortTh>
+            <th className="px-4 py-3 text-center">
+              <span
+                className="inline-flex items-center gap-1 cursor-pointer hover:text-slate-200 transition-colors"
+                onClick={() => handleSort("signal")}
+                title="Sort by signal priority (BUY → WATCH → HOLD → REDUCE)"
+              >
+                <GlossaryTooltip term="RRG">Signal</GlossaryTooltip>
+                <SortIcon active={sortKey === "signal"} dir={sortDir} />
+              </span>
+              <span className="text-slate-700 mx-1">/</span>
+              <span
+                className="inline-flex items-center gap-1 cursor-pointer hover:text-slate-200 transition-colors"
+                onClick={() => handleSort("conviction")}
+                title="Sort by conviction score (multi-factor: signal quality · macro · percentile · momentum · RS accel)"
+              >
+                C
+                <SortIcon active={sortKey === "conviction"} dir={sortDir} />
+              </span>
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-800">

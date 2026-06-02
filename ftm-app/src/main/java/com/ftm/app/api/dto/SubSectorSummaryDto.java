@@ -18,4 +18,6 @@ public record SubSectorSummaryDto(
     String tradeSignal,
     Integer persistence5d,
     Integer persistence20d,
-    BigDecimal macroFit) {}
+    BigDecimal macroFit,
+    Integer convictionScore,
+    Integer signalDaysActive) {}

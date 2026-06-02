@@ -67,6 +67,10 @@ public class SubSectorService {
     Map<String, BigDecimal> macroFitByCategory =
         signals.getOrDefault(SignalType.MACRO_FIT, Collections.emptyMap());
 
+    Map<String, Integer> signalDaysActiveByCategory =
+        signalRepository.findSignalDaysActive(new java.math.BigDecimal("0.50"));
+    Map<String, BigDecimal> percentile252dByCategory = signalRepository.findScorePercentile252d();
+
     return subCategories.stream()
         .map(
             category -> {
@@ -75,12 +79,18 @@ public class SubSectorService {
               String rrgQuadrant =
                   rrgQuadrantValue != null ? String.valueOf(rrgQuadrantValue.intValue()) : null;
               BigDecimal compositeScore = compositeByCategory.get(categoryId);
+              BigDecimal trend5d = trend5dByCategory.get(categoryId);
               BigDecimal trend20d = trend20dByCategory.get(categoryId);
+              BigDecimal macroFit = macroFitByCategory.get(categoryId);
+              BigDecimal percentile = percentile252dByCategory.get(categoryId);
               BigDecimal persistence5dRaw = persistence5dByCategory.get(categoryId);
               Integer persistence5d = persistence5dRaw != null ? persistence5dRaw.intValue() : null;
               BigDecimal persistence20dRaw = persistence20dByCategory.get(categoryId);
               Integer persistence20d =
                   persistence20dRaw != null ? persistence20dRaw.intValue() : null;
+              int rawConviction = TradeSignalDeriver.convictionScore(
+                  compositeScore, rrgQuadrant, trend20d, macroFit, percentile, trend5d,
+                  rs60ByCategory.get(categoryId), rs120ByCategory.get(categoryId));
               return new SubSectorSummaryDto(
                   categoryId,
                   category.name(),
@@ -92,12 +102,14 @@ public class SubSectorService {
                   momentumByCategory.get(categoryId),
                   rrgQuadrant,
                   compositeScore,
-                  trend5dByCategory.get(categoryId),
+                  trend5d,
                   trend20d,
                   TradeSignalDeriver.derive(compositeScore, rrgQuadrant, trend20d),
                   persistence5d,
                   persistence20d,
-                  macroFitByCategory.get(categoryId));
+                  macroFit,
+                  rawConviction > 0 ? rawConviction : null,
+                  signalDaysActiveByCategory.get(categoryId));
             })
         .sorted(
             (subSectorA, subSectorB) -> {

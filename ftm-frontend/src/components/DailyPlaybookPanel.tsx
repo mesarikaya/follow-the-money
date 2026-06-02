@@ -239,7 +239,7 @@ function PlaybookRow({ entry, scoreHistory, subSectors }: { entry: PlaybookEntry
         {cat.signalDaysActive != null && cat.signalDaysActive >= 2 && (
           <span className="text-[9px] text-slate-700 font-mono">{cat.signalDaysActive}d</span>
         )}
-        <SubSectorBreadth sectorId={cat.id} subSectors={subSectors} signal={entry.signal} />
+        <SubSectorBreadth subSectors={subSectors} />
       </div>
     </div>
   );
@@ -253,7 +253,7 @@ type Props = {
   subSectorsByParent?: Record<string, SubSectorSummary[]>;
 };
 
-function SubSectorBreadth({ sectorId, subSectors, signal }: { sectorId: string; subSectors: SubSectorSummary[] | undefined; signal: TradeSignal }) {
+function SubSectorBreadth({ subSectors }: { subSectors: SubSectorSummary[] | undefined }) {
   if (!subSectors || subSectors.length === 0) return null;
   const bullish = subSectors.filter(s => {
     const q = s.rrgQuadrant != null ? Number(s.rrgQuadrant) : 0;

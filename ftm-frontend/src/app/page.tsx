@@ -19,6 +19,7 @@ import ScoreTrajectorySummary from "@/components/ScoreTrajectorySummary";
 import ScoreDistributionPanel from "@/components/ScoreDistributionPanel";
 import MarketPulseStrip from "@/components/MarketPulseStrip";
 import ActionSummaryPanel from "@/components/ActionSummaryPanel";
+import PortfolioGapAlert from "@/components/PortfolioGapAlert";
 import ScoreMoversPanel from "@/components/ScoreMoversPanel";
 import SignalTransitionsPanel from "@/components/SignalTransitionsPanel";
 
@@ -94,6 +95,8 @@ export default async function Home({ searchParams }: Props) {
         {categories.length > 0 && <MarketPulseStrip categories={categories} />}
 
         {categories.length > 0 && <ActionSummaryPanel categories={categories} winRateByCategory={winRateByCategory} priceLevelByCategory={priceLevelByCategory} scoreHistory={scoreHistory} />}
+
+        {categories.length > 0 && <PortfolioGapAlert categories={categories} />}
 
         {categories.length > 0 && <ScoreMoversPanel categories={categories} />}
 

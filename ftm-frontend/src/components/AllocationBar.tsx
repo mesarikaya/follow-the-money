@@ -3,32 +3,19 @@ import { CategorySummary } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 
-function conviction(cat: CategorySummary): number {
-  let score = 0;
-  if ((cat.compositeScore ?? 0) >= 0.60) score++;
-  if (cat.rrgQuadrant === "4" || cat.rrgQuadrant === "3") score++;
-  if ((cat.compositeTrend20d ?? 0) > 0) score++;
-  if ((cat.macroFit ?? 0) >= 0.60) score++;
-  return score;
-}
-
-function ConvictionDots({ count }: { count: number }) {
+function ConvictionBadge({ score }: { score: number }) {
+  const color = score >= 75 ? "text-emerald-400" : score >= 55 ? "text-cyan-400" : "text-slate-500";
   return (
-    <span className="flex gap-px" title={`${count}/4 signals aligned`}>
-      {[0, 1, 2, 3].map(i => (
-        <span
-          key={i}
-          className={`w-1 h-1 rounded-full ${i < count ? "bg-current opacity-80" : "bg-slate-600 opacity-40"}`}
-        />
-      ))}
+    <span className={`text-[8px] font-mono tabular-nums ${color}`} title={`Conviction score: ${score}/100 — multi-factor quality rating`}>
+      C{score}
     </span>
   );
 }
 
 function AllocationPill({ pct }: { pct: number }) {
-  const color = pct >= 20 ? "text-emerald-300" : pct >= 12 ? "text-cyan-400" : "text-slate-400";
+  const color = pct >= 25 ? "text-emerald-300" : pct >= 15 ? "text-cyan-400" : "text-slate-400";
   return (
-    <span className={`text-[9px] font-bold tabular-nums ${color}`} title={`Recommended allocation: ~${pct}% (score-weighted)`}>
+    <span className={`text-[9px] font-bold tabular-nums ${color}`} title={`Conviction-weighted allocation: ~${pct}%`}>
       {pct}%
     </span>
   );
@@ -66,20 +53,34 @@ export default function AllocationBar({ categories }: Props) {
   const getSignal = (c: CategorySummary) => (c.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(c);
 
   const equitySectors = categories
-    .filter(c => SECTOR_DRILLDOWN_IDS.has(c.id) && c.compositeScore != null)
-    .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
+    .filter(c => SECTOR_DRILLDOWN_IDS.has(c.id) && c.compositeScore != null);
 
   if (equitySectors.length < 3) return null;
 
-  // Score-weighted allocation for top 5 sectors
-  const overweight = equitySectors.slice(0, 5);
-  const underweight = equitySectors.slice(-3).reverse();
+  const getConviction = (c: CategorySummary) => c.convictionScore ?? 0;
 
-  const totalScore = overweight.reduce((sum, c) => sum + (c.compositeScore ?? 0), 0);
-  const weightedAllocations = overweight.map(c => ({
+  // Overweight: BUY and high-WATCH signals, sorted by conviction score
+  const buySignals = equitySectors
+    .filter(c => getSignal(c) === "BUY")
+    .sort((a, b) => getConviction(b) - getConviction(a))
+    .slice(0, 5);
+
+  // Underweight: REDUCE signals first, then lowest-scoring sectors
+  const reduceSignals = equitySectors
+    .filter(c => getSignal(c) === "REDUCE")
+    .sort((a, b) => getConviction(a) - getConviction(b))
+    .slice(0, 3);
+  const underweight = reduceSignals.length > 0
+    ? reduceSignals
+    : [...equitySectors].sort((a, b) => (a.compositeScore ?? 0) - (b.compositeScore ?? 0)).slice(0, 3);
+
+  // Conviction-weighted allocations (only BUY signals get positive weight)
+  const totalConviction = buySignals.reduce((sum, c) => sum + Math.max(getConviction(c), 1), 0);
+  const weightedAllocations = buySignals.map(c => ({
     ...c,
-    allocationPct: totalScore > 0 ? Math.round(((c.compositeScore ?? 0) / totalScore) * 100) : 20,
+    allocationPct: totalConviction > 0 ? Math.round((Math.max(getConviction(c), 1) / totalConviction) * 100) : 20,
     signal: getSignal(c),
+    convictionScore: getConviction(c),
   }));
 
   // Ensure allocations sum to 100
@@ -93,38 +94,38 @@ export default function AllocationBar({ categories }: Props) {
       <div className="shrink-0">
         <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1 font-semibold">Today&apos;s Positioning</div>
         <div className="text-[10px] text-slate-600">
-          Score-weighted · equity sectors
+          Conviction-weighted · BUY signals
         </div>
       </div>
 
       <div className="flex-1 min-w-0">
         <div className="text-[10px] text-emerald-500 uppercase tracking-wider mb-1.5 font-semibold">
-          ↑ Overweight (score-weighted)
+          ↑ Overweight (conviction-weighted)
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {weightedAllocations.map(cat => {
-            const pct = Math.round((cat.compositeScore ?? 0) * 100);
-            const c = conviction(cat);
-            const sigColor = cat.signal === "BUY" ? "border-green-700/60 bg-emerald-900/30" : cat.signal === "WATCH" ? "border-cyan-700/50 bg-cyan-900/20" : "border-emerald-700/40 bg-emerald-900/30";
-            return (
-              <Link
-                key={cat.id}
-                href={`/sectors/${cat.id}`}
-                className={`flex items-center gap-1.5 px-2 py-1 rounded border ${sigColor} hover:border-emerald-500/60 transition-colors group`}
-                title={`${cat.name} — Score ${pct}/100 · ${c}/4 signals · Recommended allocation: ~${cat.allocationPct}%`}
-              >
-                <span className="font-mono font-bold text-emerald-300 group-hover:text-emerald-200 text-[11px]">
-                  {cat.etfTicker}
-                </span>
-                <AllocationPill pct={cat.allocationPct} />
-                <AccelBadge trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} />
-                <span className="text-emerald-400">
-                  <ConvictionDots count={c} />
-                </span>
-              </Link>
-            );
-          })}
-        </div>
+        {weightedAllocations.length === 0 ? (
+          <span className="text-[10px] text-slate-600">No BUY signals active</span>
+        ) : (
+          <div className="flex items-center gap-2 flex-wrap">
+            {weightedAllocations.map(cat => {
+              const sigColor = "border-green-700/60 bg-emerald-900/30";
+              return (
+                <Link
+                  key={cat.id}
+                  href={`/sectors/${cat.id}`}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded border ${sigColor} hover:border-emerald-500/60 transition-colors group`}
+                  title={`${cat.name} — Conviction ${cat.convictionScore}/100 · Suggested allocation: ~${cat.allocationPct}%`}
+                >
+                  <span className="font-mono font-bold text-emerald-300 group-hover:text-emerald-200 text-[11px]">
+                    {cat.etfTicker}
+                  </span>
+                  <AllocationPill pct={cat.allocationPct} />
+                  <AccelBadge trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} />
+                  {cat.convictionScore > 0 && <ConvictionBadge score={cat.convictionScore} />}
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 min-w-0">
@@ -134,21 +135,20 @@ export default function AllocationBar({ categories }: Props) {
         <div className="flex items-center gap-2 flex-wrap">
           {underweight.map(cat => {
             const pct = Math.round((cat.compositeScore ?? 0) * 100);
-            const c = conviction(cat);
+            const sig = getSignal(cat);
+            const isReduce = sig === "REDUCE";
             return (
               <Link
                 key={cat.id}
                 href={`/sectors/${cat.id}`}
-                className="flex items-center gap-1.5 px-2 py-1 rounded bg-red-900/20 border border-red-800/30 hover:border-red-600/50 transition-colors group"
-                title={`${cat.name} — Score ${pct}/100 · ${c}/4 signals aligned`}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded border transition-colors group ${isReduce ? "bg-red-900/25 border-red-700/50 hover:border-red-500/60" : "bg-red-900/15 border-red-800/30 hover:border-red-600/50"}`}
+                title={`${cat.name} — Score ${pct}/100${isReduce ? " · REDUCE signal" : " · Lowest-scoring sector"}`}
               >
                 <span className="font-mono font-bold text-red-400 group-hover:text-red-300 text-[11px]">
                   {cat.etfTicker}
                 </span>
                 <span className="text-[9px] text-red-700 tabular-nums">{pct}</span>
-                <span className="text-red-500">
-                  <ConvictionDots count={c} />
-                </span>
+                {isReduce && <span className="text-[7px] text-red-500 uppercase font-bold tracking-wider">REDUCE</span>}
               </Link>
             );
           })}
@@ -156,8 +156,8 @@ export default function AllocationBar({ categories }: Props) {
       </div>
 
       <div className="shrink-0 self-end text-[9px] text-slate-700 leading-relaxed text-right">
-        Allocation % = score-weighted<br />
-        ●●●● = score + RRG + trend + regime
+        Allocation % = conviction-weighted<br />
+        BUY signals only · C = conviction score
       </div>
     </div>
   );

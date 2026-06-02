@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CategorySummary, PriceLevelDto, SignalWinRateDto } from "@/lib/api";
 import { deriveTradeSignal, TradeSignal, countBuyConditions, missingBuyConditions } from "@/lib/signals";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
+import Sparkline from "@/components/Sparkline";
 
 type PlaybookEntry = {
   category: CategorySummary;
@@ -226,6 +227,9 @@ function PlaybookRow({ entry, scoreHistory }: { entry: PlaybookEntry; scoreHisto
       </div>
 
       <div className="shrink-0 flex flex-col items-end gap-0.5">
+        {history && history.length >= 5 && (
+          <Sparkline values={history.slice(-20)} width={44} height={14} />
+        )}
         <span
           className="text-[9px] font-mono text-slate-600 tabular-nums"
           title="Conviction score: composite of signal quality, macro alignment, percentile, momentum, and RS acceleration"
@@ -285,11 +289,29 @@ export default function DailyPlaybookPanel({
 
   if (entries.length === 0) return null;
 
-  // Sort: HIGH first, then MEDIUM, then WATCH; within tier by conviction desc
+  // Sort: tier (HIGH→MEDIUM→WATCH), then within tier by:
+  //   1. Momentum alignment (5d trend in signal direction) — accelerating entries rank higher
+  //   2. Conviction score descending
   entries.sort((a, b) => {
     const tierOrder = { HIGH: 0, MEDIUM: 1, WATCH: 2 };
     const tierDiff = tierOrder[a.convictionLabel] - tierOrder[b.convictionLabel];
-    return tierDiff !== 0 ? tierDiff : b.conviction - a.conviction;
+    if (tierDiff !== 0) return tierDiff;
+
+    // Momentum alignment bonus: reward entries where short-term trend aligns with signal
+    const momentumScore = (e: PlaybookEntry): number => {
+      const t5d = e.category.compositeTrend5d ?? 0;
+      const t20d = e.category.compositeTrend20d ?? 0;
+      const accel = t5d - t20d;
+      if (e.signal === "BUY"    && accel >= 0.02) return 2;
+      if (e.signal === "BUY"    && t5d > 0)       return 1;
+      if (e.signal === "REDUCE" && accel <= -0.02) return 2;
+      if (e.signal === "REDUCE" && t5d < 0)        return 1;
+      return 0;
+    };
+
+    const mDiff = momentumScore(b) - momentumScore(a);
+    if (mDiff !== 0) return mDiff;
+    return b.conviction - a.conviction;
   });
 
   const topEntries = entries.slice(0, 5);

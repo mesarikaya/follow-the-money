@@ -9,6 +9,7 @@ type Mover = {
   trendPts: number;
   scorePct: number;
   signal: string | null;
+  conviction: number | null;
 };
 
 function MoverRow({ mover, direction }: { mover: Mover; direction: "up" | "down" }) {
@@ -22,6 +23,9 @@ function MoverRow({ mover, direction }: { mover: Mover; direction: "up" | "down"
     REDUCE: "text-red-400",
   };
   const hasDrilldown = SECTOR_DRILLDOWN_IDS.has(mover.id);
+  const convictionColor = mover.conviction != null
+    ? mover.conviction >= 75 ? "text-emerald-400" : mover.conviction >= 55 ? "text-amber-400" : "text-slate-600"
+    : null;
 
   return (
     <div className="flex items-center gap-2 py-1">
@@ -37,6 +41,9 @@ function MoverRow({ mover, direction }: { mover: Mover; direction: "up" | "down"
         ) : mover.etfTicker}
       </span>
       <span className="text-[10px] text-slate-400 truncate flex-1">{mover.name}</span>
+      {mover.conviction != null && mover.conviction >= 55 && convictionColor && (
+        <span className={`text-[8px] font-mono shrink-0 ${convictionColor}`} title={`Conviction score ${mover.conviction}/100`}>C{mover.conviction}</span>
+      )}
       <span className={`text-[9px] shrink-0 ${signalColors[mover.signal ?? "HOLD"] ?? "text-slate-500"}`}>
         {mover.scorePct}
       </span>
@@ -54,6 +61,7 @@ export default function ScoreMoversPanel({ categories }: { categories: CategoryS
       trendPts: Math.round((c.compositeTrend5d ?? 0) * 100),
       scorePct: Math.round((c.compositeScore ?? 0) * 100),
       signal: c.tradeSignal,
+      conviction: c.convictionScore ?? null,
     }))
     .filter(m => Math.abs(m.trendPts) >= 2);
 

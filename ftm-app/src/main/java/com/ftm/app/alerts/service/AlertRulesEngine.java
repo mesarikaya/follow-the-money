@@ -65,6 +65,9 @@ public class AlertRulesEngine {
     private static final String RULE_HIGH_CONVICTION_CLUSTER = "high_conviction_cluster";
     private static final int CLUSTER_MIN_SIZE = 3;
     private static final int CLUSTER_RESOLVE_SIZE = 2;
+    private static final String RULE_SIGNAL_DETERIORATION = "signal_deterioration";
+    private static final BigDecimal DETERIORATION_TREND_THRESHOLD = new BigDecimal("-0.05");
+    private static final BigDecimal DETERIORATION_RECOVERY_THRESHOLD = new BigDecimal("-0.02");
     private static final BigDecimal APPROACHING_BUY_LOWER = new BigDecimal("0.55");
     private static final BigDecimal APPROACHING_REDUCE_UPPER = new BigDecimal("0.45");
     private static final BigDecimal PERSISTENCE_RECOVERY_THRESHOLD = new BigDecimal("8");
@@ -114,6 +117,7 @@ public class AlertRulesEngine {
         alertsCreated += evaluateApproachingReduceSignal(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateHighConvictionBuy(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateHighConvictionCluster(signalDate, topLevelCategoryIds);
+        alertsCreated += evaluateSignalDeterioration(signalDate, topLevelCategoryIds);
 
         log.info(
                 "Alert rule evaluation complete: {} created, {} resolved for date={}",
@@ -129,6 +133,8 @@ public class AlertRulesEngine {
                 signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, signalDate);
         Map<String, BigDecimal> currentPersistence5d =
                 signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_5D, signalDate);
+        Map<String, BigDecimal> currentTrend5d =
+                signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, signalDate);
 
         int resolved = 0;
         for (String categoryId : topLevelCategoryIds) {
@@ -197,6 +203,17 @@ public class AlertRulesEngine {
                     resolved +=
                             alertRepository.resolveAlertsByRuleAndCategory(
                                     RULE_BREADTH_VELOCITY_DECEL, categoryId);
+                }
+            }
+
+            // Deterioration alert: resolve when score exits BUY territory or trend recovers
+            BigDecimal trend5d = currentTrend5d.get(categoryId);
+            if (composite != null && trend5d != null) {
+                boolean exitedBuyTerritory = composite.compareTo(BUY_SCORE_THRESHOLD) < 0;
+                boolean trendRecovered = trend5d.compareTo(DETERIORATION_RECOVERY_THRESHOLD) >= 0;
+                if (exitedBuyTerritory || trendRecovered) {
+                    resolved += alertRepository.resolveAlertsByRuleAndCategory(
+                            RULE_SIGNAL_DETERIORATION, categoryId);
                 }
             }
         }
@@ -1020,6 +1037,57 @@ public class AlertRulesEngine {
             log.info("high_conviction_cluster: resolved, clusterSize dropped to {}", clusterSize);
         }
         return 0;
+    }
+
+    private int evaluateSignalDeterioration(LocalDate signalDate, Set<String> topLevelCategoryIds) {
+        Optional<AlertRule> rule = alertRulesRepository.findById(RULE_SIGNAL_DETERIORATION);
+        if (rule.isEmpty() || !rule.get().enabled()) return 0;
+
+        Severity severity = rule.get().severity();
+
+        Map<String, BigDecimal> composite =
+                signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
+        Map<String, BigDecimal> trend5d =
+                signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, signalDate);
+
+        int count = 0;
+        for (String categoryId : topLevelCategoryIds) {
+            BigDecimal score = composite.get(categoryId);
+            BigDecimal trend = trend5d.get(categoryId);
+            if (score == null || trend == null) continue;
+
+            boolean inBuyTerritory = score.compareTo(BUY_SCORE_THRESHOLD) >= 0;
+            boolean deteriorating = trend.compareTo(DETERIORATION_TREND_THRESHOLD) < 0;
+            if (!inBuyTerritory || !deteriorating) continue;
+            if (alertRepository.existsActiveAlert(RULE_SIGNAL_DETERIORATION, categoryId)) continue;
+
+            CategoryId catId;
+            try {
+                catId = CategoryId.valueOf(categoryId);
+            } catch (IllegalArgumentException e) {
+                continue;
+            }
+
+            int scorePct = score.multiply(BigDecimal.valueOf(100)).intValue();
+            int trendPts = trend.multiply(BigDecimal.valueOf(100)).intValue();
+            alertRepository.insert(
+                    new Alert(
+                            OffsetDateTime.now(),
+                            catId,
+                            RULE_SIGNAL_DETERIORATION,
+                            severity,
+                            String.format(
+                                    "%s BUY momentum deteriorating: score=%d still in BUY territory but 5d trend=%dpts — monitor for signal exit",
+                                    categoryId, scorePct, trendPts),
+                            String.format(
+                                    "{\"score\":%d,\"trend5d\":%.4f,\"signalDate\":\"%s\"}",
+                                    scorePct, trend.doubleValue(), signalDate),
+                            AlertStatus.ACTIVE));
+            count++;
+            log.info("signal_deterioration: category={} score={} trend5d={}pts",
+                    categoryId, scorePct, trendPts);
+        }
+        return count;
     }
 
     private String resolveRegimeName(int ordinal) {

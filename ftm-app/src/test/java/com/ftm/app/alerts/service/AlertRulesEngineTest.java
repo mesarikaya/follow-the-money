@@ -73,6 +73,9 @@ class AlertRulesEngineTest {
     lenient()
         .when(signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_5D, DATE))
         .thenReturn(Map.of());
+    lenient()
+        .when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of());
   }
 
   private AlertRule enabled(String ruleId, Severity severity) {
@@ -1110,6 +1113,87 @@ class AlertRulesEngineTest {
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
     verify(alertRepository).resolveAlertsByRuleAndCategory("high_conviction_cluster", null);
+    verify(alertRepository, never()).insert(any());
+  }
+
+  // ===== Signal Deterioration Alert Tests =====
+
+  private void stubAllRulesDisabledExceptSignalDeterioration() {
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    stubPersistenceLowDisabled();
+    stubBreadthVelocityDisabled();
+    stubTradeSignalRulesDisabled();
+    when(alertRulesRepository.findById("high_conviction_buy"))
+        .thenReturn(Optional.of(disabled("high_conviction_buy")));
+    when(alertRulesRepository.findById("high_conviction_cluster"))
+        .thenReturn(Optional.of(disabled("high_conviction_cluster")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+  }
+
+  @Test
+  @DisplayName("signal_deterioration: inserts WARNING when BUY-territory score has sharp 5d decline")
+  void shouldCreateSignalDeteriorationAlertWhenBuyScoreWithNegativeTrend() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptSignalDeterioration();
+
+    when(alertRulesRepository.findById("signal_deterioration"))
+        .thenReturn(Optional.of(enabled("signal_deterioration", Severity.WARNING)));
+    // TECH: composite=0.70 (≥0.65, in BUY territory), trend5d=-0.07 (< -0.05 threshold)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.70")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.07")));
+    when(alertRepository.existsActiveAlert("signal_deterioration", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("signal_deterioration");
+    assertThat(inserted.categoryId()).isEqualTo(CategoryId.TECH);
+    assertThat(inserted.severity()).isEqualTo(Severity.WARNING);
+    assertThat(inserted.status()).isEqualTo(AlertStatus.ACTIVE);
+    assertThat(inserted.message()).contains("TECH").containsIgnoringCase("deteriorat");
+  }
+
+  @Test
+  @DisplayName("signal_deterioration: no alert when score below BUY threshold (0.65)")
+  void shouldNotCreateSignalDeteriorationAlertWhenScoreBelowBuyThreshold() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptSignalDeterioration();
+
+    when(alertRulesRepository.findById("signal_deterioration"))
+        .thenReturn(Optional.of(enabled("signal_deterioration", Severity.WARNING)));
+    // TECH: composite=0.60 (below 0.65 BUY threshold), trend5d=-0.08 (would qualify if in BUY territory)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.60")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.08")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("signal_deterioration: no alert when 5d trend above deterioration threshold (-0.05)")
+  void shouldNotCreateSignalDeteriorationAlertWhenTrendAboveThreshold() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptSignalDeterioration();
+
+    when(alertRulesRepository.findById("signal_deterioration"))
+        .thenReturn(Optional.of(enabled("signal_deterioration", Severity.WARNING)));
+    // TECH: composite=0.72 (in BUY territory), trend5d=-0.03 (above -0.05 threshold — only mild decline)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.72")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.03")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
     verify(alertRepository, never()).insert(any());
   }
 }

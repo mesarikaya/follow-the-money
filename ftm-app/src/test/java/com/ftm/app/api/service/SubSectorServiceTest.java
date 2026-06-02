@@ -2,6 +2,7 @@ package com.ftm.app.api.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.instancio.Select.field;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
 
@@ -193,5 +194,50 @@ class SubSectorServiceTest {
     assertThat(result.get(0).persistence5d()).isNull();
     assertThat(result.get(0).persistence20d()).isNull();
     assertThat(result.get(0).macroFit()).isNull();
+  }
+
+  @Test
+  @DisplayName("getSubSectors computes convictionScore ≥75 when all key signals are strong BUY")
+  void shouldComputeConvictionScoreForSubSector() {
+    Category semi = subCategory(CategoryId.SEMI, "TECH");
+    when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(List.of(semi));
+    when(signalRepository.findLatestByTypes(anyList()))
+        .thenReturn(
+            Map.ofEntries(
+                Map.entry(SignalType.RS_20, Map.of()),
+                Map.entry(SignalType.RS_60, Map.of("SEMI", new BigDecimal("1.15"))),
+                Map.entry(SignalType.RS_120, Map.of("SEMI", new BigDecimal("1.08"))),
+                Map.entry(SignalType.MOM, Map.of()),
+                Map.entry(SignalType.RRG_QUADRANT, Map.of("SEMI", new BigDecimal("4"))),
+                Map.entry(SignalType.COMPOSITE, Map.of("SEMI", new BigDecimal("0.82"))),
+                Map.entry(SignalType.COMPOSITE_TREND_5D, Map.of("SEMI", new BigDecimal("0.03"))),
+                Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of("SEMI", new BigDecimal("0.05"))),
+                Map.entry(SignalType.PERSISTENCE_5D, Map.of()),
+                Map.entry(SignalType.PERSISTENCE_20D, Map.of()),
+                Map.entry(SignalType.MACRO_FIT, Map.of("SEMI", new BigDecimal("0.80")))));
+    when(signalRepository.findScorePercentile252d())
+        .thenReturn(Map.of("SEMI", new BigDecimal("0.90")));
+    when(signalRepository.findSignalDaysActive(any(BigDecimal.class))).thenReturn(Map.of());
+
+    List<SubSectorSummaryDto> result = subSectorService.getSubSectors("TECH");
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).convictionScore()).isNotNull().isGreaterThanOrEqualTo(75);
+  }
+
+  @Test
+  @DisplayName("getSubSectors maps signalDaysActive from repository response")
+  void shouldMapSignalDaysActiveFromRepository() {
+    Category semi = subCategory(CategoryId.SEMI, "TECH");
+    when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(List.of(semi));
+    when(signalRepository.findLatestByTypes(anyList())).thenReturn(noSignals());
+    when(signalRepository.findSignalDaysActive(any(BigDecimal.class)))
+        .thenReturn(Map.of("SEMI", 12));
+    when(signalRepository.findScorePercentile252d()).thenReturn(Map.of());
+
+    List<SubSectorSummaryDto> result = subSectorService.getSubSectors("TECH");
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).signalDaysActive()).isEqualTo(12);
   }
 }

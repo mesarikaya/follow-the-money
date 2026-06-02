@@ -3,8 +3,6 @@ package com.ftm.app.signals.service;
 import static com.ftm.app.jooq.Tables.BENCHMARK_PRICES;
 import static com.ftm.app.jooq.Tables.RAW_PRICES;
 
-import java.util.Arrays;
-
 import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.SignalType;
@@ -14,6 +12,7 @@ import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.Arrays;
 import java.util.stream.Collectors;
 import org.jooq.DSLContext;
 import org.slf4j.Logger;
@@ -134,7 +133,8 @@ public class SignalComputationService {
         String categoryId = category.id().name();
         List<DatePrice> categoryDatePrices =
             extractWindowRows(categoryPricesByCategory.get(categoryId), windowStart, signalDate);
-        List<BigDecimal> categoryPrices = categoryDatePrices.stream().map(DatePrice::price).toList();
+        List<BigDecimal> categoryPrices =
+            categoryDatePrices.stream().map(DatePrice::price).toList();
         List<BigDecimal> benchmarkPrices =
             extractPricesInWindow(
                 benchmarkPricesByTicker.get(category.benchmarkTicker()), windowStart, signalDate);
@@ -279,7 +279,8 @@ public class SignalComputationService {
 
   private Map<String, List<DatePrice>> loadAllCategoryPricesWithDates() {
     return dsl
-        .select(RAW_PRICES.CATEGORY_ID, RAW_PRICES.TRADE_DATE, RAW_PRICES.ADJ_CLOSE, RAW_PRICES.VOLUME)
+        .select(
+            RAW_PRICES.CATEGORY_ID, RAW_PRICES.TRADE_DATE, RAW_PRICES.ADJ_CLOSE, RAW_PRICES.VOLUME)
         .from(RAW_PRICES)
         .orderBy(RAW_PRICES.CATEGORY_ID, RAW_PRICES.TRADE_DATE.asc())
         .fetch()
@@ -288,7 +289,11 @@ public class SignalComputationService {
             Collectors.groupingBy(
                 r -> r.get(RAW_PRICES.CATEGORY_ID),
                 Collectors.mapping(
-                    r -> new DatePrice(r.get(RAW_PRICES.TRADE_DATE), r.get(RAW_PRICES.ADJ_CLOSE), r.get(RAW_PRICES.VOLUME)),
+                    r ->
+                        new DatePrice(
+                            r.get(RAW_PRICES.TRADE_DATE),
+                            r.get(RAW_PRICES.ADJ_CLOSE),
+                            r.get(RAW_PRICES.VOLUME)),
                     Collectors.toList())));
   }
 
@@ -303,7 +308,11 @@ public class SignalComputationService {
             Collectors.groupingBy(
                 r -> r.get(BENCHMARK_PRICES.TICKER),
                 Collectors.mapping(
-                    r -> new DatePrice(r.get(BENCHMARK_PRICES.TRADE_DATE), r.get(BENCHMARK_PRICES.ADJ_CLOSE), null),
+                    r ->
+                        new DatePrice(
+                            r.get(BENCHMARK_PRICES.TRADE_DATE),
+                            r.get(BENCHMARK_PRICES.ADJ_CLOSE),
+                            null),
                     Collectors.toList())));
   }
 
@@ -325,10 +334,11 @@ public class SignalComputationService {
   private BigDecimal computeDollarVolumeZScore(List<DatePrice> window, int period) {
     if (window.size() < period) return null;
     List<DatePrice> recent = window.subList(window.size() - period, window.size());
-    double[] dollarVols = recent.stream()
-        .filter(dp -> dp.price() != null && dp.volume() != null && dp.volume() > 0)
-        .mapToDouble(dp -> dp.price().doubleValue() * dp.volume())
-        .toArray();
+    double[] dollarVols =
+        recent.stream()
+            .filter(dp -> dp.price() != null && dp.volume() != null && dp.volume() > 0)
+            .mapToDouble(dp -> dp.price().doubleValue() * dp.volume())
+            .toArray();
     if (dollarVols.length < period) return null;
     double mean = Arrays.stream(dollarVols).average().orElse(0);
     double variance = Arrays.stream(dollarVols).map(v -> Math.pow(v - mean, 2)).average().orElse(0);

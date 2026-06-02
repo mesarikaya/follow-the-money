@@ -16,8 +16,8 @@ import org.springframework.stereotype.Service;
  *
  * <p>RS_60 captures medium-term RS; RS_120 provides long-term confirmation; PERSISTENCE_20D
  * measures breadth consistency — categories with sustained outperformance across days receive
- * higher composite scores. FLOW_20D is a 20-day z-score of dollar volume (adj_close × volume)
- * from raw_prices, used as a money-rotation proxy.
+ * higher composite scores. FLOW_20D is a 20-day z-score of dollar volume (adj_close × volume) from
+ * raw_prices, used as a money-rotation proxy.
  *
  * <p>norm() = min-max normalization across all categories on a given date.
  * relativeRotationGraphScore: Leading=1.0, Improving=0.7, Weakening=0.3, Lagging=0.0. Null

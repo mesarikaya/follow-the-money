@@ -161,16 +161,26 @@ public class CategoryService {
 
   public List<PriceLevelDto> getPriceLevels() {
     return categoryRepository.findPriceLevels().stream()
-        .map(r -> new PriceLevelDto(
-            r.categoryId(), r.currentPrice(), r.high252d(), r.low252d(),
-            r.drawdownFromHigh(), r.positionInRange(), r.daysOfData()))
+        .map(
+            r ->
+                new PriceLevelDto(
+                    r.categoryId(),
+                    r.currentPrice(),
+                    r.high252d(),
+                    r.low252d(),
+                    r.drawdownFromHigh(),
+                    r.positionInRange(),
+                    r.daysOfData()))
         .toList();
   }
 
   public List<SignalWinRateDto> getBuySignalWinRates(int lookbackDays) {
     int clamped = Math.max(90, Math.min(lookbackDays, 730));
     return signalRepository.findBuySignalWinRates(clamped).stream()
-        .map(r -> new SignalWinRateDto(r.categoryId(), r.signalCount(), r.winRate(), r.avgReturn30d()))
+        .map(
+            r ->
+                new SignalWinRateDto(
+                    r.categoryId(), r.signalCount(), r.winRate(), r.avgReturn30d()))
         .toList();
   }
 
@@ -183,49 +193,60 @@ public class CategoryService {
             .collect(Collectors.toMap(c -> c.id().name(), c -> c));
 
     Map<String, BigDecimal> scorePercentile252d = signalRepository.findScorePercentile252d();
-    Map<String, Integer> signalDaysActive = signalRepository.findSignalDaysActive(new BigDecimal("0.50"));
-    Map<String, BigDecimal> macroFitByCategory = signalRepository
-        .findLatestByTypes(List.of(SignalType.MACRO_FIT))
-        .getOrDefault(SignalType.MACRO_FIT, Collections.emptyMap());
+    Map<String, Integer> signalDaysActive =
+        signalRepository.findSignalDaysActive(new BigDecimal("0.50"));
+    Map<String, BigDecimal> macroFitByCategory =
+        signalRepository
+            .findLatestByTypes(List.of(SignalType.MACRO_FIT))
+            .getOrDefault(SignalType.MACRO_FIT, Collections.emptyMap());
 
     return signalRepository.findSignalSnapshotPairs(clamped).stream()
-        .map(pair -> {
-          String currentRrg = pair.currentRrg() != null ? String.valueOf(pair.currentRrg().intValue()) : null;
-          String prevRrg    = pair.previousRrg() != null ? String.valueOf(pair.previousRrg().intValue()) : null;
-          String currentSignal = TradeSignalDeriver.derive(pair.currentScore(), currentRrg, pair.currentTrend());
-          String previousSignal = TradeSignalDeriver.derive(pair.previousScore(), prevRrg, pair.previousTrend());
-          if (Objects.equals(currentSignal, previousSignal)) return null;
-          Category cat = categoriesById.get(pair.categoryId());
-          String categoryName = cat != null ? cat.name() : pair.categoryId();
-          String etfTicker = cat != null ? cat.etfTicker() : "";
-          int daysAgo = pair.comparisonDate() != null
-              ? (int) ChronoUnit.DAYS.between(pair.comparisonDate(), LocalDate.now())
-              : clamped;
-          BigDecimal pct = scorePercentile252d.get(pair.categoryId());
-          BigDecimal fit = macroFitByCategory.get(pair.categoryId());
-          Integer daysActive = signalDaysActive.get(pair.categoryId());
-          return new SignalTransitionDto(
-              pair.categoryId(), categoryName, etfTicker,
-              previousSignal, currentSignal,
-              pair.currentScore().doubleValue(),
-              pair.comparisonDate(), daysAgo,
-              pct != null ? pct.doubleValue() : null,
-              fit != null ? fit.doubleValue() : null,
-              daysActive);
-        })
+        .map(
+            pair -> {
+              String currentRrg =
+                  pair.currentRrg() != null ? String.valueOf(pair.currentRrg().intValue()) : null;
+              String prevRrg =
+                  pair.previousRrg() != null ? String.valueOf(pair.previousRrg().intValue()) : null;
+              String currentSignal =
+                  TradeSignalDeriver.derive(pair.currentScore(), currentRrg, pair.currentTrend());
+              String previousSignal =
+                  TradeSignalDeriver.derive(pair.previousScore(), prevRrg, pair.previousTrend());
+              if (Objects.equals(currentSignal, previousSignal)) return null;
+              Category cat = categoriesById.get(pair.categoryId());
+              String categoryName = cat != null ? cat.name() : pair.categoryId();
+              String etfTicker = cat != null ? cat.etfTicker() : "";
+              int daysAgo =
+                  pair.comparisonDate() != null
+                      ? (int) ChronoUnit.DAYS.between(pair.comparisonDate(), LocalDate.now())
+                      : clamped;
+              BigDecimal pct = scorePercentile252d.get(pair.categoryId());
+              BigDecimal fit = macroFitByCategory.get(pair.categoryId());
+              Integer daysActive = signalDaysActive.get(pair.categoryId());
+              return new SignalTransitionDto(
+                  pair.categoryId(),
+                  categoryName,
+                  etfTicker,
+                  previousSignal,
+                  currentSignal,
+                  pair.currentScore().doubleValue(),
+                  pair.comparisonDate(),
+                  daysAgo,
+                  pct != null ? pct.doubleValue() : null,
+                  fit != null ? fit.doubleValue() : null,
+                  daysActive);
+            })
         .filter(Objects::nonNull)
-        .sorted(Comparator.comparing(
-            t -> signalPriority(t.currentSignal()),
-            Comparator.naturalOrder()))
+        .sorted(
+            Comparator.comparing(t -> signalPriority(t.currentSignal()), Comparator.naturalOrder()))
         .toList();
   }
 
   private int signalPriority(String signal) {
     return switch (signal == null ? "" : signal) {
-      case "BUY"    -> 0;
-      case "WATCH"  -> 1;
+      case "BUY" -> 0;
+      case "WATCH" -> 1;
       case "REDUCE" -> 2;
-      default       -> 3;
+      default -> 3;
     };
   }
 

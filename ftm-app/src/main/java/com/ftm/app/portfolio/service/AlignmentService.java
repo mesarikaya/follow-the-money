@@ -82,10 +82,8 @@ public class AlignmentService {
       if (score == null || score.compareTo(BigDecimal.ZERO) <= 0) continue;
       String categoryId = entry.getKey();
       BigDecimal vol = realizedVol20dByCategoryId.get(categoryId);
-      BigDecimal effectiveVol =
-          (vol != null && vol.compareTo(VOL_FLOOR) > 0) ? vol : VOL_DEFAULT;
-      adjustedWeights.put(
-          categoryId, score.divide(effectiveVol, 6, RoundingMode.HALF_UP));
+      BigDecimal effectiveVol = (vol != null && vol.compareTo(VOL_FLOOR) > 0) ? vol : VOL_DEFAULT;
+      adjustedWeights.put(categoryId, score.divide(effectiveVol, 6, RoundingMode.HALF_UP));
     }
 
     if (adjustedWeights.isEmpty()) return Map.of();
@@ -97,7 +95,8 @@ public class AlignmentService {
     for (Map.Entry<String, BigDecimal> entry : adjustedWeights.entrySet()) {
       result.put(
           entry.getKey(),
-          entry.getValue()
+          entry
+              .getValue()
               .multiply(new BigDecimal("100"))
               .divide(totalWeight, 2, RoundingMode.HALF_UP));
     }

@@ -215,7 +215,8 @@ public class SignalRepository {
   public record MacroRegimeHistoryRow(LocalDate date, BigDecimal regimeOrdinal) {}
 
   public Map<String, BigDecimal> findRealizedVolatility20d() {
-    return dsl.resultQuery("""
+    return dsl.resultQuery(
+            """
         WITH daily_returns AS (
           SELECT category_id,
                  trade_date,
@@ -232,11 +233,14 @@ public class SignalRepository {
         GROUP BY category_id
         HAVING COUNT(*) >= 15
         """)
-        .fetchMap(r -> r.get("category_id", String.class), r -> r.get("annualized_vol", BigDecimal.class));
+        .fetchMap(
+            r -> r.get("category_id", String.class),
+            r -> r.get("annualized_vol", BigDecimal.class));
   }
 
   public Map<String, Integer> findSignalDaysActive(BigDecimal threshold) {
-    return dsl.resultQuery("""
+    return dsl.resultQuery(
+            """
         WITH ranked AS (
           SELECT category_id,
                  SUM(CASE WHEN value < {0} THEN 1 ELSE 0 END) OVER (
@@ -252,12 +256,15 @@ public class SignalRepository {
         FROM ranked
         WHERE break_count = 0
         GROUP BY category_id
-        """, threshold)
-        .fetchMap(r -> r.get("category_id", String.class), r -> r.get("days_active", Integer.class));
+        """,
+            threshold)
+        .fetchMap(
+            r -> r.get("category_id", String.class), r -> r.get("days_active", Integer.class));
   }
 
   public List<BuySignalWinRateRow> findBuySignalWinRates(int lookbackDays) {
-    return dsl.resultQuery("""
+    return dsl.resultQuery(
+            """
         WITH daily_signals AS (
           SELECT category_id, signal_date, value,
                  LAG(value) OVER (PARTITION BY category_id ORDER BY signal_date) AS prev_value
@@ -294,13 +301,16 @@ public class SignalRepository {
         GROUP BY category_id
         HAVING COUNT(*) >= 2
         ORDER BY win_rate DESC
-        """.replace("{0}", String.valueOf(lookbackDays)))
+        """
+                .replace("{0}", String.valueOf(lookbackDays)))
         .fetch()
-        .map(r -> new BuySignalWinRateRow(
-            r.get("category_id", String.class),
-            r.get("signal_count", Integer.class),
-            r.get("win_rate", BigDecimal.class),
-            r.get("avg_return_30d", BigDecimal.class)));
+        .map(
+            r ->
+                new BuySignalWinRateRow(
+                    r.get("category_id", String.class),
+                    r.get("signal_count", Integer.class),
+                    r.get("win_rate", BigDecimal.class),
+                    r.get("avg_return_30d", BigDecimal.class)));
   }
 
   public record BuySignalWinRateRow(
@@ -309,12 +319,13 @@ public class SignalRepository {
   /**
    * Returns two signal snapshots (current + N-days-ago) for computing signal transitions.
    *
-   * <p>Each row contains COMPOSITE, RRG_QUADRANT, and COMPOSITE_TREND_20D values for a category
-   * at both the current date and the latest available date that is at least {@code lookbackDays}
+   * <p>Each row contains COMPOSITE, RRG_QUADRANT, and COMPOSITE_TREND_20D values for a category at
+   * both the current date and the latest available date that is at least {@code lookbackDays}
    * calendar days before the current date.
    */
   public List<SignalSnapshotPair> findSignalSnapshotPairs(int lookbackDays) {
-    return dsl.resultQuery("""
+    return dsl.resultQuery(
+            """
         WITH
         latest_date AS (
           SELECT MAX(signal_date) AS dt FROM signals WHERE signal_type = 'COMPOSITE'
@@ -358,17 +369,20 @@ public class SignalRepository {
         JOIN past_signals p ON c.category_id = p.category_id
         CROSS JOIN past_date
         WHERE c.composite_score IS NOT NULL AND p.composite_score IS NOT NULL
-        """.replace("{days}", String.valueOf(lookbackDays)))
+        """
+                .replace("{days}", String.valueOf(lookbackDays)))
         .fetch()
-        .map(r -> new SignalSnapshotPair(
-            r.get("category_id",     String.class),
-            r.get("cur_score",       BigDecimal.class),
-            r.get("cur_rrg",         BigDecimal.class),
-            r.get("cur_trend",       BigDecimal.class),
-            r.get("prev_score",      BigDecimal.class),
-            r.get("prev_rrg",        BigDecimal.class),
-            r.get("prev_trend",      BigDecimal.class),
-            r.get("comparison_date", java.time.LocalDate.class)));
+        .map(
+            r ->
+                new SignalSnapshotPair(
+                    r.get("category_id", String.class),
+                    r.get("cur_score", BigDecimal.class),
+                    r.get("cur_rrg", BigDecimal.class),
+                    r.get("cur_trend", BigDecimal.class),
+                    r.get("prev_score", BigDecimal.class),
+                    r.get("prev_rrg", BigDecimal.class),
+                    r.get("prev_trend", BigDecimal.class),
+                    r.get("comparison_date", java.time.LocalDate.class)));
   }
 
   public record SignalSnapshotPair(
@@ -411,7 +425,8 @@ public class SignalRepository {
   }
 
   public Map<String, BigDecimal> findScorePercentile252d() {
-    return dsl.resultQuery("""
+    return dsl.resultQuery(
+            """
         WITH all_scores AS (
           SELECT category_id,
                  signal_date,
@@ -432,7 +447,6 @@ public class SignalRepository {
         JOIN latest_dates l ON a.category_id = l.category_id AND a.signal_date = l.latest_date
         """)
         .fetchMap(
-            r -> r.get("category_id", String.class),
-            r -> r.get("pct_rank", BigDecimal.class));
+            r -> r.get("category_id", String.class), r -> r.get("pct_rank", BigDecimal.class));
   }
 }

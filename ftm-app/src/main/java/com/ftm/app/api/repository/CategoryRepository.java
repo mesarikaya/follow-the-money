@@ -110,7 +110,8 @@ public class CategoryRepository {
   }
 
   public List<PriceLevelRow> findPriceLevels() {
-    return dsl.resultQuery("""
+    return dsl.resultQuery(
+            """
         WITH categorized AS (
           SELECT category_id, trade_date, adj_close,
                  ROW_NUMBER() OVER (PARTITION BY category_id ORDER BY trade_date DESC) AS rn
@@ -145,14 +146,16 @@ public class CategoryRepository {
         WHERE yr.days_of_data >= 30
         """)
         .fetch()
-        .map(r -> new PriceLevelRow(
-            r.get("category_id", String.class),
-            r.get("current_price", BigDecimal.class),
-            r.get("high_252d", BigDecimal.class),
-            r.get("low_252d", BigDecimal.class),
-            r.get("drawdown_from_high", BigDecimal.class),
-            r.get("position_in_range", BigDecimal.class),
-            r.get("days_of_data", Integer.class)));
+        .map(
+            r ->
+                new PriceLevelRow(
+                    r.get("category_id", String.class),
+                    r.get("current_price", BigDecimal.class),
+                    r.get("high_252d", BigDecimal.class),
+                    r.get("low_252d", BigDecimal.class),
+                    r.get("drawdown_from_high", BigDecimal.class),
+                    r.get("position_in_range", BigDecimal.class),
+                    r.get("days_of_data", Integer.class)));
   }
 
   public record PriceLevelRow(

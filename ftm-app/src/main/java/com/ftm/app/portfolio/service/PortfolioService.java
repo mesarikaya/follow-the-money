@@ -173,23 +173,34 @@ public class PortfolioService {
       BigDecimal delta = optimalPct.subtract(currentPct).setScale(2, RoundingMode.HALF_UP);
       String action = delta.compareTo(BigDecimal.ZERO) >= 0 ? "INCREASE" : "DECREASE";
       String categoryName =
-          categoriesById.containsKey(categoryId) ? categoriesById.get(categoryId).name() : categoryId;
+          categoriesById.containsKey(categoryId)
+              ? categoriesById.get(categoryId).name()
+              : categoryId;
 
       BigDecimal compositeScore = compositeScoreByCategoryId.get(categoryId);
       BigDecimal rrgRaw = rrgQuadrantByCategoryId.get(categoryId);
       String rrgQuadrant = rrgRaw != null ? String.valueOf(rrgRaw.intValue()) : null;
       BigDecimal trend20d = compositeTrend20dByCategoryId.get(categoryId);
       String tradeSignal = TradeSignalDeriver.derive(compositeScore, rrgQuadrant, trend20d);
-      int compositeScorePct = compositeScore != null ? compositeScore.multiply(BigDecimal.valueOf(100)).intValue() : 0;
+      int compositeScorePct =
+          compositeScore != null ? compositeScore.multiply(BigDecimal.valueOf(100)).intValue() : 0;
 
       // Signal is aligned when: INCREASE backed by BUY, or DECREASE backed by REDUCE
       boolean signalAligned =
           ("INCREASE".equals(action) && "BUY".equals(tradeSignal))
-          || ("DECREASE".equals(action) && "REDUCE".equals(tradeSignal));
+              || ("DECREASE".equals(action) && "REDUCE".equals(tradeSignal));
 
-      suggestions.add(new RebalanceSuggestionDto(
-          categoryId, categoryName, action, currentPct, optimalPct, delta,
-          tradeSignal, compositeScorePct, signalAligned));
+      suggestions.add(
+          new RebalanceSuggestionDto(
+              categoryId,
+              categoryName,
+              action,
+              currentPct,
+              optimalPct,
+              delta,
+              tradeSignal,
+              compositeScorePct,
+              signalAligned));
     }
 
     // Untracked categories (CASH/BIL, etc.) with current allocation — always suggest reducing
@@ -200,10 +211,20 @@ public class PortfolioService {
       if (currentPct.compareTo(BigDecimal.ZERO) <= 0) continue;
       BigDecimal delta = BigDecimal.ZERO.subtract(currentPct).setScale(2, RoundingMode.HALF_UP);
       String categoryName =
-          categoriesById.containsKey(categoryId) ? categoriesById.get(categoryId).name() : categoryId;
-      suggestions.add(new RebalanceSuggestionDto(
-          categoryId, categoryName, "DECREASE", currentPct, BigDecimal.ZERO, delta,
-          null, null, true));
+          categoriesById.containsKey(categoryId)
+              ? categoriesById.get(categoryId).name()
+              : categoryId;
+      suggestions.add(
+          new RebalanceSuggestionDto(
+              categoryId,
+              categoryName,
+              "DECREASE",
+              currentPct,
+              BigDecimal.ZERO,
+              delta,
+              null,
+              null,
+              true));
     }
 
     return suggestions.stream()

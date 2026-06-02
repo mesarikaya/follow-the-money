@@ -5,8 +5,8 @@ import java.time.LocalDate;
 /**
  * A category whose derived trade signal changed between two dates.
  *
- * <p>Only transitions involving a signal change (e.g. HOLD→BUY, WATCH→REDUCE) are included.
- * Null previous signal means the category had no data on the comparison date.
+ * <p>Only transitions involving a signal change (e.g. HOLD→BUY, WATCH→REDUCE) are included. Null
+ * previous signal means the category had no data on the comparison date.
  */
 public record SignalTransitionDto(
     String categoryId,

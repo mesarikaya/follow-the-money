@@ -22,6 +22,7 @@ import ActionSummaryPanel from "@/components/ActionSummaryPanel";
 import PortfolioGapAlert from "@/components/PortfolioGapAlert";
 import ScoreMoversPanel from "@/components/ScoreMoversPanel";
 import SignalTransitionsPanel from "@/components/SignalTransitionsPanel";
+import DailyPlaybookPanel from "@/components/DailyPlaybookPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -95,6 +96,15 @@ export default async function Home({ searchParams }: Props) {
         {categories.length > 0 && <MarketPulseStrip categories={categories} />}
 
         {categories.length > 0 && <ActionSummaryPanel categories={categories} winRateByCategory={winRateByCategory} priceLevelByCategory={priceLevelByCategory} scoreHistory={scoreHistory} />}
+
+        {categories.length > 0 && (
+          <DailyPlaybookPanel
+            categories={categories}
+            winRateByCategory={winRateByCategory}
+            priceLevelByCategory={priceLevelByCategory}
+            scoreHistory={scoreHistory}
+          />
+        )}
 
         {categories.length > 0 && <PortfolioGapAlert categories={categories} />}
 

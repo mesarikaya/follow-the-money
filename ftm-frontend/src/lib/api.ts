@@ -27,6 +27,7 @@ export type CategorySummary = {
   signalDaysActive: number | null;
   realizedVol20d: number | null;
   scorePercentile252d: number | null;
+  convictionScore: number | null;
 };
 
 export type CategoriesResponse = {

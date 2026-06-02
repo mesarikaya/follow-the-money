@@ -71,6 +71,18 @@ public interface CategoryMapper {
   @Mapping(
       target = "scorePercentile252d",
       expression = "java(scorePercentile252dByCategoryId.get(row.category().id().name()))")
+  @Mapping(
+      target = "convictionScore",
+      expression =
+          "java(TradeSignalDeriver.convictionScore("
+              + "compositeByCategoryId.get(row.category().id().name()), "
+              + "rrgQuadrantByCategoryId.containsKey(row.category().id().name()) ? String.valueOf(rrgQuadrantByCategoryId.get(row.category().id().name()).intValue()) : null, "
+              + "compositeTrend20dByCategoryId.get(row.category().id().name()), "
+              + "macroFitByCategoryId.get(row.category().id().name()), "
+              + "scorePercentile252dByCategoryId.get(row.category().id().name()), "
+              + "compositeTrend5dByCategoryId.get(row.category().id().name()), "
+              + "rs60ByCategoryId.get(row.category().id().name()), "
+              + "rs120ByCategoryId.get(row.category().id().name())))")
   CategorySummaryDto toDto(
       CategoryRepository.CategoryPriceRow row,
       int rank,

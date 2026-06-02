@@ -66,6 +66,7 @@ function buildNarrative(
   // BUY signals with vol-adjusted allocations (consistent with backend optimal allocation)
   if (buySignals.length > 0) {
     const totalWeight = buySignals.reduce((sum, c) => sum + volAdjustedWeight(c.compositeScore ?? 0, c.realizedVol20d ?? null), 0);
+    const highConvictionBuys = buySignals.filter(c => (c.convictionScore ?? 0) >= 75);
     const names = buySignals
       .map(c => {
         const sub = topSubSectors[c.id];
@@ -74,10 +75,15 @@ function buildNarrative(
         const allocPct = totalWeight > 0 ? Math.round((weight / totalWeight) * 100) : 0;
         const allocStr = allocPct > 0 ? ` ~${allocPct}%` : "";
         const ageStr = c.signalDaysActive != null && c.signalDaysActive >= 5 ? ` ${c.signalDaysActive}d` : "";
-        return `${c.etfTicker}${allocStr}${ageStr}${subPart}`;
+        const convPart = c.convictionScore != null && c.convictionScore >= 75 ? ` ★` : "";
+        return `${c.etfTicker}${allocStr}${ageStr}${convPart}${subPart}`;
       })
       .join(", ");
     lines.push(`**Add / Overweight:** ${names} — all three signals aligned. Risk-adjusted weights (score ÷ volatility).`);
+    if (highConvictionBuys.length > 0) {
+      const highConvNames = highConvictionBuys.map(c => `${c.etfTicker} (C${c.convictionScore})`).join(", ");
+      lines.push(`**★ High conviction:** ${highConvNames} — multi-factor score ≥75 combining signal quality, macro fit, and 252-day percentile rank.`);
+    }
 
     // Sustained conviction callout for long-running BUY signals
     const sustained = buySignals.filter(c => c.signalDaysActive != null && c.signalDaysActive >= 10);
@@ -218,29 +224,50 @@ export default function MarketNarrativePanel({ categories, macro, topSubSectors 
           {buySignals.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[9px] text-green-600 font-semibold uppercase tracking-widest w-12 shrink-0">Add</span>
-              {buySignals.map(cat => (
-                SECTOR_DRILLDOWN_IDS.has(cat.id) ? (
+              {buySignals.map(cat => {
+                const conviction = cat.convictionScore ?? null;
+                const convictionColor = conviction != null
+                  ? conviction >= 75 ? "text-emerald-400" : conviction >= 55 ? "text-amber-400" : "text-slate-500"
+                  : null;
+                const chipTitle = `${cat.name} — score ${Math.round((cat.compositeScore ?? 0) * 100)}${conviction != null ? `, conviction ${conviction}/100` : ""}${cat.signalDaysActive ? `, active ${cat.signalDaysActive}d` : ""}`;
+                const inner = (
+                  <>
+                    {cat.etfTicker}
+                    {conviction != null && conviction >= 55 && convictionColor && (
+                      <span className={`text-[8px] font-mono ${convictionColor}`} title="Conviction score">C{conviction}</span>
+                    )}
+                    {cat.signalDaysActive != null && cat.signalDaysActive >= 5 && (
+                      <span className="text-[8px] opacity-50 font-normal">{cat.signalDaysActive}d</span>
+                    )}
+                  </>
+                );
+                return SECTOR_DRILLDOWN_IDS.has(cat.id) ? (
                   <Link
                     key={cat.id}
                     href={`/sectors/${cat.id}`}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-900/30 border border-green-700/50 text-green-300 text-[11px] font-mono font-bold hover:border-green-500/70 transition-colors"
-                    title={`${cat.name} — ${Math.round((cat.compositeScore ?? 0) * 100)} score${cat.signalDaysActive ? `, ${cat.signalDaysActive}d` : ""}`}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-green-300 text-[11px] font-mono font-bold hover:border-green-500/70 transition-colors ${
+                      conviction != null && conviction >= 75
+                        ? "bg-green-900/40 border-emerald-600/60"
+                        : "bg-green-900/30 border-green-700/50"
+                    }`}
+                    title={chipTitle}
                   >
-                    {cat.etfTicker}
-                    {cat.signalDaysActive != null && cat.signalDaysActive >= 5 && (
-                      <span className="text-[8px] opacity-60 font-normal">{cat.signalDaysActive}d</span>
-                    )}
+                    {inner}
                   </Link>
                 ) : (
                   <span
                     key={cat.id}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-900/30 border border-green-700/50 text-green-300 text-[11px] font-mono font-bold"
-                    title={`${cat.name} — ${Math.round((cat.compositeScore ?? 0) * 100)} score`}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-green-300 text-[11px] font-mono font-bold ${
+                      conviction != null && conviction >= 75
+                        ? "bg-green-900/40 border-emerald-600/60"
+                        : "bg-green-900/30 border-green-700/50"
+                    }`}
+                    title={chipTitle}
                   >
-                    {cat.etfTicker}
+                    {inner}
                   </span>
-                )
-              ))}
+                );
+              })}
             </div>
           )}
           {watchSignals.length > 0 && (
@@ -261,15 +288,21 @@ export default function MarketNarrativePanel({ categories, macro, topSubSectors 
           {reduceSignals.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[9px] text-red-600 font-semibold uppercase tracking-widest w-12 shrink-0">Trim</span>
-              {reduceSignals.map(cat => (
-                <span
-                  key={cat.id}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-900/20 border border-red-700/40 text-red-400 text-[11px] font-mono font-bold"
-                  title={`${cat.name} — ${Math.round((cat.compositeScore ?? 0) * 100)} score, weak momentum`}
-                >
-                  {cat.etfTicker}
-                </span>
-              ))}
+              {reduceSignals.map(cat => {
+                const conviction = cat.convictionScore ?? null;
+                return (
+                  <span
+                    key={cat.id}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-900/20 border border-red-700/40 text-red-400 text-[11px] font-mono font-bold"
+                    title={`${cat.name} — ${Math.round((cat.compositeScore ?? 0) * 100)} score, weak momentum${conviction != null ? `, conviction ${conviction}` : ""}`}
+                  >
+                    {cat.etfTicker}
+                    {conviction != null && conviction >= 55 && (
+                      <span className="text-[8px] font-mono text-red-500">C{conviction}</span>
+                    )}
+                  </span>
+                );
+              })}
             </div>
           )}
           {buySignals.some(c => SECTOR_DRILLDOWN_IDS.has(c.id)) && (

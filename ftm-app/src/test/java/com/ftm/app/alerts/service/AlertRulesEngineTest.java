@@ -631,7 +631,8 @@ class AlertRulesEngineTest {
   // ===== Breadth Velocity Alert Tests =====
 
   @Test
-  @DisplayName("breadth_velocity_accel: inserts alert when recent-5d breadth rate exceeds prior-15d by ≥+10pp")
+  @DisplayName(
+      "breadth_velocity_accel: inserts alert when recent-5d breadth rate exceeds prior-15d by ≥+10pp")
   void shouldCreateBreadthVelocityAccelAlertWhenVelocityAboveThreshold() {
     stubTopLevelCategories("TECH");
     stubMacroDisabled();
@@ -691,7 +692,8 @@ class AlertRulesEngineTest {
   }
 
   @Test
-  @DisplayName("breadth_velocity_decel: inserts alert when recent-5d breadth rate falls below prior-15d by ≥10pp")
+  @DisplayName(
+      "breadth_velocity_decel: inserts alert when recent-5d breadth rate falls below prior-15d by ≥10pp")
   void shouldCreateBreadthVelocityDecelAlertWhenVelocityBelowNegativeThreshold() {
     stubTopLevelCategories("FINL");
     stubMacroDisabled();

@@ -90,6 +90,20 @@ export default function SignalTransitionsPanel({ transitions, days = 7 }: { tran
                     return null;
                   })()}
                   <span className={`text-xs font-mono font-semibold ${scoreColor}`}>{score}</span>
+                  {t.convictionScore != null && t.convictionScore > 0 && (
+                    <span
+                      className={`text-[8px] font-mono font-semibold px-1 py-0.5 rounded ${
+                        t.convictionScore >= 75
+                          ? "text-emerald-300 bg-emerald-900/30 border border-emerald-700/40"
+                          : t.convictionScore >= 55
+                          ? "text-amber-400 bg-amber-900/20 border border-amber-700/30"
+                          : "text-slate-500 bg-slate-800 border border-slate-700/40"
+                      }`}
+                      title={`Conviction score ${t.convictionScore}/100: signal quality + macro + 252d percentile. ≥75=high, ≥55=medium`}
+                    >
+                      C{t.convictionScore}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="text-[9px] text-slate-600">

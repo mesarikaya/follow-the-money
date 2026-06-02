@@ -222,6 +222,10 @@ public class CategoryService {
               BigDecimal pct = scorePercentile252d.get(pair.categoryId());
               BigDecimal fit = macroFitByCategory.get(pair.categoryId());
               Integer daysActive = signalDaysActive.get(pair.categoryId());
+              // Simplified conviction (no trend5d/RS accel since those aren't fetched here)
+              int conviction =
+                  TradeSignalDeriver.convictionScore(
+                      pair.currentScore(), currentRrg, pair.currentTrend(), fit, pct, null, null, null);
               return new SignalTransitionDto(
                   pair.categoryId(),
                   categoryName,
@@ -233,7 +237,8 @@ public class CategoryService {
                   daysAgo,
                   pct != null ? pct.doubleValue() : null,
                   fit != null ? fit.doubleValue() : null,
-                  daysActive);
+                  daysActive,
+                  conviction > 0 ? conviction : null);
             })
         .filter(Objects::nonNull)
         .sorted(

@@ -19,4 +19,5 @@ public record SignalTransitionDto(
     int daysAgo,
     Double scorePercentile252d,
     Double macroFit,
-    Integer signalDaysActive) {}
+    Integer signalDaysActive,
+    Integer convictionScore) {}

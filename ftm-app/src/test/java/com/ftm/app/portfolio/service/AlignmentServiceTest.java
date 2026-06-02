@@ -173,7 +173,8 @@ class AlignmentServiceTest {
 
   @Test
   void volatilityAdjustedAllocationUsesDefaultVolWhenMissing() {
-    // XLK: score=0.60, vol=0.20 → weight=3.0; XLF: score=0.60, vol=missing → default 10% → weight=6.0
+    // XLK: score=0.60, vol=0.20 → weight=3.0; XLF: score=0.60, vol=missing → default 10% →
+    // weight=6.0
     // XLF gets more allocation because its "effective" vol is lower than actual XLK vol
     Map<String, BigDecimal> scores =
         Map.of("XLK", new BigDecimal("0.60"), "XLF", new BigDecimal("0.60"));

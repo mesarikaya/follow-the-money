@@ -3,6 +3,7 @@ package com.ftm.app.alerts.service;
 import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.alerts.repository.AlertRulesRepository;
 import com.ftm.app.api.repository.CategoryRepository;
+import com.ftm.app.api.service.TradeSignalDeriver;
 import com.ftm.app.domain.Alert;
 import com.ftm.app.domain.AlertRule;
 import com.ftm.app.domain.AlertStatus;
@@ -25,6 +26,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -57,6 +59,9 @@ public class AlertRulesEngine {
     private static final String RULE_TRADE_SIGNAL_REDUCE = "trade_signal_reduce";
     private static final String RULE_SCORE_APPROACHING_BUY = "score_approaching_buy";
     private static final String RULE_SCORE_APPROACHING_REDUCE = "score_approaching_reduce";
+    private static final String RULE_HIGH_CONVICTION_BUY = "high_conviction_buy";
+    private static final int HIGH_CONVICTION_THRESHOLD = 75;
+    private static final int HIGH_CONVICTION_RESOLVE_THRESHOLD = 65;
     private static final BigDecimal APPROACHING_BUY_LOWER = new BigDecimal("0.55");
     private static final BigDecimal APPROACHING_REDUCE_UPPER = new BigDecimal("0.45");
     private static final BigDecimal PERSISTENCE_RECOVERY_THRESHOLD = new BigDecimal("8");
@@ -104,6 +109,7 @@ public class AlertRulesEngine {
         alertsCreated += evaluateTradeSignalTransitions(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateApproachingBuySignal(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateApproachingReduceSignal(signalDate, topLevelCategoryIds);
+        alertsCreated += evaluateHighConvictionBuy(signalDate, topLevelCategoryIds);
 
         log.info(
                 "Alert rule evaluation complete: {} created, {} resolved for date={}",
@@ -852,6 +858,92 @@ public class AlertRulesEngine {
                     categoryId,
                     scorePct,
                     ptsBuffer);
+        }
+        return count;
+    }
+
+    private int evaluateHighConvictionBuy(LocalDate signalDate, Set<String> topLevelCategoryIds) {
+        Optional<AlertRule> rule = alertRulesRepository.findById(RULE_HIGH_CONVICTION_BUY);
+        if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+        Severity severity = rule.map(AlertRule::severity).orElse(Severity.ACTION);
+
+        Map<SignalType, Map<String, BigDecimal>> signals =
+                signalRepository.findLatestByTypes(
+                        List.of(
+                                SignalType.COMPOSITE,
+                                SignalType.RRG_QUADRANT,
+                                SignalType.COMPOSITE_TREND_20D,
+                                SignalType.MACRO_FIT,
+                                SignalType.COMPOSITE_TREND_5D));
+        Map<String, BigDecimal> compositeByCategory =
+                signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap());
+        Map<String, BigDecimal> rrgByCategory =
+                signals.getOrDefault(SignalType.RRG_QUADRANT, Collections.emptyMap());
+        Map<String, BigDecimal> trend20dByCategory =
+                signals.getOrDefault(SignalType.COMPOSITE_TREND_20D, Collections.emptyMap());
+        Map<String, BigDecimal> macroFitByCategory =
+                signals.getOrDefault(SignalType.MACRO_FIT, Collections.emptyMap());
+        Map<String, BigDecimal> trend5dByCategory =
+                signals.getOrDefault(SignalType.COMPOSITE_TREND_5D, Collections.emptyMap());
+        Map<String, BigDecimal> percentile252dByCategory = signalRepository.findScorePercentile252d();
+
+        int count = 0;
+        for (String categoryId : topLevelCategoryIds) {
+            BigDecimal score = compositeByCategory.get(categoryId);
+            if (score == null) continue;
+
+            BigDecimal rrg = rrgByCategory.get(categoryId);
+            BigDecimal trend20d = trend20dByCategory.get(categoryId);
+            BigDecimal macroFit = macroFitByCategory.get(categoryId);
+            BigDecimal percentile = percentile252dByCategory.get(categoryId);
+            BigDecimal trend5d = trend5dByCategory.get(categoryId);
+            String rrgStr = rrg != null ? String.valueOf(rrg.intValue()) : null;
+
+            int conviction =
+                    TradeSignalDeriver.convictionScore(
+                            score, rrgStr, trend20d, macroFit, percentile, trend5d, null, null);
+
+            boolean hasActiveAlert = alertRepository.existsActiveAlert(RULE_HIGH_CONVICTION_BUY, categoryId);
+
+            if (conviction >= HIGH_CONVICTION_THRESHOLD && !hasActiveAlert) {
+                CategoryId catId;
+                try {
+                    catId = CategoryId.valueOf(categoryId);
+                } catch (IllegalArgumentException e) {
+                    log.debug("high_conviction_buy: skipping unknown CategoryId={}", categoryId);
+                    continue;
+                }
+                int scorePct = score.multiply(BigDecimal.valueOf(100)).intValue();
+                int macroPct = macroFit != null ? macroFit.multiply(BigDecimal.valueOf(100)).intValue() : 0;
+                int pctRank = percentile != null ? percentile.multiply(BigDecimal.valueOf(100)).intValue() : 0;
+                String rrgLabel =
+                        rrg != null
+                                ? switch (rrg.intValue()) {
+                                    case 4 -> "Leading";
+                                    case 3 -> "Improving";
+                                    default -> "Q" + rrg.intValue();
+                                }
+                                : "Unknown";
+                alertRepository.insert(
+                        new Alert(
+                                OffsetDateTime.now(),
+                                catId,
+                                RULE_HIGH_CONVICTION_BUY,
+                                severity,
+                                String.format(
+                                        "%s high-conviction BUY — conviction %d/100: score=%d, macro fit=%d%%, 252d rank=P%d, RRG %s",
+                                        categoryId, conviction, scorePct, macroPct, pctRank, rrgLabel),
+                                String.format(
+                                        "{\"conviction\":%d,\"score\":%d,\"macroFitPct\":%d,\"percentile252d\":%d,\"rrgQuadrant\":\"%s\",\"signalDate\":\"%s\"}",
+                                        conviction, scorePct, macroPct, pctRank, rrgLabel, signalDate),
+                                AlertStatus.ACTIVE));
+                count++;
+                log.info(
+                        "high_conviction_buy: category={} conviction={} score={} macroFit={}% P252={}",
+                        categoryId, conviction, scorePct, macroPct, pctRank);
+            } else if (conviction < HIGH_CONVICTION_RESOLVE_THRESHOLD && hasActiveAlert) {
+                alertRepository.resolveAlertsByRuleAndCategory(RULE_HIGH_CONVICTION_BUY, categoryId);
+            }
         }
         return count;
     }

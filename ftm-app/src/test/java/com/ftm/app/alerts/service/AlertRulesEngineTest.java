@@ -140,6 +140,17 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("breadth_velocity_decel")));
   }
 
+  private void stubTradeSignalRulesDisabled() {
+    when(alertRulesRepository.findById("trade_signal_buy"))
+        .thenReturn(Optional.of(disabled("trade_signal_buy")));
+    when(alertRulesRepository.findById("trade_signal_reduce"))
+        .thenReturn(Optional.of(disabled("trade_signal_reduce")));
+    when(alertRulesRepository.findById("score_approaching_buy"))
+        .thenReturn(Optional.of(disabled("score_approaching_buy")));
+    when(alertRulesRepository.findById("score_approaching_reduce"))
+        .thenReturn(Optional.of(disabled("score_approaching_reduce")));
+  }
+
   private AlertRule enabledWithPersistenceDays(String ruleId, Severity severity, int days) {
     return Instancio.of(AlertRule.class)
         .set(field(AlertRule::ruleId), ruleId)
@@ -827,6 +838,147 @@ class AlertRulesEngineTest {
     when(alertRulesRepository.findById("composite_breakdown"))
         .thenReturn(Optional.of(enabled("composite_breakdown", Severity.WARNING)));
     when(alertRepository.existsActiveAlert("composite_breakdown", "MATL")).thenReturn(true);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  // ===== High Conviction BUY Alert Tests =====
+
+  @Test
+  @DisplayName("high_conviction_buy: inserts ACTION alert when conviction score >= 75")
+  void shouldCreateHighConvictionBuyAlertWhenConvictionAboveThreshold() {
+    stubTopLevelCategories("TECH");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    stubPersistenceLowDisabled();
+    stubBreadthVelocityDisabled();
+    stubTradeSignalRulesDisabled();
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+
+    when(alertRulesRepository.findById("high_conviction_buy"))
+        .thenReturn(Optional.of(enabled("high_conviction_buy", Severity.ACTION)));
+
+    // TECH: BUY signal (score=0.82 ≥0.65, rrg=4 Leading, trend20d=0.05 >0)
+    // Conviction: BUY=30 + score≥0.80=20 + macroFit≥0.75=18 + pct≥0.85=15 = 83 ≥ 75
+    when(signalRepository.findLatestByTypes(any()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE, Map.of("TECH", new BigDecimal("0.82")),
+                SignalType.RRG_QUADRANT, Map.of("TECH", new BigDecimal("4")),
+                SignalType.COMPOSITE_TREND_20D, Map.of("TECH", new BigDecimal("0.05")),
+                SignalType.MACRO_FIT, Map.of("TECH", new BigDecimal("0.80")),
+                SignalType.COMPOSITE_TREND_5D, Map.of("TECH", new BigDecimal("0.06"))));
+    when(signalRepository.findScorePercentile252d())
+        .thenReturn(Map.of("TECH", new BigDecimal("0.90")));
+    when(alertRepository.existsActiveAlert("high_conviction_buy", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("high_conviction_buy");
+    assertThat(inserted.categoryId()).isEqualTo(CategoryId.TECH);
+    assertThat(inserted.severity()).isEqualTo(Severity.ACTION);
+    assertThat(inserted.status()).isEqualTo(AlertStatus.ACTIVE);
+    assertThat(inserted.message()).contains("TECH").contains("conviction");
+  }
+
+  @Test
+  @DisplayName("high_conviction_buy: no alert when conviction < 75")
+  void shouldNotCreateHighConvictionBuyAlertWhenConvictionBelowThreshold() {
+    stubTopLevelCategories("TECH");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    stubPersistenceLowDisabled();
+    stubBreadthVelocityDisabled();
+    stubTradeSignalRulesDisabled();
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+
+    when(alertRulesRepository.findById("high_conviction_buy"))
+        .thenReturn(Optional.of(enabled("high_conviction_buy", Severity.ACTION)));
+
+    // Conviction: BUY=30 + score≥0.65=15 + macroFit≥0.35=5 + pct≥0.50=5 = 55 < 75
+    when(signalRepository.findLatestByTypes(any()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE, Map.of("TECH", new BigDecimal("0.68")),
+                SignalType.RRG_QUADRANT, Map.of("TECH", new BigDecimal("3")),
+                SignalType.COMPOSITE_TREND_20D, Map.of("TECH", new BigDecimal("0.02")),
+                SignalType.MACRO_FIT, Map.of("TECH", new BigDecimal("0.45")),
+                SignalType.COMPOSITE_TREND_5D, Map.of("TECH", new BigDecimal("0.03"))));
+    when(signalRepository.findScorePercentile252d())
+        .thenReturn(Map.of("TECH", new BigDecimal("0.60")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("high_conviction_buy: resolves stale alert when conviction drops below 65")
+  void shouldResolveHighConvictionBuyAlertWhenConvictionDropsBelowResolveThreshold() {
+    stubTopLevelCategories("TECH");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    stubPersistenceLowDisabled();
+    stubBreadthVelocityDisabled();
+    stubTradeSignalRulesDisabled();
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+
+    when(alertRulesRepository.findById("high_conviction_buy"))
+        .thenReturn(Optional.of(enabled("high_conviction_buy", Severity.ACTION)));
+
+    // Conviction: BUY=30 + score≥0.65=15 = 45 < 65 (resolve threshold)
+    when(signalRepository.findLatestByTypes(any()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE, Map.of("TECH", new BigDecimal("0.66")),
+                SignalType.RRG_QUADRANT, Map.of("TECH", new BigDecimal("3")),
+                SignalType.COMPOSITE_TREND_20D, Map.of("TECH", new BigDecimal("0.01")),
+                SignalType.MACRO_FIT, Map.of("TECH", new BigDecimal("0.25")),
+                SignalType.COMPOSITE_TREND_5D, Map.of("TECH", new BigDecimal("0.01"))));
+    when(signalRepository.findScorePercentile252d())
+        .thenReturn(Map.of("TECH", new BigDecimal("0.35")));
+    when(alertRepository.existsActiveAlert("high_conviction_buy", "TECH")).thenReturn(true);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).resolveAlertsByRuleAndCategory("high_conviction_buy", "TECH");
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("high_conviction_buy: no duplicate when active alert already exists at >= 75 conviction")
+  void shouldNotCreateDuplicateHighConvictionBuyAlertWhenActiveAlertExists() {
+    stubTopLevelCategories("TECH");
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    stubPersistenceLowDisabled();
+    stubBreadthVelocityDisabled();
+    stubTradeSignalRulesDisabled();
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+
+    when(alertRulesRepository.findById("high_conviction_buy"))
+        .thenReturn(Optional.of(enabled("high_conviction_buy", Severity.ACTION)));
+
+    when(signalRepository.findLatestByTypes(any()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE, Map.of("TECH", new BigDecimal("0.85")),
+                SignalType.RRG_QUADRANT, Map.of("TECH", new BigDecimal("4")),
+                SignalType.COMPOSITE_TREND_20D, Map.of("TECH", new BigDecimal("0.06")),
+                SignalType.MACRO_FIT, Map.of("TECH", new BigDecimal("0.80")),
+                SignalType.COMPOSITE_TREND_5D, Map.of("TECH", new BigDecimal("0.08"))));
+    when(signalRepository.findScorePercentile252d())
+        .thenReturn(Map.of("TECH", new BigDecimal("0.88")));
+    when(alertRepository.existsActiveAlert("high_conviction_buy", "TECH")).thenReturn(true);
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 

@@ -60,6 +60,8 @@ const RULE_LABELS: Record<string, string> = {
   trade_signal_reduce:    "REDUCE Signal",
   score_approaching_buy:    "Approaching BUY",
   score_approaching_reduce: "Approaching REDUCE",
+  high_conviction_buy:      "High Conviction BUY",
+  high_conviction_cluster:  "High Conviction Cluster",
   flow_inflow_5d:         "Flow Inflow (5d)",
   flow_inflow_10d:        "Flow Inflow (10d)",
   flow_inflow_20d:        "Flow Inflow (20d)",
@@ -69,6 +71,8 @@ const RULE_LABELS: Record<string, string> = {
 };
 
 const BUILTIN_RULES = [
+  { id: "high_conviction_cluster", label: "High Conviction Cluster", condition: "≥3 sectors at conviction ≥75 simultaneously", severity: "ACTION", note: "Broad RISK-ON regime confirmation: when 3+ sectors simultaneously reach multi-factor conviction ≥75. Rarer than individual alerts — indicates a market-wide regime shift, not just one sector." },
+  { id: "high_conviction_buy",    label: "High Conviction BUY",   condition: "conviction score ≥ 75",           severity: "ACTION",  note: "Multi-factor conviction ≥75: signal quality + macro fit + 252d percentile + momentum acceleration — the highest-quality BUY signals only" },
   { id: "trade_signal_buy",       label: "BUY Signal",            condition: "score ≥ 65, RRG 3/4, trend > 0",  severity: "ACTION",  note: "Full BUY signal: all 3 conditions align for the first time — most actionable alert" },
   { id: "score_approaching_buy",  label: "Approaching BUY",       condition: "score enters [55, 65)",           severity: "INFO",    note: "Early warning 1-5 days before a full BUY signal — prepare position" },
   { id: "trade_signal_reduce",      label: "REDUCE Signal",         condition: "score < 35, RRG 1/2",              severity: "WARNING", note: "REDUCE signal: score and RRG both deteriorating — consider trimming" },

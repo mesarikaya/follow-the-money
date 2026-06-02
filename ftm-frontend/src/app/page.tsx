@@ -23,6 +23,7 @@ import PortfolioGapAlert from "@/components/PortfolioGapAlert";
 import ScoreMoversPanel from "@/components/ScoreMoversPanel";
 import SignalTransitionsPanel from "@/components/SignalTransitionsPanel";
 import DailyPlaybookPanel from "@/components/DailyPlaybookPanel";
+import MarketRegimeBanner from "@/components/MarketRegimeBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -94,6 +95,8 @@ export default async function Home({ searchParams }: Props) {
         {categories.length > 0 && <StaleDataBanner categories={categories} />}
 
         {categories.length > 0 && <MarketPulseStrip categories={categories} />}
+
+        {categories.length > 0 && <MarketRegimeBanner categories={categories} />}
 
         {categories.length > 0 && <ActionSummaryPanel categories={categories} winRateByCategory={winRateByCategory} priceLevelByCategory={priceLevelByCategory} scoreHistory={scoreHistory} />}
 

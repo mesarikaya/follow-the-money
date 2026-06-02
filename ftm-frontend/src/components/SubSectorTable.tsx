@@ -408,6 +408,22 @@ export default function SubSectorTable({
                         {qConfig.label}
                       </span>
                     )}
+                    {subSector.convictionScore != null && subSector.convictionScore >= 55 && (
+                      <span
+                        className={`text-[8px] font-mono tabular-nums ${subSector.convictionScore >= 75 ? "text-emerald-500" : "text-amber-500"}`}
+                        title={`Conviction score: ${subSector.convictionScore}/100`}
+                      >
+                        C{subSector.convictionScore}
+                      </span>
+                    )}
+                    {subSector.signalDaysActive != null && subSector.signalDaysActive >= 2 && (
+                      <span
+                        className={`text-[8px] font-mono tabular-nums ${subSector.signalDaysActive >= 10 ? "text-emerald-700" : subSector.signalDaysActive >= 4 ? "text-amber-700" : "text-slate-700"}`}
+                        title={`Signal active for ${subSector.signalDaysActive} days`}
+                      >
+                        {subSector.signalDaysActive}d
+                      </span>
+                    )}
                   </div>
                 </td>
               </tr>

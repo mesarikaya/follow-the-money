@@ -68,6 +68,7 @@ public class AlertRulesEngine {
     private static final String RULE_SIGNAL_DETERIORATION = "signal_deterioration";
     private static final String RULE_FLOW_SURGE = "flow_surge";
     private static final String RULE_RS_ALIGNED_BULL = "rs_aligned_bull";
+    private static final String RULE_RS_ALIGNED_BEAR = "rs_aligned_bear";
     private static final String RULE_PRE_BUY_FLOW_SURGE = "pre_buy_flow_surge";
     private static final BigDecimal FLOW_SURGE_Z_THRESHOLD = new BigDecimal("2.0");
     private static final BigDecimal FLOW_SURGE_RESOLVE_THRESHOLD = new BigDecimal("1.0");
@@ -126,6 +127,7 @@ public class AlertRulesEngine {
         alertsCreated += evaluateHighConvictionCluster(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateSignalDeterioration(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateRsAlignedBull(signalDate, topLevelCategoryIds);
+        alertsCreated += evaluateRsAlignedBear(signalDate, topLevelCategoryIds);
         alertsCreated += evaluatePreBuyFlowSurge(signalDate, topLevelCategoryIds);
 
         log.info(
@@ -243,6 +245,11 @@ public class AlertRulesEngine {
             BigDecimal rs60 = currentRs60.get(categoryId);
             if (rs20 != null && rs60 != null && rs20.compareTo(rs60) <= 0) {
                 resolved += alertRepository.resolveAlertsByRuleAndCategory(RULE_RS_ALIGNED_BULL, categoryId);
+            }
+
+            // RS aligned bear alert: resolve when RS-20 is no longer below RS-60 (bearish alignment broke)
+            if (rs20 != null && rs60 != null && rs20.compareTo(rs60) >= 0) {
+                resolved += alertRepository.resolveAlertsByRuleAndCategory(RULE_RS_ALIGNED_BEAR, categoryId);
             }
 
             // Pre-buy flow surge: resolve when score exits approach zone OR flow drops below 0.8σ
@@ -1235,6 +1242,85 @@ public class AlertRulesEngine {
                             AlertStatus.ACTIVE));
             count++;
             log.info("rs_aligned_bull: category={} rs20={} rs60={} rs120={}", categoryId, rs20, rs60, rs120);
+        }
+        return count;
+    }
+
+    /**
+     * Fires when all three RS timeframes align bearishly: RS-20 &lt; RS-60 &lt; RS-120.
+     * This multi-horizon bearish alignment indicates momentum is deteriorating across all windows
+     * — a strong confirmation for REDUCE or sectors at risk of further weakness.
+     * Resolves when RS-20 rises back to or above RS-60 (bearish alignment breaks).
+     */
+    private int evaluateRsAlignedBear(LocalDate signalDate, Set<String> topLevelCategoryIds) {
+        Optional<AlertRule> rule = alertRulesRepository.findById(RULE_RS_ALIGNED_BEAR);
+        if (rule.isEmpty() || !rule.get().enabled()) return 0;
+        Severity severity = rule.get().severity();
+
+        Map<String, BigDecimal> currentRs20 =
+                signalRepository.findByTypeAndDate(SignalType.RS_20, signalDate);
+        Map<String, BigDecimal> currentRs60 =
+                signalRepository.findByTypeAndDate(SignalType.RS_60, signalDate);
+        Map<String, BigDecimal> currentRs120 =
+                signalRepository.findByTypeAndDate(SignalType.RS_120, signalDate);
+        if (currentRs20.isEmpty() || currentRs60.isEmpty() || currentRs120.isEmpty()) return 0;
+
+        LocalDate prevDate = signalRepository.findPreviousSignalDate(SignalType.RS_20, signalDate);
+        Map<String, BigDecimal> prevRs20 = prevDate != null
+                ? signalRepository.findByTypeAndDate(SignalType.RS_20, prevDate)
+                : Collections.emptyMap();
+        Map<String, BigDecimal> prevRs60 = prevDate != null
+                ? signalRepository.findByTypeAndDate(SignalType.RS_60, prevDate)
+                : Collections.emptyMap();
+        Map<String, BigDecimal> prevRs120 = prevDate != null
+                ? signalRepository.findByTypeAndDate(SignalType.RS_120, prevDate)
+                : Collections.emptyMap();
+
+        int count = 0;
+        for (String categoryId : topLevelCategoryIds) {
+            BigDecimal rs20 = currentRs20.get(categoryId);
+            BigDecimal rs60 = currentRs60.get(categoryId);
+            BigDecimal rs120 = currentRs120.get(categoryId);
+            if (rs20 == null || rs60 == null || rs120 == null) continue;
+
+            boolean nowAligned = rs20.compareTo(rs60) < 0 && rs60.compareTo(rs120) < 0;
+            if (!nowAligned) continue;
+            if (alertRepository.existsActiveAlert(RULE_RS_ALIGNED_BEAR, categoryId)) continue;
+
+            // Only fire on the first day of alignment (was not fully aligned yesterday)
+            BigDecimal prevRs20Val = prevRs20.get(categoryId);
+            BigDecimal prevRs60Val = prevRs60.get(categoryId);
+            BigDecimal prevRs120Val = prevRs120.get(categoryId);
+            if (prevRs20Val != null && prevRs60Val != null && prevRs120Val != null) {
+                boolean wasAligned = prevRs20Val.compareTo(prevRs60Val) < 0
+                        && prevRs60Val.compareTo(prevRs120Val) < 0;
+                if (wasAligned) continue;
+            }
+
+            CategoryId catId;
+            try {
+                catId = CategoryId.valueOf(categoryId);
+            } catch (IllegalArgumentException e) {
+                log.debug("rs_aligned_bear: skipping unknown CategoryId={}", categoryId);
+                continue;
+            }
+
+            String snapshot = String.format(
+                    "{\"rs20\":%.4f,\"rs60\":%.4f,\"rs120\":%.4f,\"signalDate\":\"%s\"}",
+                    rs20, rs60, rs120, signalDate);
+            alertRepository.insert(
+                    new Alert(
+                            OffsetDateTime.now(),
+                            catId,
+                            RULE_RS_ALIGNED_BEAR,
+                            severity,
+                            String.format(
+                                    "%s RS-20 < RS-60 < RS-120 fully aligned bearish — momentum deteriorating across all horizons",
+                                    categoryId),
+                            snapshot,
+                            AlertStatus.ACTIVE));
+            count++;
+            log.info("rs_aligned_bear: category={} rs20={} rs60={} rs120={}", categoryId, rs20, rs60, rs120);
         }
         return count;
     }

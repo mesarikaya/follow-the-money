@@ -23,6 +23,9 @@ type ActionCard = {
   positionInRange: number | null;
   scoreHistory: number[];
   scorePercentile252d: number | null;
+  flow20d: number | null;
+  rsAlignedBull: boolean;
+  rsAlignedBear: boolean;
 };
 
 function MiniSparkline({ values, side }: { values: number[]; side: "BUY" | "REDUCE" }) {
@@ -99,6 +102,26 @@ function computeEntryQuality(card: ActionCard, side: "BUY" | "REDUCE"): { label:
       score += 10;
       reasons.push(`score near 12-month low (P${Math.round(pct)}) — early-cycle entry`);
     }
+  }
+
+  // Institutional flow confirmation: z > 1.5 = strong inflow signal
+  if (card.flow20d != null) {
+    if (card.flow20d >= 1.5) {
+      score += 15;
+      reasons.push(`strong institutional inflows (flow z=${card.flow20d.toFixed(1)})`);
+    } else if (card.flow20d >= 0.8) {
+      score += 8;
+      reasons.push(`elevated inflows (flow z=${card.flow20d.toFixed(1)})`);
+    } else if (card.flow20d <= -0.8) {
+      score -= 10;
+      reasons.push(`outflows present (flow z=${card.flow20d.toFixed(1)})`);
+    }
+  }
+
+  // RS-20 all-aligned bullish: fastest RS > medium > slowest = momentum stack confirmed
+  if (card.rsAlignedBull) {
+    score += 10;
+    reasons.push(`RS-20 > RS-60 > RS-120 all-aligned bullish`);
   }
 
   // Base: BUY signal confirmed = start at 30
@@ -200,6 +223,36 @@ function ActionCard({ card, side }: { card: ActionCard; side: "BUY" | "REDUCE" }
           </div>
         )}
 
+        {(card.rsAlignedBull || card.rsAlignedBear) && (
+          <div
+            className="flex flex-col"
+            title={card.rsAlignedBull ? "RS-20 > RS-60 > RS-120: all timeframes aligned bullish" : "RS-20 < RS-60 < RS-120: all timeframes aligned bearish"}
+          >
+            <span className="text-[9px] text-slate-600 uppercase">RS</span>
+            <span className={`text-[10px] font-semibold ${card.rsAlignedBull ? "text-emerald-400" : "text-red-400"}`}>
+              {card.rsAlignedBull ? "⊕" : "⊖"}
+            </span>
+          </div>
+        )}
+
+        {card.flow20d != null && (
+          <div
+            className="flex flex-col"
+            title={`20-day dollar volume flow z-score: ${card.flow20d.toFixed(2)}σ. ${card.flow20d >= 1.5 ? "Strong institutional inflows" : card.flow20d >= 0.8 ? "Elevated inflows" : card.flow20d <= -1.5 ? "Strong outflows" : card.flow20d <= -0.8 ? "Elevated outflows" : "Neutral flow"}`}
+          >
+            <span className="text-[9px] text-slate-600 uppercase">Flow</span>
+            <span className={`text-[10px] font-mono font-semibold ${
+              card.flow20d >= 1.5 ? "text-emerald-400" :
+              card.flow20d >= 0.8 ? "text-green-500" :
+              card.flow20d <= -1.5 ? "text-red-400" :
+              card.flow20d <= -0.8 ? "text-orange-400" :
+              "text-slate-500"
+            }`}>
+              {card.flow20d >= 1.5 ? "F↑" : card.flow20d >= 0.8 ? "F⬆" : card.flow20d <= -1.5 ? "F↓" : card.flow20d <= -0.8 ? "F⬇" : "F~"}
+            </span>
+          </div>
+        )}
+
         {card.rrgQuadrant && (
           <div className="flex flex-col" title="Relative Rotation Graph quadrant">
             <span className="text-[9px] text-slate-600 uppercase">RRG</span>
@@ -277,6 +330,11 @@ export default function ActionSummaryPanel({ categories, winRateByCategory = {},
   const toCard = (c: CategorySummary, signal: TradeSignal): ActionCard => {
     const wr = winRateByCategory[c.id];
     const pl = priceLevelByCategory[c.id];
+    const rs20 = c.rs20 ?? null;
+    const rs60 = c.rs60 ?? null;
+    const rs120 = c.rs120 ?? null;
+    const rsAlignedBull = rs20 != null && rs60 != null && rs120 != null && rs20 > rs60 && rs60 > rs120;
+    const rsAlignedBear = rs20 != null && rs60 != null && rs120 != null && rs20 < rs60 && rs60 < rs120;
     return {
       id: c.id,
       name: c.name,
@@ -284,7 +342,7 @@ export default function ActionSummaryPanel({ categories, winRateByCategory = {},
       signal,
       score: c.compositeScore ?? 0,
       scoreTrend20d: c.compositeTrend20d ?? null,
-      rs60: c.rs60 ?? null,
+      rs60,
       realizedVol20d: c.realizedVol20d ?? null,
       signalDaysActive: c.signalDaysActive ?? null,
       rrgQuadrant: c.rrgQuadrant ?? null,
@@ -295,6 +353,9 @@ export default function ActionSummaryPanel({ categories, winRateByCategory = {},
       positionInRange: pl?.positionInRange ?? null,
       scoreHistory: scoreHistory[c.id] ?? [],
       scorePercentile252d: c.scorePercentile252d ?? null,
+      flow20d: c.flow20d ?? null,
+      rsAlignedBull,
+      rsAlignedBear,
     };
   };
 

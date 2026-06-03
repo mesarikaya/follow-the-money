@@ -12,7 +12,9 @@ type DivergenceType =
   | "PERSIST_HIGH_SCORE_LOW"
   | "PERSIST_LOW_SCORE_HIGH"
   | "VELOCITY_ACCEL_RS_LAGGING"
-  | "VELOCITY_DECEL_RS_STRONG";
+  | "VELOCITY_DECEL_RS_STRONG"
+  | "FLOW_LEADS_SCORE"
+  | "FLOW_DISTRIBUTION";
 
 const DIVERGENCE_CONFIG: Record<
   DivergenceType,
@@ -88,6 +90,20 @@ const DIVERGENCE_CONFIG: Record<
     scoreBadgeClass: "bg-orange-900/30 text-orange-300 border border-orange-700/30",
     quadrantLabel: "",
   },
+  FLOW_LEADS_SCORE: {
+    title: "Flow ↑ / Score Lagging",
+    note: "institutional inflows arriving ahead of composite",
+    interpretation: "Strong institutional inflows (flow z ≥ 1.5σ) while composite score is still weak (<55). Smart money is accumulating before price momentum shows up in the composite. This pattern frequently precedes a score breakout — watch for composite crossing 0.55.",
+    scoreBadgeClass: "bg-teal-900/30 text-teal-300 border border-teal-700/30",
+    quadrantLabel: "",
+  },
+  FLOW_DISTRIBUTION: {
+    title: "Flow ↓ / Score Elevated",
+    note: "institutional outflows despite strong composite",
+    interpretation: "Institutional outflows (flow z ≤ −0.8σ) while composite score is still elevated (≥65). Smart money is quietly reducing exposure while price momentum appears strong — potential early distribution ahead of a composite pullback.",
+    scoreBadgeClass: "bg-rose-900/30 text-rose-300 border border-rose-700/30",
+    quadrantLabel: "",
+  },
 };
 
 type DivergenceEntry = { cat: CategorySummary; type: DivergenceType };
@@ -96,10 +112,12 @@ function DivergenceRow({ entry }: { entry: DivergenceEntry }) {
   const config = DIVERGENCE_CONFIG[entry.type];
   const score = Math.round((entry.cat.compositeScore ?? 0) * 100);
   const isRsType = entry.type === "RS_ACCEL_EMERGING" || entry.type === "RS_DECEL_FADING";
+  const isFlowType = entry.type === "FLOW_LEADS_SCORE" || entry.type === "FLOW_DISTRIBUTION";
   const rsAccelPts =
     isRsType && entry.cat.rs60 != null && entry.cat.rs120 != null
       ? Math.round((entry.cat.rs60 - entry.cat.rs120) * 100)
       : null;
+  const flowZ = isFlowType && entry.cat.flow20d != null ? entry.cat.flow20d : null;
   const hasDrilldown = SECTOR_DRILLDOWN_IDS.has(entry.cat.id);
 
   return (
@@ -127,6 +145,13 @@ function DivergenceRow({ entry }: { entry: DivergenceEntry }) {
         >
           {rsAccelPts > 0 ? "+" : ""}{rsAccelPts}pts
         </span>
+      ) : isFlowType && flowZ != null ? (
+        <span
+          className={`text-[10px] font-mono shrink-0 ${flowZ >= 1.5 ? "text-teal-400" : flowZ <= -0.8 ? "text-rose-400" : "text-slate-500"}`}
+          title={`20-day dollar volume flow z-score: ${flowZ.toFixed(2)}σ`}
+        >
+          z={flowZ > 0 ? "+" : ""}{flowZ.toFixed(1)}σ
+        </span>
       ) : (
         <span className="text-[10px] text-slate-500 shrink-0">{config.quadrantLabel}</span>
       )}
@@ -139,6 +164,7 @@ export default function SignalDivergencePanel({ categories }: { categories: Cate
   const rsSignals: DivergenceEntry[] = [];
   const regimeSignals: DivergenceEntry[] = [];
   const persistSignals: DivergenceEntry[] = [];
+  const flowSignals: DivergenceEntry[] = [];
 
   for (const cat of categories) {
     if (cat.type !== "EQUITY_SECTOR") continue;
@@ -190,12 +216,24 @@ export default function SignalDivergencePanel({ categories }: { categories: Cate
         persistSignals.push({ cat, type: "VELOCITY_DECEL_RS_STRONG" });
       }
     }
+
+    // Flow vs. score divergences
+    if (cat.flow20d != null && score != null) {
+      if (cat.flow20d >= 1.5 && score < 0.55) {
+        flowSignals.push({ cat, type: "FLOW_LEADS_SCORE" });
+      } else if (cat.flow20d <= -0.8 && score >= 0.65) {
+        flowSignals.push({ cat, type: "FLOW_DISTRIBUTION" });
+      }
+    }
   }
 
-  if (divergences.length === 0 && rsSignals.length === 0 && regimeSignals.length === 0 && persistSignals.length === 0) return null;
+  if (divergences.length === 0 && rsSignals.length === 0 && regimeSignals.length === 0 && persistSignals.length === 0 && flowSignals.length === 0) return null;
 
   const peaks    = divergences.filter(d => d.type === "SCORE_HIGH_RRG_WEAKENING");
   const recovers = divergences.filter(d => d.type === "SCORE_LOW_RRG_IMPROVING");
+  const flowLeadsScore   = flowSignals.filter(d => d.type === "FLOW_LEADS_SCORE");
+  const flowDistribution = flowSignals.filter(d => d.type === "FLOW_DISTRIBUTION");
+  const hasFlowRow = flowLeadsScore.length > 0 || flowDistribution.length > 0;
   const accelEmerging = rsSignals.filter(d => d.type === "RS_ACCEL_EMERGING");
   const decelFading   = rsSignals.filter(d => d.type === "RS_DECEL_FADING");
   const regimeTailwind = regimeSignals.filter(d => d.type === "REGIME_TAILWIND_WEAK_SCORE");
@@ -356,6 +394,36 @@ export default function SignalDivergencePanel({ categories }: { categories: Cate
               <p className="text-[11px] text-slate-600 py-2">None</p>
             ) : (
               velocityDecel.map(e => <DivergenceRow key={e.cat.id} entry={e} />)
+            )}
+          </div>
+        </div>
+      )}
+
+      {hasFlowRow && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-slate-800/40 border border-teal-800/30 rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Flow ↑ Score Lagging</span>
+              <span className="text-[10px] text-slate-600 ml-auto">inflows z≥1.5σ, score &lt;55</span>
+            </div>
+            {flowLeadsScore.length === 0 ? (
+              <p className="text-[11px] text-slate-600 py-2">None</p>
+            ) : (
+              flowLeadsScore.map(e => <DivergenceRow key={e.cat.id} entry={e} />)
+            )}
+          </div>
+
+          <div className="bg-slate-800/40 border border-rose-800/30 rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Flow ↓ Score Elevated</span>
+              <span className="text-[10px] text-slate-600 ml-auto">outflows z≤−0.8σ, score ≥65</span>
+            </div>
+            {flowDistribution.length === 0 ? (
+              <p className="text-[11px] text-slate-600 py-2">None</p>
+            ) : (
+              flowDistribution.map(e => <DivergenceRow key={e.cat.id} entry={e} />)
             )}
           </div>
         </div>

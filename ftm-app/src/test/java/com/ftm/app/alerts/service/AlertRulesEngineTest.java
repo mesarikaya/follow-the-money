@@ -86,13 +86,16 @@ class AlertRulesEngineTest {
     lenient()
         .when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
         .thenReturn(Map.of());
-    // flow_surge, rs_aligned_bull, and pre_buy_flow_surge rules default to disabled; individual tests override
+    // flow_surge, rs_aligned_bull, rs_aligned_bear, and pre_buy_flow_surge rules default to disabled; individual tests override
     lenient()
         .when(alertRulesRepository.findById("flow_surge"))
         .thenReturn(Optional.of(disabled("flow_surge")));
     lenient()
         .when(alertRulesRepository.findById("rs_aligned_bull"))
         .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    lenient()
+        .when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bear")));
     lenient()
         .when(alertRulesRepository.findById("pre_buy_flow_surge"))
         .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
@@ -1234,6 +1237,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("signal_deterioration")));
     when(alertRulesRepository.findById("pre_buy_flow_surge"))
         .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bear")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
@@ -1246,6 +1251,17 @@ class AlertRulesEngineTest {
     stubAllOtherRulesDisabled();
     when(alertRulesRepository.findById("flow_surge"))
         .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bear")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+  }
+
+  private void stubAllRulesDisabledExceptRsAlignedBear() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
   }
 
@@ -1255,6 +1271,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("flow_surge")));
     when(alertRulesRepository.findById("rs_aligned_bull"))
         .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bear")));
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
   }
 
@@ -1382,6 +1400,80 @@ class AlertRulesEngineTest {
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
     verify(alertRepository).resolveAlertsByRuleAndCategory("rs_aligned_bull", "TECH");
+  }
+
+  // ===== RS Aligned Bear Alert Tests =====
+
+  @Test
+  @DisplayName("rs_aligned_bear: inserts WARNING when RS-20 < RS-60 < RS-120 fully aligned bearish")
+  void shouldCreateRsAlignedBearAlertWhenAllRsAlignedBearish() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptRsAlignedBear();
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(enabled("rs_aligned_bear", Severity.WARNING)));
+    // RS-20 < RS-60 < RS-120: fully aligned bearish
+    when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.040")));
+    when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.020")));
+    when(signalRepository.findByTypeAndDate(SignalType.RS_120, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.005")));
+    when(signalRepository.findPreviousSignalDate(SignalType.RS_20, DATE)).thenReturn(PREV_DATE);
+    // previous day: NOT fully aligned (RS-20 was above RS-60) → this is the first day → should fire
+    when(signalRepository.findByTypeAndDate(SignalType.RS_20, PREV_DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.015")));
+    when(signalRepository.findByTypeAndDate(SignalType.RS_60, PREV_DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.020")));
+    when(signalRepository.findByTypeAndDate(SignalType.RS_120, PREV_DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.005")));
+    when(alertRepository.existsActiveAlert("rs_aligned_bear", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("rs_aligned_bear");
+    assertThat(inserted.categoryId()).isEqualTo(CategoryId.TECH);
+    assertThat(inserted.severity()).isEqualTo(Severity.WARNING);
+    assertThat(inserted.message()).contains("TECH");
+    assertThat(inserted.message()).contains("bearish");
+  }
+
+  @Test
+  @DisplayName("rs_aligned_bear: does not insert alert when rule is disabled")
+  void shouldNotCreateRsAlignedBearAlertWhenRuleDisabled() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptRsAlignedBear();
+    // rule is disabled (lenient stub from setUp)
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("rs_aligned_bear: resolves alert when RS-20 rises back to or above RS-60")
+  void shouldResolveRsAlignedBearAlertWhenAlignmentBreaks() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptRsAlignedBear();
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(enabled("rs_aligned_bear", Severity.WARNING)));
+    // RS-20 >= RS-60: bearish alignment broke — should resolve
+    when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.015")));
+    when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.020")));
+    when(signalRepository.findByTypeAndDate(SignalType.RS_120, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.005")));
+    when(signalRepository.findPreviousSignalDate(SignalType.RS_20, DATE)).thenReturn(PREV_DATE);
+    when(signalRepository.findByTypeAndDate(SignalType.RS_20, PREV_DATE)).thenReturn(Map.of());
+    when(signalRepository.findByTypeAndDate(SignalType.RS_60, PREV_DATE)).thenReturn(Map.of());
+    when(signalRepository.findByTypeAndDate(SignalType.RS_120, PREV_DATE)).thenReturn(Map.of());
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).resolveAlertsByRuleAndCategory("rs_aligned_bear", "TECH");
   }
 
   // ===== Pre-BUY Flow Surge Alert Tests =====

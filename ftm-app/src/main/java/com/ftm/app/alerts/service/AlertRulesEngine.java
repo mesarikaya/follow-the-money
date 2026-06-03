@@ -68,8 +68,11 @@ public class AlertRulesEngine {
     private static final String RULE_SIGNAL_DETERIORATION = "signal_deterioration";
     private static final String RULE_FLOW_SURGE = "flow_surge";
     private static final String RULE_RS_ALIGNED_BULL = "rs_aligned_bull";
+    private static final String RULE_PRE_BUY_FLOW_SURGE = "pre_buy_flow_surge";
     private static final BigDecimal FLOW_SURGE_Z_THRESHOLD = new BigDecimal("2.0");
     private static final BigDecimal FLOW_SURGE_RESOLVE_THRESHOLD = new BigDecimal("1.0");
+    private static final BigDecimal PRE_BUY_FLOW_SURGE_Z_THRESHOLD = new BigDecimal("1.5");
+    private static final BigDecimal PRE_BUY_FLOW_SURGE_RESOLVE_Z = new BigDecimal("0.8");
     private static final BigDecimal DETERIORATION_TREND_THRESHOLD = new BigDecimal("-0.05");
     private static final BigDecimal DETERIORATION_RECOVERY_THRESHOLD = new BigDecimal("-0.02");
     private static final BigDecimal APPROACHING_BUY_LOWER = new BigDecimal("0.55");
@@ -123,6 +126,7 @@ public class AlertRulesEngine {
         alertsCreated += evaluateHighConvictionCluster(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateSignalDeterioration(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateRsAlignedBull(signalDate, topLevelCategoryIds);
+        alertsCreated += evaluatePreBuyFlowSurge(signalDate, topLevelCategoryIds);
 
         log.info(
                 "Alert rule evaluation complete: {} created, {} resolved for date={}",
@@ -239,6 +243,16 @@ public class AlertRulesEngine {
             BigDecimal rs60 = currentRs60.get(categoryId);
             if (rs20 != null && rs60 != null && rs20.compareTo(rs60) <= 0) {
                 resolved += alertRepository.resolveAlertsByRuleAndCategory(RULE_RS_ALIGNED_BULL, categoryId);
+            }
+
+            // Pre-buy flow surge: resolve when score exits approach zone OR flow drops below 0.8σ
+            BigDecimal flow = currentFlow20d.get(categoryId);
+            if (composite != null && (
+                    composite.compareTo(APPROACHING_BUY_LOWER) < 0
+                    || composite.compareTo(BUY_SCORE_THRESHOLD) >= 0)) {
+                resolved += alertRepository.resolveAlertsByRuleAndCategory(RULE_PRE_BUY_FLOW_SURGE, categoryId);
+            } else if (flow != null && flow.compareTo(PRE_BUY_FLOW_SURGE_RESOLVE_Z) < 0) {
+                resolved += alertRepository.resolveAlertsByRuleAndCategory(RULE_PRE_BUY_FLOW_SURGE, categoryId);
             }
         }
 
@@ -1211,6 +1225,80 @@ public class AlertRulesEngine {
                             AlertStatus.ACTIVE));
             count++;
             log.info("rs_aligned_bull: category={} rs20={} rs60={} rs120={}", categoryId, rs20, rs60, rs120);
+        }
+        return count;
+    }
+
+    /**
+     * Fires when a sector is in the pre-BUY approach zone (score 0.55–0.65) AND institutional
+     * flow is surging (FLOW_20D z-score ≥ 1.5). This combination means institutional money is
+     * moving in before the composite score crosses the full BUY threshold — a leading indicator
+     * for an imminent BUY signal.
+     * Resolves when score exits the approach zone (either drops back or reaches full BUY),
+     * or when the flow surge dissipates (z < 0.8).
+     */
+    private int evaluatePreBuyFlowSurge(LocalDate signalDate, Set<String> topLevelCategoryIds) {
+        Optional<AlertRule> rule = alertRulesRepository.findById(RULE_PRE_BUY_FLOW_SURGE);
+        if (rule.isEmpty() || !rule.get().enabled()) return 0;
+        Severity severity = rule.get().severity();
+
+        Map<String, BigDecimal> composite =
+                signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
+        Map<String, BigDecimal> flow20d =
+                signalRepository.findByTypeAndDate(SignalType.FLOW_20D, signalDate);
+        Map<String, BigDecimal> rrgQuadrant =
+                signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
+        if (composite.isEmpty() || flow20d.isEmpty()) return 0;
+
+        int count = 0;
+        for (String categoryId : topLevelCategoryIds) {
+            BigDecimal score = composite.get(categoryId);
+            BigDecimal flowZ = flow20d.get(categoryId);
+            if (score == null || flowZ == null) continue;
+
+            boolean inApproachZone = score.compareTo(APPROACHING_BUY_LOWER) >= 0
+                    && score.compareTo(BUY_SCORE_THRESHOLD) < 0;
+            boolean flowSurging = flowZ.compareTo(PRE_BUY_FLOW_SURGE_Z_THRESHOLD) >= 0;
+            if (!inApproachZone || !flowSurging) continue;
+            if (alertRepository.existsActiveAlert(RULE_PRE_BUY_FLOW_SURGE, categoryId)) continue;
+            if (alertRepository.existsActiveAlert(RULE_TRADE_SIGNAL_BUY, categoryId)) continue;
+
+            CategoryId catId;
+            try {
+                catId = CategoryId.valueOf(categoryId);
+            } catch (IllegalArgumentException e) {
+                log.debug("pre_buy_flow_surge: skipping unknown CategoryId={}", categoryId);
+                continue;
+            }
+
+            int scorePct = score.multiply(BigDecimal.valueOf(100)).intValue();
+            int ptsNeeded = BUY_SCORE_THRESHOLD.multiply(BigDecimal.valueOf(100)).intValue() - scorePct;
+            BigDecimal rrg = rrgQuadrant.get(categoryId);
+            int rrgInt = rrg != null ? rrg.intValue() : 0;
+            String rrgLabel = switch (rrgInt) {
+                case 4 -> "Leading";
+                case 3 -> "Improving";
+                case 2 -> "Weakening";
+                case 1 -> "Lagging";
+                default -> "Unknown";
+            };
+
+            alertRepository.insert(
+                    new Alert(
+                            OffsetDateTime.now(),
+                            catId,
+                            RULE_PRE_BUY_FLOW_SURGE,
+                            severity,
+                            String.format(
+                                    "%s pre-BUY flow surge: score=%d (need +%dpts for BUY), flow z=+%.1fσ — institutions positioning ahead of signal, RRG %s",
+                                    categoryId, scorePct, ptsNeeded, flowZ.doubleValue(), rrgLabel),
+                            String.format(
+                                    "{\"score\":%d,\"ptsNeeded\":%d,\"flowZ\":%.2f,\"rrgQuadrant\":%d,\"signalDate\":\"%s\"}",
+                                    scorePct, ptsNeeded, flowZ.doubleValue(), rrgInt, signalDate),
+                            AlertStatus.ACTIVE));
+            count++;
+            log.info("pre_buy_flow_surge: category={} score={} ptsNeeded={} flowZ={}",
+                    categoryId, scorePct, ptsNeeded, flowZ);
         }
         return count;
     }

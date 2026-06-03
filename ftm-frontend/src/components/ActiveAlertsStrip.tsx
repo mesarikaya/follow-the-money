@@ -21,6 +21,7 @@ const RULE_SHORT: Record<string, string> = {
   signal_deterioration:     "Deteriorating",
   high_conviction_buy:      "High-C BUY",
   rs_aligned_bull:          "RS Aligned⊕",
+  pre_buy_flow_surge:       "Pre-BUY Flow",
 };
 
 const SEV_STYLES: Record<string, { strip: string; badge: string; dot: string }> = {

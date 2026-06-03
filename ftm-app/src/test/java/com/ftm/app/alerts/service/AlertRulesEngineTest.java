@@ -86,13 +86,16 @@ class AlertRulesEngineTest {
     lenient()
         .when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
         .thenReturn(Map.of());
-    // flow_surge and rs_aligned_bull rules default to disabled; individual tests override
+    // flow_surge, rs_aligned_bull, and pre_buy_flow_surge rules default to disabled; individual tests override
     lenient()
         .when(alertRulesRepository.findById("flow_surge"))
         .thenReturn(Optional.of(disabled("flow_surge")));
     lenient()
         .when(alertRulesRepository.findById("rs_aligned_bull"))
         .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    lenient()
+        .when(alertRulesRepository.findById("pre_buy_flow_surge"))
+        .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
   }
 
   private AlertRule enabled(String ruleId, Severity severity) {
@@ -1229,6 +1232,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("high_conviction_cluster")));
     when(alertRulesRepository.findById("signal_deterioration"))
         .thenReturn(Optional.of(disabled("signal_deterioration")));
+    when(alertRulesRepository.findById("pre_buy_flow_surge"))
+        .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
@@ -1241,6 +1246,15 @@ class AlertRulesEngineTest {
     stubAllOtherRulesDisabled();
     when(alertRulesRepository.findById("flow_surge"))
         .thenReturn(Optional.of(disabled("flow_surge")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+  }
+
+  private void stubAllRulesDisabledExceptPreBuyFlowSurge() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
   }
 
@@ -1368,5 +1382,68 @@ class AlertRulesEngineTest {
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
     verify(alertRepository).resolveAlertsByRuleAndCategory("rs_aligned_bull", "TECH");
+  }
+
+  // ===== Pre-BUY Flow Surge Alert Tests =====
+
+  @Test
+  @DisplayName("pre_buy_flow_surge: inserts WARNING when sector in approach zone AND flow surging")
+  void shouldCreatePreBuyFlowSurgeAlertWhenScoreInApproachZoneAndFlowSurging() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptPreBuyFlowSurge();
+    when(alertRulesRepository.findById("pre_buy_flow_surge"))
+        .thenReturn(Optional.of(enabled("pre_buy_flow_surge", Severity.WARNING)));
+    // TECH: composite=0.60 (in [0.55, 0.65) approach zone), flow20d=2.0 (≥1.5 surge threshold)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.60")));
+    when(signalRepository.findByTypeAndDate(SignalType.FLOW_20D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("2.0")));
+    when(alertRepository.existsActiveAlert("pre_buy_flow_surge", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("trade_signal_buy", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("pre_buy_flow_surge");
+    assertThat(inserted.categoryId()).isEqualTo(CategoryId.TECH);
+    assertThat(inserted.severity()).isEqualTo(Severity.WARNING);
+    assertThat(inserted.status()).isEqualTo(AlertStatus.ACTIVE);
+    assertThat(inserted.message()).contains("TECH").contains("flow").contains("BUY");
+  }
+
+  @Test
+  @DisplayName("pre_buy_flow_surge: no alert when rule is disabled")
+  void shouldNotCreatePreBuyFlowSurgeAlertWhenRuleDisabled() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptPreBuyFlowSurge();
+    // rule disabled (setUp lenient stub)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.60")));
+    when(signalRepository.findByTypeAndDate(SignalType.FLOW_20D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("2.0")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("pre_buy_flow_surge: no alert when score reaches full BUY zone (≥0.65)")
+  void shouldNotCreatePreBuyFlowSurgeAlertWhenScoreAlreadyInBuyZone() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptPreBuyFlowSurge();
+    when(alertRulesRepository.findById("pre_buy_flow_surge"))
+        .thenReturn(Optional.of(enabled("pre_buy_flow_surge", Severity.WARNING)));
+    // TECH: composite=0.70 (above 0.65 — already in full BUY zone, not approach zone)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.70")));
+    when(signalRepository.findByTypeAndDate(SignalType.FLOW_20D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("2.0")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
   }
 }

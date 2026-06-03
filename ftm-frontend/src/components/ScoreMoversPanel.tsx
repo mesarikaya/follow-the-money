@@ -10,6 +10,9 @@ type Mover = {
   scorePct: number;
   signal: string | null;
   conviction: number | null;
+  flow20d: number | null;
+  rsAlignedBull: boolean;
+  rsAlignedBear: boolean;
 };
 
 function MoverRow({ mover, direction }: { mover: Mover; direction: "up" | "down" }) {
@@ -44,6 +47,20 @@ function MoverRow({ mover, direction }: { mover: Mover; direction: "up" | "down"
       {mover.conviction != null && mover.conviction >= 55 && convictionColor && (
         <span className={`text-[8px] font-mono shrink-0 ${convictionColor}`} title={`Conviction score ${mover.conviction}/100`}>C{mover.conviction}</span>
       )}
+      {mover.rsAlignedBull && isUp && (
+        <span className="text-[7px] font-mono text-emerald-500 shrink-0" title="RS-20 > RS-60 > RS-120 — all timeframes aligned bullish">⊕</span>
+      )}
+      {mover.rsAlignedBear && !isUp && (
+        <span className="text-[7px] font-mono text-red-500 shrink-0" title="RS-20 < RS-60 < RS-120 — all timeframes aligned bearish">⊖</span>
+      )}
+      {mover.flow20d != null && Math.abs(mover.flow20d) >= 0.8 && (
+        <span
+          className={`text-[7px] font-mono shrink-0 ${Math.abs(mover.flow20d) >= 1.5 ? (mover.flow20d > 0 ? "text-emerald-400" : "text-red-400") : (mover.flow20d > 0 ? "text-cyan-500" : "text-orange-400")}`}
+          title={`Flow z-score: ${mover.flow20d > 0 ? "+" : ""}${mover.flow20d.toFixed(1)}σ — ${Math.abs(mover.flow20d) >= 1.5 ? "institutional surge" : "above-average flow"}`}
+        >
+          F{mover.flow20d > 0 ? (Math.abs(mover.flow20d) >= 1.5 ? "⬆" : "↑") : (Math.abs(mover.flow20d) >= 1.5 ? "⬇" : "↓")}
+        </span>
+      )}
       <span className={`text-[9px] shrink-0 ${signalColors[mover.signal ?? "HOLD"] ?? "text-slate-500"}`}>
         {mover.scorePct}
       </span>
@@ -62,6 +79,9 @@ export default function ScoreMoversPanel({ categories }: { categories: CategoryS
       scorePct: Math.round((c.compositeScore ?? 0) * 100),
       signal: c.tradeSignal,
       conviction: c.convictionScore ?? null,
+      flow20d: c.flow20d ?? null,
+      rsAlignedBull: c.rs20 != null && c.rs60 != null && c.rs120 != null && c.rs20 > c.rs60 && c.rs60 > c.rs120,
+      rsAlignedBear: c.rs20 != null && c.rs60 != null && c.rs120 != null && c.rs20 < c.rs60 && c.rs60 < c.rs120,
     }))
     .filter(m => Math.abs(m.trendPts) >= 2);
 

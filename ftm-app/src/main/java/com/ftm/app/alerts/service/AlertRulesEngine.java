@@ -67,6 +67,7 @@ public class AlertRulesEngine {
     private static final int CLUSTER_RESOLVE_SIZE = 2;
     private static final String RULE_SIGNAL_DETERIORATION = "signal_deterioration";
     private static final String RULE_FLOW_SURGE = "flow_surge";
+    private static final String RULE_RS_ALIGNED_BULL = "rs_aligned_bull";
     private static final BigDecimal FLOW_SURGE_Z_THRESHOLD = new BigDecimal("2.0");
     private static final BigDecimal FLOW_SURGE_RESOLVE_THRESHOLD = new BigDecimal("1.0");
     private static final BigDecimal DETERIORATION_TREND_THRESHOLD = new BigDecimal("-0.05");
@@ -121,6 +122,7 @@ public class AlertRulesEngine {
         alertsCreated += evaluateHighConvictionBuy(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateHighConvictionCluster(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateSignalDeterioration(signalDate, topLevelCategoryIds);
+        alertsCreated += evaluateRsAlignedBull(signalDate, topLevelCategoryIds);
 
         log.info(
                 "Alert rule evaluation complete: {} created, {} resolved for date={}",
@@ -140,6 +142,10 @@ public class AlertRulesEngine {
                 signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, signalDate);
         Map<String, BigDecimal> currentFlow20d =
                 signalRepository.findByTypeAndDate(SignalType.FLOW_20D, signalDate);
+        Map<String, BigDecimal> currentRs20 =
+                signalRepository.findByTypeAndDate(SignalType.RS_20, signalDate);
+        Map<String, BigDecimal> currentRs60 =
+                signalRepository.findByTypeAndDate(SignalType.RS_60, signalDate);
 
         int resolved = 0;
         for (String categoryId : topLevelCategoryIds) {
@@ -226,6 +232,13 @@ public class AlertRulesEngine {
             BigDecimal flow20d = currentFlow20d.get(categoryId);
             if (flow20d != null && flow20d.compareTo(FLOW_SURGE_RESOLVE_THRESHOLD) < 0) {
                 resolved += alertRepository.resolveAlertsByRuleAndCategory(RULE_FLOW_SURGE, categoryId);
+            }
+
+            // RS aligned bull alert: resolve when RS-20 is no longer leading RS-60 (alignment broke)
+            BigDecimal rs20 = currentRs20.get(categoryId);
+            BigDecimal rs60 = currentRs60.get(categoryId);
+            if (rs20 != null && rs60 != null && rs20.compareTo(rs60) <= 0) {
+                resolved += alertRepository.resolveAlertsByRuleAndCategory(RULE_RS_ALIGNED_BULL, categoryId);
             }
         }
 
@@ -1119,6 +1132,85 @@ public class AlertRulesEngine {
             count++;
             log.info("signal_deterioration: category={} score={} trend5d={}pts",
                     categoryId, scorePct, trendPts);
+        }
+        return count;
+    }
+
+    /**
+     * Fires when all three RS timeframes align bullishly: RS-20 > RS-60 > RS-120.
+     * This multi-horizon alignment indicates momentum is building across short, medium, and long
+     * windows — a strong confirmation for BUY or WATCH sectors.
+     * Resolves when RS-20 drops to or below RS-60 (alignment breaks).
+     */
+    private int evaluateRsAlignedBull(LocalDate signalDate, Set<String> topLevelCategoryIds) {
+        Optional<AlertRule> rule = alertRulesRepository.findById(RULE_RS_ALIGNED_BULL);
+        if (rule.isEmpty() || !rule.get().enabled()) return 0;
+        Severity severity = rule.get().severity();
+
+        Map<String, BigDecimal> currentRs20 =
+                signalRepository.findByTypeAndDate(SignalType.RS_20, signalDate);
+        Map<String, BigDecimal> currentRs60 =
+                signalRepository.findByTypeAndDate(SignalType.RS_60, signalDate);
+        Map<String, BigDecimal> currentRs120 =
+                signalRepository.findByTypeAndDate(SignalType.RS_120, signalDate);
+        if (currentRs20.isEmpty() || currentRs60.isEmpty() || currentRs120.isEmpty()) return 0;
+
+        LocalDate prevDate = signalRepository.findPreviousSignalDate(SignalType.RS_20, signalDate);
+        Map<String, BigDecimal> prevRs20 = prevDate != null
+                ? signalRepository.findByTypeAndDate(SignalType.RS_20, prevDate)
+                : Collections.emptyMap();
+        Map<String, BigDecimal> prevRs60 = prevDate != null
+                ? signalRepository.findByTypeAndDate(SignalType.RS_60, prevDate)
+                : Collections.emptyMap();
+        Map<String, BigDecimal> prevRs120 = prevDate != null
+                ? signalRepository.findByTypeAndDate(SignalType.RS_120, prevDate)
+                : Collections.emptyMap();
+
+        int count = 0;
+        for (String categoryId : topLevelCategoryIds) {
+            BigDecimal rs20 = currentRs20.get(categoryId);
+            BigDecimal rs60 = currentRs60.get(categoryId);
+            BigDecimal rs120 = currentRs120.get(categoryId);
+            if (rs20 == null || rs60 == null || rs120 == null) continue;
+
+            boolean nowAligned = rs20.compareTo(rs60) > 0 && rs60.compareTo(rs120) > 0;
+            if (!nowAligned) continue;
+            if (alertRepository.existsActiveAlert(RULE_RS_ALIGNED_BULL, categoryId)) continue;
+
+            // Only fire on the first day of alignment (was not fully aligned yesterday)
+            BigDecimal prevRs20Val = prevRs20.get(categoryId);
+            BigDecimal prevRs60Val = prevRs60.get(categoryId);
+            BigDecimal prevRs120Val = prevRs120.get(categoryId);
+            if (prevRs20Val != null && prevRs60Val != null && prevRs120Val != null) {
+                boolean wasAligned = prevRs20Val.compareTo(prevRs60Val) > 0
+                        && prevRs60Val.compareTo(prevRs120Val) > 0;
+                if (wasAligned) continue;
+            }
+
+            CategoryId catId;
+            try {
+                catId = CategoryId.valueOf(categoryId);
+            } catch (IllegalArgumentException e) {
+                log.debug("rs_aligned_bull: skipping unknown CategoryId={}", categoryId);
+                continue;
+            }
+
+            String snapshot = String.format(
+                    "{\"rs20\":%.4f,\"rs60\":%.4f,\"rs120\":%.4f,\"signalDate\":\"%s\"}",
+                    rs20, rs60, rs120, signalDate);
+            alertRepository.insert(
+                    new Alert(
+                            OffsetDateTime.now(),
+                            catId,
+                            RULE_RS_ALIGNED_BULL,
+                            severity,
+                            String.format(
+                                    "%s RS-20 > RS-60 > RS-120 fully aligned — momentum building across all horizons",
+                                    categoryId),
+                            snapshot,
+                            AlertStatus.ACTIVE));
+            count++;
+            log.info("rs_aligned_bull: category={} rs20={} rs60={} rs120={}", categoryId, rs20, rs60, rs120);
         }
         return count;
     }

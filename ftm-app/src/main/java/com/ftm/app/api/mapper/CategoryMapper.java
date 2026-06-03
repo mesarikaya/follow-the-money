@@ -84,7 +84,8 @@ public interface CategoryMapper {
               + "compositeTrend5dByCategoryId.get(row.category().id().name()), "
               + "rs60ByCategoryId.get(row.category().id().name()), "
               + "rs120ByCategoryId.get(row.category().id().name()), "
-              + "flow20dByCategoryId.get(row.category().id().name())))")
+              + "flow20dByCategoryId.get(row.category().id().name()), "
+              + "rs20ByCategoryId.get(row.category().id().name())))")
   CategorySummaryDto toDto(
       CategoryRepository.CategoryPriceRow row,
       int rank,

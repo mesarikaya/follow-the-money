@@ -43,6 +43,7 @@ public final class TradeSignalDeriver {
    *   <li>5d vs 20d acceleration: aligned→12, neutral→4
    *   <li>RS short vs long acceleration: aligned→5
    *   <li>Flow 20d z-score confirmation: aligned &gt;1.5→5 (e.g. BUY + strong inflows)
+   *   <li>RS-20 all-aligned (RS-20 &gt; RS-60 &gt; RS-120 for BUY; reversed for REDUCE): +5
    * </ul>
    */
   public static int convictionScore(
@@ -54,7 +55,8 @@ public final class TradeSignalDeriver {
       BigDecimal trend5d,
       BigDecimal rs60,
       BigDecimal rs120,
-      BigDecimal flow20d) {
+      BigDecimal flow20d,
+      BigDecimal rs20) {
     if (score == null) return 0;
     String signal = derive(score, rrgQuadrant, trend20d);
     if (signal == null || "HOLD".equals(signal)) return 0;
@@ -101,6 +103,17 @@ public final class TradeSignalDeriver {
       double rsAccel = rs60.doubleValue() - rs120.doubleValue();
       if ("BUY".equals(signal) && rsAccel > 0.003) points += 5;
       else if ("REDUCE".equals(signal) && rsAccel < -0.003) points += 5;
+
+      // RS-20 all-aligned bonus: RS-20 > RS-60 > RS-120 (BUY) or reversed (REDUCE)
+      if (rs20 != null) {
+        double r20 = rs20.doubleValue();
+        double r60 = rs60.doubleValue();
+        double r120 = rs120.doubleValue();
+        boolean allAlignedBull = r20 > r60 && r60 > r120;
+        boolean allAlignedBear = r20 < r60 && r60 < r120;
+        if ("BUY".equals(signal) && allAlignedBull) points += 5;
+        else if ("REDUCE".equals(signal) && allAlignedBear) points += 5;
+      }
     }
 
     // Institutional flow confirmation: z-score > 1.5 on BUY = strong inflows; < -1.5 on REDUCE = outflows

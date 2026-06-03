@@ -943,11 +943,20 @@ public class AlertRulesEngine {
         return count;
     }
 
-    private int evaluateHighConvictionBuy(LocalDate signalDate, Set<String> topLevelCategoryIds) {
-        Optional<AlertRule> rule = alertRulesRepository.findById(RULE_HIGH_CONVICTION_BUY);
-        if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-        Severity severity = rule.map(AlertRule::severity).orElse(Severity.ACTION);
+    /** Fetches all signal maps needed for conviction score computation. */
+    private record ConvictionSignalMaps(
+            Map<String, BigDecimal> composite,
+            Map<String, BigDecimal> rrg,
+            Map<String, BigDecimal> trend20d,
+            Map<String, BigDecimal> macroFit,
+            Map<String, BigDecimal> trend5d,
+            Map<String, BigDecimal> rs60,
+            Map<String, BigDecimal> rs120,
+            Map<String, BigDecimal> flow20d,
+            Map<String, BigDecimal> rs20,
+            Map<String, BigDecimal> percentile252d) {}
 
+    private ConvictionSignalMaps fetchConvictionSignals() {
         Map<SignalType, Map<String, BigDecimal>> signals =
                 signalRepository.findLatestByTypes(
                         List.of(
@@ -955,18 +964,36 @@ public class AlertRulesEngine {
                                 SignalType.RRG_QUADRANT,
                                 SignalType.COMPOSITE_TREND_20D,
                                 SignalType.MACRO_FIT,
-                                SignalType.COMPOSITE_TREND_5D));
-        Map<String, BigDecimal> compositeByCategory =
-                signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap());
-        Map<String, BigDecimal> rrgByCategory =
-                signals.getOrDefault(SignalType.RRG_QUADRANT, Collections.emptyMap());
-        Map<String, BigDecimal> trend20dByCategory =
-                signals.getOrDefault(SignalType.COMPOSITE_TREND_20D, Collections.emptyMap());
-        Map<String, BigDecimal> macroFitByCategory =
-                signals.getOrDefault(SignalType.MACRO_FIT, Collections.emptyMap());
-        Map<String, BigDecimal> trend5dByCategory =
-                signals.getOrDefault(SignalType.COMPOSITE_TREND_5D, Collections.emptyMap());
-        Map<String, BigDecimal> percentile252dByCategory = signalRepository.findScorePercentile252d();
+                                SignalType.COMPOSITE_TREND_5D,
+                                SignalType.RS_60,
+                                SignalType.RS_120,
+                                SignalType.FLOW_20D,
+                                SignalType.RS_20));
+        return new ConvictionSignalMaps(
+                signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap()),
+                signals.getOrDefault(SignalType.RRG_QUADRANT, Collections.emptyMap()),
+                signals.getOrDefault(SignalType.COMPOSITE_TREND_20D, Collections.emptyMap()),
+                signals.getOrDefault(SignalType.MACRO_FIT, Collections.emptyMap()),
+                signals.getOrDefault(SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()),
+                signals.getOrDefault(SignalType.RS_60, Collections.emptyMap()),
+                signals.getOrDefault(SignalType.RS_120, Collections.emptyMap()),
+                signals.getOrDefault(SignalType.FLOW_20D, Collections.emptyMap()),
+                signals.getOrDefault(SignalType.RS_20, Collections.emptyMap()),
+                signalRepository.findScorePercentile252d());
+    }
+
+    private int evaluateHighConvictionBuy(LocalDate signalDate, Set<String> topLevelCategoryIds) {
+        Optional<AlertRule> rule = alertRulesRepository.findById(RULE_HIGH_CONVICTION_BUY);
+        if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+        Severity severity = rule.map(AlertRule::severity).orElse(Severity.ACTION);
+
+        ConvictionSignalMaps maps = fetchConvictionSignals();
+        Map<String, BigDecimal> compositeByCategory = maps.composite();
+        Map<String, BigDecimal> rrgByCategory = maps.rrg();
+        Map<String, BigDecimal> trend20dByCategory = maps.trend20d();
+        Map<String, BigDecimal> macroFitByCategory = maps.macroFit();
+        Map<String, BigDecimal> trend5dByCategory = maps.trend5d();
+        Map<String, BigDecimal> percentile252dByCategory = maps.percentile252d();
 
         int count = 0;
         for (String categoryId : topLevelCategoryIds) {
@@ -982,7 +1009,9 @@ public class AlertRulesEngine {
 
             int conviction =
                     TradeSignalDeriver.convictionScore(
-                            score, rrgStr, trend20d, macroFit, percentile, trend5d, null, null, null);
+                            score, rrgStr, trend20d, macroFit, percentile, trend5d,
+                            maps.rs60().get(categoryId), maps.rs120().get(categoryId),
+                            maps.flow20d().get(categoryId), maps.rs20().get(categoryId));
 
             boolean hasActiveAlert = alertRepository.existsActiveAlert(RULE_HIGH_CONVICTION_BUY, categoryId);
 
@@ -1034,39 +1063,20 @@ public class AlertRulesEngine {
         if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
         Severity severity = rule.map(AlertRule::severity).orElse(Severity.ACTION);
 
-        Map<SignalType, Map<String, BigDecimal>> signals =
-                signalRepository.findLatestByTypes(
-                        List.of(
-                                SignalType.COMPOSITE,
-                                SignalType.RRG_QUADRANT,
-                                SignalType.COMPOSITE_TREND_20D,
-                                SignalType.MACRO_FIT,
-                                SignalType.COMPOSITE_TREND_5D));
-        Map<String, BigDecimal> compositeByCategory =
-                signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap());
-        Map<String, BigDecimal> rrgByCategory =
-                signals.getOrDefault(SignalType.RRG_QUADRANT, Collections.emptyMap());
-        Map<String, BigDecimal> trend20dByCategory =
-                signals.getOrDefault(SignalType.COMPOSITE_TREND_20D, Collections.emptyMap());
-        Map<String, BigDecimal> macroFitByCategory =
-                signals.getOrDefault(SignalType.MACRO_FIT, Collections.emptyMap());
-        Map<String, BigDecimal> trend5dByCategory =
-                signals.getOrDefault(SignalType.COMPOSITE_TREND_5D, Collections.emptyMap());
-        Map<String, BigDecimal> percentile252dByCategory = signalRepository.findScorePercentile252d();
+        ConvictionSignalMaps maps = fetchConvictionSignals();
 
         // Collect all categories with conviction >= CLUSTER_MIN_THRESHOLD
         List<String> highConvictionIds = new java.util.ArrayList<>();
         for (String categoryId : topLevelCategoryIds) {
-            BigDecimal score = compositeByCategory.get(categoryId);
+            BigDecimal score = maps.composite().get(categoryId);
             if (score == null) continue;
-            String rrgStr = rrgByCategory.containsKey(categoryId)
-                    ? String.valueOf(rrgByCategory.get(categoryId).intValue()) : null;
-            BigDecimal trend20d = trend20dByCategory.get(categoryId);
-            BigDecimal macroFit = macroFitByCategory.get(categoryId);
-            BigDecimal percentile = percentile252dByCategory.get(categoryId);
-            BigDecimal trend5d = trend5dByCategory.get(categoryId);
+            String rrgStr = maps.rrg().containsKey(categoryId)
+                    ? String.valueOf(maps.rrg().get(categoryId).intValue()) : null;
             int conviction = TradeSignalDeriver.convictionScore(
-                    score, rrgStr, trend20d, macroFit, percentile, trend5d, null, null, null);
+                    score, rrgStr, maps.trend20d().get(categoryId), maps.macroFit().get(categoryId),
+                    maps.percentile252d().get(categoryId), maps.trend5d().get(categoryId),
+                    maps.rs60().get(categoryId), maps.rs120().get(categoryId),
+                    maps.flow20d().get(categoryId), maps.rs20().get(categoryId));
             if (conviction >= HIGH_CONVICTION_THRESHOLD) {
                 highConvictionIds.add(categoryId);
             }

@@ -24,8 +24,8 @@ import org.springframework.stereotype.Service;
  * Weakening(2) → Improving(3) — both signal early recovery - ENTERING_LEADING: Improving(3) →
  * Leading(4) - ENTERING_WEAKENING: Leading(4) → Weakening(2) - ENTERING_LAGGING: Weakening(2) →
  * Lagging(1) - COMPOSITE_BREAKOUT: Composite score crosses above 0.70 - COMPOSITE_BREAKDOWN:
- * Composite score falls below 0.35 (REDUCE threshold) - FLOW_SURGE: Deferred — requires FLOW signal
- * computation
+ * Composite score falls below 0.35 (REDUCE threshold) - FLOW_SURGE: FLOW_20D z-score crosses
+ * above 2.0 (2σ above 20-day average dollar volume) — institutional inflow spike signal
  */
 @Service
 public class RotationEventDetector {
@@ -34,6 +34,7 @@ public class RotationEventDetector {
 
   private static final BigDecimal COMPOSITE_BREAKOUT_THRESHOLD = new BigDecimal("0.70");
   private static final BigDecimal COMPOSITE_BREAKDOWN_THRESHOLD = new BigDecimal("0.35");
+  private static final BigDecimal FLOW_SURGE_THRESHOLD = new BigDecimal("2.0");
 
   private static final int LAGGING_QUADRANT = 1;
   private static final int WEAKENING_QUADRANT = 2;
@@ -80,10 +81,18 @@ public class RotationEventDetector {
             ? signalRepository.findByTypeAndDate(SignalType.COMPOSITE, previousCompositeDate)
             : Map.of();
 
+    Map<String, BigDecimal> currentFlows =
+        signalRepository.findByTypeAndDate(SignalType.FLOW_20D, currentSignalDate);
+    LocalDate previousFlowDate =
+        signalRepository.findPreviousSignalDate(SignalType.FLOW_20D, currentSignalDate);
+    Map<String, BigDecimal> previousFlows =
+        previousFlowDate != null
+            ? signalRepository.findByTypeAndDate(SignalType.FLOW_20D, previousFlowDate)
+            : Map.of();
+
     int eventsDetected = 0;
 
-    for (String categoryId : currentQuadrants.keySet()) {
-      if (!topLevelCategoryIds.contains(categoryId)) continue;
+    for (String categoryId : topLevelCategoryIds) {
       BigDecimal currentQuadrant = currentQuadrants.get(categoryId);
       BigDecimal previousQuadrant = previousQuadrants.get(categoryId);
       BigDecimal currentComposite = currentComposites.get(categoryId);
@@ -98,6 +107,10 @@ public class RotationEventDetector {
       eventsDetected +=
           detectCompositeBreakdown(
               categoryId, currentSignalDate, currentComposite, previousComposite);
+      eventsDetected +=
+          detectFlowSurge(
+              categoryId, currentSignalDate,
+              currentFlows.get(categoryId), previousFlows.get(categoryId));
     }
 
     log.info(
@@ -205,6 +218,25 @@ public class RotationEventDetector {
             "{\"compositeScore\":%.6f,\"threshold\":%.2f}",
             currentComposite, COMPOSITE_BREAKDOWN_THRESHOLD),
         "Composite score fell below 0.35 breakdown threshold — REDUCE signal");
+  }
+
+  private int detectFlowSurge(
+      String categoryId,
+      LocalDate detectedDate,
+      BigDecimal currentFlow,
+      BigDecimal previousFlow) {
+    if (currentFlow == null) return 0;
+    if (currentFlow.compareTo(FLOW_SURGE_THRESHOLD) <= 0) return 0;
+    if (previousFlow != null && previousFlow.compareTo(FLOW_SURGE_THRESHOLD) > 0) {
+      return 0; // Already above threshold — not a new surge
+    }
+    return recordIfNew(
+        detectedDate,
+        categoryId,
+        RotationEventType.FLOW_SURGE,
+        currentFlow.min(new BigDecimal("5.0")).divide(new BigDecimal("5.0"), 6, java.math.RoundingMode.HALF_UP),
+        String.format("{\"flowZ\":%.4f,\"threshold\":%.1f}", currentFlow, FLOW_SURGE_THRESHOLD),
+        String.format("Flow z-score %.2fσ crossed surge threshold (2σ) — institutional inflow spike", currentFlow));
   }
 
   private int recordIfNew(

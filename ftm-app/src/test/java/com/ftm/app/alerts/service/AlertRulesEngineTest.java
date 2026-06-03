@@ -3,6 +3,7 @@ package com.ftm.app.alerts.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.instancio.Select.field;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -76,6 +77,13 @@ class AlertRulesEngineTest {
     lenient()
         .when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
         .thenReturn(Map.of());
+    lenient()
+        .when(signalRepository.findByTypeAndDate(SignalType.FLOW_20D, DATE))
+        .thenReturn(Map.of());
+    // flow_surge rule defaults to disabled; individual tests override for flow_surge scenarios
+    lenient()
+        .when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
   }
 
   private AlertRule enabled(String ruleId, Severity severity) {
@@ -1195,5 +1203,77 @@ class AlertRulesEngineTest {
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
     verify(alertRepository, never()).insert(any());
+  }
+
+  // ===== Flow Surge Alert Tests =====
+
+  private void stubAllRulesDisabledExceptFlowSurge() {
+    stubMacroDisabled();
+    stubRsAccelDisabled();
+    stubRrgAndBreakoutAndBreakdownDisabled();
+    stubPersistenceLowDisabled();
+    stubBreadthVelocityDisabled();
+    stubTradeSignalRulesDisabled();
+    when(alertRulesRepository.findById("high_conviction_buy"))
+        .thenReturn(Optional.of(disabled("high_conviction_buy")));
+    when(alertRulesRepository.findById("high_conviction_cluster"))
+        .thenReturn(Optional.of(disabled("high_conviction_cluster")));
+    when(alertRulesRepository.findById("signal_deterioration"))
+        .thenReturn(Optional.of(disabled("signal_deterioration")));
+  }
+
+  @Test
+  @DisplayName("flow_surge: inserts INFO alert when FLOW_SURGE rotation event fires for enabled rule")
+  void shouldCreateFlowSurgeAlertWhenFlowSurgeEventDetected() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptFlowSurge();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(enabled("flow_surge", Severity.INFO)));
+
+    RotationEvent flowEvent = rotationEvent(CategoryId.TECH, RotationEventType.FLOW_SURGE);
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of(flowEvent));
+    when(alertRepository.existsActiveAlert("flow_surge", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).insert(
+        argThat(a -> a.ruleId().equals("flow_surge")
+            && a.categoryId() == CategoryId.TECH
+            && a.severity() == Severity.INFO
+            && a.message().contains("TECH")
+            && a.message().contains("inflow")));
+  }
+
+  @Test
+  @DisplayName("flow_surge: does not insert alert when rule is disabled")
+  void shouldNotCreateFlowSurgeAlertWhenRuleDisabled() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptFlowSurge();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+
+    RotationEvent flowEvent = rotationEvent(CategoryId.TECH, RotationEventType.FLOW_SURGE);
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of(flowEvent));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("flow_surge: resolves alert when flow z-score drops below 1.0")
+  void shouldResolveFlowSurgeAlertWhenFlowDropsBelowThreshold() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptFlowSurge();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(enabled("flow_surge", Severity.INFO)));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+    // Flow z-score = 0.5 (below resolve threshold of 1.0)
+    when(signalRepository.findByTypeAndDate(SignalType.FLOW_20D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.5")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).resolveAlertsByRuleAndCategory("flow_surge", "TECH");
   }
 }

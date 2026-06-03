@@ -39,8 +39,8 @@ import java.util.Set;
  * rotation event - composite_breakout: one alert per COMPOSITE_BREAKOUT rotation event - macro_regime_shift: fires when
  * MACRO_REGIME signal changes from the previous signal date
  *
- * <p>Deferred (no FLOW signals yet): - flow_inflow_5d, flow_inflow_10d, flow_inflow_20d -
- * flow_outflow_5d, flow_outflow_10d, flow_outflow_20d
+ * <p>Flow alerts: - flow_surge: fires when FLOW_20D z-score crosses above 2.0σ (institutional
+ * inflow spike, detected via FLOW_SURGE rotation event)
  */
 @Service
 public class AlertRulesEngine {
@@ -66,6 +66,9 @@ public class AlertRulesEngine {
     private static final int CLUSTER_MIN_SIZE = 3;
     private static final int CLUSTER_RESOLVE_SIZE = 2;
     private static final String RULE_SIGNAL_DETERIORATION = "signal_deterioration";
+    private static final String RULE_FLOW_SURGE = "flow_surge";
+    private static final BigDecimal FLOW_SURGE_Z_THRESHOLD = new BigDecimal("2.0");
+    private static final BigDecimal FLOW_SURGE_RESOLVE_THRESHOLD = new BigDecimal("1.0");
     private static final BigDecimal DETERIORATION_TREND_THRESHOLD = new BigDecimal("-0.05");
     private static final BigDecimal DETERIORATION_RECOVERY_THRESHOLD = new BigDecimal("-0.02");
     private static final BigDecimal APPROACHING_BUY_LOWER = new BigDecimal("0.55");
@@ -135,6 +138,8 @@ public class AlertRulesEngine {
                 signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_5D, signalDate);
         Map<String, BigDecimal> currentTrend5d =
                 signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, signalDate);
+        Map<String, BigDecimal> currentFlow20d =
+                signalRepository.findByTypeAndDate(SignalType.FLOW_20D, signalDate);
 
         int resolved = 0;
         for (String categoryId : topLevelCategoryIds) {
@@ -216,6 +221,12 @@ public class AlertRulesEngine {
                             RULE_SIGNAL_DETERIORATION, categoryId);
                 }
             }
+
+            // Flow surge alert: resolve when flow z-score drops back below 1.0 (surge dissipated)
+            BigDecimal flow20d = currentFlow20d.get(categoryId);
+            if (flow20d != null && flow20d.compareTo(FLOW_SURGE_RESOLVE_THRESHOLD) < 0) {
+                resolved += alertRepository.resolveAlertsByRuleAndCategory(RULE_FLOW_SURGE, categoryId);
+            }
         }
 
         if (resolved > 0) {
@@ -232,13 +243,16 @@ public class AlertRulesEngine {
         Optional<AlertRule> rrgRule = alertRulesRepository.findById(RULE_RRG_TRANSITION);
         Optional<AlertRule> breakoutRule = alertRulesRepository.findById(RULE_COMPOSITE_BREAKOUT);
         Optional<AlertRule> breakdownRule = alertRulesRepository.findById(RULE_COMPOSITE_BREAKDOWN);
+        Optional<AlertRule> flowSurgeRule = alertRulesRepository.findById(RULE_FLOW_SURGE);
 
         boolean rrgRuleEnabled = rrgRule.map(AlertRule::enabled).orElse(false);
         boolean breakoutRuleEnabled = breakoutRule.map(AlertRule::enabled).orElse(false);
         boolean breakdownRuleEnabled = breakdownRule.map(AlertRule::enabled).orElse(false);
+        boolean flowSurgeRuleEnabled = flowSurgeRule.map(AlertRule::enabled).orElse(false);
         Severity rrgSeverity = rrgRule.map(AlertRule::severity).orElse(Severity.INFO);
         Severity breakoutSeverity = breakoutRule.map(AlertRule::severity).orElse(Severity.ACTION);
         Severity breakdownSeverity = breakdownRule.map(AlertRule::severity).orElse(Severity.WARNING);
+        Severity flowSurgeSeverity = flowSurgeRule.map(AlertRule::severity).orElse(Severity.INFO);
 
         int count = 0;
         for (RotationEvent rotationEvent : todaysEvents) {
@@ -294,6 +308,25 @@ public class AlertRulesEngine {
                                     buildBreakoutSnapshot(rotationEvent),
                                     AlertStatus.ACTIVE));
                     count++;
+                }
+            }
+
+            if (flowSurgeRuleEnabled
+                    && rotationEvent.eventType() == RotationEventType.FLOW_SURGE) {
+                if (!alertRepository.existsActiveAlert(RULE_FLOW_SURGE, categoryId)) {
+                    alertRepository.insert(
+                            new Alert(
+                                    OffsetDateTime.now(),
+                                    rotationEvent.categoryId(),
+                                    RULE_FLOW_SURGE,
+                                    flowSurgeSeverity,
+                                    String.format(
+                                            "%s flow z-score crossed 2σ — unusual institutional inflow activity detected",
+                                            categoryId),
+                                    rotationEvent.signalSnapshot(),
+                                    AlertStatus.ACTIVE));
+                    count++;
+                    log.info("flow_surge alert: category={} signalDate={}", categoryId, signalDate);
                 }
             }
         }

@@ -153,10 +153,11 @@ class CategoryServiceTest {
     ArgumentCaptor<List<SignalType>> captor = ArgumentCaptor.forClass(List.class);
     verify(signalRepository).findLatestByTypes(captor.capture());
     assertThat(captor.getValue()).contains(SignalType.RS_120);
-    assertThat(captor.getValue()).doesNotContain(SignalType.RS_20);
     assertThat(captor.getValue()).doesNotContain(SignalType.RS_60);
     // RS_120 appears only once after deduplication
     assertThat(captor.getValue().stream().filter(SignalType.RS_120::equals).count()).isEqualTo(1);
+    // RS_20 is always fetched for the rs20 DTO field, regardless of timeframe
+    assertThat(captor.getValue()).contains(SignalType.RS_20);
   }
 
   @Test
@@ -170,8 +171,8 @@ class CategoryServiceTest {
     @SuppressWarnings("unchecked")
     ArgumentCaptor<List<SignalType>> captor = ArgumentCaptor.forClass(List.class);
     verify(signalRepository).findLatestByTypes(captor.capture());
-    assertThat(captor.getValue()).contains(SignalType.RS_60, SignalType.RS_120);
-    assertThat(captor.getValue()).doesNotContain(SignalType.RS_20);
+    // RS_60 and RS_120 are always present; RS_20 is now also always fetched for the rs20 DTO field
+    assertThat(captor.getValue()).contains(SignalType.RS_60, SignalType.RS_120, SignalType.RS_20);
   }
 
   @Test
@@ -212,7 +213,8 @@ class CategoryServiceTest {
     ArgumentCaptor<List<SignalType>> captor = ArgumentCaptor.forClass(List.class);
     verify(signalRepository).findLatestByTypes(captor.capture());
     assertThat(captor.getValue()).contains(SignalType.RS_60);
-    assertThat(captor.getValue()).doesNotContain(SignalType.RS_20);
+    // RS_20 is always fetched for the rs20 DTO field even when timeframe maps to RS_60
+    assertThat(captor.getValue()).contains(SignalType.RS_20);
   }
 
   @Test
@@ -244,11 +246,11 @@ class CategoryServiceTest {
     when(signalRepository.findScorePercentile252d()).thenReturn(Map.of());
     when(categoryMapper.toDto(
             eq(row1), eq(1), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
-            any(), any(), any(), any(), any()))
+            any(), any(), any(), any(), any(), any()))
         .thenReturn(dto1);
     when(categoryMapper.toDto(
             eq(row2), eq(2), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
-            any(), any(), any(), any(), any()))
+            any(), any(), any(), any(), any(), any()))
         .thenReturn(dto2);
 
     CategoriesResponse result = categoryService.getCategoriesResponse("MONTH");

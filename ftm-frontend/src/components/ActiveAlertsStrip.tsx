@@ -5,18 +5,21 @@ import Link from "next/link";
 import { AlertDto, fetchAlerts, acknowledgeAlert, bulkDismissAlerts } from "@/lib/api";
 
 const RULE_SHORT: Record<string, string> = {
-  rrg_transition:         "RRG",
-  composite_breakout:     "Breakout",
-  composite_breakdown:    "Breakdown",
-  macro_regime_shift:     "Regime",
-  rs_accel_crossover:     "RS Cross",
-  persistence_low:        "Persist↓",
-  breadth_velocity_accel: "Breadth↑",
-  breadth_velocity_decel: "Breadth↓",
-  trade_signal_buy:       "BUY",
-  trade_signal_reduce:    "REDUCE",
+  rrg_transition:           "RRG",
+  composite_breakout:       "Breakout",
+  composite_breakdown:      "Breakdown",
+  macro_regime_shift:       "Regime",
+  rs_accel_crossover:       "RS Cross",
+  persistence_low:          "Persist↓",
+  breadth_velocity_accel:   "Breadth↑",
+  breadth_velocity_decel:   "Breadth↓",
+  trade_signal_buy:         "BUY",
+  trade_signal_reduce:      "REDUCE",
   score_approaching_buy:    "Pre-BUY",
   score_approaching_reduce: "Pre-REDUCE",
+  flow_surge:               "Flow⬆",
+  signal_deterioration:     "Deteriorating",
+  high_conviction_buy:      "High-C BUY",
 };
 
 const SEV_STYLES: Record<string, { strip: string; badge: string; dot: string }> = {

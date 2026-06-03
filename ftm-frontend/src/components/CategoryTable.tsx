@@ -244,7 +244,7 @@ const RS_LABEL: Record<string, string> = {
   YEAR:    "120d",
 };
 
-function RsCell({ value, rs120, period, rankPct }: { value: number | null; rs120?: number | null; period: string; rankPct?: number | null }) {
+function RsCell({ value, rs120, rs20, period, rankPct }: { value: number | null; rs120?: number | null; rs20?: number | null; period: string; rankPct?: number | null }) {
   if (value == null) return <span className="text-slate-600">—</span>;
   const pct = (value * 100).toFixed(1);
   const color = value > 0 ? "text-green-400" : value < 0 ? "text-red-400" : "text-slate-400";
@@ -253,11 +253,27 @@ function RsCell({ value, rs120, period, rankPct }: { value: number | null; rs120
   const accelColor = accelPts != null && accelPts > 0 ? "text-emerald-400" : "text-red-400";
   const accelArrow = accelPts != null && accelPts > 0 ? "↗" : "↘";
   const rankColor = rankPct != null ? (rankPct >= 70 ? "text-emerald-500" : rankPct >= 30 ? "text-slate-500" : "text-red-500") : null;
+
+  // RS-20 momentum alignment: when rs20 > rs60 > rs120 (all-aligned bullish) or rs20 < rs60 < rs120 (all-aligned bearish)
+  const rs20Diff = rs20 != null ? rs20 - value : null;
+  const rs20Pts = rs20Diff != null ? Math.round(rs20Diff * 100) : null;
+  const allAlignedBullish = rs20 != null && rs120 != null && rs20 > value && value > rs120;
+  const allAlignedBearish = rs20 != null && rs120 != null && rs20 < value && value < rs120;
+  const rs20Title = rs20 != null
+    ? `RS-20: ${rs20 > 0 ? "+" : ""}${(rs20 * 100).toFixed(1)}% (fastest RS signal — 20-day window).${rs20Pts != null ? ` Divergence from RS-60: ${rs20Pts > 0 ? "+" : ""}${rs20Pts}pts — ${rs20Pts > 0 ? "short-term outpacing long-term (momentum building)" : "short-term lagging long-term (momentum fading)"}` : ""}${allAlignedBullish ? "\n✓ All RS signals aligned bullish (RS-20 > RS-60 > RS-120) — strong momentum confirmation" : allAlignedBearish ? "\n✗ All RS signals aligned bearish (RS-20 < RS-60 < RS-120) — deteriorating across all horizons" : ""}`
+    : "";
+
   return (
-    <span className="inline-flex items-center gap-1" title={`${period}-day relative strength vs benchmark. Positive = outperforming.${accelPts != null ? `\nAcceleration vs 120d: ${accelPts > 0 ? "+" : ""}${accelPts} pts` : ""}${rankPct != null ? `\nRS peer rank: ${rankPct}th percentile among 11 GICS sectors` : ""}`}>
+    <span className="inline-flex items-center gap-1" title={`${period}-day relative strength vs benchmark. Positive = outperforming.${accelPts != null ? `\nAcceleration vs 120d: ${accelPts > 0 ? "+" : ""}${accelPts} pts` : ""}${rankPct != null ? `\nRS peer rank: ${rankPct}th percentile among 11 GICS sectors` : ""}${rs20Title ? "\n" + rs20Title : ""}`}>
       <span className={`tabular-nums ${color}`}>{value > 0 ? "+" : ""}{pct}%</span>
       {accelPts != null && Math.abs(accelPts) >= 1 && (
         <span className={`text-[9px] tabular-nums ${accelColor}`}>{accelArrow}</span>
+      )}
+      {allAlignedBullish && (
+        <span className="text-[7px] text-emerald-500 font-mono" title={rs20Title}>⊕</span>
+      )}
+      {allAlignedBearish && (
+        <span className="text-[7px] text-red-500 font-mono" title={rs20Title}>⊖</span>
       )}
       {rankPct != null && rankColor && (
         <span className={`text-[8px] tabular-nums ${rankColor}`} title={`${rankPct}th percentile RS among 11 GICS sectors`}>P{rankPct}</span>
@@ -661,7 +677,7 @@ export default function CategoryTable({
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-right">
-                    <RsCell value={cat.rs60} rs120={cat.rs120} period={rsLabel.replace("d", "")} rankPct={rsRankPctMap.get(cat.id) ?? null} />
+                    <RsCell value={cat.rs60} rs120={cat.rs120} rs20={cat.rs20} period={rsLabel.replace("d", "")} rankPct={rsRankPctMap.get(cat.id) ?? null} />
                   </td>
                   <td className="px-4 py-2.5 text-center">
                     {cat.macroFit != null ? (

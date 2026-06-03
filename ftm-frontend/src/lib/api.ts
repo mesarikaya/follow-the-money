@@ -15,6 +15,7 @@ export type CategorySummary = {
   rrgQuadrant: string | null;
   rs60: number | null;
   rs120: number | null;
+  rs20: number | null;
   flow20d: number | null;
   persistence5d: number | null;
   persistence20d: number | null;

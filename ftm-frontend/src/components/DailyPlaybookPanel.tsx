@@ -58,6 +58,21 @@ function computeConviction(cat: CategorySummary): number {
     const rsAccel = cat.rs60 - cat.rs120;
     if (sig === "BUY" && rsAccel > 0.003) points += 5;
     else if (sig === "REDUCE" && rsAccel < -0.003) points += 5;
+
+    // RS-20 all-aligned bonus: rs20 > rs60 > rs120 confirms near-term momentum building
+    if (cat.rs20 != null) {
+      const allAlignedBullish = cat.rs20 > cat.rs60 && cat.rs60 > cat.rs120;
+      const allAlignedBearish = cat.rs20 < cat.rs60 && cat.rs60 < cat.rs120;
+      if (sig === "BUY" && allAlignedBullish) points += 5;
+      else if (sig === "REDUCE" && allAlignedBearish) points += 5;
+    }
+  }
+
+  // Institutional flow confirmation (matches backend TradeSignalDeriver logic)
+  const flowZ = cat.flow20d;
+  if (flowZ != null) {
+    if (sig === "BUY" && flowZ > 1.5) points += 5;
+    else if (sig === "REDUCE" && flowZ < -1.5) points += 5;
   }
 
   return Math.min(points, 100);
@@ -104,10 +119,37 @@ function buildReasons(
   else if (rrg === 2) reasons.push("RRG: Weakening");
   else if (rrg === 1) reasons.push("RRG: Lagging");
 
+  const rs20 = cat.rs20;
+  const rs60 = cat.rs60;
+  const rs120 = cat.rs120;
+  if (rs20 != null && rs60 != null && rs120 != null) {
+    if (sig === "BUY" && rs20 > rs60 && rs60 > rs120) {
+      reasons.push(`RS all-aligned ↑ (20d > 60d > 120d) — momentum building across horizons`);
+    } else if (sig === "REDUCE" && rs20 < rs60 && rs60 < rs120) {
+      reasons.push(`RS all-aligned ↓ (20d < 60d < 120d) — deteriorating across all horizons`);
+    } else if (sig === "BUY" && rs20 > rs60) {
+      const rs20Pts = Math.round((rs20 - rs60) * 100);
+      if (rs20Pts >= 1) reasons.push(`RS-20 ${rs20Pts}pt ahead of RS-60 — short-term gaining`);
+    }
+  }
+
   if (wr != null && (sig === "BUY" || sig === "REDUCE") && wr.signalCount >= 5) {
     const winPct = Math.round(wr.winRate * 100);
     const avgRet = wr.avgReturn30d != null ? (wr.avgReturn30d * 100).toFixed(1) : null;
     reasons.push(`historical win rate ${winPct}% (${wr.signalCount} signals${avgRet ? `, avg +${avgRet}% / 30d` : ""})`);
+  }
+
+  const flowZ = cat.flow20d;
+  if (flowZ != null) {
+    if (sig === "BUY" && flowZ > 1.5) {
+      reasons.push(`institutional flow surge ${flowZ.toFixed(1)}σ — confirms BUY`);
+    } else if (sig === "REDUCE" && flowZ < -1.5) {
+      reasons.push(`institutional outflow ${flowZ.toFixed(1)}σ — confirms REDUCE`);
+    } else if (sig === "BUY" && flowZ > 0.8) {
+      reasons.push(`flow ${flowZ.toFixed(1)}σ above avg`);
+    } else if (sig === "REDUCE" && flowZ < -0.8) {
+      reasons.push(`flow ${flowZ.toFixed(1)}σ below avg`);
+    }
   }
 
   // Caution flags

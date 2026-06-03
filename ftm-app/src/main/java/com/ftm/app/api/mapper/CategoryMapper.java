@@ -35,6 +35,7 @@ public interface CategoryMapper {
           "java(rrgQuadrantByCategoryId.containsKey(row.category().id().name()) ? String.valueOf(rrgQuadrantByCategoryId.get(row.category().id().name()).intValue()) : null)")
   @Mapping(target = "rs60", expression = "java(rs60ByCategoryId.get(row.category().id().name()))")
   @Mapping(target = "rs120", expression = "java(rs120ByCategoryId.get(row.category().id().name()))")
+  @Mapping(target = "rs20", expression = "java(rs20ByCategoryId.get(row.category().id().name()))")
   @Mapping(
       target = "flow20d",
       expression = "java(flow20dByCategoryId.get(row.category().id().name()))")
@@ -94,6 +95,7 @@ public interface CategoryMapper {
       Map<String, BigDecimal> compositeTrend10dByCategoryId,
       Map<String, BigDecimal> compositeTrend20dByCategoryId,
       Map<String, BigDecimal> rs120ByCategoryId,
+      Map<String, BigDecimal> rs20ByCategoryId,
       Map<String, BigDecimal> flow20dByCategoryId,
       Map<String, BigDecimal> persistence5dByCategoryId,
       Map<String, BigDecimal> persistence20dByCategoryId,

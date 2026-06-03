@@ -31,8 +31,8 @@ public final class TradeSignalDeriver {
 
   /**
    * Conviction score 0–100: a multi-factor quality rating that combines signal clarity, macro
-   * alignment, historical percentile standing, and momentum direction. Higher scores indicate more
-   * actionable setups. Returns 0 for HOLD or missing data.
+   * alignment, historical percentile standing, momentum direction, and institutional flow
+   * confirmation. Higher scores indicate more actionable setups. Returns 0 for HOLD or missing data.
    *
    * <p>Formula components (max 100):
    * <ul>
@@ -42,6 +42,7 @@ public final class TradeSignalDeriver {
    *   <li>252d percentile: ≥0.85→15, ≥0.70→10, ≥0.50→5
    *   <li>5d vs 20d acceleration: aligned→12, neutral→4
    *   <li>RS short vs long acceleration: aligned→5
+   *   <li>Flow 20d z-score confirmation: aligned &gt;1.5→5 (e.g. BUY + strong inflows)
    * </ul>
    */
   public static int convictionScore(
@@ -52,7 +53,8 @@ public final class TradeSignalDeriver {
       BigDecimal scorePercentile,
       BigDecimal trend5d,
       BigDecimal rs60,
-      BigDecimal rs120) {
+      BigDecimal rs120,
+      BigDecimal flow20d) {
     if (score == null) return 0;
     String signal = derive(score, rrgQuadrant, trend20d);
     if (signal == null || "HOLD".equals(signal)) return 0;
@@ -99,6 +101,13 @@ public final class TradeSignalDeriver {
       double rsAccel = rs60.doubleValue() - rs120.doubleValue();
       if ("BUY".equals(signal) && rsAccel > 0.003) points += 5;
       else if ("REDUCE".equals(signal) && rsAccel < -0.003) points += 5;
+    }
+
+    // Institutional flow confirmation: z-score > 1.5 on BUY = strong inflows; < -1.5 on REDUCE = outflows
+    if (flow20d != null) {
+      double flowZ = flow20d.doubleValue();
+      if ("BUY".equals(signal) && flowZ > 1.5) points += 5;
+      else if ("REDUCE".equals(signal) && flowZ < -1.5) points += 5;
     }
 
     return Math.min(points, 100);

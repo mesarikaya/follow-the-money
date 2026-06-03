@@ -922,7 +922,7 @@ public class AlertRulesEngine {
 
             int conviction =
                     TradeSignalDeriver.convictionScore(
-                            score, rrgStr, trend20d, macroFit, percentile, trend5d, null, null);
+                            score, rrgStr, trend20d, macroFit, percentile, trend5d, null, null, null);
 
             boolean hasActiveAlert = alertRepository.existsActiveAlert(RULE_HIGH_CONVICTION_BUY, categoryId);
 
@@ -1006,7 +1006,7 @@ public class AlertRulesEngine {
             BigDecimal percentile = percentile252dByCategory.get(categoryId);
             BigDecimal trend5d = trend5dByCategory.get(categoryId);
             int conviction = TradeSignalDeriver.convictionScore(
-                    score, rrgStr, trend20d, macroFit, percentile, trend5d, null, null);
+                    score, rrgStr, trend20d, macroFit, percentile, trend5d, null, null, null);
             if (conviction >= HIGH_CONVICTION_THRESHOLD) {
                 highConvictionIds.add(categoryId);
             }

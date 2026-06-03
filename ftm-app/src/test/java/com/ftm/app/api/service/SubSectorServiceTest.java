@@ -52,7 +52,8 @@ class SubSectorServiceTest {
         Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of()),
         Map.entry(SignalType.PERSISTENCE_5D, Map.of()),
         Map.entry(SignalType.PERSISTENCE_20D, Map.of()),
-        Map.entry(SignalType.MACRO_FIT, Map.of()));
+        Map.entry(SignalType.MACRO_FIT, Map.of()),
+        Map.entry(SignalType.FLOW_20D, Map.of()));
   }
 
   @Test
@@ -83,7 +84,8 @@ class SubSectorServiceTest {
                 Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of()),
                 Map.entry(SignalType.PERSISTENCE_5D, Map.of()),
                 Map.entry(SignalType.PERSISTENCE_20D, Map.of()),
-                Map.entry(SignalType.MACRO_FIT, Map.of())));
+                Map.entry(SignalType.MACRO_FIT, Map.of()),
+                Map.entry(SignalType.FLOW_20D, Map.of())));
 
     List<SubSectorSummaryDto> result = subSectorService.getSubSectors("TECH");
 
@@ -113,7 +115,8 @@ class SubSectorServiceTest {
                 Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of("SEMI", new BigDecimal("0.02"))),
                 Map.entry(SignalType.PERSISTENCE_5D, Map.of()),
                 Map.entry(SignalType.PERSISTENCE_20D, Map.of()),
-                Map.entry(SignalType.MACRO_FIT, Map.of())));
+                Map.entry(SignalType.MACRO_FIT, Map.of()),
+                Map.entry(SignalType.FLOW_20D, Map.of())));
 
     List<SubSectorSummaryDto> result = subSectorService.getSubSectors("TECH");
 
@@ -142,7 +145,8 @@ class SubSectorServiceTest {
                 Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of()),
                 Map.entry(SignalType.PERSISTENCE_5D, Map.of()),
                 Map.entry(SignalType.PERSISTENCE_20D, Map.of()),
-                Map.entry(SignalType.MACRO_FIT, Map.of())));
+                Map.entry(SignalType.MACRO_FIT, Map.of()),
+                Map.entry(SignalType.FLOW_20D, Map.of())));
 
     List<SubSectorSummaryDto> result = subSectorService.getSubSectors("TECH");
 
@@ -170,7 +174,8 @@ class SubSectorServiceTest {
                 Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of()),
                 Map.entry(SignalType.PERSISTENCE_5D, Map.of("SEMI", new BigDecimal("4"))),
                 Map.entry(SignalType.PERSISTENCE_20D, Map.of("SEMI", new BigDecimal("14"))),
-                Map.entry(SignalType.MACRO_FIT, Map.of("SEMI", new BigDecimal("0.72")))));
+                Map.entry(SignalType.MACRO_FIT, Map.of("SEMI", new BigDecimal("0.72"))),
+                Map.entry(SignalType.FLOW_20D, Map.of())));
 
     List<SubSectorSummaryDto> result = subSectorService.getSubSectors("TECH");
 
@@ -214,7 +219,8 @@ class SubSectorServiceTest {
                 Map.entry(SignalType.COMPOSITE_TREND_20D, Map.of("SEMI", new BigDecimal("0.05"))),
                 Map.entry(SignalType.PERSISTENCE_5D, Map.of()),
                 Map.entry(SignalType.PERSISTENCE_20D, Map.of()),
-                Map.entry(SignalType.MACRO_FIT, Map.of("SEMI", new BigDecimal("0.80")))));
+                Map.entry(SignalType.MACRO_FIT, Map.of("SEMI", new BigDecimal("0.80"))),
+                Map.entry(SignalType.FLOW_20D, Map.of())));
     when(signalRepository.findScorePercentile252d())
         .thenReturn(Map.of("SEMI", new BigDecimal("0.90")));
     when(signalRepository.findSignalDaysActive(any(BigDecimal.class))).thenReturn(Map.of());

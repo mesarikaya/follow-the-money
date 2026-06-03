@@ -42,7 +42,8 @@ public class SubSectorService {
                 SignalType.COMPOSITE_TREND_20D,
                 SignalType.PERSISTENCE_5D,
                 SignalType.PERSISTENCE_20D,
-                SignalType.MACRO_FIT));
+                SignalType.MACRO_FIT,
+                SignalType.FLOW_20D));
 
     Map<String, BigDecimal> rs20ByCategory =
         signals.getOrDefault(SignalType.RS_20, Collections.emptyMap());
@@ -66,6 +67,8 @@ public class SubSectorService {
         signals.getOrDefault(SignalType.PERSISTENCE_20D, Collections.emptyMap());
     Map<String, BigDecimal> macroFitByCategory =
         signals.getOrDefault(SignalType.MACRO_FIT, Collections.emptyMap());
+    Map<String, BigDecimal> flow20dByCategory =
+        signals.getOrDefault(SignalType.FLOW_20D, Collections.emptyMap());
 
     Map<String, Integer> signalDaysActiveByCategory =
         signalRepository.findSignalDaysActive(new java.math.BigDecimal("0.50"));
@@ -90,7 +93,8 @@ public class SubSectorService {
                   persistence20dRaw != null ? persistence20dRaw.intValue() : null;
               int rawConviction = TradeSignalDeriver.convictionScore(
                   compositeScore, rrgQuadrant, trend20d, macroFit, percentile, trend5d,
-                  rs60ByCategory.get(categoryId), rs120ByCategory.get(categoryId));
+                  rs60ByCategory.get(categoryId), rs120ByCategory.get(categoryId),
+                  flow20dByCategory.get(categoryId));
               return new SubSectorSummaryDto(
                   categoryId,
                   category.name(),

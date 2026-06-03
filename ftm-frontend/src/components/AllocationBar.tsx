@@ -21,6 +21,21 @@ function AllocationPill({ pct }: { pct: number }) {
   );
 }
 
+function FlowChip({ flow20d }: { flow20d: number | null }) {
+  if (flow20d == null || flow20d < 0.8) return null;
+  const surge = flow20d >= 1.5;
+  const color = surge ? "text-emerald-300" : "text-cyan-500";
+  const icon = surge ? "⬆" : "↑";
+  return (
+    <span
+      className={`text-[7px] font-mono ${color}`}
+      title={`Institutional flow z-score: +${flow20d.toFixed(1)}σ — ${surge ? "surge (adds +5 to conviction)" : "above-average inflows"}`}
+    >
+      F{icon}
+    </span>
+  );
+}
+
 function AccelBadge({ trend5d, trend20d }: { trend5d: number | null; trend20d: number | null }) {
   if (trend5d == null || trend20d == null) return null;
   const accel = trend5d - trend20d;
@@ -120,6 +135,7 @@ export default function AllocationBar({ categories }: Props) {
                   </span>
                   <AllocationPill pct={cat.allocationPct} />
                   <AccelBadge trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} />
+                  <FlowChip flow20d={cat.flow20d ?? null} />
                   {cat.convictionScore > 0 && <ConvictionBadge score={cat.convictionScore} />}
                 </Link>
               );
@@ -156,6 +172,18 @@ export default function AllocationBar({ categories }: Props) {
       </div>
 
       <div className="shrink-0 self-end text-[9px] text-slate-700 leading-relaxed text-right">
+        {weightedAllocations.length > 0 && (() => {
+          const avgConviction = Math.round(
+            weightedAllocations.reduce((s, c) => s + c.convictionScore, 0) / weightedAllocations.length
+          );
+          const flowConfirmed = weightedAllocations.filter(c => (c.flow20d ?? 0) > 0.8).length;
+          const portfolioColor = avgConviction >= 70 ? "text-emerald-600" : avgConviction >= 50 ? "text-amber-600" : "text-slate-600";
+          return (
+            <div className={`text-[10px] font-mono font-semibold ${portfolioColor} mb-0.5`} title={`Average conviction of BUY portfolio: ${avgConviction}/100. ${flowConfirmed}/${weightedAllocations.length} positions have flow confirmation (z > 0.8σ)`}>
+              Avg C{avgConviction} · {flowConfirmed}/{weightedAllocations.length} flow✓
+            </div>
+          );
+        })()}
         Allocation % = conviction-weighted<br />
         BUY signals only · C = conviction score
       </div>

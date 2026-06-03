@@ -41,9 +41,20 @@ export default function MarketPulseStrip({ categories }: Props) {
     equities.reduce((s, c) => s + (c.compositeScore ?? 0), 0) / equities.length * 100
   );
 
+  // Short-term RS momentum: RS-20 vs RS-60 (leading) — faster signal, leads the 60d by days
+  const rsLeadCount   = equities.filter(c => c.rs20 != null && c.rs60 != null && c.rs20 > c.rs60 + 0.001).length;
+  const rsLagCount    = equities.filter(c => c.rs20 != null && c.rs60 != null && c.rs20 < c.rs60 - 0.001).length;
+  // Medium-term RS momentum: RS-60 vs RS-120 (confirming)
   const rsAccelCount  = equities.filter(c => c.rs60 != null && c.rs120 != null && c.rs60 > c.rs120 + 0.001).length;
   const rsDecelCount  = equities.filter(c => c.rs60 != null && c.rs120 != null && c.rs60 < c.rs120 - 0.001).length;
   const rsHasData     = equities.some(c => c.rs60 != null && c.rs120 != null);
+  const rsLeadHasData = equities.some(c => c.rs20 != null && c.rs60 != null);
+
+  // Institutional flow breadth: sectors with meaningful z-score (|z| > 0.8)
+  const flowInflowCount  = equities.filter(c => (c.flow20d ?? 0) > 0.8).length;
+  const flowOutflowCount = equities.filter(c => (c.flow20d ?? 0) < -0.8).length;
+  const flowSurgeCount   = equities.filter(c => (c.flow20d ?? 0) > 1.5).length;
+  const flowHasData      = equities.some(c => c.flow20d != null);
 
   const persistHigh  = equities.filter(c => (c.persistence20d ?? 0) >= 12).length;
   const persistLow   = equities.filter(c => c.persistence20d != null && c.persistence20d < 7).length;
@@ -87,11 +98,26 @@ export default function MarketPulseStrip({ categories }: Props) {
     reduceCount >= 3 ? "text-red-400" :
     "text-slate-400";
 
-  const rsLabel = !rsHasData ? "—" :
-    rsAccelCount > rsDecelCount ? `${rsAccelCount}↗ / ${rsDecelCount}↘` :
-    `${rsDecelCount}↘ / ${rsAccelCount}↗`;
-  const rsColor = !rsHasData ? "text-slate-500" :
-    rsAccelCount > rsDecelCount ? "text-emerald-400" : "text-red-400";
+  // RS breadth now uses short-term (RS-20 vs RS-60) as the primary indicator
+  const rsLabel = !rsLeadHasData ? "—" :
+    rsLeadCount > rsLagCount ? `${rsLeadCount}↗ / ${rsLagCount}↘` :
+    `${rsLagCount}↘ / ${rsLeadCount}↗`;
+  const rsColor = !rsLeadHasData ? "text-slate-500" :
+    rsLeadCount > rsLagCount ? "text-emerald-400" : "text-red-400";
+  const rsSub = rsHasData
+    ? (rsAccelCount > rsDecelCount ? `confirm: ${rsAccelCount} / ${rsDecelCount} (60d>120d)` : `confirm: ${rsDecelCount} / ${rsAccelCount} (60d<120d)`)
+    : undefined;
+
+  const flowLabel = !flowHasData ? "—" :
+    flowInflowCount > 0 || flowOutflowCount > 0
+      ? `${flowInflowCount}↑ / ${flowOutflowCount}↓`
+      : "neutral";
+  const flowColor = !flowHasData ? "text-slate-500" :
+    flowSurgeCount >= 2 ? "text-emerald-400" :
+    flowInflowCount > flowOutflowCount ? "text-cyan-400" :
+    flowOutflowCount > flowInflowCount ? "text-orange-400" :
+    "text-slate-400";
+  const flowSub = flowSurgeCount > 0 ? `${flowSurgeCount} surge (z>1.5)` : "z > 0.8σ threshold";
 
   const persistLabel = !hasPersist ? "—" : `${persistHigh} strong`;
   const persistColor = !hasPersist ? "text-slate-500" :
@@ -113,9 +139,9 @@ export default function MarketPulseStrip({ categories }: Props) {
         valueClass={signalColor}
       />
       <StatCell
-        label="RS Breadth"
+        label="RS Momentum"
         value={rsLabel}
-        sub={rsHasData ? "accel vs decel" : undefined}
+        sub={rsSub ?? (rsLeadHasData ? "RS-20 vs RS-60 (leading)" : undefined)}
         valueClass={rsColor}
       />
       <StatCell
@@ -135,6 +161,12 @@ export default function MarketPulseStrip({ categories }: Props) {
         value={accelCount > 0 || decelCount > 0 ? `${accelCount}↗ / ${decelCount}↘` : "—"}
         sub={accelCount > 0 || decelCount > 0 ? "score accel vs decel" : undefined}
         valueClass={accelCount > decelCount ? "text-emerald-400" : decelCount > accelCount ? "text-orange-400" : "text-slate-500"}
+      />
+      <StatCell
+        label="Flow Breadth"
+        value={flowLabel}
+        sub={flowHasData ? flowSub : undefined}
+        valueClass={flowColor}
         divider={false}
       />
     </div>

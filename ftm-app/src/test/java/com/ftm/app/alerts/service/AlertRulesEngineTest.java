@@ -80,12 +80,8 @@ class AlertRulesEngineTest {
     lenient()
         .when(signalRepository.findByTypeAndDate(SignalType.FLOW_20D, DATE))
         .thenReturn(Map.of());
-    lenient()
-        .when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
-        .thenReturn(Map.of());
-    lenient()
-        .when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
-        .thenReturn(Map.of());
+    lenient().when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE)).thenReturn(Map.of());
+    lenient().when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE)).thenReturn(Map.of());
     lenient()
         .when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
         .thenReturn(Map.of());
@@ -130,9 +126,7 @@ class AlertRulesEngineTest {
     lenient()
         .when(alertRulesRepository.findById("macro_sector_mismatch"))
         .thenReturn(Optional.of(disabled("macro_sector_mismatch")));
-    lenient()
-        .when(signalRepository.findScorePercentile252d())
-        .thenReturn(Map.of());
+    lenient().when(signalRepository.findScorePercentile252d()).thenReturn(Map.of());
   }
 
   private AlertRule enabled(String ruleId, Severity severity) {
@@ -1014,7 +1008,8 @@ class AlertRulesEngineTest {
   }
 
   @Test
-  @DisplayName("high_conviction_buy: no duplicate when active alert already exists at >= 75 conviction")
+  @DisplayName(
+      "high_conviction_buy: no duplicate when active alert already exists at >= 75 conviction")
   void shouldNotCreateDuplicateHighConvictionBuyAlertWhenActiveAlertExists() {
     stubTopLevelCategories("TECH");
     stubMacroDisabled();
@@ -1064,22 +1059,60 @@ class AlertRulesEngineTest {
     when(alertRulesRepository.findById("high_conviction_cluster"))
         .thenReturn(Optional.of(enabled("high_conviction_cluster", Severity.ACTION)));
 
-    // All 3 sectors: score=0.82, rrg=4, trend20d=0.05, macroFit=0.80, percentile=0.90 → conviction 83 ≥ 75
+    // All 3 sectors: score=0.82, rrg=4, trend20d=0.05, macroFit=0.80, percentile=0.90 → conviction
+    // 83 ≥ 75
     when(signalRepository.findLatestByTypes(any()))
         .thenReturn(
             Map.of(
                 SignalType.COMPOSITE,
-                    Map.of("TECH", new BigDecimal("0.82"), "FINL", new BigDecimal("0.82"), "HLTH", new BigDecimal("0.82")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("0.82"),
+                        "FINL",
+                        new BigDecimal("0.82"),
+                        "HLTH",
+                        new BigDecimal("0.82")),
                 SignalType.RRG_QUADRANT,
-                    Map.of("TECH", new BigDecimal("4"), "FINL", new BigDecimal("4"), "HLTH", new BigDecimal("4")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("4"),
+                        "FINL",
+                        new BigDecimal("4"),
+                        "HLTH",
+                        new BigDecimal("4")),
                 SignalType.COMPOSITE_TREND_20D,
-                    Map.of("TECH", new BigDecimal("0.05"), "FINL", new BigDecimal("0.05"), "HLTH", new BigDecimal("0.05")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("0.05"),
+                        "FINL",
+                        new BigDecimal("0.05"),
+                        "HLTH",
+                        new BigDecimal("0.05")),
                 SignalType.MACRO_FIT,
-                    Map.of("TECH", new BigDecimal("0.80"), "FINL", new BigDecimal("0.80"), "HLTH", new BigDecimal("0.80")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("0.80"),
+                        "FINL",
+                        new BigDecimal("0.80"),
+                        "HLTH",
+                        new BigDecimal("0.80")),
                 SignalType.COMPOSITE_TREND_5D,
-                    Map.of("TECH", new BigDecimal("0.06"), "FINL", new BigDecimal("0.06"), "HLTH", new BigDecimal("0.06"))));
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("0.06"),
+                        "FINL",
+                        new BigDecimal("0.06"),
+                        "HLTH",
+                        new BigDecimal("0.06"))));
     when(signalRepository.findScorePercentile252d())
-        .thenReturn(Map.of("TECH", new BigDecimal("0.90"), "FINL", new BigDecimal("0.90"), "HLTH", new BigDecimal("0.90")));
+        .thenReturn(
+            Map.of(
+                "TECH",
+                new BigDecimal("0.90"),
+                "FINL",
+                new BigDecimal("0.90"),
+                "HLTH",
+                new BigDecimal("0.90")));
     when(alertRepository.existsActiveAlert("high_conviction_cluster", null)).thenReturn(false);
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
@@ -1115,17 +1148,54 @@ class AlertRulesEngineTest {
         .thenReturn(
             Map.of(
                 SignalType.COMPOSITE,
-                    Map.of("TECH", new BigDecimal("0.82"), "FINL", new BigDecimal("0.68"), "HLTH", new BigDecimal("0.68")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("0.82"),
+                        "FINL",
+                        new BigDecimal("0.68"),
+                        "HLTH",
+                        new BigDecimal("0.68")),
                 SignalType.RRG_QUADRANT,
-                    Map.of("TECH", new BigDecimal("4"), "FINL", new BigDecimal("3"), "HLTH", new BigDecimal("3")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("4"),
+                        "FINL",
+                        new BigDecimal("3"),
+                        "HLTH",
+                        new BigDecimal("3")),
                 SignalType.COMPOSITE_TREND_20D,
-                    Map.of("TECH", new BigDecimal("0.05"), "FINL", new BigDecimal("0.02"), "HLTH", new BigDecimal("0.02")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("0.05"),
+                        "FINL",
+                        new BigDecimal("0.02"),
+                        "HLTH",
+                        new BigDecimal("0.02")),
                 SignalType.MACRO_FIT,
-                    Map.of("TECH", new BigDecimal("0.80"), "FINL", new BigDecimal("0.45"), "HLTH", new BigDecimal("0.45")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("0.80"),
+                        "FINL",
+                        new BigDecimal("0.45"),
+                        "HLTH",
+                        new BigDecimal("0.45")),
                 SignalType.COMPOSITE_TREND_5D,
-                    Map.of("TECH", new BigDecimal("0.06"), "FINL", new BigDecimal("0.03"), "HLTH", new BigDecimal("0.03"))));
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("0.06"),
+                        "FINL",
+                        new BigDecimal("0.03"),
+                        "HLTH",
+                        new BigDecimal("0.03"))));
     when(signalRepository.findScorePercentile252d())
-        .thenReturn(Map.of("TECH", new BigDecimal("0.90"), "FINL", new BigDecimal("0.60"), "HLTH", new BigDecimal("0.60")));
+        .thenReturn(
+            Map.of(
+                "TECH",
+                new BigDecimal("0.90"),
+                "FINL",
+                new BigDecimal("0.60"),
+                "HLTH",
+                new BigDecimal("0.60")));
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
@@ -1154,17 +1224,54 @@ class AlertRulesEngineTest {
         .thenReturn(
             Map.of(
                 SignalType.COMPOSITE,
-                    Map.of("TECH", new BigDecimal("0.68"), "FINL", new BigDecimal("0.60"), "HLTH", new BigDecimal("0.55")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("0.68"),
+                        "FINL",
+                        new BigDecimal("0.60"),
+                        "HLTH",
+                        new BigDecimal("0.55")),
                 SignalType.RRG_QUADRANT,
-                    Map.of("TECH", new BigDecimal("3"), "FINL", new BigDecimal("3"), "HLTH", new BigDecimal("3")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("3"),
+                        "FINL",
+                        new BigDecimal("3"),
+                        "HLTH",
+                        new BigDecimal("3")),
                 SignalType.COMPOSITE_TREND_20D,
-                    Map.of("TECH", new BigDecimal("0.02"), "FINL", new BigDecimal("0.01"), "HLTH", new BigDecimal("0.01")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("0.02"),
+                        "FINL",
+                        new BigDecimal("0.01"),
+                        "HLTH",
+                        new BigDecimal("0.01")),
                 SignalType.MACRO_FIT,
-                    Map.of("TECH", new BigDecimal("0.45"), "FINL", new BigDecimal("0.40"), "HLTH", new BigDecimal("0.35")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("0.45"),
+                        "FINL",
+                        new BigDecimal("0.40"),
+                        "HLTH",
+                        new BigDecimal("0.35")),
                 SignalType.COMPOSITE_TREND_5D,
-                    Map.of("TECH", new BigDecimal("0.03"), "FINL", new BigDecimal("0.02"), "HLTH", new BigDecimal("0.01"))));
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("0.03"),
+                        "FINL",
+                        new BigDecimal("0.02"),
+                        "HLTH",
+                        new BigDecimal("0.01"))));
     when(signalRepository.findScorePercentile252d())
-        .thenReturn(Map.of("TECH", new BigDecimal("0.60"), "FINL", new BigDecimal("0.50"), "HLTH", new BigDecimal("0.45")));
+        .thenReturn(
+            Map.of(
+                "TECH",
+                new BigDecimal("0.60"),
+                "FINL",
+                new BigDecimal("0.50"),
+                "HLTH",
+                new BigDecimal("0.45")));
     when(alertRepository.existsActiveAlert("high_conviction_cluster", null)).thenReturn(true);
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
@@ -1176,7 +1283,8 @@ class AlertRulesEngineTest {
   // ===== High Conviction REDUCE Cluster Alert Tests =====
 
   @Test
-  @DisplayName("high_conviction_reduce_cluster: inserts ACTION when ≥3 sectors are high-conviction REDUCE")
+  @DisplayName(
+      "high_conviction_reduce_cluster: inserts ACTION when ≥3 sectors are high-conviction REDUCE")
   void shouldCreateReduceClusterAlertWhenThreeOrMoreSectorsAreHighConvictionReduce() {
     stubTopLevelCategories("TECH", "FINL", "HLTH");
     stubAllRulesDisabledExceptReduceCluster();
@@ -1190,18 +1298,56 @@ class AlertRulesEngineTest {
         .thenReturn(
             Map.of(
                 SignalType.COMPOSITE,
-                    Map.of("TECH", new BigDecimal("0.28"), "FINL", new BigDecimal("0.28"), "HLTH", new BigDecimal("0.28")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("0.28"),
+                        "FINL",
+                        new BigDecimal("0.28"),
+                        "HLTH",
+                        new BigDecimal("0.28")),
                 SignalType.RRG_QUADRANT,
-                    Map.of("TECH", new BigDecimal("1"), "FINL", new BigDecimal("1"), "HLTH", new BigDecimal("1")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("1"),
+                        "FINL",
+                        new BigDecimal("1"),
+                        "HLTH",
+                        new BigDecimal("1")),
                 SignalType.COMPOSITE_TREND_20D,
-                    Map.of("TECH", new BigDecimal("-0.04"), "FINL", new BigDecimal("-0.04"), "HLTH", new BigDecimal("-0.04")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("-0.04"),
+                        "FINL",
+                        new BigDecimal("-0.04"),
+                        "HLTH",
+                        new BigDecimal("-0.04")),
                 SignalType.COMPOSITE_TREND_5D,
-                    Map.of("TECH", new BigDecimal("-0.08"), "FINL", new BigDecimal("-0.08"), "HLTH", new BigDecimal("-0.08")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("-0.08"),
+                        "FINL",
+                        new BigDecimal("-0.08"),
+                        "HLTH",
+                        new BigDecimal("-0.08")),
                 SignalType.FLOW_20D,
-                    Map.of("TECH", new BigDecimal("-2.0"), "FINL", new BigDecimal("-2.0"), "HLTH", new BigDecimal("-2.0"))));
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("-2.0"),
+                        "FINL",
+                        new BigDecimal("-2.0"),
+                        "HLTH",
+                        new BigDecimal("-2.0"))));
     when(signalRepository.findScorePercentile252d())
-        .thenReturn(Map.of("TECH", new BigDecimal("0.10"), "FINL", new BigDecimal("0.10"), "HLTH", new BigDecimal("0.10")));
-    when(alertRepository.existsActiveAlert("high_conviction_reduce_cluster", null)).thenReturn(false);
+        .thenReturn(
+            Map.of(
+                "TECH",
+                new BigDecimal("0.10"),
+                "FINL",
+                new BigDecimal("0.10"),
+                "HLTH",
+                new BigDecimal("0.10")));
+    when(alertRepository.existsActiveAlert("high_conviction_reduce_cluster", null))
+        .thenReturn(false);
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
@@ -1215,7 +1361,8 @@ class AlertRulesEngineTest {
   }
 
   @Test
-  @DisplayName("high_conviction_reduce_cluster: no alert when fewer than 3 sectors are high-conviction REDUCE")
+  @DisplayName(
+      "high_conviction_reduce_cluster: no alert when fewer than 3 sectors are high-conviction REDUCE")
   void shouldNotCreateReduceClusterAlertWhenFewerThanThreeSectorsQualify() {
     stubTopLevelCategories("TECH", "FINL", "HLTH");
     stubAllRulesDisabledExceptReduceCluster();
@@ -1229,17 +1376,54 @@ class AlertRulesEngineTest {
         .thenReturn(
             Map.of(
                 SignalType.COMPOSITE,
-                    Map.of("TECH", new BigDecimal("0.28"), "FINL", new BigDecimal("0.28"), "HLTH", new BigDecimal("0.28")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("0.28"),
+                        "FINL",
+                        new BigDecimal("0.28"),
+                        "HLTH",
+                        new BigDecimal("0.28")),
                 SignalType.RRG_QUADRANT,
-                    Map.of("TECH", new BigDecimal("1"), "FINL", new BigDecimal("2"), "HLTH", new BigDecimal("2")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("1"),
+                        "FINL",
+                        new BigDecimal("2"),
+                        "HLTH",
+                        new BigDecimal("2")),
                 SignalType.COMPOSITE_TREND_20D,
-                    Map.of("TECH", new BigDecimal("-0.04"), "FINL", new BigDecimal("-0.01"), "HLTH", new BigDecimal("-0.01")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("-0.04"),
+                        "FINL",
+                        new BigDecimal("-0.01"),
+                        "HLTH",
+                        new BigDecimal("-0.01")),
                 SignalType.COMPOSITE_TREND_5D,
-                    Map.of("TECH", new BigDecimal("-0.08"), "FINL", new BigDecimal("-0.01"), "HLTH", new BigDecimal("-0.01")),
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("-0.08"),
+                        "FINL",
+                        new BigDecimal("-0.01"),
+                        "HLTH",
+                        new BigDecimal("-0.01")),
                 SignalType.FLOW_20D,
-                    Map.of("TECH", new BigDecimal("-2.0"), "FINL", new BigDecimal("0.1"), "HLTH", new BigDecimal("0.1"))));
+                    Map.of(
+                        "TECH",
+                        new BigDecimal("-2.0"),
+                        "FINL",
+                        new BigDecimal("0.1"),
+                        "HLTH",
+                        new BigDecimal("0.1"))));
     when(signalRepository.findScorePercentile252d())
-        .thenReturn(Map.of("TECH", new BigDecimal("0.10"), "FINL", new BigDecimal("0.40"), "HLTH", new BigDecimal("0.40")));
+        .thenReturn(
+            Map.of(
+                "TECH",
+                new BigDecimal("0.10"),
+                "FINL",
+                new BigDecimal("0.40"),
+                "HLTH",
+                new BigDecimal("0.40")));
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
@@ -1265,7 +1449,8 @@ class AlertRulesEngineTest {
   }
 
   @Test
-  @DisplayName("signal_deterioration: inserts WARNING when BUY-territory score has sharp 5d decline")
+  @DisplayName(
+      "signal_deterioration: inserts WARNING when BUY-territory score has sharp 5d decline")
   void shouldCreateSignalDeteriorationAlertWhenBuyScoreWithNegativeTrend() {
     stubTopLevelCategories("TECH");
     stubAllRulesDisabledExceptSignalDeterioration();
@@ -1299,7 +1484,8 @@ class AlertRulesEngineTest {
 
     when(alertRulesRepository.findById("signal_deterioration"))
         .thenReturn(Optional.of(enabled("signal_deterioration", Severity.WARNING)));
-    // TECH: composite=0.60 (below 0.65 BUY threshold), trend5d=-0.08 (would qualify if in BUY territory)
+    // TECH: composite=0.60 (below 0.65 BUY threshold), trend5d=-0.08 (would qualify if in BUY
+    // territory)
     when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
         .thenReturn(Map.of("TECH", new BigDecimal("0.60")));
     when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
@@ -1318,7 +1504,8 @@ class AlertRulesEngineTest {
 
     when(alertRulesRepository.findById("signal_deterioration"))
         .thenReturn(Optional.of(enabled("signal_deterioration", Severity.WARNING)));
-    // TECH: composite=0.72 (in BUY territory), trend5d=-0.03 (above -0.05 threshold — only mild decline)
+    // TECH: composite=0.72 (in BUY territory), trend5d=-0.03 (above -0.05 threshold — only mild
+    // decline)
     when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
         .thenReturn(Map.of("TECH", new BigDecimal("0.72")));
     when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
@@ -1419,7 +1606,8 @@ class AlertRulesEngineTest {
   }
 
   @Test
-  @DisplayName("flow_surge: inserts INFO alert when FLOW_SURGE rotation event fires for enabled rule")
+  @DisplayName(
+      "flow_surge: inserts INFO alert when FLOW_SURGE rotation event fires for enabled rule")
   void shouldCreateFlowSurgeAlertWhenFlowSurgeEventDetected() {
     stubTopLevelCategories("TECH");
     stubAllRulesDisabledExceptFlowSurge();
@@ -1432,12 +1620,15 @@ class AlertRulesEngineTest {
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository).insert(
-        argThat(a -> a.ruleId().equals("flow_surge")
-            && a.categoryId() == CategoryId.TECH
-            && a.severity() == Severity.INFO
-            && a.message().contains("TECH")
-            && a.message().contains("inflow")));
+    verify(alertRepository)
+        .insert(
+            argThat(
+                a ->
+                    a.ruleId().equals("flow_surge")
+                        && a.categoryId() == CategoryId.TECH
+                        && a.severity() == Severity.INFO
+                        && a.message().contains("TECH")
+                        && a.message().contains("inflow")));
   }
 
   @Test
@@ -1500,12 +1691,15 @@ class AlertRulesEngineTest {
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository).insert(
-        argThat(a -> a.ruleId().equals("rs_aligned_bull")
-            && a.categoryId() == CategoryId.TECH
-            && a.severity() == Severity.INFO
-            && a.message().contains("TECH")
-            && a.message().contains("RS-20")));
+    verify(alertRepository)
+        .insert(
+            argThat(
+                a ->
+                    a.ruleId().equals("rs_aligned_bull")
+                        && a.categoryId() == CategoryId.TECH
+                        && a.severity() == Severity.INFO
+                        && a.message().contains("TECH")
+                        && a.message().contains("RS-20")));
   }
 
   @Test
@@ -1707,27 +1901,52 @@ class AlertRulesEngineTest {
 
     // RS-20 > RS-60 for 6 sectors, RS-20 < RS-60 for 1 (UTIL)
     when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
-        .thenReturn(Map.of(
-            "TECH", new BigDecimal("0.80"), "FINL", new BigDecimal("0.70"),
-            "HLTH", new BigDecimal("0.65"), "INDU", new BigDecimal("0.60"),
-            "ENRG", new BigDecimal("0.55"), "MATL", new BigDecimal("0.50"),
-            "UTIL", new BigDecimal("0.30")));
+        .thenReturn(
+            Map.of(
+                "TECH",
+                new BigDecimal("0.80"),
+                "FINL",
+                new BigDecimal("0.70"),
+                "HLTH",
+                new BigDecimal("0.65"),
+                "INDU",
+                new BigDecimal("0.60"),
+                "ENRG",
+                new BigDecimal("0.55"),
+                "MATL",
+                new BigDecimal("0.50"),
+                "UTIL",
+                new BigDecimal("0.30")));
     when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
-        .thenReturn(Map.of(
-            "TECH", new BigDecimal("0.70"), "FINL", new BigDecimal("0.60"),
-            "HLTH", new BigDecimal("0.55"), "INDU", new BigDecimal("0.50"),
-            "ENRG", new BigDecimal("0.45"), "MATL", new BigDecimal("0.40"),
-            "UTIL", new BigDecimal("0.45")));  // UTIL: RS-20(0.30) < RS-60(0.45) → bear
+        .thenReturn(
+            Map.of(
+                "TECH",
+                new BigDecimal("0.70"),
+                "FINL",
+                new BigDecimal("0.60"),
+                "HLTH",
+                new BigDecimal("0.55"),
+                "INDU",
+                new BigDecimal("0.50"),
+                "ENRG",
+                new BigDecimal("0.45"),
+                "MATL",
+                new BigDecimal("0.40"),
+                "UTIL",
+                new BigDecimal("0.45"))); // UTIL: RS-20(0.30) < RS-60(0.45) → bear
     when(alertRepository.existsActiveAlert("rs_breadth_bull", null)).thenReturn(false);
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository).insert(argThat(a ->
-        a.ruleId().equals("rs_breadth_bull")
-        && a.categoryId() == null
-        && a.severity() == Severity.INFO
-        && a.message().contains("6/7")
-        && a.message().contains("RS-20 > RS-60")));
+    verify(alertRepository)
+        .insert(
+            argThat(
+                a ->
+                    a.ruleId().equals("rs_breadth_bull")
+                        && a.categoryId() == null
+                        && a.severity() == Severity.INFO
+                        && a.message().contains("6/7")
+                        && a.message().contains("RS-20 > RS-60")));
   }
 
   private void stubAllRulesDisabledExceptRrgRsDivergence() {
@@ -1744,7 +1963,8 @@ class AlertRulesEngineTest {
   }
 
   @Test
-  @DisplayName("rs_breadth_bear: inserts WARNING alert when ≥60% of equity sectors have RS-20 < RS-60")
+  @DisplayName(
+      "rs_breadth_bear: inserts WARNING alert when ≥60% of equity sectors have RS-20 < RS-60")
   void shouldCreateRsBreadthBearAlertWhenMajorityOfSectorsShowRsDeterioration() {
     // 7 equity categories; 7/7 = 100% have RS-20 < RS-60 → fires
     stubTopLevelCategories("TECH", "FINL", "HLTH", "INDU", "ENRG", "MATL", "UTIL");
@@ -1754,33 +1974,59 @@ class AlertRulesEngineTest {
 
     // All sectors: RS-20 < RS-60 (bear breadth)
     when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
-        .thenReturn(Map.of(
-            "TECH", new BigDecimal("0.40"), "FINL", new BigDecimal("0.35"),
-            "HLTH", new BigDecimal("0.30"), "INDU", new BigDecimal("0.28"),
-            "ENRG", new BigDecimal("0.25"), "MATL", new BigDecimal("0.22"),
-            "UTIL", new BigDecimal("0.20")));
+        .thenReturn(
+            Map.of(
+                "TECH",
+                new BigDecimal("0.40"),
+                "FINL",
+                new BigDecimal("0.35"),
+                "HLTH",
+                new BigDecimal("0.30"),
+                "INDU",
+                new BigDecimal("0.28"),
+                "ENRG",
+                new BigDecimal("0.25"),
+                "MATL",
+                new BigDecimal("0.22"),
+                "UTIL",
+                new BigDecimal("0.20")));
     when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
-        .thenReturn(Map.of(
-            "TECH", new BigDecimal("0.60"), "FINL", new BigDecimal("0.55"),
-            "HLTH", new BigDecimal("0.50"), "INDU", new BigDecimal("0.48"),
-            "ENRG", new BigDecimal("0.45"), "MATL", new BigDecimal("0.42"),
-            "UTIL", new BigDecimal("0.40")));
+        .thenReturn(
+            Map.of(
+                "TECH",
+                new BigDecimal("0.60"),
+                "FINL",
+                new BigDecimal("0.55"),
+                "HLTH",
+                new BigDecimal("0.50"),
+                "INDU",
+                new BigDecimal("0.48"),
+                "ENRG",
+                new BigDecimal("0.45"),
+                "MATL",
+                new BigDecimal("0.42"),
+                "UTIL",
+                new BigDecimal("0.40")));
     when(alertRepository.existsActiveAlert("rs_breadth_bear", null)).thenReturn(false);
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository).insert(argThat(a ->
-        a.ruleId().equals("rs_breadth_bear")
-        && a.categoryId() == null
-        && a.severity() == Severity.WARNING
-        && a.message().contains("7/7")
-        && a.message().contains("RS-20 < RS-60")));
+    verify(alertRepository)
+        .insert(
+            argThat(
+                a ->
+                    a.ruleId().equals("rs_breadth_bear")
+                        && a.categoryId() == null
+                        && a.severity() == Severity.WARNING
+                        && a.message().contains("7/7")
+                        && a.message().contains("RS-20 < RS-60")));
   }
 
   // ===== RRG/RS Divergence Alert Tests =====
 
   @Test
-  @DisplayName("rrg_rs_divergence: inserts WARNING for bearish divergence (Leading RRG but RS-20 < RS-60)")
+  @DisplayName(
+      "rrg_rs_divergence: inserts WARNING for bearish divergence (Leading RRG but RS-20 < RS-60)")
   void shouldCreateRrgRsDivergenceAlertForBearishDivergenceWhenLeadingButRsCracking() {
     // TECH in Q4 (Leading) but RS-20 < RS-60 — momentum cracking while RRG still shows strength
     stubTopLevelCategories("TECH");
@@ -1797,17 +2043,21 @@ class AlertRulesEngineTest {
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository).insert(argThat(a ->
-        a.ruleId().equals("rrg_rs_divergence")
-        && a.categoryId() == CategoryId.TECH
-        && a.severity() == Severity.WARNING
-        && a.message().contains("TECH")
-        && a.message().contains("BEARISH DIVERGENCE")
-        && a.message().contains("Leading")));
+    verify(alertRepository)
+        .insert(
+            argThat(
+                a ->
+                    a.ruleId().equals("rrg_rs_divergence")
+                        && a.categoryId() == CategoryId.TECH
+                        && a.severity() == Severity.WARNING
+                        && a.message().contains("TECH")
+                        && a.message().contains("BEARISH DIVERGENCE")
+                        && a.message().contains("Leading")));
   }
 
   @Test
-  @DisplayName("rrg_rs_divergence: inserts WARNING for bullish divergence (Lagging RRG but RS-20 > RS-60)")
+  @DisplayName(
+      "rrg_rs_divergence: inserts WARNING for bullish divergence (Lagging RRG but RS-20 > RS-60)")
   void shouldCreateRrgRsDivergenceAlertForBullishDivergenceWhenLaggingButRsRecovering() {
     // FINL in Q1 (Lagging) but RS-20 > RS-60 — early recovery signal before RRG catches up
     stubTopLevelCategories("FINL");
@@ -1824,13 +2074,16 @@ class AlertRulesEngineTest {
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository).insert(argThat(a ->
-        a.ruleId().equals("rrg_rs_divergence")
-        && a.categoryId() == CategoryId.FINL
-        && a.severity() == Severity.WARNING
-        && a.message().contains("FINL")
-        && a.message().contains("BULLISH DIVERGENCE")
-        && a.message().contains("Lagging")));
+    verify(alertRepository)
+        .insert(
+            argThat(
+                a ->
+                    a.ruleId().equals("rrg_rs_divergence")
+                        && a.categoryId() == CategoryId.FINL
+                        && a.severity() == Severity.WARNING
+                        && a.message().contains("FINL")
+                        && a.message().contains("BULLISH DIVERGENCE")
+                        && a.message().contains("Lagging")));
   }
 
   @Test
@@ -1876,10 +2129,12 @@ class AlertRulesEngineTest {
     when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
         .thenReturn(Map.of("TECH", new BigDecimal("4"))); // Still Leading
     when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
-        .thenReturn(Map.of("TECH", new BigDecimal("0.15"))); // RS-20 now > RS-60 (divergence closed)
+        .thenReturn(
+            Map.of("TECH", new BigDecimal("0.15"))); // RS-20 now > RS-60 (divergence closed)
     when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
         .thenReturn(Map.of("TECH", new BigDecimal("0.10")));
-    when(alertRepository.existsActiveAlert("rrg_rs_divergence", "TECH")).thenReturn(true); // was active
+    when(alertRepository.existsActiveAlert("rrg_rs_divergence", "TECH"))
+        .thenReturn(true); // was active
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
@@ -1905,7 +2160,8 @@ class AlertRulesEngineTest {
   }
 
   @Test
-  @DisplayName("score_percentile_extreme: fires WARNING alert when sector is at 252d HIGH (≥90th pct)")
+  @DisplayName(
+      "score_percentile_extreme: fires WARNING alert when sector is at 252d HIGH (≥90th pct)")
   void shouldCreateScorePercentileExtremeHighAlertWhenSectorAtHistoricHigh() {
     stubTopLevelCategories("TECH");
     stubAllRulesDisabledExceptScorePercentileExtreme();
@@ -1917,16 +2173,20 @@ class AlertRulesEngineTest {
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository).insert(
-        argThat(a -> a.ruleId().equals("score_percentile_extreme")
-            && a.categoryId() == CategoryId.TECH
-            && a.severity() == Severity.WARNING
-            && a.message().contains("TECH")
-            && a.message().contains("HIGH")));
+    verify(alertRepository)
+        .insert(
+            argThat(
+                a ->
+                    a.ruleId().equals("score_percentile_extreme")
+                        && a.categoryId() == CategoryId.TECH
+                        && a.severity() == Severity.WARNING
+                        && a.message().contains("TECH")
+                        && a.message().contains("HIGH")));
   }
 
   @Test
-  @DisplayName("score_percentile_extreme: fires WARNING alert when sector is at 252d LOW (≤10th pct)")
+  @DisplayName(
+      "score_percentile_extreme: fires WARNING alert when sector is at 252d LOW (≤10th pct)")
   void shouldCreateScorePercentileExtremeLowAlertWhenSectorAtHistoricLow() {
     stubTopLevelCategories("TECH");
     stubAllRulesDisabledExceptScorePercentileExtreme();
@@ -1938,12 +2198,15 @@ class AlertRulesEngineTest {
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository).insert(
-        argThat(a -> a.ruleId().equals("score_percentile_extreme")
-            && a.categoryId() == CategoryId.TECH
-            && a.severity() == Severity.WARNING
-            && a.message().contains("TECH")
-            && a.message().contains("LOW")));
+    verify(alertRepository)
+        .insert(
+            argThat(
+                a ->
+                    a.ruleId().equals("score_percentile_extreme")
+                        && a.categoryId() == CategoryId.TECH
+                        && a.severity() == Severity.WARNING
+                        && a.message().contains("TECH")
+                        && a.message().contains("LOW")));
   }
 
   @Test
@@ -2008,12 +2271,15 @@ class AlertRulesEngineTest {
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository).insert(
-        argThat(a -> a.ruleId().equals("score_velocity")
-            && a.categoryId() == CategoryId.TECH
-            && a.severity() == Severity.WARNING
-            && a.message().contains("TECH")
-            && a.message().contains("SURGE")));
+    verify(alertRepository)
+        .insert(
+            argThat(
+                a ->
+                    a.ruleId().equals("score_velocity")
+                        && a.categoryId() == CategoryId.TECH
+                        && a.severity() == Severity.WARNING
+                        && a.message().contains("TECH")
+                        && a.message().contains("SURGE")));
   }
 
   @Test
@@ -2031,12 +2297,15 @@ class AlertRulesEngineTest {
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository).insert(
-        argThat(a -> a.ruleId().equals("score_velocity")
-            && a.categoryId() == CategoryId.TECH
-            && a.severity() == Severity.WARNING
-            && a.message().contains("TECH")
-            && a.message().contains("CRASH")));
+    verify(alertRepository)
+        .insert(
+            argThat(
+                a ->
+                    a.ruleId().equals("score_velocity")
+                        && a.categoryId() == CategoryId.TECH
+                        && a.severity() == Severity.WARNING
+                        && a.message().contains("TECH")
+                        && a.message().contains("CRASH")));
   }
 
   @Test
@@ -2080,7 +2349,8 @@ class AlertRulesEngineTest {
         .thenReturn(Map.of("TECH", new BigDecimal("0.03"))); // returned to normal
     when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
         .thenReturn(Map.of("TECH", new BigDecimal("0.62")));
-    when(alertRepository.existsActiveAlert("score_velocity", "TECH")).thenReturn(true); // was active
+    when(alertRepository.existsActiveAlert("score_velocity", "TECH"))
+        .thenReturn(true); // was active
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
@@ -2097,7 +2367,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(enabled("score_percentile_extreme", Severity.WARNING)));
     when(signalRepository.findScorePercentile252d())
         .thenReturn(Map.of("TECH", new BigDecimal("0.50"))); // returned to mid-range
-    when(alertRepository.existsActiveAlert("score_percentile_extreme", "TECH")).thenReturn(true); // was active
+    when(alertRepository.existsActiveAlert("score_percentile_extreme", "TECH"))
+        .thenReturn(true); // was active
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
@@ -2127,7 +2398,8 @@ class AlertRulesEngineTest {
   }
 
   @Test
-  @DisplayName("multi_alert_bull_confluence: fires ACTION when ≥3 bullish alerts are simultaneously active")
+  @DisplayName(
+      "multi_alert_bull_confluence: fires ACTION when ≥3 bullish alerts are simultaneously active")
   void shouldCreateMultiAlertBullConfluenceWhenThreeOrMoreBullishAlertsActive() {
     stubTopLevelCategories("TECH");
     stubAllRulesDisabledExceptMultiAlertBull();
@@ -2141,16 +2413,20 @@ class AlertRulesEngineTest {
     when(alertRepository.existsActiveAlert("pre_buy_flow_surge", "TECH")).thenReturn(false);
     when(alertRepository.existsActiveAlert("breadth_velocity_accel", "TECH")).thenReturn(false);
     when(alertRepository.existsActiveAlert("composite_breakout", "TECH")).thenReturn(false);
-    when(alertRepository.existsActiveAlert("multi_alert_bull_confluence", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("multi_alert_bull_confluence", "TECH"))
+        .thenReturn(false);
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository).insert(
-        argThat(a -> a.ruleId().equals("multi_alert_bull_confluence")
-            && a.categoryId() == CategoryId.TECH
-            && a.severity() == Severity.ACTION
-            && a.message().contains("TECH")
-            && a.message().contains("3")));
+    verify(alertRepository)
+        .insert(
+            argThat(
+                a ->
+                    a.ruleId().equals("multi_alert_bull_confluence")
+                        && a.categoryId() == CategoryId.TECH
+                        && a.severity() == Severity.ACTION
+                        && a.message().contains("TECH")
+                        && a.message().contains("3")));
   }
 
   @Test
@@ -2168,11 +2444,13 @@ class AlertRulesEngineTest {
     when(alertRepository.existsActiveAlert("pre_buy_flow_surge", "TECH")).thenReturn(false);
     when(alertRepository.existsActiveAlert("breadth_velocity_accel", "TECH")).thenReturn(false);
     when(alertRepository.existsActiveAlert("composite_breakout", "TECH")).thenReturn(false);
-    when(alertRepository.existsActiveAlert("multi_alert_bull_confluence", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("multi_alert_bull_confluence", "TECH"))
+        .thenReturn(false);
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("multi_alert_bull_confluence")));
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("multi_alert_bull_confluence")));
   }
 
   @Test
@@ -2184,7 +2462,8 @@ class AlertRulesEngineTest {
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("multi_alert_bull_confluence")));
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("multi_alert_bull_confluence")));
   }
 
   @Test
@@ -2202,12 +2481,14 @@ class AlertRulesEngineTest {
     when(alertRepository.existsActiveAlert("pre_buy_flow_surge", "TECH")).thenReturn(false);
     when(alertRepository.existsActiveAlert("breadth_velocity_accel", "TECH")).thenReturn(false);
     when(alertRepository.existsActiveAlert("composite_breakout", "TECH")).thenReturn(false);
-    when(alertRepository.existsActiveAlert("multi_alert_bull_confluence", "TECH")).thenReturn(true); // was active
+    when(alertRepository.existsActiveAlert("multi_alert_bull_confluence", "TECH"))
+        .thenReturn(true); // was active
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
     verify(alertRepository).resolveAlertsByRuleAndCategory("multi_alert_bull_confluence", "TECH");
-    verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("multi_alert_bull_confluence")));
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("multi_alert_bull_confluence")));
   }
 
   // ─── cross_horizon_rs_divergence ─────────────────────────────────────────────
@@ -2232,7 +2513,8 @@ class AlertRulesEngineTest {
   }
 
   @Test
-  @DisplayName("cross_horizon_rs_divergence: fires WARNING when short-term RS bull contradicts medium-term RS bear (counter-trend bounce)")
+  @DisplayName(
+      "cross_horizon_rs_divergence: fires WARNING when short-term RS bull contradicts medium-term RS bear (counter-trend bounce)")
   void shouldCreateCrossHorizonDivAlertForCounterTrendBounce() {
     stubTopLevelCategories("TECH");
     stubAllRulesDisabledExceptCrossHorizonRsDiv();
@@ -2245,20 +2527,25 @@ class AlertRulesEngineTest {
         .thenReturn(Map.of("TECH", new BigDecimal("0.580")));
     when(signalRepository.findByTypeAndDate(SignalType.RS_120, DATE))
         .thenReturn(Map.of("TECH", new BigDecimal("0.610")));
-    when(alertRepository.existsActiveAlert("cross_horizon_rs_divergence", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("cross_horizon_rs_divergence", "TECH"))
+        .thenReturn(false);
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository).insert(
-        argThat(a -> a.ruleId().equals("cross_horizon_rs_divergence")
-            && a.categoryId() == CategoryId.TECH
-            && a.severity() == Severity.WARNING
-            && a.message().contains("TECH")
-            && a.message().contains("counter-trend")));
+    verify(alertRepository)
+        .insert(
+            argThat(
+                a ->
+                    a.ruleId().equals("cross_horizon_rs_divergence")
+                        && a.categoryId() == CategoryId.TECH
+                        && a.severity() == Severity.WARNING
+                        && a.message().contains("TECH")
+                        && a.message().contains("counter-trend")));
   }
 
   @Test
-  @DisplayName("cross_horizon_rs_divergence: fires WARNING when short-term RS bear contradicts medium-term RS bull (pullback in bull)")
+  @DisplayName(
+      "cross_horizon_rs_divergence: fires WARNING when short-term RS bear contradicts medium-term RS bull (pullback in bull)")
   void shouldCreateCrossHorizonDivAlertForPullbackInBull() {
     stubTopLevelCategories("TECH");
     stubAllRulesDisabledExceptCrossHorizonRsDiv();
@@ -2271,16 +2558,20 @@ class AlertRulesEngineTest {
         .thenReturn(Map.of("TECH", new BigDecimal("0.590")));
     when(signalRepository.findByTypeAndDate(SignalType.RS_120, DATE))
         .thenReturn(Map.of("TECH", new BigDecimal("0.565")));
-    when(alertRepository.existsActiveAlert("cross_horizon_rs_divergence", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("cross_horizon_rs_divergence", "TECH"))
+        .thenReturn(false);
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository).insert(
-        argThat(a -> a.ruleId().equals("cross_horizon_rs_divergence")
-            && a.categoryId() == CategoryId.TECH
-            && a.severity() == Severity.WARNING
-            && a.message().contains("TECH")
-            && a.message().contains("pullback")));
+    verify(alertRepository)
+        .insert(
+            argThat(
+                a ->
+                    a.ruleId().equals("cross_horizon_rs_divergence")
+                        && a.categoryId() == CategoryId.TECH
+                        && a.severity() == Severity.WARNING
+                        && a.message().contains("TECH")
+                        && a.message().contains("pullback")));
   }
 
   @Test
@@ -2296,7 +2587,8 @@ class AlertRulesEngineTest {
   }
 
   @Test
-  @DisplayName("cross_horizon_rs_divergence: no alert when all RS horizons are aligned (rs20 > rs60 > rs120)")
+  @DisplayName(
+      "cross_horizon_rs_divergence: no alert when all RS horizons are aligned (rs20 > rs60 > rs120)")
   void shouldNotCreateCrossHorizonDivAlertWhenHorizonsAreAligned() {
     stubTopLevelCategories("TECH");
     stubAllRulesDisabledExceptCrossHorizonRsDiv();
@@ -2309,7 +2601,8 @@ class AlertRulesEngineTest {
         .thenReturn(Map.of("TECH", new BigDecimal("0.590")));
     when(signalRepository.findByTypeAndDate(SignalType.RS_120, DATE))
         .thenReturn(Map.of("TECH", new BigDecimal("0.560")));
-    when(alertRepository.existsActiveAlert("cross_horizon_rs_divergence", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("cross_horizon_rs_divergence", "TECH"))
+        .thenReturn(false);
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
@@ -2317,7 +2610,8 @@ class AlertRulesEngineTest {
   }
 
   @Test
-  @DisplayName("cross_horizon_rs_divergence: resolves when horizons re-align after prior divergence")
+  @DisplayName(
+      "cross_horizon_rs_divergence: resolves when horizons re-align after prior divergence")
   void shouldResolveCrossHorizonDivAlertWhenHorizonsRealign() {
     stubTopLevelCategories("TECH");
     stubAllRulesDisabledExceptCrossHorizonRsDiv();
@@ -2335,13 +2629,14 @@ class AlertRulesEngineTest {
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
     verify(alertRepository).resolveAlertsByRuleAndCategory("cross_horizon_rs_divergence", "TECH");
-    verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("cross_horizon_rs_divergence")));
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("cross_horizon_rs_divergence")));
   }
 
   // ─── macro_sector_mismatch ───────────────────────────────────────────────────
 
   private static final BigDecimal RISK_OFF_REGIME = new BigDecimal("1"); // RISK_OFF_FLIGHT ordinal
-  private static final BigDecimal RISK_ON_REGIME  = new BigDecimal("2"); // RISK_ON_GROWTH ordinal
+  private static final BigDecimal RISK_ON_REGIME = new BigDecimal("2"); // RISK_ON_GROWTH ordinal
 
   private void stubAllRulesDisabledExceptMacroSectorMismatch() {
     stubAllOtherRulesDisabled();
@@ -2365,7 +2660,8 @@ class AlertRulesEngineTest {
   }
 
   @Test
-  @DisplayName("macro_sector_mismatch: fires WARNING when cyclical sector is Leading during risk-off regime")
+  @DisplayName(
+      "macro_sector_mismatch: fires WARNING when cyclical sector is Leading during risk-off regime")
   void shouldCreateMacroSectorMismatchAlertWhenCyclicalLeadsInRiskOff() {
     stubTopLevelCategories("TECH");
     stubAllRulesDisabledExceptMacroSectorMismatch();
@@ -2379,12 +2675,15 @@ class AlertRulesEngineTest {
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository).insert(
-        argThat(a -> a.ruleId().equals("macro_sector_mismatch")
-            && a.categoryId() == CategoryId.TECH
-            && a.severity() == Severity.WARNING
-            && a.message().contains("TECH")
-            && a.message().contains("RISK_OFF_FLIGHT")));
+    verify(alertRepository)
+        .insert(
+            argThat(
+                a ->
+                    a.ruleId().equals("macro_sector_mismatch")
+                        && a.categoryId() == CategoryId.TECH
+                        && a.severity() == Severity.WARNING
+                        && a.message().contains("TECH")
+                        && a.message().contains("RISK_OFF_FLIGHT")));
   }
 
   @Test
@@ -2428,11 +2727,13 @@ class AlertRulesEngineTest {
         .thenReturn(Map.of("MACRO", RISK_ON_REGIME)); // now risk-on — mismatch gone
     when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
         .thenReturn(Map.of("TECH", new BigDecimal("4")));
-    when(alertRepository.existsActiveAlert("macro_sector_mismatch", "TECH")).thenReturn(true); // was active
+    when(alertRepository.existsActiveAlert("macro_sector_mismatch", "TECH"))
+        .thenReturn(true); // was active
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
     verify(alertRepository).resolveAlertsByRuleAndCategory("macro_sector_mismatch", "TECH");
-    verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("macro_sector_mismatch")));
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("macro_sector_mismatch")));
   }
 }

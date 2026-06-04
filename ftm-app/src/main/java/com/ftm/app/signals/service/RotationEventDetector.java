@@ -24,8 +24,8 @@ import org.springframework.stereotype.Service;
  * Weakening(2) → Improving(3) — both signal early recovery - ENTERING_LEADING: Improving(3) →
  * Leading(4) - ENTERING_WEAKENING: Leading(4) → Weakening(2) - ENTERING_LAGGING: Weakening(2) →
  * Lagging(1) - COMPOSITE_BREAKOUT: Composite score crosses above 0.70 - COMPOSITE_BREAKDOWN:
- * Composite score falls below 0.35 (REDUCE threshold) - FLOW_SURGE: FLOW_20D z-score crosses
- * above 2.0 (2σ above 20-day average dollar volume) — institutional inflow spike signal
+ * Composite score falls below 0.35 (REDUCE threshold) - FLOW_SURGE: FLOW_20D z-score crosses above
+ * 2.0 (2σ above 20-day average dollar volume) — institutional inflow spike signal
  */
 @Service
 public class RotationEventDetector {
@@ -109,8 +109,10 @@ public class RotationEventDetector {
               categoryId, currentSignalDate, currentComposite, previousComposite);
       eventsDetected +=
           detectFlowSurge(
-              categoryId, currentSignalDate,
-              currentFlows.get(categoryId), previousFlows.get(categoryId));
+              categoryId,
+              currentSignalDate,
+              currentFlows.get(categoryId),
+              previousFlows.get(categoryId));
     }
 
     log.info(
@@ -221,10 +223,7 @@ public class RotationEventDetector {
   }
 
   private int detectFlowSurge(
-      String categoryId,
-      LocalDate detectedDate,
-      BigDecimal currentFlow,
-      BigDecimal previousFlow) {
+      String categoryId, LocalDate detectedDate, BigDecimal currentFlow, BigDecimal previousFlow) {
     if (currentFlow == null) return 0;
     if (currentFlow.compareTo(FLOW_SURGE_THRESHOLD) <= 0) return 0;
     if (previousFlow != null && previousFlow.compareTo(FLOW_SURGE_THRESHOLD) > 0) {
@@ -234,9 +233,13 @@ public class RotationEventDetector {
         detectedDate,
         categoryId,
         RotationEventType.FLOW_SURGE,
-        currentFlow.min(new BigDecimal("5.0")).divide(new BigDecimal("5.0"), 6, java.math.RoundingMode.HALF_UP),
+        currentFlow
+            .min(new BigDecimal("5.0"))
+            .divide(new BigDecimal("5.0"), 6, java.math.RoundingMode.HALF_UP),
         String.format("{\"flowZ\":%.4f,\"threshold\":%.1f}", currentFlow, FLOW_SURGE_THRESHOLD),
-        String.format("Flow z-score %.2fσ crossed surge threshold (2σ) — institutional inflow spike", currentFlow));
+        String.format(
+            "Flow z-score %.2fσ crossed surge threshold (2σ) — institutional inflow spike",
+            currentFlow));
   }
 
   private int recordIfNew(

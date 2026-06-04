@@ -32,9 +32,11 @@ public final class TradeSignalDeriver {
   /**
    * Conviction score 0–100: a multi-factor quality rating that combines signal clarity, macro
    * alignment, historical percentile standing, momentum direction, and institutional flow
-   * confirmation. Higher scores indicate more actionable setups. Returns 0 for HOLD or missing data.
+   * confirmation. Higher scores indicate more actionable setups. Returns 0 for HOLD or missing
+   * data.
    *
    * <p>Formula components (max 100):
+   *
    * <ul>
    *   <li>Signal quality: BUY=30, REDUCE=25, near-BUY WATCH=15
    *   <li>Score level: ≥0.80→20, ≥0.65→15, ≥0.50→8
@@ -116,7 +118,8 @@ public final class TradeSignalDeriver {
       }
     }
 
-    // Institutional flow confirmation: z-score > 1.5 on BUY = strong inflows; < -1.5 on REDUCE = outflows
+    // Institutional flow confirmation: z-score > 1.5 on BUY = strong inflows; < -1.5 on REDUCE =
+    // outflows
     if (flow20d != null) {
       double flowZ = flow20d.doubleValue();
       if ("BUY".equals(signal) && flowZ > 1.5) points += 5;

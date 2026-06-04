@@ -91,10 +91,18 @@ public class SubSectorService {
               BigDecimal persistence20dRaw = persistence20dByCategory.get(categoryId);
               Integer persistence20d =
                   persistence20dRaw != null ? persistence20dRaw.intValue() : null;
-              int rawConviction = TradeSignalDeriver.convictionScore(
-                  compositeScore, rrgQuadrant, trend20d, macroFit, percentile, trend5d,
-                  rs60ByCategory.get(categoryId), rs120ByCategory.get(categoryId),
-                  flow20dByCategory.get(categoryId), rs20ByCategory.get(categoryId));
+              int rawConviction =
+                  TradeSignalDeriver.convictionScore(
+                      compositeScore,
+                      rrgQuadrant,
+                      trend20d,
+                      macroFit,
+                      percentile,
+                      trend5d,
+                      rs60ByCategory.get(categoryId),
+                      rs120ByCategory.get(categoryId),
+                      flow20dByCategory.get(categoryId),
+                      rs20ByCategory.get(categoryId));
               return new SubSectorSummaryDto(
                   categoryId,
                   category.name(),

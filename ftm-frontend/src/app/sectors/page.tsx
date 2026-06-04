@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { fetchCategories, fetchCategoryScoreHistory, fetchSubSectors, fetchAlerts, AlertDto, CategorySummary } from "@/lib/api";
+import { fetchCategories, fetchCategoryScoreHistory, fetchSubSectors, fetchAlerts, AlertDto, CategorySummary, SubSectorSummary } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 import Sparkline from "@/components/Sparkline";
@@ -145,7 +145,7 @@ function worstSeverity(alerts: AlertDto[]): string | null {
   return null;
 }
 
-function SectorCard({ sector, history, subSectorCount, sectorAlerts }: { sector: CategorySummary; history: number[]; subSectorCount: number; sectorAlerts: AlertDto[] }) {
+function SectorCard({ sector, history, subSectorCount, sectorAlerts, subSectorBreakdown }: { sector: CategorySummary; history: number[]; subSectorCount: number; sectorAlerts: AlertDto[]; subSectorBreakdown: SubSectorBreakdown }) {
   const quadrant = sector.rrgQuadrant ?? null;
   const qConfig = quadrant ? QUADRANT_CONFIG[quadrant] : null;
   const leftBorderClass = qConfig?.leftBorderClass ?? "border-l-slate-700";
@@ -311,7 +311,72 @@ function SectorCard({ sector, history, subSectorCount, sectorAlerts }: { sector:
           → drill down
         </span>
       </div>
+
+      {subSectorBreakdown.total > 0 && (
+        <SubSectorBreadthBar breakdown={subSectorBreakdown} />
+      )}
     </Link>
+  );
+}
+
+type SubSectorBreakdown = { q4: number; q3: number; q2: number; q1: number; noData: number; total: number };
+
+function buildBreakdown(subSectors: SubSectorSummary[]): SubSectorBreakdown {
+  const counts = { q4: 0, q3: 0, q2: 0, q1: 0, noData: 0, total: subSectors.length };
+  for (const s of subSectors) {
+    if (s.rrgQuadrant === "4") counts.q4++;
+    else if (s.rrgQuadrant === "3") counts.q3++;
+    else if (s.rrgQuadrant === "2") counts.q2++;
+    else if (s.rrgQuadrant === "1") counts.q1++;
+    else counts.noData++;
+  }
+  return counts;
+}
+
+function SubSectorBreadthBar({ breakdown }: { breakdown: SubSectorBreakdown }) {
+  const { q4, q3, q2, q1, noData, total } = breakdown;
+  if (total === 0) return null;
+  const withData = total - noData;
+  const bullish = q4 + q3;
+  const bullishPct = withData > 0 ? Math.round((bullish / withData) * 100) : null;
+  const pct = (n: number) => `${((n / total) * 100).toFixed(1)}%`;
+
+  const segments: Array<{ n: number; color: string; label: string }> = [
+    { n: q4, color: "bg-green-500", label: `↗ Leading: ${q4}` },
+    { n: q3, color: "bg-cyan-500", label: `↖ Improving: ${q3}` },
+    { n: q2, color: "bg-orange-500/70", label: `↘ Weakening: ${q2}` },
+    { n: q1, color: "bg-slate-600", label: `↙ Lagging: ${q1}` },
+    { n: noData, color: "bg-slate-800", label: `No signal: ${noData}` },
+  ].filter(s => s.n > 0);
+
+  const title = `Sub-sector breadth: ${bullish}/${withData > 0 ? withData : total} bullish${bullishPct != null ? ` (${bullishPct}%)` : ""} · Leading: ${q4} Improving: ${q3} Weakening: ${q2} Lagging: ${q1}${noData > 0 ? ` No signal: ${noData}` : ""}`;
+  const breadthColor = bullishPct == null ? "text-slate-600"
+    : bullishPct >= 60 ? "text-green-400"
+    : bullishPct >= 40 ? "text-amber-400"
+    : "text-red-400";
+
+  return (
+    <div className="mt-1" title={title}>
+      <div className="flex items-center gap-1.5 mb-0.5">
+        <span className="text-[9px] text-slate-600 uppercase tracking-wider shrink-0" style={{ fontFamily: "var(--font-jetbrains-mono)" }}>Sub-breadth</span>
+        {bullishPct != null && (
+          <span className={`text-[9px] tabular-nums font-semibold ${breadthColor}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+            {bullishPct}% bullish
+          </span>
+        )}
+        {noData === total && <span className="text-[9px] text-slate-600">no signals yet</span>}
+      </div>
+      <div className="flex h-1.5 rounded-full overflow-hidden gap-px bg-slate-900" title={title}>
+        {segments.map((seg) => (
+          <div
+            key={seg.label}
+            className={`${seg.color} transition-all`}
+            style={{ width: pct(seg.n) }}
+            title={seg.label}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -326,6 +391,7 @@ export default async function SectorsHubPage() {
   let sectors: CategorySummary[] = [];
   let scoreHistory: Record<string, number[]> = {};
   let subSectorCounts: Record<string, number> = {};
+  let subSectorBreakdowns: Record<string, SubSectorBreakdown> = {};
   let alertsBySectorId: Record<string, AlertDto[]> = {};
   let error: string | null = null;
 
@@ -356,7 +422,9 @@ export default async function SectorsHubPage() {
     }
 
     subSectorResults.forEach((result, i) => {
-      subSectorCounts[sectorIds[i]] = result.status === "fulfilled" ? result.value.length : 0;
+      const data = result.status === "fulfilled" ? result.value : [];
+      subSectorCounts[sectorIds[i]] = data.length;
+      subSectorBreakdowns[sectorIds[i]] = buildBreakdown(data);
     });
   } catch (err) {
     error = err instanceof Error ? err.message : "Failed to load sectors";
@@ -494,7 +562,7 @@ export default async function SectorsHubPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {sectors.map((sector) => (
-            <SectorCard key={sector.id} sector={sector} history={scoreHistory[sector.id] ?? []} subSectorCount={subSectorCounts[sector.id] ?? 0} sectorAlerts={alertsBySectorId[sector.id] ?? []} />
+            <SectorCard key={sector.id} sector={sector} history={scoreHistory[sector.id] ?? []} subSectorCount={subSectorCounts[sector.id] ?? 0} sectorAlerts={alertsBySectorId[sector.id] ?? []} subSectorBreakdown={subSectorBreakdowns[sector.id] ?? buildBreakdown([])} />
           ))}
         </div>
 

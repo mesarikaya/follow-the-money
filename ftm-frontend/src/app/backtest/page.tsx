@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import { runBacktest, runBacktestSweep, runBacktestFrequencySweep, fetchRecentBacktests, fetchCategories, fetchMacro, BacktestResult, EquityCurvePoint, RebalanceEvent, CategorySummary, MacroResponse } from "@/lib/api";
 import { CATEGORY_ETF_MAP } from "@/lib/sectors";
@@ -1130,9 +1131,11 @@ export default function BacktesterPage() {
                         : sig === "WATCH"
                         ? "bg-cyan-900/40 border-cyan-700/50 text-cyan-300"
                         : "bg-slate-700/50 border-slate-600/60 text-slate-400";
+                      const hasDrilldown = !cat.id.includes("_") && !["GOLD","SLVR","GDMN","TLTD","TINT","CORP","HIYLD","CASH","FTRS"].includes(cat.id);
+                      const Wrapper = hasDrilldown ? Link : "div" as unknown as typeof Link;
                       return (
-                        <div key={cat.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${sigCls}`}
-                          title={`${cat.name} (${cat.etfTicker}) — Score: ${score ?? "??"}/100${quadrantLabel ? ` — RRG: ${quadrantLabel}` : ""}${cat.macroFit != null ? ` — Macro fit: ${Math.round(cat.macroFit * 100)}%` : ""}`}>
+                        <Wrapper key={cat.id} href={hasDrilldown ? `/sectors/${cat.id}` : "#"} className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-opacity ${hasDrilldown ? "hover:opacity-80 cursor-pointer" : ""} ${sigCls}`}
+                          title={`${cat.name} (${cat.etfTicker}) — Score: ${score ?? "??"}/100${quadrantLabel ? ` — RRG: ${quadrantLabel}` : ""}${cat.macroFit != null ? ` — Macro fit: ${Math.round(cat.macroFit * 100)}%` : ""}${hasDrilldown ? " — click to open sector drilldown" : ""}`}>
                           <span className="text-[10px] text-slate-500 tabular-nums w-3 shrink-0">{i + 1}</span>
                           <span className="font-mono font-bold text-sm">{cat.etfTicker}</span>
                           <span className="text-[10px] text-slate-400 hidden md:inline">{cat.name}</span>
@@ -1142,7 +1145,8 @@ export default function BacktesterPage() {
                           {sig && (
                             <span className={`text-[9px] font-bold uppercase opacity-80`}>{sig}</span>
                           )}
-                        </div>
+                          {hasDrilldown && <span className="text-[9px] text-slate-600 ml-0.5">↗</span>}
+                        </Wrapper>
                       );
                     })}
                     {topNLive.length < topN && (
@@ -1161,10 +1165,11 @@ export default function BacktesterPage() {
                   <div className="flex flex-wrap gap-1">
                     {buySignals.length === 0 && <span className="text-[10px] text-slate-600">None</span>}
                     {buySignals.map(cat => (
-                      <span key={cat.id} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-green-900/40 text-green-300 border border-green-800/50"
-                        title={`${cat.name} — Score: ${cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : "??"}${cat.macroFit != null ? `, Macro fit: ${Math.round(cat.macroFit * 100)}%` : ""}`}>
+                      <Link key={cat.id} href={`/sectors/${cat.id}`}
+                        className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-green-900/40 text-green-300 border border-green-800/50 hover:bg-green-900/70 transition-colors"
+                        title={`${cat.name} — Score: ${cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : "??"}${cat.macroFit != null ? `, Macro fit: ${Math.round(cat.macroFit * 100)}%` : ""} — click to open drilldown`}>
                         {cat.etfTicker}
-                      </span>
+                      </Link>
                     ))}
                   </div>
                   <div className="mt-1 text-[9px] text-slate-600">score ≥65 + RRG 3/4 + positive trend</div>
@@ -1173,12 +1178,21 @@ export default function BacktesterPage() {
                   <div className="text-[10px] text-cyan-400 uppercase tracking-wider mb-1.5 font-semibold">WATCH ({watchSignals.length})</div>
                   <div className="flex flex-wrap gap-1">
                     {watchSignals.length === 0 && <span className="text-[10px] text-slate-600">None</span>}
-                    {watchSignals.map(cat => (
-                      <span key={cat.id} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-900/30 text-cyan-300 border border-cyan-800/40"
-                        title={`${cat.name} — Score: ${cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : "??"}${cat.macroFit != null ? `, Macro fit: ${Math.round(cat.macroFit * 100)}%` : ""}`}>
-                        {cat.etfTicker}
-                      </span>
-                    ))}
+                    {watchSignals.map(cat => {
+                      const hasDrilldown = !cat.id.includes("_") && !["GOLD","SLVR","GDMN","TLTD","TINT","CORP","HIYLD","CASH","FTRS"].includes(cat.id);
+                      const title = `${cat.name} — Score: ${cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : "??"}${cat.macroFit != null ? `, Macro fit: ${Math.round(cat.macroFit * 100)}%` : ""}${hasDrilldown ? " — click to open drilldown" : ""}`;
+                      return hasDrilldown ? (
+                        <Link key={cat.id} href={`/sectors/${cat.id}`}
+                          className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-900/30 text-cyan-300 border border-cyan-800/40 hover:bg-cyan-900/60 transition-colors"
+                          title={title}>
+                          {cat.etfTicker}
+                        </Link>
+                      ) : (
+                        <span key={cat.id} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-900/30 text-cyan-300 border border-cyan-800/40" title={title}>
+                          {cat.etfTicker}
+                        </span>
+                      );
+                    })}
                   </div>
                   <div className="mt-1 text-[9px] text-slate-600">score ≥50 + improving RRG or trend</div>
                 </div>
@@ -1186,12 +1200,21 @@ export default function BacktesterPage() {
                   <div className="text-[10px] text-red-400 uppercase tracking-wider mb-1.5 font-semibold">REDUCE ({reduceSignals.length})</div>
                   <div className="flex flex-wrap gap-1">
                     {reduceSignals.length === 0 && <span className="text-[10px] text-slate-600">None</span>}
-                    {reduceSignals.map(cat => (
-                      <span key={cat.id} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-red-900/30 text-red-400 border border-red-800/40"
-                        title={`${cat.name} — Score: ${cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : "??"}`}>
-                        {cat.etfTicker}
-                      </span>
-                    ))}
+                    {reduceSignals.map(cat => {
+                      const hasDrilldown = !cat.id.includes("_") && !["GOLD","SLVR","GDMN","TLTD","TINT","CORP","HIYLD","CASH","FTRS"].includes(cat.id);
+                      const title = `${cat.name} — Score: ${cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : "??"}${hasDrilldown ? " — click to open drilldown" : ""}`;
+                      return hasDrilldown ? (
+                        <Link key={cat.id} href={`/sectors/${cat.id}`}
+                          className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-red-900/30 text-red-400 border border-red-800/40 hover:bg-red-900/60 transition-colors"
+                          title={title}>
+                          {cat.etfTicker}
+                        </Link>
+                      ) : (
+                        <span key={cat.id} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-red-900/30 text-red-400 border border-red-800/40" title={title}>
+                          {cat.etfTicker}
+                        </span>
+                      );
+                    })}
                   </div>
                   <div className="mt-1 text-[9px] text-slate-600">score &lt;35 + lagging/weakening RRG</div>
                 </div>

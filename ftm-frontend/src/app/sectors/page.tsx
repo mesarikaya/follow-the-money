@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { fetchCategories, fetchCategoryScoreHistory, fetchSubSectors, CategorySummary } from "@/lib/api";
+import { fetchCategories, fetchCategoryScoreHistory, fetchSubSectors, fetchAlerts, AlertDto, CategorySummary } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 import Sparkline from "@/components/Sparkline";
@@ -130,12 +130,32 @@ const TRADE_SIGNAL_BADGE: Record<TradeSignal, { label: string; cls: string }> = 
   REDUCE: { label: "REDUCE", cls: "bg-red-900/50 text-red-400 border-red-700/50"      },
 };
 
-function SectorCard({ sector, history, subSectorCount }: { sector: CategorySummary; history: number[]; subSectorCount: number }) {
+const ALERT_SEV_COLORS: Record<string, { dot: string; text: string; bg: string }> = {
+  URGENT:  { dot: "bg-red-400",    text: "text-red-300",    bg: "bg-red-900/30 border-red-700/50"    },
+  ACTION:  { dot: "bg-red-500",    text: "text-red-400",    bg: "bg-red-900/20 border-red-800/40"    },
+  WARNING: { dot: "bg-amber-400",  text: "text-amber-300",  bg: "bg-amber-900/20 border-amber-700/40" },
+  INFO:    { dot: "bg-blue-400",   text: "text-blue-300",   bg: "bg-blue-900/20 border-blue-700/40"  },
+};
+const SEV_ORDER = ["URGENT", "ACTION", "WARNING", "INFO"];
+
+function worstSeverity(alerts: AlertDto[]): string | null {
+  for (const sev of SEV_ORDER) {
+    if (alerts.some(a => a.severity === sev)) return sev;
+  }
+  return null;
+}
+
+function SectorCard({ sector, history, subSectorCount, sectorAlerts }: { sector: CategorySummary; history: number[]; subSectorCount: number; sectorAlerts: AlertDto[] }) {
   const quadrant = sector.rrgQuadrant ?? null;
   const qConfig = quadrant ? QUADRANT_CONFIG[quadrant] : null;
   const leftBorderClass = qConfig?.leftBorderClass ?? "border-l-slate-700";
   const signal = (sector.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(sector);
   const signalBadge = signal ? TRADE_SIGNAL_BADGE[signal] : null;
+  const alertCount = sectorAlerts.length;
+  const topSeverity = worstSeverity(sectorAlerts);
+  const sevStyle = topSeverity ? ALERT_SEV_COLORS[topSeverity] : null;
+  const velocitySurge = (sector.compositeTrend5d ?? 0) >= 0.12;
+  const velocityCrash = (sector.compositeTrend5d ?? 0) <= -0.12;
 
   return (
     <Link
@@ -266,6 +286,23 @@ function SectorCard({ sector, history, subSectorCount }: { sector: CategorySumma
               </span>
             );
           })()}
+          {(velocitySurge || velocityCrash) && (
+            <span
+              className={`text-[10px] font-bold px-1 py-0.5 rounded ${velocitySurge ? "text-emerald-300 bg-emerald-900/30 border border-emerald-700/40" : "text-red-300 bg-red-900/30 border border-red-700/40"}`}
+              title={`Score velocity ${velocitySurge ? "SURGE" : "CRASH"}: ${velocitySurge ? "+" : ""}${Math.round((sector.compositeTrend5d ?? 0) * 100)}pts in 5 days`}
+            >
+              {velocitySurge ? "⚡" : "⚠"}
+            </span>
+          )}
+          {alertCount > 0 && sevStyle && (
+            <span
+              className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border flex items-center gap-1 ${sevStyle.bg}`}
+              title={`${alertCount} active alert${alertCount > 1 ? "s" : ""} (worst: ${topSeverity}) — click to see on alerts page`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sevStyle.dot}`} />
+              <span className={sevStyle.text}>{alertCount}</span>
+            </span>
+          )}
         </div>
         <span
           className="text-[11px] text-slate-600 group-hover:text-cyan-400 transition-colors"
@@ -289,14 +326,16 @@ export default async function SectorsHubPage() {
   let sectors: CategorySummary[] = [];
   let scoreHistory: Record<string, number[]> = {};
   let subSectorCounts: Record<string, number> = {};
+  let alertsBySectorId: Record<string, AlertDto[]> = {};
   let error: string | null = null;
 
   const sectorIds = Array.from(SECTOR_DRILLDOWN_IDS);
 
   try {
-    const [categoriesResponse, historyResponse, ...subSectorResults] = await Promise.allSettled([
+    const [categoriesResponse, historyResponse, alertsResponse, ...subSectorResults] = await Promise.allSettled([
       fetchCategories("MONTH"),
       fetchCategoryScoreHistory(30),
+      fetchAlerts(),
       ...sectorIds.map((id) => fetchSubSectors(id)),
     ]);
 
@@ -306,6 +345,15 @@ export default async function SectorsHubPage() {
       throw categoriesResponse.reason;
     }
     scoreHistory = historyResponse.status === "fulfilled" ? historyResponse.value : {};
+
+    if (alertsResponse.status === "fulfilled") {
+      const activeAlerts = (alertsResponse.value.alerts ?? []).filter((a: AlertDto) => a.status === "ACTIVE" && a.categoryId != null);
+      for (const alert of activeAlerts) {
+        const catId = alert.categoryId!;
+        if (!alertsBySectorId[catId]) alertsBySectorId[catId] = [];
+        alertsBySectorId[catId].push(alert);
+      }
+    }
 
     subSectorResults.forEach((result, i) => {
       subSectorCounts[sectorIds[i]] = result.status === "fulfilled" ? result.value.length : 0;
@@ -381,7 +429,7 @@ export default async function SectorsHubPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {sectors.map((sector) => (
-            <SectorCard key={sector.id} sector={sector} history={scoreHistory[sector.id] ?? []} subSectorCount={subSectorCounts[sector.id] ?? 0} />
+            <SectorCard key={sector.id} sector={sector} history={scoreHistory[sector.id] ?? []} subSectorCount={subSectorCounts[sector.id] ?? 0} sectorAlerts={alertsBySectorId[sector.id] ?? []} />
           ))}
         </div>
 

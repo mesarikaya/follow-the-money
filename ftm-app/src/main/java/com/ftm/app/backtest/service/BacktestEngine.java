@@ -361,7 +361,7 @@ public class BacktestEngine {
         rebalanceHistory);
   }
 
-  private double computeSortinoRatio(List<EquityCurvePoint> curve, boolean useSpy) {
+  double computeSortinoRatio(List<EquityCurvePoint> curve, boolean useSpy) {
     if (curve.size() < 2) return 0.0;
     List<Double> dailyReturns = new ArrayList<>();
     for (int i = 1; i < curve.size(); i++) {
@@ -379,7 +379,7 @@ public class BacktestEngine {
     return (meanReturn / downsideDeviation) * Math.sqrt(TRADING_DAYS_PER_YEAR);
   }
 
-  private double computeCalmarRatio(double annualizedReturnPct, double maxDrawdownPct) {
+  double computeCalmarRatio(double annualizedReturnPct, double maxDrawdownPct) {
     if (maxDrawdownPct == 0.0) return 0.0;
     return annualizedReturnPct / maxDrawdownPct;
   }

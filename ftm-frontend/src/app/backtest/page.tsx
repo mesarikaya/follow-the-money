@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { runBacktest, runBacktestSweep, fetchRecentBacktests, fetchCategories, fetchMacro, BacktestResult, EquityCurvePoint, RebalanceEvent, CategorySummary } from "@/lib/api";
+import { runBacktest, runBacktestSweep, runBacktestFrequencySweep, fetchRecentBacktests, fetchCategories, fetchMacro, BacktestResult, EquityCurvePoint, RebalanceEvent, CategorySummary } from "@/lib/api";
 import { CATEGORY_ETF_MAP } from "@/lib/sectors";
 import { deriveTradeSignal } from "@/lib/signals";
 
@@ -740,6 +740,91 @@ function SweepTable({ rows, currentTopN }: { rows: BacktestResult[]; currentTopN
   );
 }
 
+const FREQ_LABELS: Record<string, { label: string; shortLabel: string; colorClass: string }> = {
+  WEEKLY:    { label: "Weekly",    shortLabel: "W", colorClass: "text-purple-400" },
+  MONTHLY:   { label: "Monthly",   shortLabel: "M", colorClass: "text-blue-400"   },
+  QUARTERLY: { label: "Quarterly", shortLabel: "Q", colorClass: "text-cyan-400"   },
+};
+
+function FrequencySweepTable({ rows, currentFrequency }: { rows: BacktestResult[]; currentFrequency: string }) {
+  if (rows.length === 0) return null;
+  const spy = rows[0];
+  const best = rows.reduce((b, r) => (r.sortinoRatio ?? 0) > (b.sortinoRatio ?? 0) ? r : b, rows[0]);
+  const worstDD = rows.reduce((b, r) => (r.maxDrawdownPct ?? 0) > (b.maxDrawdownPct ?? 0) ? r : b, rows[0]);
+
+  return (
+    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-sm font-semibold text-slate-200">Frequency Sensitivity — Weekly vs Monthly vs Quarterly</div>
+        <div className="text-[10px] text-slate-500">
+          Best Sortino: <span className="text-emerald-400 font-semibold">{FREQ_LABELS[best.rebalanceFrequency]?.label} ({best.sortinoRatio?.toFixed(2)})</span>
+          {" · "} SPY baseline: {spy.spyTotalReturnPct?.toFixed(1)}% total
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-slate-700 text-slate-500 text-left">
+              <th className="pb-2 pr-3 font-medium">Frequency</th>
+              <th className="pb-2 pr-3 font-medium text-right">Rebalances</th>
+              <th className="pb-2 pr-3 font-medium text-right">Total Ret</th>
+              <th className="pb-2 pr-3 font-medium text-right">Ann. Ret</th>
+              <th className="pb-2 pr-3 font-medium text-right">vs SPY</th>
+              <th className="pb-2 pr-3 font-medium text-right">Max DD</th>
+              <th className="pb-2 pr-3 font-medium text-right">Sharpe</th>
+              <th className="pb-2 pr-3 font-medium text-right">Sortino</th>
+              <th className="pb-2 font-medium text-right">Calmar</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800">
+            {rows.map(r => {
+              const excess = (r.totalReturnPct ?? 0) - (r.spyTotalReturnPct ?? 0);
+              const isCurrent = r.rebalanceFrequency === currentFrequency;
+              const isBest = r.rebalanceFrequency === best.rebalanceFrequency;
+              const isWorstDD = r.rebalanceFrequency === worstDD.rebalanceFrequency;
+              const fc = FREQ_LABELS[r.rebalanceFrequency] ?? { label: r.rebalanceFrequency, shortLabel: r.rebalanceFrequency, colorClass: "text-slate-400" };
+              return (
+                <tr key={r.rebalanceFrequency} className={`${isCurrent ? "bg-blue-900/20" : ""} ${isBest ? "ring-1 ring-emerald-700/40" : ""} hover:bg-slate-800/40 transition-colors`}>
+                  <td className={`py-2 pr-3 font-semibold ${fc.colorClass}`}>
+                    {fc.label}{isCurrent ? " ←" : ""}{isBest && !isCurrent ? " ★" : ""}
+                  </td>
+                  <td className="py-2 pr-3 font-mono tabular-nums text-right text-slate-400">
+                    {r.rebalanceFrequency === "WEEKLY" ? "~52/yr" : r.rebalanceFrequency === "MONTHLY" ? "~12/yr" : "~4/yr"}
+                  </td>
+                  <td className={`py-2 pr-3 font-mono tabular-nums text-right ${(r.totalReturnPct ?? 0) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {r.totalReturnPct != null ? `${r.totalReturnPct >= 0 ? "+" : ""}${r.totalReturnPct.toFixed(1)}%` : "—"}
+                  </td>
+                  <td className={`py-2 pr-3 font-mono tabular-nums text-right ${(r.annualizedReturnPct ?? 0) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {r.annualizedReturnPct != null ? `${r.annualizedReturnPct >= 0 ? "+" : ""}${r.annualizedReturnPct.toFixed(1)}%` : "—"}
+                  </td>
+                  <td className={`py-2 pr-3 font-mono tabular-nums text-right ${excess >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {excess >= 0 ? "+" : ""}{excess.toFixed(1)}%
+                  </td>
+                  <td className={`py-2 pr-3 font-mono tabular-nums text-right ${isWorstDD ? "text-red-400 font-semibold" : "text-red-400/70"}`}>
+                    -{r.maxDrawdownPct?.toFixed(1)}%
+                  </td>
+                  <td className={`py-2 pr-3 font-mono tabular-nums text-right ${(r.sharpeRatio ?? 0) >= 1 ? "text-emerald-400" : "text-slate-400"}`}>
+                    {r.sharpeRatio?.toFixed(2) ?? "—"}
+                  </td>
+                  <td className={`py-2 pr-3 font-mono tabular-nums text-right ${(r.sortinoRatio ?? 0) >= 1.5 ? "text-emerald-400" : "text-slate-400"}`}>
+                    {r.sortinoRatio?.toFixed(2) ?? "—"}
+                  </td>
+                  <td className={`py-2 font-mono tabular-nums text-right ${(r.calmarRatio ?? 0) >= 1.5 ? "text-emerald-400" : "text-slate-400"}`}>
+                    {r.calmarRatio?.toFixed(2) ?? "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-2 text-[10px] text-slate-600">
+        ★ = best Sortino · ← = current selection · all runs use same date range, topN, and universe · Weekly = higher turnover, higher transaction cost risk
+      </div>
+    </div>
+  );
+}
+
 export default function BacktesterPage() {
   const [startDate, setStartDate] = useState(DEFAULT_START_DATE);
   const [endDate, setEndDate] = useState(DEFAULT_END_DATE);
@@ -753,6 +838,8 @@ export default function BacktesterPage() {
   const [recentRuns, setRecentRuns] = useState<BacktestResult[]>([]);
   const [sweepResults, setSweepResults] = useState<BacktestResult[] | null>(null);
   const [isSweeping, setIsSweeping] = useState(false);
+  const [freqSweepResults, setFreqSweepResults] = useState<BacktestResult[] | null>(null);
+  const [isFreqSweeping, setIsFreqSweeping] = useState(false);
   const [liveCategories, setLiveCategories] = useState<CategorySummary[]>([]);
   const [liveRegime, setLiveRegime] = useState<string | null>(null);
 
@@ -798,6 +885,23 @@ export default function BacktesterPage() {
       setSweepResults(data);
     } catch {} finally {
       setIsSweeping(false);
+    }
+  };
+
+  const handleFrequencySweep = async () => {
+    setIsFreqSweeping(true);
+    setFreqSweepResults(null);
+    try {
+      const data = await runBacktestFrequencySweep({
+        startDate,
+        endDate,
+        topN,
+        signalThreshold: signalThreshold ? parseFloat(signalThreshold) : undefined,
+        categoryScope,
+      });
+      setFreqSweepResults(data);
+    } catch {} finally {
+      setIsFreqSweeping(false);
     }
   };
 
@@ -1089,6 +1193,14 @@ export default function BacktesterPage() {
                 >
                   {isSweeping ? "Sweeping…" : "⚡ Sweep topN 1–12"}
                 </button>
+                <button
+                  onClick={handleFrequencySweep}
+                  disabled={isFreqSweeping || isRunning}
+                  className="w-full text-xs py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-slate-600"
+                  title="Compare weekly, monthly, and quarterly rebalance frequencies. Takes ~5s."
+                >
+                  {isFreqSweeping ? "Sweeping…" : "⚡ Sweep W/M/Q freq"}
+                </button>
               </div>
             </div>
           </div>
@@ -1141,11 +1253,16 @@ export default function BacktesterPage() {
                   const sharpeDelta = (result.sharpeRatio ?? 0) - (result.spySharpeRatio ?? 0);
                   const sortinoDelta = result.sortinoRatio != null && result.spySortinoRatio != null
                     ? result.sortinoRatio - result.spySortinoRatio : null;
+                  // Period win rate: % of calendar months where strategy beat SPY
+                  const monthlyRows = result.equityCurve?.length > 2 ? computeMonthlyReturns(result.equityCurve) : [];
+                  const beatMonths = monthlyRows.filter(r => r.port > r.spy).length;
+                  const totalMonths = monthlyRows.length;
+                  const winRatePct = totalMonths > 0 ? Math.round((beatMonths / totalMonths) * 100) : null;
                   const isWin = excessReturn >= 0;
                   const color = isWin ? "text-emerald-400" : "text-red-400";
                   const bg = isWin ? "bg-emerald-900/20 border-emerald-700/40" : "bg-red-900/20 border-red-700/40";
                   return (
-                    <div className={`border rounded-xl px-5 py-3 flex items-center gap-8 ${bg}`}>
+                    <div className={`border rounded-xl px-5 py-3 flex items-center gap-6 flex-wrap ${bg}`}>
                       <div>
                         <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">vs SPY Outcome</div>
                         <div className={`text-base font-bold ${color}`}>{isWin ? "Outperforms" : "Underperforms"}</div>
@@ -1166,6 +1283,15 @@ export default function BacktesterPage() {
                         <div>
                           <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Sortino Delta</div>
                           <div className={`text-xl font-bold font-mono ${sortinoDelta >= 0 ? "text-emerald-400" : "text-red-400"}`}>{sortinoDelta >= 0 ? "+" : ""}{sortinoDelta.toFixed(2)}</div>
+                        </div>
+                      )}
+                      {winRatePct != null && (
+                        <div title={`Beat SPY in ${beatMonths} of ${totalMonths} calendar months`}>
+                          <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Monthly Win Rate</div>
+                          <div className={`text-xl font-bold font-mono ${winRatePct >= 55 ? "text-emerald-400" : winRatePct >= 45 ? "text-slate-300" : "text-red-400"}`}>
+                            {winRatePct}%
+                          </div>
+                          <div className="text-[9px] text-slate-600">{beatMonths}/{totalMonths} months</div>
                         </div>
                       )}
                       <div className="ml-auto text-[10px] text-slate-600">
@@ -1270,6 +1396,11 @@ export default function BacktesterPage() {
             {/* Sweep results — shown when sweep completes */}
             {sweepResults && sweepResults.length > 0 && (
               <SweepTable rows={sweepResults} currentTopN={topN} />
+            )}
+
+            {/* Frequency sweep results */}
+            {freqSweepResults && freqSweepResults.length > 0 && (
+              <FrequencySweepTable rows={freqSweepResults} currentFrequency={rebalanceFrequency} />
             )}
 
             {/* Recent Runs — always visible */}

@@ -136,6 +136,23 @@ class BacktestControllerTest {
   }
 
   @Test
+  @DisplayName("POST /backtest/frequency-sweep returns 3 rows (WEEKLY/MONTHLY/QUARTERLY)")
+  void shouldReturnFrequencySweepResults() throws Exception {
+    BacktestRequest request =
+        new BacktestRequest(
+            LocalDate.of(2022, 1, 1), LocalDate.of(2024, 1, 1), "MONTHLY", 5, null, null);
+    when(backtestEngine.run(any(BacktestRequest.class))).thenReturn(sampleResult(null));
+
+    mockMvc
+        .perform(
+            post("/backtest/frequency-sweep")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(3));
+  }
+
+  @Test
   @DisplayName("POST /backtest/sweep returns 12 rows (topN 1–12)")
   void shouldReturnSweepResults() throws Exception {
     BacktestRequest request =

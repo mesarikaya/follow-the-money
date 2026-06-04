@@ -280,6 +280,20 @@ export const runBacktestSweep = (request: Omit<BacktestRequest, "topN">) =>
     return res.json() as Promise<BacktestResult[]>;
   });
 
+export const runBacktestFrequencySweep = (request: Omit<BacktestRequest, "rebalanceFrequency">) =>
+  fetch(`${BACKEND}/api/v1/backtest/frequency-sweep`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...request, rebalanceFrequency: "MONTHLY" }),
+    cache: "no-store",
+  }).then(async (res) => {
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(body.detail ?? `POST /api/v1/backtest/frequency-sweep → ${res.status}`);
+    }
+    return res.json() as Promise<BacktestResult[]>;
+  });
+
 export const fetchAlerts = () => get<AlertsResponse>("/api/v1/alerts");
 
 export type AlertRuleDto = {

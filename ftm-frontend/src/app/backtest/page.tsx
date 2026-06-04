@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { runBacktest, fetchRecentBacktests, fetchCategories, fetchMacro, BacktestResult, EquityCurvePoint, RebalanceEvent, CategorySummary } from "@/lib/api";
+import { runBacktest, runBacktestSweep, fetchRecentBacktests, fetchCategories, fetchMacro, BacktestResult, EquityCurvePoint, RebalanceEvent, CategorySummary } from "@/lib/api";
 import { CATEGORY_ETF_MAP } from "@/lib/sectors";
 import { deriveTradeSignal } from "@/lib/signals";
 
@@ -668,6 +668,78 @@ function computeSortino(curve: EquityCurvePoint[], useSpy: boolean): number | nu
   return (meanReturn / downsideStd) * Math.sqrt(252);
 }
 
+function SweepTable({ rows, currentTopN }: { rows: BacktestResult[]; currentTopN: number }) {
+  if (rows.length === 0) return null;
+  const spy = rows[0]; // spy metrics are constant across rows
+  const best = rows.reduce((best, r) => (r.sortinoRatio ?? 0) > (best.sortinoRatio ?? 0) ? r : best, rows[0]);
+
+  return (
+    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-sm font-semibold text-slate-200">Parameter Sensitivity — Top-N Sweep</div>
+        <div className="text-[10px] text-slate-500">
+          Best Sortino: <span className="text-emerald-400 font-semibold">Top-{best.topN} ({best.sortinoRatio?.toFixed(2)})</span>
+          {" · "} SPY baseline: {spy.spyTotalReturnPct?.toFixed(1)}% total, Sharpe {spy.spySharpeRatio?.toFixed(2)}
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-slate-700 text-slate-500 text-left">
+              <th className="pb-2 pr-3 font-medium">N</th>
+              <th className="pb-2 pr-3 font-medium text-right">Total Ret</th>
+              <th className="pb-2 pr-3 font-medium text-right">Ann. Ret</th>
+              <th className="pb-2 pr-3 font-medium text-right">vs SPY</th>
+              <th className="pb-2 pr-3 font-medium text-right">Max DD</th>
+              <th className="pb-2 pr-3 font-medium text-right">Sharpe</th>
+              <th className="pb-2 pr-3 font-medium text-right">Sortino</th>
+              <th className="pb-2 font-medium text-right">Calmar</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800">
+            {rows.map(r => {
+              const excess = (r.totalReturnPct ?? 0) - (r.spyTotalReturnPct ?? 0);
+              const isCurrent = r.topN === currentTopN;
+              const isBest = r.topN === best.topN;
+              return (
+                <tr key={r.topN} className={`${isCurrent ? "bg-blue-900/20" : ""} ${isBest ? "ring-1 ring-emerald-700/40" : ""} hover:bg-slate-800/40 transition-colors`}>
+                  <td className={`py-1.5 pr-3 font-mono font-bold ${isBest ? "text-emerald-400" : isCurrent ? "text-blue-300" : "text-slate-400"}`}>
+                    {r.topN}{isCurrent ? " ←" : ""}{isBest && !isCurrent ? " ★" : ""}
+                  </td>
+                  <td className={`py-1.5 pr-3 font-mono tabular-nums text-right ${(r.totalReturnPct ?? 0) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {r.totalReturnPct != null ? `${r.totalReturnPct >= 0 ? "+" : ""}${r.totalReturnPct.toFixed(1)}%` : "—"}
+                  </td>
+                  <td className={`py-1.5 pr-3 font-mono tabular-nums text-right ${(r.annualizedReturnPct ?? 0) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {r.annualizedReturnPct != null ? `${r.annualizedReturnPct >= 0 ? "+" : ""}${r.annualizedReturnPct.toFixed(1)}%` : "—"}
+                  </td>
+                  <td className={`py-1.5 pr-3 font-mono tabular-nums text-right ${excess >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {excess >= 0 ? "+" : ""}{excess.toFixed(1)}%
+                  </td>
+                  <td className="py-1.5 pr-3 font-mono tabular-nums text-red-400 text-right">
+                    -{r.maxDrawdownPct?.toFixed(1)}%
+                  </td>
+                  <td className={`py-1.5 pr-3 font-mono tabular-nums text-right ${(r.sharpeRatio ?? 0) >= 1 ? "text-emerald-400" : "text-slate-400"}`}>
+                    {r.sharpeRatio?.toFixed(2) ?? "—"}
+                  </td>
+                  <td className={`py-1.5 pr-3 font-mono tabular-nums text-right ${(r.sortinoRatio ?? 0) >= 1.5 ? "text-emerald-400" : "text-slate-400"}`}>
+                    {r.sortinoRatio?.toFixed(2) ?? "—"}
+                  </td>
+                  <td className={`py-1.5 font-mono tabular-nums text-right ${(r.calmarRatio ?? 0) >= 1.5 ? "text-emerald-400" : "text-slate-400"}`}>
+                    {r.calmarRatio?.toFixed(2) ?? "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-2 text-[10px] text-slate-600">
+        ★ = best Sortino · ← = current selection · all runs use same date range, frequency, and universe
+      </div>
+    </div>
+  );
+}
+
 export default function BacktesterPage() {
   const [startDate, setStartDate] = useState(DEFAULT_START_DATE);
   const [endDate, setEndDate] = useState(DEFAULT_END_DATE);
@@ -679,6 +751,8 @@ export default function BacktesterPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [recentRuns, setRecentRuns] = useState<BacktestResult[]>([]);
+  const [sweepResults, setSweepResults] = useState<BacktestResult[] | null>(null);
+  const [isSweeping, setIsSweeping] = useState(false);
   const [liveCategories, setLiveCategories] = useState<CategorySummary[]>([]);
   const [liveRegime, setLiveRegime] = useState<string | null>(null);
 
@@ -707,6 +781,23 @@ export default function BacktesterPage() {
       setRunError(String(error));
     } finally {
       setIsRunning(false);
+    }
+  };
+
+  const handleSweep = async () => {
+    setIsSweeping(true);
+    setSweepResults(null);
+    try {
+      const data = await runBacktestSweep({
+        startDate,
+        endDate,
+        rebalanceFrequency,
+        signalThreshold: signalThreshold ? parseFloat(signalThreshold) : undefined,
+        categoryScope,
+      });
+      setSweepResults(data);
+    } catch {} finally {
+      setIsSweeping(false);
     }
   };
 
@@ -990,6 +1081,14 @@ export default function BacktesterPage() {
                 >
                   {isRunning ? "Running…" : "▶ Run Backtest"}
                 </button>
+                <button
+                  onClick={handleSweep}
+                  disabled={isSweeping || isRunning}
+                  className="w-full text-xs py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-slate-600"
+                  title="Run the backtest for all topN values (1–12) and compare performance. Takes ~15s."
+                >
+                  {isSweeping ? "Sweeping…" : "⚡ Sweep topN 1–12"}
+                </button>
               </div>
             </div>
           </div>
@@ -1166,6 +1265,11 @@ export default function BacktesterPage() {
                   </div>
                 )}
               </>
+            )}
+
+            {/* Sweep results — shown when sweep completes */}
+            {sweepResults && sweepResults.length > 0 && (
+              <SweepTable rows={sweepResults} currentTopN={topN} />
             )}
 
             {/* Recent Runs — always visible */}

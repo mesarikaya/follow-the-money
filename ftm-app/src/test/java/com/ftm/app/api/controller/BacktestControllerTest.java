@@ -134,4 +134,22 @@ class BacktestControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(1));
   }
+
+  @Test
+  @DisplayName("POST /backtest/sweep returns 12 rows (topN 1–12)")
+  void shouldReturnSweepResults() throws Exception {
+    BacktestRequest request =
+        new BacktestRequest(
+            LocalDate.of(2022, 1, 1), LocalDate.of(2024, 1, 1), "MONTHLY", 5, null, null);
+    // engine.run() is called once per topN value; stub for any topN
+    when(backtestEngine.run(any(BacktestRequest.class))).thenReturn(sampleResult(null));
+
+    mockMvc
+        .perform(
+            post("/backtest/sweep")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(12));
+  }
 }

@@ -5,6 +5,7 @@ import com.ftm.app.api.dto.BacktestResult;
 import com.ftm.app.backtest.repository.BacktestRepository;
 import com.ftm.app.backtest.service.BacktestEngine;
 import jakarta.validation.Valid;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 public class BacktestController {
 
   private static final int RECENT_RUNS_LIMIT = 10;
+  private static final int SWEEP_MAX_TOP_N = 12;
 
   private final BacktestEngine backtestEngine;
   private final BacktestRepository backtestRepository;
@@ -42,5 +44,47 @@ public class BacktestController {
   @GetMapping("/recent")
   public List<BacktestResult> getRecentBacktests() {
     return backtestRepository.findRecent(RECENT_RUNS_LIMIT);
+  }
+
+  @PostMapping("/sweep")
+  public List<BacktestResult> sweepTopN(@Valid @RequestBody BacktestRequest request) {
+    List<BacktestResult> results = new ArrayList<>();
+    for (int n = 1; n <= SWEEP_MAX_TOP_N; n++) {
+      BacktestRequest swept =
+          new BacktestRequest(
+              request.startDate(),
+              request.endDate(),
+              request.rebalanceFrequency(),
+              n,
+              request.signalThreshold(),
+              request.categoryScope());
+      BacktestResult result = backtestEngine.run(swept);
+      // strip the equity curve and rebalance history — sweep responses are summary-only
+      results.add(
+          new BacktestResult(
+              null,
+              null,
+              result.startDate(),
+              result.endDate(),
+              result.rebalanceFrequency(),
+              result.topN(),
+              result.signalThreshold(),
+              result.totalReturnPct(),
+              result.annualizedReturnPct(),
+              result.maxDrawdownPct(),
+              result.sharpeRatio(),
+              result.sortinoRatio(),
+              result.calmarRatio(),
+              result.spyTotalReturnPct(),
+              result.spyAnnualizedReturnPct(),
+              result.spyMaxDrawdownPct(),
+              result.spySharpeRatio(),
+              result.spySortinoRatio(),
+              result.spyCalmarRatio(),
+              result.tradingDays(),
+              List.of(),
+              List.of()));
+    }
+    return results;
   }
 }

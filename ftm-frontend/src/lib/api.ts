@@ -266,6 +266,20 @@ export const runBacktest = (request: BacktestRequest) =>
 
 export const fetchRecentBacktests = () => get<BacktestResult[]>("/api/v1/backtest/recent");
 
+export const runBacktestSweep = (request: Omit<BacktestRequest, "topN">) =>
+  fetch(`${BACKEND}/api/v1/backtest/sweep`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...request, topN: 1 }),
+    cache: "no-store",
+  }).then(async (res) => {
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(body.detail ?? `POST /api/v1/backtest/sweep → ${res.status}`);
+    }
+    return res.json() as Promise<BacktestResult[]>;
+  });
+
 export const fetchAlerts = () => get<AlertsResponse>("/api/v1/alerts");
 
 export type AlertRuleDto = {

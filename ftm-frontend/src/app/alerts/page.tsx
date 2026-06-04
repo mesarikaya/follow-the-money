@@ -112,6 +112,18 @@ function formatAlertDate(isoString: string): string {
   } catch { return isoString; }
 }
 
+function alertAgeBadge(isoString: string): { label: string; cls: string } | null {
+  try {
+    const ageMs = Date.now() - new Date(isoString).getTime();
+    const ageDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
+    const ageHours = Math.floor(ageMs / (1000 * 60 * 60));
+    if (ageDays >= 7) return { label: `${ageDays}d`, cls: "text-amber-600/70 bg-amber-950/20 border border-amber-900/30" };
+    if (ageDays >= 1) return { label: `${ageDays}d`, cls: "text-slate-600 bg-slate-700/30 border border-slate-700" };
+    if (ageHours >= 1) return { label: `${ageHours}h`, cls: "text-slate-700 bg-slate-700/20 border border-slate-800" };
+    return null; // brand new — no badge needed
+  } catch { return null; }
+}
+
 function formatDateShort(isoString: string): string {
   try {
     return new Date(isoString).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -300,7 +312,18 @@ export default function AlertsPage() {
                         <span className="font-mono text-sm font-semibold text-slate-200">{alert.categoryId}</span>
                       )}
                       <span className="text-xs text-slate-500">{RULE_LABELS[alert.ruleId] ?? alert.ruleId}</span>
-                      <span className="text-xs text-slate-600 ml-auto">{formatAlertDate(alert.createdAt)}</span>
+                      <div className="ml-auto flex items-center gap-1.5">
+                        {(() => {
+                          const age = alertAgeBadge(alert.createdAt);
+                          if (!age) return null;
+                          return (
+                            <span className={`text-[9px] font-mono px-1 py-0.5 rounded ${age.cls}`} title={`Alert has been active for ${age.label}`}>
+                              {age.label}
+                            </span>
+                          );
+                        })()}
+                        <span className="text-xs text-slate-600">{formatAlertDate(alert.createdAt)}</span>
+                      </div>
                     </div>
                     <p className="text-sm text-slate-300">{alert.message}</p>
                     <SnapshotViewer raw={alert.triggerSnapshot} />

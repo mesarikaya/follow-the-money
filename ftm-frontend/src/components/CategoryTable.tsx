@@ -403,10 +403,30 @@ function TradeSignalBadge({ cat }: { cat: CategorySummary }) {
   );
 }
 
-function TopSubChip({ sub }: { sub: SubSectorSummary }) {
+function TopSubChip({ sub, allSubs }: { sub: SubSectorSummary; allSubs?: SubSectorSummary[] }) {
   const rs = sub.rs60;
   const color = rs == null ? "text-slate-400" : rs > 0 ? "text-emerald-400" : "text-red-400";
   const rsPct = rs != null ? `${rs > 0 ? "+" : ""}${(rs * 100).toFixed(1)}%` : null;
+
+  let breadthNode: React.ReactNode = null;
+  if (allSubs && allSubs.length > 1) {
+    const withData = allSubs.filter(s => s.rrgQuadrant != null);
+    const bullish = withData.filter(s => s.rrgQuadrant === "4" || s.rrgQuadrant === "3").length;
+    const pct = withData.length > 0 ? Math.round((bullish / withData.length) * 100) : null;
+    const breadthColor = pct == null ? "text-slate-600"
+      : pct >= 60 ? "text-green-400"
+      : pct >= 40 ? "text-amber-400"
+      : "text-red-400";
+    const title = withData.length > 0
+      ? `${bullish}/${withData.length} sub-sectors bullish (Leading/Improving)`
+      : `${allSubs.length} sub-sectors (no signal yet)`;
+    breadthNode = (
+      <span className={`text-[8px] tabular-nums ${breadthColor}`} title={title}>
+        {withData.length > 0 ? `${bullish}/${withData.length}↑` : `${allSubs.length}`}
+      </span>
+    );
+  }
+
   return (
     <span
       className="ml-1.5 inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-mono bg-slate-700/60 border border-slate-600/50 text-slate-400"
@@ -415,6 +435,8 @@ function TopSubChip({ sub }: { sub: SubSectorSummary }) {
       <span className="text-slate-500">▲</span>
       <span className="text-slate-300">{sub.etfTicker}</span>
       {rsPct && <span className={color}>{rsPct}</span>}
+      {breadthNode && <span className="mx-px text-slate-700">·</span>}
+      {breadthNode}
     </span>
   );
 }
@@ -470,12 +492,14 @@ export default function CategoryTable({
   timeframe = "MONTH",
   scoreHistory = {},
   topSubSectors = {},
+  allSubSectorsByParent = {},
   priceLevels = {},
 }: {
   categories: CategorySummary[];
   timeframe?: string;
   scoreHistory?: Record<string, number[]>;
   topSubSectors?: Record<string, SubSectorSummary>;
+  allSubSectorsByParent?: Record<string, SubSectorSummary[]>;
   priceLevels?: Record<string, PriceLevelDto>;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("default");
@@ -606,7 +630,7 @@ export default function CategoryTable({
                         </Link>
                       ) : cat.etfTicker}
                       {SECTOR_DRILLDOWN_IDS.has(cat.id) && topSubSectors[cat.id] && (
-                        <TopSubChip sub={topSubSectors[cat.id]} />
+                        <TopSubChip sub={topSubSectors[cat.id]} allSubs={allSubSectorsByParent[cat.id]} />
                       )}
                     </div>
                   </td>

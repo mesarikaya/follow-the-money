@@ -24,6 +24,8 @@ public record BacktestResult(
     BigDecimal spyAnnualizedReturnPct,
     BigDecimal spyMaxDrawdownPct,
     BigDecimal spySharpeRatio,
+    BigDecimal spySortinoRatio,
+    BigDecimal spyCalmarRatio,
     int tradingDays,
     List<EquityCurvePoint> equityCurve,
     List<RebalanceEvent> rebalanceHistory) {

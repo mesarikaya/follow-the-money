@@ -81,6 +81,22 @@ class BacktestEngineTest {
     assertThat(engine.computeSortinoRatio(curve, true)).isEqualTo(0.0);
   }
 
+  @Test
+  @DisplayName("sortino: portfolio and spy sortinos differ when paths diverge")
+  void sortinoPortfolioAndSpyDifferWhenPathsDiverge() {
+    // portfolio volatile (up/down/up), spy smooth uptrend
+    var curve = List.of(
+        point("2023-01-01", 10_000, 10_000),
+        point("2023-01-02", 10_300, 10_100),
+        point("2023-01-03",  9_900, 10_200),
+        point("2023-01-04", 10_500, 10_300));
+    double portSortino = engine.computeSortinoRatio(curve, false);
+    double spySortino  = engine.computeSortinoRatio(curve, true);
+    // spy has no down days in this series → spySortino = 0; portfolio has a down day → portSortino != 0
+    assertThat(spySortino).isEqualTo(0.0);
+    assertThat(portSortino).isNotEqualTo(0.0);
+  }
+
   // ── computeCalmarRatio ───────────────────────────────────────────────────────
 
   @Test

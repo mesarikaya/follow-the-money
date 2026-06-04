@@ -47,6 +47,8 @@ public class BacktestRepository {
         .set(DSL.field("spy_annualized_return_pct"), result.spyAnnualizedReturnPct())
         .set(DSL.field("spy_max_drawdown_pct"), result.spyMaxDrawdownPct())
         .set(DSL.field("spy_sharpe_ratio"), result.spySharpeRatio())
+        .set(DSL.field("spy_sortino_ratio"), result.spySortinoRatio())
+        .set(DSL.field("spy_calmar_ratio"), result.spyCalmarRatio())
         .set(DSL.field("trading_days"), result.tradingDays())
         .set(DSL.field("equity_curve"), JSONB.valueOf(serializeEquityCurve(result.equityCurve())))
         .execute();
@@ -69,6 +71,8 @@ public class BacktestRepository {
         result.spyAnnualizedReturnPct(),
         result.spyMaxDrawdownPct(),
         result.spySharpeRatio(),
+        result.spySortinoRatio(),
+        result.spyCalmarRatio(),
         result.tradingDays(),
         result.equityCurve(),
         result.rebalanceHistory() != null ? result.rebalanceHistory() : List.of());
@@ -108,6 +112,8 @@ public class BacktestRepository {
         r.get("spy_annualized_return_pct", java.math.BigDecimal.class),
         r.get("spy_max_drawdown_pct", java.math.BigDecimal.class),
         r.get("spy_sharpe_ratio", java.math.BigDecimal.class),
+        r.get("spy_sortino_ratio", java.math.BigDecimal.class),
+        r.get("spy_calmar_ratio", java.math.BigDecimal.class),
         Optional.ofNullable(r.get("trading_days", Integer.class)).orElse(0),
         includeEquityCurve ? deserializeEquityCurve(r.get("equity_curve", JSONB.class)) : List.of(),
         List.of());

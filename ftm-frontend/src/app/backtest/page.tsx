@@ -1040,6 +1040,8 @@ export default function BacktesterPage() {
                   const spyAnn = result.spyAnnualizedReturnPct ?? 0;
                   const annAlpha = result.annualizedReturnPct - spyAnn;
                   const sharpeDelta = (result.sharpeRatio ?? 0) - (result.spySharpeRatio ?? 0);
+                  const sortinoDelta = result.sortinoRatio != null && result.spySortinoRatio != null
+                    ? result.sortinoRatio - result.spySortinoRatio : null;
                   const isWin = excessReturn >= 0;
                   const color = isWin ? "text-emerald-400" : "text-red-400";
                   const bg = isWin ? "bg-emerald-900/20 border-emerald-700/40" : "bg-red-900/20 border-red-700/40";
@@ -1061,6 +1063,12 @@ export default function BacktesterPage() {
                         <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Sharpe Delta</div>
                         <div className={`text-xl font-bold font-mono ${sharpeDelta >= 0 ? "text-emerald-400" : "text-red-400"}`}>{sharpeDelta >= 0 ? "+" : ""}{sharpeDelta.toFixed(2)}</div>
                       </div>
+                      {sortinoDelta != null && (
+                        <div>
+                          <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Sortino Delta</div>
+                          <div className={`text-xl font-bold font-mono ${sortinoDelta >= 0 ? "text-emerald-400" : "text-red-400"}`}>{sortinoDelta >= 0 ? "+" : ""}{sortinoDelta.toFixed(2)}</div>
+                        </div>
+                      )}
                       <div className="ml-auto text-[10px] text-slate-600">
                         {result.rebalanceHistory?.length ?? 0} rebalances · {result.tradingDays} trading days
                       </div>
@@ -1103,13 +1111,13 @@ export default function BacktesterPage() {
                       <MetricCard label="Max Drawdown" value={result.spyMaxDrawdownPct != null ? `-${result.spyMaxDrawdownPct.toFixed(2)}%` : "—"} color="text-slate-300" tooltip="Largest peak-to-trough decline for SPY." />
                       <MetricCard label="Sharpe Ratio" value={formatDecimal(result.spySharpeRatio)} color="text-slate-300" />
                       {(() => {
-                        const spyCalmar = result.spyAnnualizedReturnPct != null && result.spyMaxDrawdownPct != null && result.spyMaxDrawdownPct > 0
-                          ? result.spyAnnualizedReturnPct / result.spyMaxDrawdownPct : null;
+                        const spyCalmar = result.spyCalmarRatio ?? (result.spyAnnualizedReturnPct != null && result.spyMaxDrawdownPct != null && result.spyMaxDrawdownPct > 0
+                          ? result.spyAnnualizedReturnPct / result.spyMaxDrawdownPct : null);
                         if (spyCalmar == null) return null;
                         return <MetricCard label="Calmar Ratio" value={spyCalmar.toFixed(2)} color="text-slate-300" tooltip="SPY ann. return ÷ max drawdown." />;
                       })()}
                       {(() => {
-                        const spySortino = computeSortino(result.equityCurve, true);
+                        const spySortino = result.spySortinoRatio ?? computeSortino(result.equityCurve, true);
                         if (spySortino == null) return null;
                         return <MetricCard label="Sortino Ratio" value={spySortino.toFixed(2)} color="text-slate-300" tooltip="SPY ann. return / downside deviation." />;
                       })()}

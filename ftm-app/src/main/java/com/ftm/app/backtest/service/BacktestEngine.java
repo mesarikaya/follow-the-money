@@ -337,6 +337,8 @@ public class BacktestEngine {
     double spySharpeRatio = computeSharpeRatio(equityCurve, true);
     double sortinoRatio = computeSortinoRatio(equityCurve, false);
     double calmarRatio = computeCalmarRatio(annualizedReturnPct, maxDrawdownPct);
+    double spySortinoRatio = computeSortinoRatio(equityCurve, true);
+    double spyCalmarRatio = computeCalmarRatio(spyAnnualizedReturnPct, spyMaxDrawdownPct);
 
     return new BacktestResult(
         null, // run_id set by repository after insert
@@ -356,6 +358,8 @@ public class BacktestEngine {
         roundToFour(spyAnnualizedReturnPct),
         roundToFour(spyMaxDrawdownPct),
         roundToFour(spySharpeRatio),
+        roundToFour(spySortinoRatio),
+        roundToFour(spyCalmarRatio),
         tradingDays,
         equityCurve,
         rebalanceHistory);

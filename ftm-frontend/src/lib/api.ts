@@ -234,6 +234,8 @@ export type BacktestResult = {
   spyAnnualizedReturnPct: number | null;
   spyMaxDrawdownPct: number | null;
   spySharpeRatio: number;
+  spySortinoRatio: number | null;
+  spyCalmarRatio: number | null;
   tradingDays: number;
   equityCurve: EquityCurvePoint[];
   rebalanceHistory: RebalanceEvent[];

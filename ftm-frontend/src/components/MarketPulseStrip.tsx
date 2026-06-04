@@ -82,6 +82,28 @@ export default function MarketPulseStrip({ categories }: Props) {
     (c.compositeTrend5d - c.compositeTrend20d) <= -0.03
   ).length;
 
+  // Cross-horizon momentum divergence: RS-20 bullish vs RS-60, but RS-60 bearish vs RS-120 (or vice versa)
+  // Warns when short-term RS rally contradicts the medium-term trend
+  const crossHorizonDivCount = equities.filter(c => {
+    if (c.rs20 == null || c.rs60 == null || c.rs120 == null) return false;
+    const shortTermBull = c.rs20 > c.rs60 + 0.001;
+    const shortTermBear = c.rs20 < c.rs60 - 0.001;
+    const medTermBull = c.rs60 > c.rs120 + 0.001;
+    const medTermBear = c.rs60 < c.rs120 - 0.001;
+    return (shortTermBull && medTermBear) || (shortTermBear && medTermBull);
+  }).length;
+
+  // RRG quadrant vs RS-20/RS-60 divergence: RRG says Leading/Improving but RS-20 < RS-60 (or vice versa)
+  const rrgRsDivCount = equities.filter(c => {
+    if (!c.rrgQuadrant || c.rs20 == null || c.rs60 == null) return false;
+    const rrg = parseInt(c.rrgQuadrant);
+    const rrgBullish = rrg === 3 || rrg === 4;
+    const shortTermBull = c.rs20 > c.rs60 + 0.001;
+    const shortTermBear = c.rs20 < c.rs60 - 0.001;
+    if (!shortTermBull && !shortTermBear) return false;
+    return rrgBullish !== shortTermBull;
+  }).length;
+
   const scoreColor =
     avgScore >= 70 ? "text-emerald-400" :
     avgScore >= 40 ? "text-amber-400" :
@@ -129,7 +151,7 @@ export default function MarketPulseStrip({ categories }: Props) {
       <StatCell
         label="Avg Score"
         value={avgScore}
-        sub={`${equities.length} sectors`}
+        sub={`${equities.length} sectors · ${signalCompleteness}% complete`}
         valueClass={scoreColor}
       />
       <StatCell
@@ -141,7 +163,13 @@ export default function MarketPulseStrip({ categories }: Props) {
       <StatCell
         label="RS Momentum"
         value={rsLabel}
-        sub={rsSub ?? (rsLeadHasData ? "RS-20 vs RS-60 (leading)" : undefined)}
+        sub={
+          rsSub
+            ? `${rsSub}${crossHorizonDivCount > 0 ? ` · ${crossHorizonDivCount}⚡div` : ""}${rrgRsDivCount > 0 ? ` · ${rrgRsDivCount}RRG÷` : ""}`
+            : rsLeadHasData
+              ? `RS-20 vs RS-60${crossHorizonDivCount > 0 ? ` · ${crossHorizonDivCount}⚡div` : ""}${rrgRsDivCount > 0 ? ` · ${rrgRsDivCount}RRG÷` : ""}`
+              : undefined
+        }
         valueClass={rsColor}
       />
       <StatCell

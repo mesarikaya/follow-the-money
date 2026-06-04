@@ -115,6 +115,12 @@ class AlertRulesEngineTest {
     lenient()
         .when(alertRulesRepository.findById("rrg_rs_divergence"))
         .thenReturn(Optional.of(disabled("rrg_rs_divergence")));
+    lenient()
+        .when(alertRulesRepository.findById("score_percentile_extreme"))
+        .thenReturn(Optional.of(disabled("score_percentile_extreme")));
+    lenient()
+        .when(signalRepository.findScorePercentile252d())
+        .thenReturn(Map.of());
   }
 
   private AlertRule enabled(String ruleId, Severity severity) {
@@ -1338,6 +1344,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("rs_breadth_bear")));
     when(alertRulesRepository.findById("rrg_rs_divergence"))
         .thenReturn(Optional.of(disabled("rrg_rs_divergence")));
+    when(alertRulesRepository.findById("score_percentile_extreme"))
+        .thenReturn(Optional.of(disabled("score_percentile_extreme")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
@@ -1856,6 +1864,110 @@ class AlertRulesEngineTest {
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
     verify(alertRepository).resolveAlertsByRuleAndCategory("rrg_rs_divergence", "TECH");
+    verify(alertRepository, never()).insert(any());
+  }
+
+  // ─── score_percentile_extreme ───────────────────────────────────────────────
+
+  private void stubAllRulesDisabledExceptScorePercentileExtreme() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bear")));
+    when(alertRulesRepository.findById("pre_buy_flow_surge"))
+        .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
+    when(alertRulesRepository.findById("rrg_rs_divergence"))
+        .thenReturn(Optional.of(disabled("rrg_rs_divergence")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+  }
+
+  @Test
+  @DisplayName("score_percentile_extreme: fires WARNING alert when sector is at 252d HIGH (≥90th pct)")
+  void shouldCreateScorePercentileExtremeHighAlertWhenSectorAtHistoricHigh() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptScorePercentileExtreme();
+    when(alertRulesRepository.findById("score_percentile_extreme"))
+        .thenReturn(Optional.of(enabled("score_percentile_extreme", Severity.WARNING)));
+    when(signalRepository.findScorePercentile252d())
+        .thenReturn(Map.of("TECH", new BigDecimal("0.93"))); // 93rd percentile — at historic high
+    when(alertRepository.existsActiveAlert("score_percentile_extreme", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).insert(
+        argThat(a -> a.ruleId().equals("score_percentile_extreme")
+            && a.categoryId() == CategoryId.TECH
+            && a.severity() == Severity.WARNING
+            && a.message().contains("TECH")
+            && a.message().contains("HIGH")));
+  }
+
+  @Test
+  @DisplayName("score_percentile_extreme: fires WARNING alert when sector is at 252d LOW (≤10th pct)")
+  void shouldCreateScorePercentileExtremeLowAlertWhenSectorAtHistoricLow() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptScorePercentileExtreme();
+    when(alertRulesRepository.findById("score_percentile_extreme"))
+        .thenReturn(Optional.of(enabled("score_percentile_extreme", Severity.WARNING)));
+    when(signalRepository.findScorePercentile252d())
+        .thenReturn(Map.of("TECH", new BigDecimal("0.07"))); // 7th percentile — at historic low
+    when(alertRepository.existsActiveAlert("score_percentile_extreme", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).insert(
+        argThat(a -> a.ruleId().equals("score_percentile_extreme")
+            && a.categoryId() == CategoryId.TECH
+            && a.severity() == Severity.WARNING
+            && a.message().contains("TECH")
+            && a.message().contains("LOW")));
+  }
+
+  @Test
+  @DisplayName("score_percentile_extreme: no alert when rule disabled")
+  void shouldNotCreateScorePercentileExtremeAlertWhenRuleDisabled() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptScorePercentileExtreme();
+    // rule stays disabled — engine returns early without fetching percentile data
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("score_percentile_extreme: no alert when percentile is in normal range (20th–80th)")
+  void shouldNotCreateScorePercentileExtremeAlertWhenPercentileIsNormal() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptScorePercentileExtreme();
+    when(alertRulesRepository.findById("score_percentile_extreme"))
+        .thenReturn(Optional.of(enabled("score_percentile_extreme", Severity.WARNING)));
+    when(signalRepository.findScorePercentile252d())
+        .thenReturn(Map.of("TECH", new BigDecimal("0.55"))); // 55th percentile — normal range
+    when(alertRepository.existsActiveAlert("score_percentile_extreme", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("score_percentile_extreme: resolves when percentile returns to normal range")
+  void shouldResolveScorePercentileExtremeAlertWhenPercentileReturnsToNormal() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptScorePercentileExtreme();
+    when(alertRulesRepository.findById("score_percentile_extreme"))
+        .thenReturn(Optional.of(enabled("score_percentile_extreme", Severity.WARNING)));
+    when(signalRepository.findScorePercentile252d())
+        .thenReturn(Map.of("TECH", new BigDecimal("0.50"))); // returned to mid-range
+    when(alertRepository.existsActiveAlert("score_percentile_extreme", "TECH")).thenReturn(true); // was active
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).resolveAlertsByRuleAndCategory("score_percentile_extreme", "TECH");
     verify(alertRepository, never()).insert(any());
   }
 }

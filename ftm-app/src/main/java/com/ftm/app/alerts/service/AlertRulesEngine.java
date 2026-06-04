@@ -77,6 +77,11 @@ public class AlertRulesEngine {
     private static final double RS_BREADTH_FIRE_FRACTION = 0.60;
     private static final double RS_BREADTH_RESOLVE_FRACTION = 0.45;
     private static final String RULE_RRG_RS_DIVERGENCE = "rrg_rs_divergence";
+    private static final String RULE_SCORE_PERCENTILE_EXTREME = "score_percentile_extreme";
+    private static final double SCORE_PERCENTILE_HIGH_FIRE = 0.90;
+    private static final double SCORE_PERCENTILE_LOW_FIRE = 0.10;
+    private static final double SCORE_PERCENTILE_HIGH_RESOLVE = 0.80;
+    private static final double SCORE_PERCENTILE_LOW_RESOLVE = 0.20;
     private static final BigDecimal FLOW_SURGE_Z_THRESHOLD = new BigDecimal("2.0");
     private static final BigDecimal FLOW_SURGE_RESOLVE_THRESHOLD = new BigDecimal("1.0");
     private static final BigDecimal PRE_BUY_FLOW_SURGE_Z_THRESHOLD = new BigDecimal("1.5");
@@ -139,6 +144,7 @@ public class AlertRulesEngine {
         alertsCreated += evaluatePreBuyFlowSurge(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateRsBreadthExtreme(signalDate, equityCategoryIds);
         alertsCreated += evaluateRrgRsDivergence(signalDate, equityCategoryIds);
+        alertsCreated += evaluateScorePercentileExtreme(equityCategoryIds);
 
         log.info(
                 "Alert rule evaluation complete: {} created, {} resolved for date={}",
@@ -1615,6 +1621,62 @@ public class AlertRulesEngine {
             } else if (!anyDivergence && hasActive) {
                 alertRepository.resolveAlertsByRuleAndCategory(RULE_RRG_RS_DIVERGENCE, categoryId);
                 log.info("rrg_rs_divergence: resolved for category={} (divergence closed)", categoryId);
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Fires when a sector's composite score reaches a 252-day extreme:
+     * &ge; 90th percentile (historically stretched high) or &le; 10th percentile (historically depressed).
+     * Helps identify sectors with mean-reversion risk or historic turnaround opportunities.
+     * Resolves when percentile retreats from the extreme zone back to 20th–80th percentile range.
+     */
+    private int evaluateScorePercentileExtreme(Set<String> equityCategoryIds) {
+        Optional<AlertRule> rule = alertRulesRepository.findById(RULE_SCORE_PERCENTILE_EXTREME);
+        if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+        Severity severity = rule.map(AlertRule::severity).orElse(Severity.INFO);
+
+        Map<String, BigDecimal> percentiles = signalRepository.findScorePercentile252d();
+        if (percentiles.isEmpty()) return 0;
+
+        int count = 0;
+        for (String categoryId : equityCategoryIds) {
+            BigDecimal pct = percentiles.get(categoryId);
+            if (pct == null) continue;
+            double p = pct.doubleValue();
+
+            boolean isHigh = p >= SCORE_PERCENTILE_HIGH_FIRE;
+            boolean isLow = p <= SCORE_PERCENTILE_LOW_FIRE;
+            boolean hasActive = alertRepository.existsActiveAlert(RULE_SCORE_PERCENTILE_EXTREME, categoryId);
+            boolean isExtreme = isHigh || isLow;
+            boolean isNormal = p < SCORE_PERCENTILE_HIGH_RESOLVE && p > SCORE_PERCENTILE_LOW_RESOLVE;
+
+            if (isExtreme && !hasActive) {
+                CategoryId catId;
+                try {
+                    catId = CategoryId.valueOf(categoryId);
+                } catch (IllegalArgumentException e) {
+                    log.debug("score_percentile_extreme: skipping unknown CategoryId={}", categoryId);
+                    continue;
+                }
+                String direction = isHigh ? "HIGH" : "LOW";
+                String message = isHigh
+                        ? String.format(
+                                "%s composite at 252d HIGH (%.0fth pct) — historically stretched, mean-reversion risk",
+                                categoryId, p * 100)
+                        : String.format(
+                                "%s composite at 252d LOW (%.0fth pct) — historically depressed, turnaround watch",
+                                categoryId, p * 100);
+                String snapshot = String.format("{\"percentile252d\":%.4f,\"direction\":\"%s\"}", p, direction);
+                alertRepository.insert(new Alert(
+                        OffsetDateTime.now(), catId, RULE_SCORE_PERCENTILE_EXTREME, severity,
+                        message, snapshot, AlertStatus.ACTIVE));
+                log.info("score_percentile_extreme: category={} direction={} percentile={}", categoryId, direction, p);
+                count++;
+            } else if (isNormal && hasActive) {
+                alertRepository.resolveAlertsByRuleAndCategory(RULE_SCORE_PERCENTILE_EXTREME, categoryId);
+                log.info("score_percentile_extreme: resolved for category={} (percentile={} returned to normal)", categoryId, p);
             }
         }
         return count;

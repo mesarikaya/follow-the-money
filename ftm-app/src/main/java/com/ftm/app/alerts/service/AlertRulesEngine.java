@@ -106,6 +106,12 @@ public class AlertRulesEngine {
     private static final BigDecimal REDUCE_SCORE_THRESHOLD = new BigDecimal("0.35");
     private static final String RULE_CROSS_HORIZON_RS_DIV = "cross_horizon_rs_divergence";
     private static final double CROSS_HORIZON_RS_MIN_GAP = 0.001;
+    private static final String RULE_MACRO_SECTOR_MISMATCH = "macro_sector_mismatch";
+    // Cyclical sectors: leadership in a risk-off macro regime is anomalous and warrants a flag
+    private static final Set<String> CYCLICAL_CATEGORY_IDS =
+            Set.of("TECH", "DISR", "FINL", "INDU", "ENRG", "MATL");
+    // Risk-off macro regime ordinals (STAGFLATION=0, RISK_OFF_FLIGHT=1)
+    private static final Set<Integer> RISK_OFF_REGIME_ORDINALS = Set.of(0, 1);
 
     private final AlertRepository alertRepository;
     private final AlertRulesRepository alertRulesRepository;
@@ -159,6 +165,7 @@ public class AlertRulesEngine {
         alertsCreated += evaluateScorePercentileExtreme(equityCategoryIds);
         alertsCreated += evaluateScoreVelocity(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateCrossHorizonRsDivergence(signalDate, equityCategoryIds);
+        alertsCreated += evaluateMacroSectorMismatch(signalDate, equityCategoryIds);
         // Must run last: reads active alerts inserted by earlier evaluators in this cycle
         alertsCreated += evaluateMultiAlertBullConfluence(topLevelCategoryIds);
 
@@ -1874,6 +1881,74 @@ public class AlertRulesEngine {
             } else if (!hasDivergence && hasActive) {
                 alertRepository.resolveAlertsByRuleAndCategory(RULE_CROSS_HORIZON_RS_DIV, categoryId);
                 log.info("cross_horizon_rs_divergence: resolved for category={} (horizons aligned)", categoryId);
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Fires when a cyclical sector (TECH, DISR, FINL, INDU, ENRG, MATL) is in RRG Leading or
+     * Improving phase (quadrant 3 or 4) while the macro regime is risk-off (STAGFLATION or
+     * RISK_OFF_FLIGHT). A cyclical sector leading during a risk-off macro backdrop is anomalous:
+     * either the market is early-pricing a recovery (watch for confirmation) or the RRG signal
+     * is a false leader that will reverse.
+     * Resolves when the regime returns to risk-on OR the sector exits quadrant 3/4.
+     */
+    private int evaluateMacroSectorMismatch(LocalDate signalDate, Set<String> equityCategoryIds) {
+        Optional<AlertRule> rule = alertRulesRepository.findById(RULE_MACRO_SECTOR_MISMATCH);
+        if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+        Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
+
+        Map<String, BigDecimal> regimeSignals =
+                signalRepository.findByTypeAndDate(SignalType.MACRO_REGIME, signalDate);
+        if (regimeSignals.isEmpty()) return 0;
+
+        BigDecimal regimeRaw = regimeSignals.values().stream().findFirst().orElse(null);
+        if (regimeRaw == null) return 0;
+
+        int regimeOrdinal = regimeRaw.intValue();
+        boolean isRiskOff = RISK_OFF_REGIME_ORDINALS.contains(regimeOrdinal);
+        String regimeName = resolveRegimeName(regimeOrdinal);
+
+        Map<String, BigDecimal> rrgMap =
+                signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
+        if (rrgMap.isEmpty()) return 0;
+
+        int count = 0;
+        for (String categoryId : equityCategoryIds) {
+            if (!CYCLICAL_CATEGORY_IDS.contains(categoryId)) continue;
+
+            BigDecimal rrgRaw = rrgMap.get(categoryId);
+            if (rrgRaw == null) continue;
+
+            int rrg = rrgRaw.intValue();
+            boolean isBullishQuadrant = rrg == 3 || rrg == 4;
+            boolean hasMismatch = isRiskOff && isBullishQuadrant;
+            boolean hasActive = alertRepository.existsActiveAlert(RULE_MACRO_SECTOR_MISMATCH, categoryId);
+
+            if (hasMismatch && !hasActive) {
+                CategoryId catId;
+                try {
+                    catId = CategoryId.valueOf(categoryId);
+                } catch (IllegalArgumentException e) {
+                    log.debug("macro_sector_mismatch: skipping unknown CategoryId={}", categoryId);
+                    continue;
+                }
+                String quadrantLabel = rrg == 4 ? "Leading" : "Improving";
+                String message = String.format(
+                        "%s cyclical sector in %s RRG while macro regime is %s — anomalous leadership; watch for reversal or early recovery signal",
+                        categoryId, quadrantLabel, regimeName);
+                String snapshot = String.format(
+                        "{\"regimeOrdinal\":%d,\"regime\":\"%s\",\"rrgQuadrant\":%d,\"categoryType\":\"cyclical\",\"signalDate\":\"%s\"}",
+                        regimeOrdinal, regimeName, rrg, signalDate);
+                alertRepository.insert(new Alert(
+                        OffsetDateTime.now(), catId, RULE_MACRO_SECTOR_MISMATCH, severity,
+                        message, snapshot, AlertStatus.ACTIVE));
+                log.info("macro_sector_mismatch: category={} rrg={} regime={}", categoryId, rrg, regimeName);
+                count++;
+            } else if (!hasMismatch && hasActive) {
+                alertRepository.resolveAlertsByRuleAndCategory(RULE_MACRO_SECTOR_MISMATCH, categoryId);
+                log.info("macro_sector_mismatch: resolved for category={} (regime={} or rrg={} changed)", categoryId, regimeName, rrg);
             }
         }
         return count;

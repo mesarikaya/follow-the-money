@@ -31,6 +31,7 @@ const RULE_SHORT: Record<string, string> = {
   score_velocity:                "Velocity",
   multi_alert_bull_confluence:   "Multi-Signal",
   cross_horizon_rs_divergence:   "RS÷Horizon",
+  macro_sector_mismatch:         "Macro÷Sector",
 };
 
 const SEV_STYLES: Record<string, { strip: string; badge: string; dot: string }> = {

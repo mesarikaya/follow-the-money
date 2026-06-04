@@ -128,6 +128,9 @@ class AlertRulesEngineTest {
         .when(alertRulesRepository.findById("cross_horizon_rs_divergence"))
         .thenReturn(Optional.of(disabled("cross_horizon_rs_divergence")));
     lenient()
+        .when(alertRulesRepository.findById("macro_sector_mismatch"))
+        .thenReturn(Optional.of(disabled("macro_sector_mismatch")));
+    lenient()
         .when(signalRepository.findScorePercentile252d())
         .thenReturn(Map.of());
   }
@@ -1361,6 +1364,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("multi_alert_bull_confluence")));
     when(alertRulesRepository.findById("cross_horizon_rs_divergence"))
         .thenReturn(Optional.of(disabled("cross_horizon_rs_divergence")));
+    when(alertRulesRepository.findById("macro_sector_mismatch"))
+        .thenReturn(Optional.of(disabled("macro_sector_mismatch")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
@@ -2331,5 +2336,103 @@ class AlertRulesEngineTest {
 
     verify(alertRepository).resolveAlertsByRuleAndCategory("cross_horizon_rs_divergence", "TECH");
     verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("cross_horizon_rs_divergence")));
+  }
+
+  // ─── macro_sector_mismatch ───────────────────────────────────────────────────
+
+  private static final BigDecimal RISK_OFF_REGIME = new BigDecimal("1"); // RISK_OFF_FLIGHT ordinal
+  private static final BigDecimal RISK_ON_REGIME  = new BigDecimal("2"); // RISK_ON_GROWTH ordinal
+
+  private void stubAllRulesDisabledExceptMacroSectorMismatch() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bear")));
+    when(alertRulesRepository.findById("pre_buy_flow_surge"))
+        .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
+    when(alertRulesRepository.findById("rrg_rs_divergence"))
+        .thenReturn(Optional.of(disabled("rrg_rs_divergence")));
+    when(alertRulesRepository.findById("score_percentile_extreme"))
+        .thenReturn(Optional.of(disabled("score_percentile_extreme")));
+    when(alertRulesRepository.findById("score_velocity"))
+        .thenReturn(Optional.of(disabled("score_velocity")));
+    when(alertRulesRepository.findById("cross_horizon_rs_divergence"))
+        .thenReturn(Optional.of(disabled("cross_horizon_rs_divergence")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+  }
+
+  @Test
+  @DisplayName("macro_sector_mismatch: fires WARNING when cyclical sector is Leading during risk-off regime")
+  void shouldCreateMacroSectorMismatchAlertWhenCyclicalLeadsInRiskOff() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptMacroSectorMismatch();
+    when(alertRulesRepository.findById("macro_sector_mismatch"))
+        .thenReturn(Optional.of(enabled("macro_sector_mismatch", Severity.WARNING)));
+    when(signalRepository.findByTypeAndDate(SignalType.MACRO_REGIME, DATE))
+        .thenReturn(Map.of("MACRO", RISK_OFF_REGIME)); // RISK_OFF_FLIGHT
+    when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("4"))); // Leading
+    when(alertRepository.existsActiveAlert("macro_sector_mismatch", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).insert(
+        argThat(a -> a.ruleId().equals("macro_sector_mismatch")
+            && a.categoryId() == CategoryId.TECH
+            && a.severity() == Severity.WARNING
+            && a.message().contains("TECH")
+            && a.message().contains("RISK_OFF_FLIGHT")));
+  }
+
+  @Test
+  @DisplayName("macro_sector_mismatch: no alert when cyclical sector is in risk-on regime")
+  void shouldNotCreateMacroSectorMismatchAlertWhenRegimeIsRiskOn() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptMacroSectorMismatch();
+    when(alertRulesRepository.findById("macro_sector_mismatch"))
+        .thenReturn(Optional.of(enabled("macro_sector_mismatch", Severity.WARNING)));
+    when(signalRepository.findByTypeAndDate(SignalType.MACRO_REGIME, DATE))
+        .thenReturn(Map.of("MACRO", RISK_ON_REGIME)); // RISK_ON_GROWTH — no mismatch
+    when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("4"))); // Leading — expected in risk-on
+    when(alertRepository.existsActiveAlert("macro_sector_mismatch", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("macro_sector_mismatch: no alert when rule is disabled")
+  void shouldNotCreateMacroSectorMismatchAlertWhenRuleDisabled() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptMacroSectorMismatch();
+    // rule stays disabled
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("macro_sector_mismatch: resolves when regime returns to risk-on")
+  void shouldResolveMacroSectorMismatchWhenRegimeReturnsToRiskOn() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptMacroSectorMismatch();
+    when(alertRulesRepository.findById("macro_sector_mismatch"))
+        .thenReturn(Optional.of(enabled("macro_sector_mismatch", Severity.WARNING)));
+    when(signalRepository.findByTypeAndDate(SignalType.MACRO_REGIME, DATE))
+        .thenReturn(Map.of("MACRO", RISK_ON_REGIME)); // now risk-on — mismatch gone
+    when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("4")));
+    when(alertRepository.existsActiveAlert("macro_sector_mismatch", "TECH")).thenReturn(true); // was active
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).resolveAlertsByRuleAndCategory("macro_sector_mismatch", "TECH");
+    verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("macro_sector_mismatch")));
   }
 }

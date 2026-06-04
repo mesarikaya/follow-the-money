@@ -32,6 +32,7 @@ const RULE_SHORT: Record<string, string> = {
   multi_alert_bull_confluence:   "Multi-Signal",
   cross_horizon_rs_divergence:   "RS÷Horizon",
   macro_sector_mismatch:         "Macro÷Sector",
+  sub_sector_breadth_divergence: "Sub÷Breadth",
 };
 
 const SEV_STYLES: Record<string, { strip: string; badge: string; dot: string }> = {

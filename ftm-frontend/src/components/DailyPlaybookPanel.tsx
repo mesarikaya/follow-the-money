@@ -262,8 +262,28 @@ function PlaybookRow({ entry, scoreHistory, subSectors }: { entry: PlaybookEntry
         )}
 
         {entry.signal === "WATCH" && (
-          <div className="mt-0.5 text-[9px] text-cyan-700">
-            Missing: {missingBuyConditions(cat).join(" · ")}
+          <div className="mt-0.5 flex items-center gap-3">
+            <span className="text-[9px] text-cyan-700">
+              Missing: {missingBuyConditions(cat).join(" · ")}
+            </span>
+            {(() => {
+              const trend5d = cat.compositeTrend5d;
+              const score = cat.compositeScore;
+              if (trend5d == null || score == null || trend5d <= 0) return null;
+              const dailyRate = trend5d / 5; // compositeTrend5d is 5d total change, not per-day
+              const gapToBuy = 0.65 - score;
+              if (gapToBuy <= 0 || dailyRate <= 0) return null;
+              const days = Math.ceil(gapToBuy / dailyRate);
+              if (days > 14) return null;
+              return (
+                <span
+                  className="text-[9px] font-mono text-emerald-600/70"
+                  title={`At current 5d trend (+${(trend5d * 100).toFixed(1)}pts/5d), score would reach BUY threshold (65) in ~${days} trading days`}
+                >
+                  ~{days}d to BUY
+                </span>
+              );
+            })()}
           </div>
         )}
       </div>

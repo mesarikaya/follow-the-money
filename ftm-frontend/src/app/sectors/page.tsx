@@ -251,6 +251,21 @@ function SectorCard({ sector, history, subSectorCount }: { sector: CategorySumma
               {sector.flow20d > 0 ? "⊕" : "⊖"}{Math.abs(sector.flow20d).toFixed(1)}σ
             </span>
           )}
+          {(() => {
+            const { rs20, rs60, rs120 } = sector;
+            if (rs20 == null || rs60 == null || rs120 == null) return null;
+            const allBull = rs20 > rs60 && rs60 > rs120;
+            const allBear = rs20 < rs60 && rs60 < rs120;
+            if (!allBull && !allBear) return null;
+            return (
+              <span
+                className={`text-[10px] font-mono px-1 py-0.5 rounded ${allBull ? "text-emerald-400 bg-emerald-900/20" : "text-red-400 bg-red-900/20"}`}
+                title={allBull ? "RS-20 > RS-60 > RS-120 — all horizons bullishly aligned" : "RS-20 < RS-60 < RS-120 — all horizons bearishly aligned"}
+              >
+                {allBull ? "⊕RS" : "⊖RS"}
+              </span>
+            );
+          })()}
         </div>
         <span
           className="text-[11px] text-slate-600 group-hover:text-cyan-400 transition-colors"

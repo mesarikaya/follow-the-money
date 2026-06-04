@@ -427,8 +427,57 @@ export default function AlertsPage() {
             </div>
           </div>
 
-          {/* Right 1/3: Info panel */}
-          <div>
+          {/* Right 1/3: Sector heatmap + Info panel */}
+          <div className="flex flex-col gap-5">
+            {/* Sector Alert Heatmap */}
+            {(() => {
+              const EQUITY_SECTORS = ["TECH", "FINL", "HLTH", "DISR", "INDU", "ENRG", "MATL", "UTIL", "REIT", "STPL", "COMM"];
+              const SEV_ORDER: Record<string, number> = { URGENT: 4, ACTION: 3, WARNING: 2, INFO: 1 };
+              const sectorWorstSev: Record<string, string> = {};
+              activeAlerts.forEach(a => {
+                if (!a.categoryId || !EQUITY_SECTORS.includes(a.categoryId)) return;
+                const cur = sectorWorstSev[a.categoryId];
+                if (!cur || (SEV_ORDER[a.severity] ?? 0) > (SEV_ORDER[cur] ?? 0)) {
+                  sectorWorstSev[a.categoryId] = a.severity;
+                }
+              });
+              const marketWideCount = activeAlerts.filter(a => !a.categoryId).length;
+              return (
+                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                  <div className="text-xs font-semibold text-slate-300 mb-3">Sector Alert Status</div>
+                  <div className="grid grid-cols-4 gap-1.5 mb-3">
+                    {EQUITY_SECTORS.map(sId => {
+                      const sev = sectorWorstSev[sId];
+                      const dotClass = sev === "URGENT" ? "bg-red-500 shadow-[0_0_5px_1px_rgba(239,68,68,0.5)]"
+                        : sev === "ACTION" ? "bg-red-700"
+                        : sev === "WARNING" ? "bg-amber-500"
+                        : sev === "INFO" ? "bg-blue-500"
+                        : "bg-slate-700";
+                      const textClass = sev ? "text-slate-200" : "text-slate-600";
+                      return (
+                        <div
+                          key={sId}
+                          className="flex flex-col items-center gap-1 py-1.5 px-1 rounded bg-slate-900/40 border border-slate-700/40"
+                          title={sev ? `${sId}: ${sev} active alert` : `${sId}: no active alerts`}
+                        >
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${dotClass}`} />
+                          <span className={`text-[9px] font-mono ${textClass}`}>{sId}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {marketWideCount > 0 && (
+                    <div className="text-[10px] text-amber-400/70 border-t border-slate-700/40 pt-2">
+                      +{marketWideCount} market-wide alert{marketWideCount > 1 ? "s" : ""} (no specific sector)
+                    </div>
+                  )}
+                  {Object.keys(sectorWorstSev).length === 0 && marketWideCount === 0 && (
+                    <p className="text-[10px] text-slate-600">All clear — no active sector alerts</p>
+                  )}
+                </div>
+              );
+            })()}
+
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sticky top-0">
               <div className="text-sm font-semibold text-slate-200 mb-4">About Alerts</div>
               <div className="space-y-4 text-xs text-slate-400">
@@ -461,6 +510,7 @@ export default function AlertsPage() {
                 </div>
               </div>
             </div>
+          </div>
           </div>
         </div>
       </main>

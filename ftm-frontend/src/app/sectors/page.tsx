@@ -363,12 +363,30 @@ export default async function SectorsHubPage() {
   }
 
   const quadrantCounts: Record<string, string[]> = { "4": [], "3": [], "2": [], "1": [] };
+  const signalCounts: Record<TradeSignal, string[]> = { BUY: [], WATCH: [], HOLD: [], REDUCE: [] };
+  let crossHorizonDivCount = 0;
+  let scoreSum = 0;
+  let scoreCount = 0;
   for (const s of sectors) {
     if (s.rrgQuadrant && quadrantCounts[s.rrgQuadrant]) {
       quadrantCounts[s.rrgQuadrant].push(s.etfTicker);
     }
+    const sig = (s.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(s);
+    if (sig && signalCounts[sig]) signalCounts[sig].push(s.etfTicker);
+    if (s.rs20 != null && s.rs60 != null && s.rs120 != null) {
+      const gap = 0.001;
+      const shortBull = s.rs20 > s.rs60 + gap;
+      const shortBear = s.rs20 < s.rs60 - gap;
+      const medBull = s.rs60 > s.rs120 + gap;
+      const medBear = s.rs60 < s.rs120 - gap;
+      if ((shortBull && medBear) || (shortBear && medBull)) crossHorizonDivCount++;
+    }
+    if (s.compositeScore != null) { scoreSum += s.compositeScore; scoreCount++; }
   }
+  const avgScore = scoreCount > 0 ? Math.round((scoreSum / scoreCount) * 100) : null;
   const hasQuadrantData = sectors.some(s => s.rrgQuadrant != null);
+  const bullishCount = (quadrantCounts["4"]?.length ?? 0) + (quadrantCounts["3"]?.length ?? 0);
+  const marketBias = bullishCount >= 7 ? "Broad Bull" : bullishCount >= 4 ? "Mixed" : "Broad Bear";
 
   return (
     <div className="flex flex-col h-full">
@@ -416,6 +434,51 @@ export default async function SectorsHubPage() {
                 </div>
               );
             })}
+          </div>
+
+          {/* Signals + breadth stats row */}
+          <div className="flex items-center gap-4 mt-2 flex-wrap">
+            <span className="text-[10px] text-slate-600 uppercase tracking-wider shrink-0">
+              Signals
+            </span>
+            {(["BUY", "WATCH", "HOLD", "REDUCE"] as const).map(sig => {
+              const count = signalCounts[sig].length;
+              const color = sig === "BUY" ? "text-green-400" : sig === "WATCH" ? "text-cyan-400" : sig === "REDUCE" ? "text-red-400" : "text-slate-500";
+              const bg = sig === "BUY" ? "bg-green-900/20" : sig === "WATCH" ? "bg-cyan-900/20" : sig === "REDUCE" ? "bg-red-900/20" : "bg-slate-800/40";
+              return (
+                <span
+                  key={sig}
+                  className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${color} ${bg}`}
+                  style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.06em" }}
+                  title={`${count} sector${count !== 1 ? "s" : ""} on ${sig}: ${signalCounts[sig].join(", ") || "none"}`}
+                >
+                  {sig} {count}
+                </span>
+              );
+            })}
+            <span className="text-slate-700 text-[10px] mx-1">·</span>
+            {avgScore != null && (
+              <span
+                className={`text-[10px] font-mono tabular-nums ${avgScore >= 60 ? "text-emerald-400" : avgScore >= 40 ? "text-slate-400" : "text-red-400"}`}
+                title={`Average composite score across all 11 sectors: ${avgScore}/100`}
+              >
+                Avg {avgScore}
+              </span>
+            )}
+            <span
+              className={`text-[10px] font-semibold ${bullishCount >= 7 ? "text-emerald-400" : bullishCount >= 4 ? "text-amber-400" : "text-red-400"}`}
+              title={`${bullishCount} of ${sectors.length} sectors in Leading or Improving RRG phase — ${marketBias}`}
+            >
+              {marketBias}
+            </span>
+            {crossHorizonDivCount > 0 && (
+              <span
+                className="text-[10px] text-orange-400 font-mono"
+                title={`${crossHorizonDivCount} sector${crossHorizonDivCount > 1 ? "s" : ""} with cross-horizon RS divergence (short-term direction contradicts medium-term)`}
+              >
+                ÷{crossHorizonDivCount} horizon div
+              </span>
+            )}
           </div>
         )}
       </header>

@@ -434,6 +434,26 @@ function MonthlyReturnsTable({ curve }: { curve: EquityCurvePoint[] }) {
           <span>Beat SPY in <span className="text-emerald-400 font-semibold">{beatCount}/{rows.length}</span> months ({winRate}%)</span>
           <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-800/80 inline-block"/>outperform</span>
           <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-red-800/80 inline-block"/>underperform</span>
+          <button
+            onClick={() => {
+              const header = "year_month,strategy_pct,spy_pct,excess_pct";
+              const csvRows = rows.map(r =>
+                `${r.ym},${(r.port*100).toFixed(4)},${(r.spy*100).toFixed(4)},${((r.port-r.spy)*100).toFixed(4)}`
+              );
+              const csv = [header, ...csvRows].join("\n");
+              const blob = new Blob([csv], { type: "text/csv" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = "monthly_returns.csv";
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="text-[10px] px-2 py-0.5 rounded bg-slate-700/60 border border-slate-600/60 hover:bg-slate-600/60 text-slate-400 hover:text-slate-200 transition-colors"
+            title="Download monthly returns as CSV"
+          >
+            ↓ CSV
+          </button>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -1234,6 +1254,28 @@ export default function BacktesterPage() {
                         <span className="inline-block w-6 border-t border-dashed border-slate-400 opacity-60" />
                         SPY Benchmark
                       </span>
+                      <button
+                        onClick={() => {
+                          const p0 = result.equityCurve[0]?.portfolioValue || 1;
+                          const s0 = result.equityCurve[0]?.spyValue || 1;
+                          const header = "date,portfolio_value,spy_value,portfolio_pct,spy_pct";
+                          const rows = result.equityCurve.map(pt =>
+                            `${pt.date},${pt.portfolioValue.toFixed(4)},${pt.spyValue.toFixed(4)},${((pt.portfolioValue/p0-1)*100).toFixed(4)},${((pt.spyValue/s0-1)*100).toFixed(4)}`
+                          );
+                          const csv = [header, ...rows].join("\n");
+                          const blob = new Blob([csv], { type: "text/csv" });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = `backtest_equity_${result.startDate}_${result.endDate}_top${topN}_${rebalanceFrequency.toLowerCase()}.csv`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }}
+                        className="text-[10px] px-2 py-0.5 rounded bg-slate-700/60 border border-slate-600/60 hover:bg-slate-600/60 text-slate-400 hover:text-slate-200 transition-colors"
+                        title="Download equity curve as CSV"
+                      >
+                        ↓ CSV
+                      </button>
                     </div>
                   </div>
                   <EquityCurveChart curve={result.equityCurve} rebalanceDates={result.rebalanceHistory?.map(e => e.date)} />

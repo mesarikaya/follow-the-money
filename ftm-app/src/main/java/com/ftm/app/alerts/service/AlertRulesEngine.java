@@ -79,6 +79,11 @@ public class AlertRulesEngine {
     private static final String RULE_RRG_RS_DIVERGENCE = "rrg_rs_divergence";
     private static final String RULE_SCORE_PERCENTILE_EXTREME = "score_percentile_extreme";
     private static final String RULE_SCORE_VELOCITY = "score_velocity";
+    private static final String RULE_MULTI_ALERT_BULL = "multi_alert_bull_confluence";
+    private static final int BULL_CONFLUENCE_THRESHOLD = 3;
+    private static final List<String> BULL_ALERT_RULES = List.of(
+            "trade_signal_buy", "high_conviction_buy", "score_approaching_buy",
+            "pre_buy_flow_surge", "rs_aligned_bull", "breadth_velocity_accel", "composite_breakout");
     private static final BigDecimal SCORE_VELOCITY_SURGE_THRESHOLD = new BigDecimal("0.12");
     private static final BigDecimal SCORE_VELOCITY_CRASH_THRESHOLD = new BigDecimal("-0.12");
     private static final BigDecimal SCORE_VELOCITY_SURGE_RESOLVE = new BigDecimal("0.05");
@@ -151,6 +156,8 @@ public class AlertRulesEngine {
         alertsCreated += evaluateRrgRsDivergence(signalDate, equityCategoryIds);
         alertsCreated += evaluateScorePercentileExtreme(equityCategoryIds);
         alertsCreated += evaluateScoreVelocity(signalDate, topLevelCategoryIds);
+        // Must run last: reads active alerts inserted by earlier evaluators in this cycle
+        alertsCreated += evaluateMultiAlertBullConfluence(topLevelCategoryIds);
 
         log.info(
                 "Alert rule evaluation complete: {} created, {} resolved for date={}",
@@ -1747,6 +1754,51 @@ public class AlertRulesEngine {
             } else if (isNormal && hasActive) {
                 alertRepository.resolveAlertsByRuleAndCategory(RULE_SCORE_VELOCITY, categoryId);
                 log.info("score_velocity: resolved for category={} (trend5d={} returned to normal)", categoryId, trend);
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Meta-alert: fires when a single sector has &ge; 3 bullish alerts simultaneously active.
+     * Multiple concurrent signals indicate high-confidence institutional rotation into a sector —
+     * a rare confluence that's more actionable than any individual alert alone.
+     *
+     * <p>Must run last in {@code onSignalsUpdated} so it sees alerts inserted earlier in the same
+     * evaluation cycle (e.g., rs_aligned_bull fired this call is visible here).
+     */
+    private int evaluateMultiAlertBullConfluence(Set<String> topLevelCategoryIds) {
+        Optional<AlertRule> rule = alertRulesRepository.findById(RULE_MULTI_ALERT_BULL);
+        if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+        Severity severity = rule.map(AlertRule::severity).orElse(Severity.INFO);
+
+        int count = 0;
+        for (String categoryId : topLevelCategoryIds) {
+            List<String> activeRules = BULL_ALERT_RULES.stream()
+                    .filter(r -> alertRepository.existsActiveAlert(r, categoryId))
+                    .toList();
+            boolean hasConfluence = alertRepository.existsActiveAlert(RULE_MULTI_ALERT_BULL, categoryId);
+
+            if (activeRules.size() >= BULL_CONFLUENCE_THRESHOLD && !hasConfluence) {
+                CategoryId catId;
+                try {
+                    catId = CategoryId.valueOf(categoryId);
+                } catch (IllegalArgumentException e) {
+                    log.debug("multi_alert_bull_confluence: skipping unknown CategoryId={}", categoryId);
+                    continue;
+                }
+                String ruleList = String.join(", ", activeRules);
+                String snapshot = String.format("{\"activeCount\":%d,\"rules\":\"%s\"}", activeRules.size(), String.join(",", activeRules));
+                alertRepository.insert(new Alert(
+                        OffsetDateTime.now(), catId, RULE_MULTI_ALERT_BULL, severity,
+                        String.format("%s: %d bullish signals aligned (%s) — high-confidence rotation setup",
+                                categoryId, activeRules.size(), ruleList),
+                        snapshot, AlertStatus.ACTIVE));
+                log.info("multi_alert_bull_confluence: category={} count={} rules=[{}]", categoryId, activeRules.size(), ruleList);
+                count++;
+            } else if (activeRules.size() < BULL_CONFLUENCE_THRESHOLD && hasConfluence) {
+                alertRepository.resolveAlertsByRuleAndCategory(RULE_MULTI_ALERT_BULL, categoryId);
+                log.info("multi_alert_bull_confluence: resolved for category={} (activeCount={})", categoryId, activeRules.size());
             }
         }
         return count;

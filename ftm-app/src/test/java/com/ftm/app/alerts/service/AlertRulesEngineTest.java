@@ -122,6 +122,9 @@ class AlertRulesEngineTest {
         .when(alertRulesRepository.findById("score_velocity"))
         .thenReturn(Optional.of(disabled("score_velocity")));
     lenient()
+        .when(alertRulesRepository.findById("multi_alert_bull_confluence"))
+        .thenReturn(Optional.of(disabled("multi_alert_bull_confluence")));
+    lenient()
         .when(signalRepository.findScorePercentile252d())
         .thenReturn(Map.of());
   }
@@ -1351,6 +1354,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("score_percentile_extreme")));
     when(alertRulesRepository.findById("score_velocity"))
         .thenReturn(Optional.of(disabled("score_velocity")));
+    when(alertRulesRepository.findById("multi_alert_bull_confluence"))
+        .thenReturn(Optional.of(disabled("multi_alert_bull_confluence")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
@@ -2088,5 +2093,110 @@ class AlertRulesEngineTest {
 
     verify(alertRepository).resolveAlertsByRuleAndCategory("score_percentile_extreme", "TECH");
     verify(alertRepository, never()).insert(any());
+  }
+
+  // ─── multi_alert_bull_confluence ────────────────────────────────────────────
+
+  private void stubAllRulesDisabledExceptMultiAlertBull() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bear")));
+    when(alertRulesRepository.findById("pre_buy_flow_surge"))
+        .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
+    when(alertRulesRepository.findById("rrg_rs_divergence"))
+        .thenReturn(Optional.of(disabled("rrg_rs_divergence")));
+    when(alertRulesRepository.findById("score_percentile_extreme"))
+        .thenReturn(Optional.of(disabled("score_percentile_extreme")));
+    when(alertRulesRepository.findById("score_velocity"))
+        .thenReturn(Optional.of(disabled("score_velocity")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+  }
+
+  @Test
+  @DisplayName("multi_alert_bull_confluence: fires ACTION when ≥3 bullish alerts are simultaneously active")
+  void shouldCreateMultiAlertBullConfluenceWhenThreeOrMoreBullishAlertsActive() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptMultiAlertBull();
+    when(alertRulesRepository.findById("multi_alert_bull_confluence"))
+        .thenReturn(Optional.of(enabled("multi_alert_bull_confluence", Severity.ACTION)));
+    // 3 bullish alerts active for TECH
+    when(alertRepository.existsActiveAlert("trade_signal_buy", "TECH")).thenReturn(true);
+    when(alertRepository.existsActiveAlert("high_conviction_buy", "TECH")).thenReturn(true);
+    when(alertRepository.existsActiveAlert("rs_aligned_bull", "TECH")).thenReturn(true);
+    when(alertRepository.existsActiveAlert("score_approaching_buy", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("pre_buy_flow_surge", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("breadth_velocity_accel", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("composite_breakout", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("multi_alert_bull_confluence", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).insert(
+        argThat(a -> a.ruleId().equals("multi_alert_bull_confluence")
+            && a.categoryId() == CategoryId.TECH
+            && a.severity() == Severity.ACTION
+            && a.message().contains("TECH")
+            && a.message().contains("3")));
+  }
+
+  @Test
+  @DisplayName("multi_alert_bull_confluence: no alert when fewer than 3 bullish alerts active")
+  void shouldNotCreateMultiAlertBullConfluenceWhenFewerThanThreeBullishAlertsActive() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptMultiAlertBull();
+    when(alertRulesRepository.findById("multi_alert_bull_confluence"))
+        .thenReturn(Optional.of(enabled("multi_alert_bull_confluence", Severity.ACTION)));
+    // Only 2 bullish alerts — below threshold
+    when(alertRepository.existsActiveAlert("trade_signal_buy", "TECH")).thenReturn(true);
+    when(alertRepository.existsActiveAlert("high_conviction_buy", "TECH")).thenReturn(true);
+    when(alertRepository.existsActiveAlert("rs_aligned_bull", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("score_approaching_buy", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("pre_buy_flow_surge", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("breadth_velocity_accel", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("composite_breakout", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("multi_alert_bull_confluence", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("multi_alert_bull_confluence")));
+  }
+
+  @Test
+  @DisplayName("multi_alert_bull_confluence: no alert when rule disabled")
+  void shouldNotCreateMultiAlertBullConfluenceWhenRuleDisabled() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptMultiAlertBull();
+    // rule stays disabled — engine returns early
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("multi_alert_bull_confluence")));
+  }
+
+  @Test
+  @DisplayName("multi_alert_bull_confluence: resolves when active count drops below threshold")
+  void shouldResolveMultiAlertBullConfluenceWhenActiveBullishAlertsDrop() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptMultiAlertBull();
+    when(alertRulesRepository.findById("multi_alert_bull_confluence"))
+        .thenReturn(Optional.of(enabled("multi_alert_bull_confluence", Severity.ACTION)));
+    // Now only 1 bullish alert active — below threshold; confluence should resolve
+    when(alertRepository.existsActiveAlert("trade_signal_buy", "TECH")).thenReturn(true);
+    when(alertRepository.existsActiveAlert("high_conviction_buy", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("rs_aligned_bull", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("score_approaching_buy", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("pre_buy_flow_surge", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("breadth_velocity_accel", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("composite_breakout", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("multi_alert_bull_confluence", "TECH")).thenReturn(true); // was active
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).resolveAlertsByRuleAndCategory("multi_alert_bull_confluence", "TECH");
+    verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("multi_alert_bull_confluence")));
   }
 }

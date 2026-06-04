@@ -29,6 +29,7 @@ const RULE_SHORT: Record<string, string> = {
   rrg_rs_divergence:        "RRG÷RS",
   score_percentile_extreme: "Pct Extreme",
   score_velocity:           "Velocity",
+  multi_alert_bull_confluence: "Multi-Signal",
 };
 
 const SEV_STYLES: Record<string, { strip: string; badge: string; dot: string }> = {

@@ -176,6 +176,52 @@ function AccelCell({ value }: { value: number | null }) {
   );
 }
 
+function RsHorizonBadge({ rs20, rs60, rs120 }: { rs20: number | null; rs60: number | null; rs120: number | null }) {
+  if (rs20 == null || rs60 == null || rs120 == null) return null;
+  const gap = 0.001;
+  const shortBull = rs20 > rs60 + gap;
+  const shortBear = rs20 < rs60 - gap;
+  const medBull = rs60 > rs120 + gap;
+  const medBear = rs60 < rs120 - gap;
+
+  const allBullish = shortBull && medBull;
+  const allBearish = shortBear && medBear;
+  const divergence = (shortBull && medBear) || (shortBear && medBull);
+
+  const dot20 = shortBull ? "text-emerald-400" : shortBear ? "text-red-400" : "text-slate-500";
+  const dot60 = medBull ? "text-emerald-400" : medBear ? "text-red-400" : "text-slate-500";
+  const arrow20 = shortBull ? "↑" : shortBear ? "↓" : "→";
+  const arrow60 = medBull ? "↑" : medBear ? "↓" : "→";
+
+  const containerClass = allBullish
+    ? "bg-emerald-900/20 border-emerald-700/30"
+    : allBearish
+    ? "bg-red-900/20 border-red-700/30"
+    : divergence
+    ? "bg-orange-900/20 border-orange-700/30"
+    : "bg-slate-800/40 border-slate-700/30";
+
+  const title = allBullish
+    ? "RS all-aligned bullish: RS-20 > RS-60 > RS-120 — momentum building across all horizons"
+    : allBearish
+    ? "RS all-aligned bearish: RS-20 < RS-60 < RS-120 — deteriorating across all horizons"
+    : divergence
+    ? "Cross-horizon RS divergence: short-term direction contradicts medium-term — counter-trend or pullback signal"
+    : "RS horizons flat or mixed — no clear directional bias";
+
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded border text-[9px] font-mono ${containerClass}`}
+      title={title}
+    >
+      <span className={dot20}>{arrow20}</span>
+      <span className="text-slate-600">·</span>
+      <span className={dot60}>{arrow60}</span>
+      {divergence && <span className="text-orange-400 ml-0.5">÷</span>}
+    </span>
+  );
+}
+
 function SortArrow({ col, sortCol, sortDir }: { col: SortCol; sortCol: SortCol; sortDir: SortDir }) {
   if (col !== sortCol) return <span className="text-slate-700 ml-0.5">↕</span>;
   return <span className="text-cyan-400 ml-0.5">{sortDir === "desc" ? "↓" : "↑"}</span>;
@@ -424,6 +470,7 @@ export default function SubSectorTable({
                         {subSector.signalDaysActive}d
                       </span>
                     )}
+                    <RsHorizonBadge rs20={subSector.rs20} rs60={subSector.rs60} rs120={subSector.rs120} />
                   </div>
                 </td>
               </tr>
@@ -432,7 +479,7 @@ export default function SubSectorTable({
         </tbody>
       </table>
       <div className="px-4 py-2 border-t border-slate-700 text-[10px] text-slate-600 bg-slate-800/30">
-        Click any column header to sort · RS values vs {parentEtfTicker} ({parentName}) · Accel = RS60 − RS120 (↗ building, ↘ fading) · Persist = days outperforming {parentEtfTicker} in last 20
+        Click any column header to sort · RS vs {parentEtfTicker} ({parentName}) · Accel = RS60 − RS120 · Persist = days outperforming {parentEtfTicker} in last 20 · ↑·↑ = RS-20 and RS-60 direction; ÷ = cross-horizon divergence
       </div>
     </div>
   );

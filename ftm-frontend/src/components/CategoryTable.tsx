@@ -210,6 +210,14 @@ function ScoreBar({
             </span>
           );
         })()}
+        {trend5d != null && Math.abs(trend5d) >= 0.12 && (
+          <span
+            className={`text-[7px] font-bold px-0.5 rounded ${trend5d >= 0.12 ? "text-emerald-300 bg-emerald-900/40 border border-emerald-700/40" : "text-red-300 bg-red-900/40 border border-red-700/40"}`}
+            title={`Score velocity ${trend5d >= 0.12 ? "SURGE" : "CRASH"}: ${trend5d >= 0 ? "+" : ""}${Math.round(trend5d * 100)}pts in 5 days — unusual acceleration`}
+          >
+            {trend5d >= 0.12 ? "⚡" : "⚠"}
+          </span>
+        )}
         <VolatilityBadge vol={realizedVol20d ?? null} />
         <FlowBadge flow20d={flow20d ?? null} />
         {persistPct != null && (
@@ -565,6 +573,9 @@ export default function CategoryTable({
             const history = scoreHistory[cat.id] ?? [];
             const quadrantInfo = cat.rrgQuadrant != null ? RRG_QUADRANT_CONFIG[Number(cat.rrgQuadrant)] : null;
             const rowBorderClass = quadrantInfo ? quadrantInfo.borderClass : "border-l-slate-700/20";
+            const velocitySurge = (cat.compositeTrend5d ?? 0) >= 0.12;
+            const velocityCrash = (cat.compositeTrend5d ?? 0) <= -0.12;
+            const velocityRowClass = velocitySurge ? "bg-emerald-950/[0.08]" : velocityCrash ? "bg-red-950/[0.08]" : "";
 
             return (
               <Fragment key={cat.id}>
@@ -575,7 +586,7 @@ export default function CategoryTable({
                     </td>
                   </tr>
                 )}
-                <tr className={`hover:bg-slate-800/50 transition-colors text-slate-200 border-l-[3px] ${rowBorderClass}`}>
+                <tr className={`hover:bg-slate-800/50 transition-colors text-slate-200 border-l-[3px] ${rowBorderClass} ${velocityRowClass}`}>
                   <td className="px-4 py-2.5 text-slate-500 tabular-nums text-xs">{isSorted ? idx + 1 : cat.rank}</td>
                   <td className="px-4 py-2.5 font-mono text-blue-300 font-medium">
                     <div className="flex items-center flex-wrap gap-x-0.5">

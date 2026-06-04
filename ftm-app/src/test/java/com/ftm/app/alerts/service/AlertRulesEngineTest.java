@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.alerts.repository.AlertRulesRepository;
 import com.ftm.app.api.repository.CategoryRepository;
+import com.ftm.app.domain.Category;
 import com.ftm.app.domain.Alert;
 import com.ftm.app.domain.AlertRule;
 import com.ftm.app.domain.AlertStatus;
@@ -126,6 +127,9 @@ class AlertRulesEngineTest {
     lenient()
         .when(alertRulesRepository.findById("macro_sector_mismatch"))
         .thenReturn(Optional.of(disabled("macro_sector_mismatch")));
+    lenient()
+        .when(alertRulesRepository.findById("sub_sector_breadth_divergence"))
+        .thenReturn(Optional.of(disabled("sub_sector_breadth_divergence")));
     lenient().when(signalRepository.findScorePercentile252d()).thenReturn(Map.of());
   }
 
@@ -1553,6 +1557,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("cross_horizon_rs_divergence")));
     when(alertRulesRepository.findById("macro_sector_mismatch"))
         .thenReturn(Optional.of(disabled("macro_sector_mismatch")));
+    when(alertRulesRepository.findById("sub_sector_breadth_divergence"))
+        .thenReturn(Optional.of(disabled("sub_sector_breadth_divergence")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
@@ -2735,5 +2741,171 @@ class AlertRulesEngineTest {
     verify(alertRepository).resolveAlertsByRuleAndCategory("macro_sector_mismatch", "TECH");
     verify(alertRepository, never())
         .insert(argThat(a -> a.ruleId().equals("macro_sector_mismatch")));
+  }
+
+  // ===== Sub-Sector Breadth Divergence Alert Tests =====
+
+  private List<Category> techSubSectors() {
+    return List.of(
+        new Category(CategoryId.SEMI, "Semiconductors", CategoryType.EQUITY_SECTOR, "SOXX", "XLK", 101, true, "TECH"),
+        new Category(CategoryId.AIRO, "Aerospace & Defense", CategoryType.EQUITY_SECTOR, "XAR", "XLK", 102, true, "TECH"),
+        new Category(CategoryId.CLOD, "Cloud Computing", CategoryType.EQUITY_SECTOR, "SKYY", "XLK", 103, true, "TECH"),
+        new Category(CategoryId.SOFT, "Software", CategoryType.EQUITY_SECTOR, "IGV", "XLK", 104, true, "TECH"));
+  }
+
+  private void stubAllRulesDisabledExceptSubSectorBreadthDiv() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bear")));
+    when(alertRulesRepository.findById("pre_buy_flow_surge"))
+        .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
+    when(alertRulesRepository.findById("rrg_rs_divergence"))
+        .thenReturn(Optional.of(disabled("rrg_rs_divergence")));
+    when(alertRulesRepository.findById("score_percentile_extreme"))
+        .thenReturn(Optional.of(disabled("score_percentile_extreme")));
+    when(alertRulesRepository.findById("score_velocity"))
+        .thenReturn(Optional.of(disabled("score_velocity")));
+    when(alertRulesRepository.findById("cross_horizon_rs_divergence"))
+        .thenReturn(Optional.of(disabled("cross_horizon_rs_divergence")));
+    when(alertRulesRepository.findById("macro_sector_mismatch"))
+        .thenReturn(Optional.of(disabled("macro_sector_mismatch")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+  }
+
+  @Test
+  @DisplayName(
+      "sub_sector_breadth_divergence: fires WARNING when parent has BUY signal but <40% of sub-sectors are in Leading/Improving RRG")
+  void shouldCreateSubSectorBreadthDivAlertWhenParentBuyAndWeakSubSectorBreadth() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptSubSectorBreadthDiv();
+    when(alertRulesRepository.findById("sub_sector_breadth_divergence"))
+        .thenReturn(Optional.of(enabled("sub_sector_breadth_divergence", Severity.WARNING)));
+    // TECH has an active BUY trade signal
+    when(alertRepository.existsActiveAlert("trade_signal_buy", "TECH")).thenReturn(true);
+    when(alertRepository.existsActiveAlert("sub_sector_breadth_divergence", "TECH"))
+        .thenReturn(false);
+    when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(techSubSectors());
+    // Only SEMI is in Leading quadrant (1/4 = 25% < 40% threshold)
+    when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(
+            Map.of(
+                "TECH", new BigDecimal("4"),
+                "SEMI", new BigDecimal("4"),
+                "AIRO", new BigDecimal("1"),
+                "CLOD", new BigDecimal("2"),
+                "SOFT", new BigDecimal("1")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository)
+        .insert(
+            argThat(
+                a ->
+                    a.ruleId().equals("sub_sector_breadth_divergence")
+                        && a.categoryId() == CategoryId.TECH
+                        && a.severity() == Severity.WARNING
+                        && a.message().contains("TECH")
+                        && a.message().contains("BUY")));
+  }
+
+  @Test
+  @DisplayName(
+      "sub_sector_breadth_divergence: no alert when parent has no active BUY trade signal")
+  void shouldNotCreateSubSectorBreadthDivAlertWhenParentHasNoBuySignal() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptSubSectorBreadthDiv();
+    when(alertRulesRepository.findById("sub_sector_breadth_divergence"))
+        .thenReturn(Optional.of(enabled("sub_sector_breadth_divergence", Severity.WARNING)));
+    // TECH has NO active BUY trade signal
+    when(alertRepository.existsActiveAlert("trade_signal_buy", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("sub_sector_breadth_divergence", "TECH"))
+        .thenReturn(false);
+    when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(techSubSectors());
+    when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(
+            Map.of(
+                "TECH", new BigDecimal("4"),
+                "SEMI", new BigDecimal("4"),
+                "AIRO", new BigDecimal("1"),
+                "CLOD", new BigDecimal("1"),
+                "SOFT", new BigDecimal("2")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("sub_sector_breadth_divergence")));
+  }
+
+  @Test
+  @DisplayName("sub_sector_breadth_divergence: no alert when rule is disabled")
+  void shouldNotCreateSubSectorBreadthDivAlertWhenRuleDisabled() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptSubSectorBreadthDiv();
+    // rule stays disabled
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("sub_sector_breadth_divergence")));
+  }
+
+  @Test
+  @DisplayName(
+      "sub_sector_breadth_divergence: no alert when sub-sector breadth is >=40% (sufficient confirmation)")
+  void shouldNotCreateSubSectorBreadthDivAlertWhenBreadthSufficient() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptSubSectorBreadthDiv();
+    when(alertRulesRepository.findById("sub_sector_breadth_divergence"))
+        .thenReturn(Optional.of(enabled("sub_sector_breadth_divergence", Severity.WARNING)));
+    when(alertRepository.existsActiveAlert("trade_signal_buy", "TECH")).thenReturn(true);
+    when(alertRepository.existsActiveAlert("sub_sector_breadth_divergence", "TECH"))
+        .thenReturn(false);
+    when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(techSubSectors());
+    // 2 of 4 sub-sectors bullish = 50% >= 40% threshold
+    when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(
+            Map.of(
+                "TECH", new BigDecimal("4"),
+                "SEMI", new BigDecimal("4"),
+                "AIRO", new BigDecimal("3"),
+                "CLOD", new BigDecimal("1"),
+                "SOFT", new BigDecimal("2")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("sub_sector_breadth_divergence")));
+  }
+
+  @Test
+  @DisplayName(
+      "sub_sector_breadth_divergence: resolves when parent BUY signal is gone")
+  void shouldResolveSubSectorBreadthDivWhenParentBuySignalGone() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptSubSectorBreadthDiv();
+    when(alertRulesRepository.findById("sub_sector_breadth_divergence"))
+        .thenReturn(Optional.of(enabled("sub_sector_breadth_divergence", Severity.WARNING)));
+    when(alertRepository.existsActiveAlert("trade_signal_buy", "TECH")).thenReturn(false);
+    when(alertRepository.existsActiveAlert("sub_sector_breadth_divergence", "TECH"))
+        .thenReturn(true); // was active
+    when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(techSubSectors());
+    when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(
+            Map.of(
+                "SEMI", new BigDecimal("1"),
+                "AIRO", new BigDecimal("2"),
+                "CLOD", new BigDecimal("1"),
+                "SOFT", new BigDecimal("2")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository)
+        .resolveAlertsByRuleAndCategory("sub_sector_breadth_divergence", "TECH");
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("sub_sector_breadth_divergence")));
   }
 }

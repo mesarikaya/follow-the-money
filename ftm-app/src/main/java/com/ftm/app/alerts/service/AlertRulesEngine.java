@@ -118,6 +118,11 @@ public class AlertRulesEngine {
       Set.of("TECH", "DISR", "FINL", "INDU", "ENRG", "MATL");
   // Risk-off macro regime ordinals (STAGFLATION=0, RISK_OFF_FLIGHT=1)
   private static final Set<Integer> RISK_OFF_REGIME_ORDINALS = Set.of(0, 1);
+  private static final String RULE_SUB_SECTOR_BREADTH_DIV = "sub_sector_breadth_divergence";
+  // Fires when <40% of sub-sectors are in Leading/Improving RRG while parent has a BUY signal
+  private static final double SUB_SECTOR_BREADTH_FIRE_FRACTION = 0.40;
+  private static final double SUB_SECTOR_BREADTH_RESOLVE_FRACTION = 0.55;
+  private static final int SUB_SECTOR_MIN_COUNT = 2;
 
   private final AlertRepository alertRepository;
   private final AlertRulesRepository alertRulesRepository;
@@ -172,6 +177,7 @@ public class AlertRulesEngine {
     alertsCreated += evaluateScoreVelocity(signalDate, topLevelCategoryIds);
     alertsCreated += evaluateCrossHorizonRsDivergence(signalDate, equityCategoryIds);
     alertsCreated += evaluateMacroSectorMismatch(signalDate, equityCategoryIds);
+    alertsCreated += evaluateSubSectorBreadthDivergence(signalDate, equityCategoryIds);
     // Must run last: reads active alerts inserted by earlier evaluators in this cycle
     alertsCreated += evaluateMultiAlertBullConfluence(topLevelCategoryIds);
 
@@ -2127,6 +2133,97 @@ public class AlertRulesEngine {
             categoryId,
             regimeName,
             rrg);
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Fires when a sector has an active BUY trade signal but less than 40% of its sub-sectors are in
+   * Leading/Improving RRG quadrants — the sector-level signal lacks internal breadth confirmation.
+   * This pattern warns that the top-level momentum may be driven by a minority of sub-sectors and
+   * could be fragile.
+   *
+   * <p>Resolves when sub-sector breadth recovers to ≥55% or the parent sector's BUY signal is
+   * gone.
+   */
+  private int evaluateSubSectorBreadthDivergence(
+      LocalDate signalDate, Set<String> equityCategoryIds) {
+    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_SUB_SECTOR_BREADTH_DIV);
+    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+    Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
+
+    Map<String, BigDecimal> rrgMap =
+        signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
+
+    int count = 0;
+    for (String categoryId : equityCategoryIds) {
+      List<String> subIds;
+      try {
+        subIds =
+            categoryRepository.findSubCategoriesByParentId(categoryId).stream()
+                .map(c -> c.id().name())
+                .toList();
+      } catch (IllegalArgumentException e) {
+        log.debug(
+            "sub_sector_breadth_divergence: skipping {}, sub-category enum mismatch", categoryId);
+        continue;
+      }
+
+      boolean hasActive =
+          alertRepository.existsActiveAlert(RULE_SUB_SECTOR_BREADTH_DIV, categoryId);
+
+      if (subIds.size() < SUB_SECTOR_MIN_COUNT) {
+        if (hasActive) {
+          alertRepository.resolveAlertsByRuleAndCategory(RULE_SUB_SECTOR_BREADTH_DIV, categoryId);
+        }
+        continue;
+      }
+
+      List<BigDecimal> subQuadrants =
+          subIds.stream().map(rrgMap::get).filter(q -> q != null).toList();
+      if (subQuadrants.size() < SUB_SECTOR_MIN_COUNT) continue;
+
+      long bullishCount =
+          subQuadrants.stream().filter(q -> q.intValue() == 3 || q.intValue() == 4).count();
+      double breadth = (double) bullishCount / subQuadrants.size();
+
+      boolean hasBuyAlert = alertRepository.existsActiveAlert(RULE_TRADE_SIGNAL_BUY, categoryId);
+      boolean weakBreadth = breadth < SUB_SECTOR_BREADTH_FIRE_FRACTION;
+
+      if (hasBuyAlert && weakBreadth && !hasActive) {
+        CategoryId catId;
+        try {
+          catId = CategoryId.valueOf(categoryId);
+        } catch (IllegalArgumentException e) {
+          continue;
+        }
+        String message =
+            String.format(
+                "%s BUY signal has weak sub-sector breadth: only %d%% of sub-sectors are in Leading/Improving RRG (%d/%d) — sector signal may lack internal confirmation",
+                categoryId, Math.round(breadth * 100), (int) bullishCount, subQuadrants.size());
+        String snapshot =
+            String.format(
+                "{\"parentSignal\":\"BUY\",\"subBreadth\":%.2f,\"bullishCount\":%d,\"totalSubSectors\":%d,\"signalDate\":\"%s\"}",
+                breadth, (int) bullishCount, subQuadrants.size(), signalDate);
+        alertRepository.insert(
+            new Alert(
+                OffsetDateTime.now(),
+                catId,
+                RULE_SUB_SECTOR_BREADTH_DIV,
+                severity,
+                message,
+                snapshot,
+                AlertStatus.ACTIVE));
+        log.info(
+            "sub_sector_breadth_divergence: fired category={} breadth={}% ({}/{})",
+            categoryId, Math.round(breadth * 100), (int) bullishCount, subQuadrants.size());
+        count++;
+      } else if (hasActive && (!hasBuyAlert || breadth >= SUB_SECTOR_BREADTH_RESOLVE_FRACTION)) {
+        alertRepository.resolveAlertsByRuleAndCategory(RULE_SUB_SECTOR_BREADTH_DIV, categoryId);
+        log.info(
+            "sub_sector_breadth_divergence: resolved category={} hasBuyAlert={} breadth={}%",
+            categoryId, hasBuyAlert, Math.round(breadth * 100));
       }
     }
     return count;

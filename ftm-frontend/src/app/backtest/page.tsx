@@ -198,6 +198,75 @@ function EquityCurveChart({ curve, rebalanceDates }: { curve: EquityCurvePoint[]
 }
 
 
+const DD_H = 90;
+
+function DrawdownChart({ curve }: { curve: EquityCurvePoint[] }) {
+  if (curve.length < 2) return null;
+
+  const innerW = CHART_W - PAD_L - PAD_R;
+  const innerH = DD_H - 8 - PAD_B;
+  const toX = (i: number) => PAD_L + (i / (curve.length - 1)) * innerW;
+
+  const computeDrawdowns = (values: number[]) => {
+    let peak = values[0];
+    return values.map(v => {
+      if (v > peak) peak = v;
+      return peak > 0 ? (peak - v) / peak * 100 : 0;
+    });
+  };
+
+  const portVals = curve.map(p => p.portfolioValue);
+  const spyVals  = curve.map(p => p.spyValue);
+  const portDD   = computeDrawdowns(portVals);
+  const spyDD    = computeDrawdowns(spyVals);
+  const maxDD    = Math.max(...portDD, ...spyDD, 1);
+
+  const toY = (dd: number) => 8 + (dd / maxDD) * innerH;
+
+  const portPath = [
+    `M ${toX(0).toFixed(1)},8`,
+    ...portDD.map((dd, i) => `L ${toX(i).toFixed(1)},${toY(dd).toFixed(1)}`),
+    `L ${toX(curve.length - 1).toFixed(1)},8`,
+    "Z",
+  ].join(" ");
+
+  const spyPoints = spyDD.map((dd, i) => `${toX(i).toFixed(1)},${toY(dd).toFixed(1)}`).join(" ");
+
+  const ySteps = [0, maxDD * 0.5, maxDD];
+  const xLabelIndices = [0, Math.floor(curve.length * 0.5), curve.length - 1];
+
+  return (
+    <svg viewBox={`0 0 ${CHART_W} ${DD_H}`} className="w-full">
+      {ySteps.map(dd => {
+        const y = toY(dd);
+        return (
+          <g key={dd}>
+            <line x1={PAD_L} y1={y.toFixed(1)} x2={CHART_W - PAD_R} y2={y.toFixed(1)} stroke="#334155" strokeWidth="0.5" />
+            <text x={PAD_L - 4} y={(y + 3).toFixed(1)} fill="#64748b" fontSize="8" textAnchor="end">
+              -{dd.toFixed(0)}%
+            </text>
+          </g>
+        );
+      })}
+      {xLabelIndices.map(i => (
+        <text key={i} x={toX(i).toFixed(1)} y={DD_H - 6} fill="#64748b" fontSize="8" textAnchor="middle">
+          {curve[i]?.date?.slice(0, 7) ?? ""}
+        </text>
+      ))}
+      <path d={portPath} fill="#3b82f6" fillOpacity="0.18" />
+      <polyline points={spyPoints} fill="none" stroke="#64748b" strokeWidth="1" strokeDasharray="4,2" opacity="0.6" />
+      {portDD.map((dd, i) => {
+        const next = portDD[i + 1];
+        if (next == null) return null;
+        const x1 = toX(i); const x2 = toX(i + 1);
+        const y1 = toY(dd); const y2 = toY(next);
+        return <line key={i} x1={x1.toFixed(1)} y1={y1.toFixed(1)} x2={x2.toFixed(1)} y2={y2.toFixed(1)} stroke="#3b82f6" strokeWidth="1.5" />;
+      })}
+      <text x={PAD_L + 4} y="18" fill="#3b82f6" fontSize="8" opacity="0.7">Drawdown</text>
+    </svg>
+  );
+}
+
 const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 function computeMonthlyReturns(curve: EquityCurvePoint[]) {
@@ -315,6 +384,100 @@ function MonthlyReturnsTable({ curve }: { curve: EquityCurvePoint[] }) {
       </div>
       <div className="mt-2 text-[10px] text-slate-600">
         Color intensity = excess return vs SPY that month. Hover cells for details. Annual column = full-year compounded return.
+      </div>
+    </div>
+  );
+}
+
+function HoldingHeatmap({ events, curve }: { events: RebalanceEvent[]; curve: EquityCurvePoint[] }) {
+  if (!events || events.length < 2) return null;
+
+  // All unique categories that ever appeared, sorted by frequency (most held first)
+  const freq: Record<string, number> = {};
+  for (const ev of events) for (const id of ev.categoryIds) freq[id] = (freq[id] ?? 0) + 1;
+  const categories = Object.keys(freq).sort((a, b) => freq[b] - freq[a]);
+  if (categories.length === 0) return null;
+
+  // Build portfolio value lookup from equity curve
+  const valueByDate: Record<string, number> = {};
+  for (const pt of curve) valueByDate[pt.date] = pt.portfolioValue;
+
+  // Compute period return for each rebalance period
+  const periods = events.map((ev, i) => {
+    const nextDate = events[i + 1]?.date;
+    const startVal = valueByDate[ev.date] ?? ev.portfolioValue;
+    const endVal   = nextDate ? (valueByDate[nextDate] ?? events[i + 1].portfolioValue) : startVal;
+    const returnPct = startVal > 0 ? (endVal - startVal) / startVal * 100 : 0;
+    return { date: ev.date, heldIds: new Set(ev.categoryIds), returnPct };
+  });
+
+  // Show at most 30 most-recent periods to keep it readable
+  const visiblePeriods = periods.slice(-30);
+
+  const cellBgHeld = (returnPct: number) => {
+    if (returnPct >= 3)  return "bg-emerald-700/80";
+    if (returnPct >= 1)  return "bg-emerald-800/60";
+    if (returnPct >= 0)  return "bg-emerald-900/50";
+    if (returnPct >= -1) return "bg-red-900/50";
+    if (returnPct >= -3) return "bg-red-800/60";
+    return "bg-red-700/70";
+  };
+
+  const holdCount = (id: string) => periods.filter(p => p.heldIds.has(id)).length;
+
+  return (
+    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-sm font-semibold text-slate-200">Rotation Heatmap</div>
+        <div className="text-[10px] text-slate-500">
+          {categories.length} sectors · {periods.length} periods · color = period return when held
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="text-[9px] border-collapse w-full">
+          <thead>
+            <tr>
+              <th className="text-left text-slate-500 pr-2 pb-1 font-medium whitespace-nowrap w-14">Sector</th>
+              {visiblePeriods.map(p => (
+                <th key={p.date} className="pb-1 font-normal text-slate-600 px-px" style={{ minWidth: "18px" }}>
+                  <div className="writing-mode-vertical" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)", fontSize: "8px" }}>
+                    {p.date.slice(5, 10)}
+                  </div>
+                </th>
+              ))}
+              <th className="pl-2 pb-1 text-right text-slate-500 font-medium whitespace-nowrap">Hold%</th>
+            </tr>
+          </thead>
+          <tbody>
+            {categories.map(id => (
+              <tr key={id}>
+                <td className="pr-2 py-px">
+                  <span className="font-mono text-slate-400">{CATEGORY_ETF_MAP[id] ?? id}</span>
+                  <span className="text-slate-700 ml-1">({id.slice(0, 6)})</span>
+                </td>
+                {visiblePeriods.map(p => {
+                  const held = p.heldIds.has(id);
+                  return (
+                    <td key={p.date} className="px-px py-px" title={`${p.date}: ${id} — ${held ? `held, period return: ${p.returnPct >= 0 ? "+" : ""}${p.returnPct.toFixed(1)}%` : "not held"}`}>
+                      <div className={`w-4 h-4 rounded-sm ${held ? cellBgHeld(p.returnPct) : "bg-slate-800/30"}`} />
+                    </td>
+                  );
+                })}
+                <td className="pl-2 text-right font-mono text-slate-500">
+                  {Math.round(holdCount(id) / periods.length * 100)}%
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-2 flex items-center gap-4 text-[9px] text-slate-600">
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-700/80 inline-block"/>+3%+</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-900/50 inline-block"/>0–1%</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-900/50 inline-block"/>0–(−1)%</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-700/70 inline-block"/>−3%+</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-slate-800/30 inline-block"/>not held</span>
+        <span className="ml-auto">Hold% = fraction of all periods this sector was in the portfolio</span>
       </div>
     </div>
   );
@@ -761,8 +924,11 @@ export default function BacktesterPage() {
                     </div>
                   </div>
                   <EquityCurveChart curve={result.equityCurve} rebalanceDates={result.rebalanceHistory?.map(e => e.date)} />
+                  <div className="mt-2 border-t border-slate-700/40 pt-2">
+                    <DrawdownChart curve={result.equityCurve} />
+                  </div>
                   <div className="text-[10px] text-slate-600 mt-1 text-center">
-                    Hypothetical · Equal-weighted top-{topN} composite score categories · No transaction costs modeled · Blue ticks = rebalance events
+                    Hypothetical · Equal-weighted top-{topN} composite score categories · No transaction costs modeled · Blue ticks = rebalance events · Lower panel = rolling drawdown from peak
                   </div>
                 </div>
 
@@ -854,6 +1020,11 @@ export default function BacktesterPage() {
                 {/* Monthly returns calendar */}
                 {result.equityCurve && result.equityCurve.length > 2 && (
                   <MonthlyReturnsTable curve={result.equityCurve} />
+                )}
+
+                {/* Rotation Heatmap */}
+                {result.rebalanceHistory && result.rebalanceHistory.length >= 2 && result.equityCurve && (
+                  <HoldingHeatmap events={result.rebalanceHistory} curve={result.equityCurve} />
                 )}
 
                 {/* Rebalance Timeline */}

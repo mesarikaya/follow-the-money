@@ -380,6 +380,81 @@ function SubSectorBreadthBar({ breakdown }: { breakdown: SubSectorBreakdown }) {
   );
 }
 
+const PARENT_SHORT: Record<string, string> = {
+  TECH: "XLK", HLTH: "XLV", FINL: "XLF", DISR: "XLY",
+  INDU: "XLI", ENRG: "XLE", MATL: "XLB", UTIL: "XLU",
+  REIT: "XLRE", STPL: "XLP", COMM: "XLC",
+};
+
+function SubSectorLeaderboard({ leaders }: { leaders: SubSectorLeader[] }) {
+  if (leaders.length === 0) return null;
+
+  const rs20Sorted = [...leaders]
+    .filter(s => s.rs20 != null)
+    .sort((a, b) => (b.rs20 ?? 0) - (a.rs20 ?? 0))
+    .slice(0, 6);
+
+  const accelSorted = [...leaders]
+    .filter(s => s.rs20 != null && s.rs120 != null)
+    .sort((a, b) => {
+      const accelA = (a.rs20 ?? 0) - (a.rs120 ?? 0);
+      const accelB = (b.rs20 ?? 0) - (b.rs120 ?? 0);
+      return accelB - accelA;
+    })
+    .slice(0, 6);
+
+  if (rs20Sorted.length === 0) return null;
+
+  function Row({ s, metric, value }: { s: SubSectorLeader; metric: "rs" | "accel"; value: number }) {
+    const qColor = s.rrgQuadrant === "4" ? "text-green-400" : s.rrgQuadrant === "3" ? "text-cyan-400" : s.rrgQuadrant === "2" ? "text-orange-400" : "text-slate-500";
+    const valColor = value > 0 ? "text-emerald-400" : "text-slate-500";
+    const valStr = `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)}%`;
+    return (
+      <Link href={`/sectors/${s.parentId}`} className="flex items-center gap-2 py-1 px-2 rounded hover:bg-slate-800/60 transition-colors group">
+        <span className={`text-[9px] w-4 text-center ${qColor}`} title={`RRG Q${s.rrgQuadrant}`}>
+          {s.rrgQuadrant === "4" ? "↗" : s.rrgQuadrant === "3" ? "↖" : s.rrgQuadrant === "2" ? "↘" : "↙"}
+        </span>
+        <span className="text-[10px] font-mono text-slate-200 w-10 shrink-0">{s.etfTicker}</span>
+        <span className="text-[9px] text-slate-500 flex-1 truncate">{s.name}</span>
+        <span className="text-[9px] text-slate-600 shrink-0" style={{ fontFamily: "var(--font-jetbrains-mono)" }}>{PARENT_SHORT[s.parentId] ?? s.parentId}</span>
+        <span className={`text-[10px] font-mono tabular-nums shrink-0 ${valColor}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}>{valStr}</span>
+      </Link>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-6">
+      <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4">
+        <div
+          className="text-[11px] font-semibold text-slate-400 mb-2 uppercase tracking-widest"
+          style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.08em" }}
+        >
+          ↗ Top RS Leaders (RS-20)
+        </div>
+        <div className="space-y-0">
+          {rs20Sorted.map(s => (
+            <Row key={s.id} s={s} metric="rs" value={s.rs20 ?? 0} />
+          ))}
+        </div>
+      </div>
+      <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4">
+        <div
+          className="text-[11px] font-semibold text-slate-400 mb-2 uppercase tracking-widest"
+          style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.08em" }}
+        >
+          ⚡ Fastest RS Accelerators (RS-20 minus RS-120)
+        </div>
+        <div className="space-y-0">
+          {accelSorted.map(s => {
+            const accel = (s.rs20 ?? 0) - (s.rs120 ?? 0);
+            return <Row key={s.id} s={s} metric="accel" value={accel} />;
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const QUADRANT_STRIP_CONFIG: Array<{ key: string; label: string; colorClass: string; dotClass: string }> = [
   { key: "4", label: "↗ Leading",   colorClass: "text-green-400",  dotClass: "bg-green-500"  },
   { key: "3", label: "↖ Improving", colorClass: "text-cyan-400",   dotClass: "bg-cyan-500"   },
@@ -387,12 +462,15 @@ const QUADRANT_STRIP_CONFIG: Array<{ key: string; label: string; colorClass: str
   { key: "1", label: "↙ Lagging",   colorClass: "text-slate-400",  dotClass: "bg-slate-500"  },
 ];
 
+type SubSectorLeader = SubSectorSummary & { parentId: string };
+
 export default async function SectorsHubPage() {
   let sectors: CategorySummary[] = [];
   let scoreHistory: Record<string, number[]> = {};
   let subSectorCounts: Record<string, number> = {};
   let subSectorBreakdowns: Record<string, SubSectorBreakdown> = {};
   let alertsBySectorId: Record<string, AlertDto[]> = {};
+  let allSubSectors: SubSectorLeader[] = [];
   let error: string | null = null;
 
   const sectorIds = Array.from(SECTOR_DRILLDOWN_IDS);
@@ -425,6 +503,7 @@ export default async function SectorsHubPage() {
       const data = result.status === "fulfilled" ? result.value : [];
       subSectorCounts[sectorIds[i]] = data.length;
       subSectorBreakdowns[sectorIds[i]] = buildBreakdown(data);
+      for (const s of data) allSubSectors.push({ ...s, parentId: sectorIds[i] });
     });
   } catch (err) {
     error = err instanceof Error ? err.message : "Failed to load sectors";
@@ -568,6 +647,10 @@ export default async function SectorsHubPage() {
 
         {sectors.length === 0 && !error && (
           <p className="text-slate-500 text-sm">No sector data available. Trigger ingestion first.</p>
+        )}
+
+        {allSubSectors.some(s => s.rs20 != null) && (
+          <SubSectorLeaderboard leaders={allSubSectors} />
         )}
 
         <div className="mt-6 p-4 bg-slate-800/40 border border-slate-700/40 rounded-lg text-xs text-slate-500">

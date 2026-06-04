@@ -198,6 +198,108 @@ function EquityCurveChart({ curve, rebalanceDates }: { curve: EquityCurvePoint[]
 }
 
 
+const ROLL_H = 110;
+const ROLL_WINDOW = 252; // 1 trading year
+
+function RollingReturnChart({ curve }: { curve: EquityCurvePoint[] }) {
+  if (curve.length <= ROLL_WINDOW) return null;
+
+  const innerW = CHART_W - PAD_L - PAD_R;
+  const innerH = ROLL_H - PAD_T - PAD_B;
+
+  const portRolling: { date: string; ret: number }[] = [];
+  const spyRolling:  { date: string; ret: number }[] = [];
+
+  for (let i = ROLL_WINDOW; i < curve.length; i++) {
+    const pPrev = curve[i - ROLL_WINDOW].portfolioValue || 1;
+    const sPrev = curve[i - ROLL_WINDOW].spyValue || 1;
+    portRolling.push({ date: curve[i].date, ret: (curve[i].portfolioValue / pPrev - 1) * 100 });
+    spyRolling.push({  date: curve[i].date, ret: (curve[i].spyValue  / sPrev  - 1) * 100 });
+  }
+
+  const allRets = [...portRolling.map(p => p.ret), ...spyRolling.map(p => p.ret)];
+  const minRet = Math.min(...allRets);
+  const maxRet = Math.max(...allRets);
+  const range  = maxRet - minRet || 1;
+  const n = portRolling.length;
+
+  const toX = (i: number) => PAD_L + (i / (n - 1)) * innerW;
+  const toY = (v: number) => PAD_T + (1 - (v - minRet) / range) * innerH;
+  const zeroY = toY(0);
+
+  // Build port fill path split: green above 0, red below 0
+  const portPoints = portRolling.map((p, i) => ({ x: toX(i), y: toY(p.ret), ret: p.ret }));
+  const spyPoly   = spyRolling.map((p, i) => `${toX(i).toFixed(1)},${toY(p.ret).toFixed(1)}`).join(" ");
+
+  // segments for fill: above zero = green, below zero = red
+  type Seg = { xs: number[]; ys: number[]; positive: boolean };
+  const segments: Seg[] = [];
+  {
+    let seg: Seg = { xs: [], ys: [], positive: portPoints[0].ret >= 0 };
+    for (let i = 0; i < portPoints.length; i++) {
+      const positive = portPoints[i].ret >= 0;
+      if (positive !== seg.positive && seg.xs.length > 0) {
+        // interpolate zero-crossing
+        const prev = portPoints[i - 1];
+        const curr = portPoints[i];
+        const t = Math.abs(prev.ret) / (Math.abs(prev.ret) + Math.abs(curr.ret));
+        const cx = prev.x + t * (curr.x - prev.x);
+        seg.xs.push(cx); seg.ys.push(zeroY);
+        segments.push(seg);
+        seg = { xs: [cx], ys: [zeroY], positive };
+      }
+      seg.xs.push(portPoints[i].x); seg.ys.push(portPoints[i].y);
+    }
+    if (seg.xs.length > 0) segments.push(seg);
+  }
+
+  const ySteps = [minRet, 0, maxRet];
+  const xLabelIndices = [0, Math.floor(n * 0.5), n - 1];
+
+  return (
+    <svg viewBox={`0 0 ${CHART_W} ${ROLL_H}`} className="w-full">
+      {ySteps.map(ret => {
+        const y = toY(ret);
+        const isZero = ret === 0;
+        return (
+          <g key={ret}>
+            <line x1={PAD_L} y1={y.toFixed(1)} x2={CHART_W - PAD_R} y2={y.toFixed(1)}
+              stroke={isZero ? "#475569" : "#334155"} strokeWidth={isZero ? "0.8" : "0.5"} strokeDasharray={isZero ? "none" : "none"} />
+            <text x={PAD_L - 4} y={(y + 3).toFixed(1)} fill="#64748b" fontSize="8" textAnchor="end">
+              {ret >= 0 ? "+" : ""}{ret.toFixed(0)}%
+            </text>
+          </g>
+        );
+      })}
+      {xLabelIndices.map(i => (
+        <text key={i} x={toX(i).toFixed(1)} y={ROLL_H - 6} fill="#64748b" fontSize="8" textAnchor="middle">
+          {portRolling[i]?.date?.slice(0, 7) ?? ""}
+        </text>
+      ))}
+
+      {segments.map((seg, si) => {
+        const topPath = seg.xs.map((x, i) => `${i === 0 ? "M" : "L"} ${x.toFixed(1)},${seg.ys[i].toFixed(1)}`).join(" ");
+        const fillPath = topPath +
+          ` L ${seg.xs[seg.xs.length - 1].toFixed(1)},${zeroY.toFixed(1)}` +
+          ` L ${seg.xs[0].toFixed(1)},${zeroY.toFixed(1)} Z`;
+        return (
+          <path key={si} d={fillPath}
+            fill={seg.positive ? "#10b981" : "#ef4444"}
+            fillOpacity="0.15"
+          />
+        );
+      })}
+
+      <polyline points={spyPoly} fill="none" stroke="#64748b" strokeWidth="1.2" strokeDasharray="4,2" opacity="0.6" />
+      <polyline
+        points={portPoints.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")}
+        fill="none" stroke="#3b82f6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+      />
+      <text x={PAD_L + 4} y="20" fill="#3b82f6" fontSize="8" opacity="0.7">Rolling 1Y Return</text>
+    </svg>
+  );
+}
+
 const DD_H = 90;
 
 function DrawdownChart({ curve }: { curve: EquityCurvePoint[] }) {
@@ -1020,6 +1122,24 @@ export default function BacktesterPage() {
                 {/* Monthly returns calendar */}
                 {result.equityCurve && result.equityCurve.length > 2 && (
                   <MonthlyReturnsTable curve={result.equityCurve} />
+                )}
+
+                {/* Rolling 1-year return chart */}
+                {result.equityCurve && result.equityCurve.length > ROLL_WINDOW && (
+                  <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm font-semibold text-slate-200">Rolling 1-Year Return</div>
+                      <div className="flex items-center gap-4 text-[10px] text-slate-500">
+                        <span className="flex items-center gap-1.5"><span className="inline-block w-5 h-0.5 bg-blue-400" />Strategy</span>
+                        <span className="flex items-center gap-1.5"><span className="inline-block w-5 border-t border-dashed border-slate-400 opacity-60" />SPY</span>
+                        <span>Green = positive 1Y return · Red = drawdown period</span>
+                      </div>
+                    </div>
+                    <RollingReturnChart curve={result.equityCurve} />
+                    <div className="text-[10px] text-slate-600 mt-1 text-center">
+                      Each point = trailing 252-day (1-year) return at that date. Shows consistency of strategy edge vs SPY over time.
+                    </div>
+                  </div>
                 )}
 
                 {/* Rotation Heatmap */}

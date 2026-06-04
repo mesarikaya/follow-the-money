@@ -178,6 +178,20 @@ function computeBuyRiskFactors(cat: CategorySummary): string[] {
   return risks;
 }
 
+function computeTrimRiskFactors(cat: CategorySummary): string[] {
+  const risks: string[] = [];
+  const rrg = cat.rrgQuadrant != null ? parseInt(cat.rrgQuadrant) : null;
+  // Selling into RRG Leading strength is timing risk
+  if (rrg != null && rrg === 4) risks.push("still RRG Leading");
+  const pct = cat.scorePercentile252d;
+  if (pct != null && pct <= 0.15) risks.push("near 252d low (oversold bounce risk)");
+  const trend5d = cat.compositeTrend5d;
+  if (trend5d != null && trend5d >= 0.05) risks.push("score still rising");
+  const vol = cat.realizedVol20d;
+  if (vol != null && vol >= 0.35) risks.push(`high vol ${(vol * 100).toFixed(0)}%`);
+  return risks;
+}
+
 function ConvictionDot({ level }: { level: "HIGH" | "MEDIUM" | "WATCH" }) {
   const styles = {
     HIGH:   "bg-emerald-400 shadow-[0_0_6px_1px_rgba(52,211,153,0.6)]",
@@ -283,6 +297,18 @@ function PlaybookRow({ entry, scoreHistory, subSectors }: { entry: PlaybookEntry
                 {risks.length === 1 ? "⚠ risk:" : `⚠ ${risks.length} risks:`}
               </span>
               <span className="text-[9px] text-orange-600/60">{risks.join(" · ")}</span>
+            </div>
+          );
+        })()}
+        {entry.signal === "REDUCE" && (() => {
+          const risks = computeTrimRiskFactors(cat);
+          if (risks.length === 0) return null;
+          return (
+            <div className="mt-0.5 flex items-center gap-1.5">
+              <span className="text-[9px] text-amber-600/70">
+                {risks.length === 1 ? "⚠ caution:" : `⚠ ${risks.length} cautions:`}
+              </span>
+              <span className="text-[9px] text-amber-700/60">{risks.join(" · ")}</span>
             </div>
           );
         })()}

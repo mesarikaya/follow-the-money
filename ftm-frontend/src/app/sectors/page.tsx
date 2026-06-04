@@ -411,6 +411,7 @@ export default async function SectorsHubPage() {
         </p>
 
         {hasQuadrantData && (
+          <>
           <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-700/50 flex-wrap">
             <span className="text-[10px] text-slate-600 uppercase tracking-wider shrink-0">
               Sector Rotation
@@ -480,6 +481,7 @@ export default async function SectorsHubPage() {
               </span>
             )}
           </div>
+          </>
         )}
       </header>
 

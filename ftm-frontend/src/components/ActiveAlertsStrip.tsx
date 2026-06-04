@@ -23,6 +23,8 @@ const RULE_SHORT: Record<string, string> = {
   high_conviction_reduce_cluster: "RISK-OFF Cluster",
   rs_aligned_bull:          "RS Aligned⊕",
   rs_aligned_bear:          "RS Bear⊖",
+  rs_breadth_bull:          "RS Breadth⊕",
+  rs_breadth_bear:          "RS Breadth⊖",
   pre_buy_flow_surge:       "Pre-BUY Flow",
 };
 

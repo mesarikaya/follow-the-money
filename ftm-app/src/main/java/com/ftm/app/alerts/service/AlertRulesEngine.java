@@ -72,6 +72,10 @@ public class AlertRulesEngine {
     private static final String RULE_RS_ALIGNED_BULL = "rs_aligned_bull";
     private static final String RULE_RS_ALIGNED_BEAR = "rs_aligned_bear";
     private static final String RULE_PRE_BUY_FLOW_SURGE = "pre_buy_flow_surge";
+    private static final String RULE_RS_BREADTH_BULL = "rs_breadth_bull";
+    private static final String RULE_RS_BREADTH_BEAR = "rs_breadth_bear";
+    private static final double RS_BREADTH_FIRE_FRACTION = 0.60;
+    private static final double RS_BREADTH_RESOLVE_FRACTION = 0.45;
     private static final BigDecimal FLOW_SURGE_Z_THRESHOLD = new BigDecimal("2.0");
     private static final BigDecimal FLOW_SURGE_RESOLVE_THRESHOLD = new BigDecimal("1.0");
     private static final BigDecimal PRE_BUY_FLOW_SURGE_Z_THRESHOLD = new BigDecimal("1.5");
@@ -132,6 +136,7 @@ public class AlertRulesEngine {
         alertsCreated += evaluateRsAlignedBull(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateRsAlignedBear(signalDate, topLevelCategoryIds);
         alertsCreated += evaluatePreBuyFlowSurge(signalDate, topLevelCategoryIds);
+        alertsCreated += evaluateRsBreadthExtreme(signalDate, equityCategoryIds);
 
         log.info(
                 "Alert rule evaluation complete: {} created, {} resolved for date={}",
@@ -1457,6 +1462,85 @@ public class AlertRulesEngine {
             log.info("pre_buy_flow_surge: category={} score={} ptsNeeded={} flowZ={}",
                     categoryId, scorePct, ptsNeeded, flowZ);
         }
+        return count;
+    }
+
+    /**
+     * Fires when ≥60% of equity sectors show RS-20 &gt; RS-60 (broad short-term RS acceleration)
+     * or RS-20 &lt; RS-60 (broad short-term RS deterioration). This breadth measure identifies
+     * regime-level institutional momentum shifts that single-sector RS signals miss.
+     * Resolves when the fraction of aligned sectors drops back below 45%.
+     */
+    private int evaluateRsBreadthExtreme(LocalDate signalDate, Set<String> equityCategoryIds) {
+        // Check rules first — avoid data fetch when both are disabled
+        Optional<AlertRule> bullRule = alertRulesRepository.findById(RULE_RS_BREADTH_BULL);
+        Optional<AlertRule> bearRule = alertRulesRepository.findById(RULE_RS_BREADTH_BEAR);
+        boolean bullEnabled = bullRule.map(AlertRule::enabled).orElse(false);
+        boolean bearEnabled = bearRule.map(AlertRule::enabled).orElse(false);
+        if (!bullEnabled && !bearEnabled) return 0;
+
+        Map<String, BigDecimal> rs20Map =
+                signalRepository.findByTypeAndDate(SignalType.RS_20, signalDate);
+        Map<String, BigDecimal> rs60Map =
+                signalRepository.findByTypeAndDate(SignalType.RS_60, signalDate);
+        if (rs20Map.isEmpty() || rs60Map.isEmpty()) return 0;
+
+        int total = 0;
+        int bullCount = 0;
+        int bearCount = 0;
+        for (String categoryId : equityCategoryIds) {
+            BigDecimal r20 = rs20Map.get(categoryId);
+            BigDecimal r60 = rs60Map.get(categoryId);
+            if (r20 == null || r60 == null) continue;
+            total++;
+            int cmp = r20.compareTo(r60);
+            if (cmp > 0) bullCount++;
+            else if (cmp < 0) bearCount++;
+        }
+        if (total == 0) return 0;
+
+        double bullFraction = (double) bullCount / total;
+        double bearFraction = (double) bearCount / total;
+        int count = 0;
+
+        if (bullEnabled) {
+            Severity sev = bullRule.map(AlertRule::severity).orElse(Severity.INFO);
+            boolean hasActive = alertRepository.existsActiveAlert(RULE_RS_BREADTH_BULL, null);
+            if (bullFraction >= RS_BREADTH_FIRE_FRACTION && !hasActive) {
+                alertRepository.insert(new Alert(
+                        OffsetDateTime.now(), null, RULE_RS_BREADTH_BULL, sev,
+                        String.format("RS BREADTH BULL: %d/%d equity sectors (%.0f%%) have RS-20 > RS-60 — broad short-term momentum alignment",
+                                bullCount, total, bullFraction * 100),
+                        String.format("{\"bullCount\":%d,\"total\":%d,\"fraction\":%.2f,\"signalDate\":\"%s\"}",
+                                bullCount, total, bullFraction, signalDate),
+                        AlertStatus.ACTIVE));
+                log.info("rs_breadth_bull: bullCount={}/{} fraction={}", bullCount, total, bullFraction);
+                count++;
+            } else if (bullFraction < RS_BREADTH_RESOLVE_FRACTION && hasActive) {
+                alertRepository.resolveAlertsByRuleAndCategory(RULE_RS_BREADTH_BULL, null);
+                log.info("rs_breadth_bull: resolved, fraction dropped to {}", bullFraction);
+            }
+        }
+
+        if (bearEnabled) {
+            Severity sev = bearRule.map(AlertRule::severity).orElse(Severity.WARNING);
+            boolean hasActive = alertRepository.existsActiveAlert(RULE_RS_BREADTH_BEAR, null);
+            if (bearFraction >= RS_BREADTH_FIRE_FRACTION && !hasActive) {
+                alertRepository.insert(new Alert(
+                        OffsetDateTime.now(), null, RULE_RS_BREADTH_BEAR, sev,
+                        String.format("RS BREADTH BEAR: %d/%d equity sectors (%.0f%%) have RS-20 < RS-60 — broad momentum deterioration across market",
+                                bearCount, total, bearFraction * 100),
+                        String.format("{\"bearCount\":%d,\"total\":%d,\"fraction\":%.2f,\"signalDate\":\"%s\"}",
+                                bearCount, total, bearFraction, signalDate),
+                        AlertStatus.ACTIVE));
+                log.info("rs_breadth_bear: bearCount={}/{} fraction={}", bearCount, total, bearFraction);
+                count++;
+            } else if (bearFraction < RS_BREADTH_RESOLVE_FRACTION && hasActive) {
+                alertRepository.resolveAlertsByRuleAndCategory(RULE_RS_BREADTH_BEAR, null);
+                log.info("rs_breadth_bear: resolved, fraction dropped to {}", bearFraction);
+            }
+        }
+
         return count;
     }
 

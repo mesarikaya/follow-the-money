@@ -103,6 +103,12 @@ class AlertRulesEngineTest {
     lenient()
         .when(alertRulesRepository.findById("high_conviction_reduce_cluster"))
         .thenReturn(Optional.of(disabled("high_conviction_reduce_cluster")));
+    lenient()
+        .when(alertRulesRepository.findById("rs_breadth_bull"))
+        .thenReturn(Optional.of(disabled("rs_breadth_bull")));
+    lenient()
+        .when(alertRulesRepository.findById("rs_breadth_bear"))
+        .thenReturn(Optional.of(disabled("rs_breadth_bear")));
   }
 
   private AlertRule enabled(String ruleId, Severity severity) {
@@ -1320,6 +1326,10 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("rs_aligned_bear")));
     when(alertRulesRepository.findById("high_conviction_reduce_cluster"))
         .thenReturn(Optional.of(disabled("high_conviction_reduce_cluster")));
+    when(alertRulesRepository.findById("rs_breadth_bull"))
+        .thenReturn(Optional.of(disabled("rs_breadth_bull")));
+    when(alertRulesRepository.findById("rs_breadth_bear"))
+        .thenReturn(Optional.of(disabled("rs_breadth_bear")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
@@ -1633,5 +1643,88 @@ class AlertRulesEngineTest {
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
     verify(alertRepository, never()).insert(any());
+  }
+
+  // ===== RS Breadth Extreme Alert Tests =====
+
+  private void stubAllRulesDisabledExceptRsBreadth() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bear")));
+    when(alertRulesRepository.findById("pre_buy_flow_surge"))
+        .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+  }
+
+  @Test
+  @DisplayName("rs_breadth_bull: inserts INFO alert when ≥60% of equity sectors have RS-20 > RS-60")
+  void shouldCreateRsBreadthBullAlertWhenMajorityOfSectorsShowRsAcceleration() {
+    // 7 equity categories; 6/7 = 86% have RS-20 > RS-60 → fires
+    stubTopLevelCategories("TECH", "FINL", "HLTH", "INDU", "ENRG", "MATL", "UTIL");
+    stubAllRulesDisabledExceptRsBreadth();
+    when(alertRulesRepository.findById("rs_breadth_bull"))
+        .thenReturn(Optional.of(enabled("rs_breadth_bull", Severity.INFO)));
+
+    // RS-20 > RS-60 for 6 sectors, RS-20 < RS-60 for 1 (UTIL)
+    when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
+        .thenReturn(Map.of(
+            "TECH", new BigDecimal("0.80"), "FINL", new BigDecimal("0.70"),
+            "HLTH", new BigDecimal("0.65"), "INDU", new BigDecimal("0.60"),
+            "ENRG", new BigDecimal("0.55"), "MATL", new BigDecimal("0.50"),
+            "UTIL", new BigDecimal("0.30")));
+    when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
+        .thenReturn(Map.of(
+            "TECH", new BigDecimal("0.70"), "FINL", new BigDecimal("0.60"),
+            "HLTH", new BigDecimal("0.55"), "INDU", new BigDecimal("0.50"),
+            "ENRG", new BigDecimal("0.45"), "MATL", new BigDecimal("0.40"),
+            "UTIL", new BigDecimal("0.45")));  // UTIL: RS-20(0.30) < RS-60(0.45) → bear
+    when(alertRepository.existsActiveAlert("rs_breadth_bull", null)).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).insert(argThat(a ->
+        a.ruleId().equals("rs_breadth_bull")
+        && a.categoryId() == null
+        && a.severity() == Severity.INFO
+        && a.message().contains("6/7")
+        && a.message().contains("RS-20 > RS-60")));
+  }
+
+  @Test
+  @DisplayName("rs_breadth_bear: inserts WARNING alert when ≥60% of equity sectors have RS-20 < RS-60")
+  void shouldCreateRsBreadthBearAlertWhenMajorityOfSectorsShowRsDeterioration() {
+    // 7 equity categories; 7/7 = 100% have RS-20 < RS-60 → fires
+    stubTopLevelCategories("TECH", "FINL", "HLTH", "INDU", "ENRG", "MATL", "UTIL");
+    stubAllRulesDisabledExceptRsBreadth();
+    when(alertRulesRepository.findById("rs_breadth_bear"))
+        .thenReturn(Optional.of(enabled("rs_breadth_bear", Severity.WARNING)));
+
+    // All sectors: RS-20 < RS-60 (bear breadth)
+    when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
+        .thenReturn(Map.of(
+            "TECH", new BigDecimal("0.40"), "FINL", new BigDecimal("0.35"),
+            "HLTH", new BigDecimal("0.30"), "INDU", new BigDecimal("0.28"),
+            "ENRG", new BigDecimal("0.25"), "MATL", new BigDecimal("0.22"),
+            "UTIL", new BigDecimal("0.20")));
+    when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
+        .thenReturn(Map.of(
+            "TECH", new BigDecimal("0.60"), "FINL", new BigDecimal("0.55"),
+            "HLTH", new BigDecimal("0.50"), "INDU", new BigDecimal("0.48"),
+            "ENRG", new BigDecimal("0.45"), "MATL", new BigDecimal("0.42"),
+            "UTIL", new BigDecimal("0.40")));
+    when(alertRepository.existsActiveAlert("rs_breadth_bear", null)).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).insert(argThat(a ->
+        a.ruleId().equals("rs_breadth_bear")
+        && a.categoryId() == null
+        && a.severity() == Severity.WARNING
+        && a.message().contains("7/7")
+        && a.message().contains("RS-20 < RS-60")));
   }
 }

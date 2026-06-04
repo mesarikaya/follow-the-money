@@ -6,6 +6,7 @@ import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 type Condition = {
   key: string;
   label: string;
+  code: string;
   met: boolean;
   tooltip: string;
 };
@@ -15,31 +16,52 @@ function buildConditions(cat: CategorySummary): Condition[] {
   const quadrant = cat.rrgQuadrant != null ? Number(cat.rrgQuadrant) : null;
   const trend20d = cat.compositeTrend20d;
   const macroFit = cat.macroFit ?? 0;
+  const rs20 = cat.rs20;
+  const rs60 = cat.rs60;
+  const flow = cat.flow20d;
 
   return [
     {
       key: "score",
       label: "Score",
+      code: "S",
       met: score >= 0.65,
       tooltip: `Composite score: ${Math.round(score * 100)}/100 (need ≥65)`,
     },
     {
       key: "rrg",
       label: "RRG",
+      code: "Q",
       met: quadrant === 3 || quadrant === 4,
       tooltip: `RRG quadrant: ${quadrant === 4 ? "Leading ↗" : quadrant === 3 ? "Improving ↖" : quadrant === 2 ? "Weakening ↘" : quadrant === 1 ? "Lagging ↙" : "Unknown"} (need Improving or Leading)`,
     },
     {
       key: "trend",
       label: "Trend",
+      code: "T",
       met: trend20d != null && trend20d > 0,
       tooltip: `20d score trend: ${trend20d != null ? (trend20d > 0 ? `+${Math.round(trend20d * 100)}pt rising` : `${Math.round(trend20d * 100)}pt falling`) : "unavailable"} (need positive)`,
     },
     {
       key: "regime",
       label: "Regime",
+      code: "M",
       met: macroFit >= 0.60,
       tooltip: `Macro fit: ${Math.round(macroFit * 100)}% win rate in current regime (≥60% is favorable)`,
+    },
+    {
+      key: "rs",
+      label: "RS",
+      code: "R",
+      met: rs20 != null && rs60 != null && rs20 > rs60,
+      tooltip: `RS-20 vs RS-60: ${rs20 != null && rs60 != null ? (rs20 > rs60 ? `+${Math.round((rs20 - rs60) * 100)}pt short-term RS accelerating` : `${Math.round((rs20 - rs60) * 100)}pt short-term RS lagging`) : "unavailable"} (need RS-20 > RS-60)`,
+    },
+    {
+      key: "flow",
+      label: "Flow",
+      code: "F",
+      met: flow != null && flow >= 0.5,
+      tooltip: `Flow 20d z-score: ${flow != null ? `${flow > 0 ? "+" : ""}${flow.toFixed(1)}σ` : "unavailable"} (need ≥ +0.5σ for institutional inflow confirmation)`,
     },
   ];
 }
@@ -52,14 +74,14 @@ const SIGNAL_STYLE: Record<TradeSignal, { badge: string; rowBg: string }> = {
   REDUCE: { badge: "bg-red-900/50 text-red-400 border-red-700/50",        rowBg: "border-l-red-600"    },
 };
 
-function ConditionDot({ met, label, tooltip }: { met: boolean; label: string; tooltip: string }) {
+function ConditionDot({ met, code, tooltip }: { met: boolean; code: string; tooltip: string }) {
   return (
     <div className="flex flex-col items-center gap-0.5" title={tooltip}>
       <span
         className={`w-2 h-2 rounded-full transition-colors ${met ? "bg-emerald-400" : "bg-slate-700 border border-slate-600"}`}
       />
       <span className={`text-[7px] font-mono ${met ? "text-emerald-500" : "text-slate-700"}`}>
-        {label[0]}
+        {code}
       </span>
     </div>
   );
@@ -84,15 +106,29 @@ function SectorRow({ cat }: { cat: CategorySummary }) {
     <div
       className={`flex items-center gap-3 px-3 py-2 border-l-2 ${signalStyle.rowBg} hover:bg-slate-800/40 transition-colors rounded-r-lg`}
     >
-      {/* Ticker + name */}
+      {/* Ticker + name + signal tenure */}
       <div className="w-28 shrink-0">
-        {hasDrilldown ? (
-          <Link href={`/sectors/${cat.id}`} className="font-mono text-xs font-bold text-cyan-400 hover:text-cyan-200 transition-colors">
-            {cat.etfTicker}
-          </Link>
-        ) : (
-          <span className="font-mono text-xs font-bold text-slate-400">{cat.etfTicker}</span>
-        )}
+        <div className="flex items-center gap-1">
+          {hasDrilldown ? (
+            <Link href={`/sectors/${cat.id}`} className="font-mono text-xs font-bold text-cyan-400 hover:text-cyan-200 transition-colors">
+              {cat.etfTicker}
+            </Link>
+          ) : (
+            <span className="font-mono text-xs font-bold text-slate-400">{cat.etfTicker}</span>
+          )}
+          {cat.signalDaysActive != null && cat.signalDaysActive >= 20 && (
+            <span
+              className={`text-[7px] font-mono px-0.5 rounded ${
+                cat.signalDaysActive >= 60 ? "text-amber-400 bg-amber-900/30" :
+                cat.signalDaysActive >= 30 ? "text-cyan-500 bg-cyan-900/20" :
+                "text-slate-500 bg-slate-800/30"
+              }`}
+              title={`Signal active ${cat.signalDaysActive} consecutive trading days`}
+            >
+              {cat.signalDaysActive}d
+            </span>
+          )}
+        </div>
         <div className="text-[9px] text-slate-600 truncate">{cat.name}</div>
       </div>
 
@@ -104,7 +140,7 @@ function SectorRow({ cat }: { cat: CategorySummary }) {
       {/* Condition dots */}
       <div className="flex items-center gap-2 shrink-0">
         {conditions.map(c => (
-          <ConditionDot key={c.key} met={c.met} label={c.label} tooltip={c.tooltip} />
+          <ConditionDot key={c.key} met={c.met} code={c.code} tooltip={c.tooltip} />
         ))}
       </div>
 
@@ -115,11 +151,11 @@ function SectorRow({ cat }: { cat: CategorySummary }) {
             {conditions.map((_, i) => (
               <div
                 key={i}
-                className={`h-1 rounded-full transition-all ${i < metCount ? (allMet ? "bg-green-500 w-5" : "bg-cyan-500 w-5") : "bg-slate-700 w-5"}`}
+                className={`h-1 rounded-full transition-all ${i < metCount ? (allMet ? "bg-green-500 w-4" : "bg-cyan-500 w-4") : "bg-slate-700 w-4"}`}
               />
             ))}
           </div>
-          <span className="text-[8px] text-slate-600 tabular-nums ml-1">{metCount}/4</span>
+          <span className="text-[8px] text-slate-600 tabular-nums ml-1">{metCount}/6</span>
         </div>
         {!allMet && missingConditions.length > 0 && (
           <div className="text-[8px] text-slate-600 truncate mt-0.5">
@@ -128,12 +164,27 @@ function SectorRow({ cat }: { cat: CategorySummary }) {
         )}
       </div>
 
-      {/* Signal badge */}
-      {signal && (
-        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${signalStyle.badge}`}>
-          {signal}
-        </span>
-      )}
+      {/* Signal badge + conviction */}
+      <div className="flex items-center gap-1 shrink-0">
+        {cat.convictionScore != null && cat.convictionScore > 0 && (
+          <span
+            className={`text-[8px] tabular-nums font-bold px-1 py-0.5 rounded ${
+              cat.convictionScore >= 75 ? "text-green-300 bg-green-900/40 border border-green-700/30" :
+              cat.convictionScore >= 50 ? "text-cyan-300 bg-cyan-900/30 border border-cyan-700/30" :
+              cat.convictionScore >= 30 ? "text-amber-300 bg-amber-900/30 border border-amber-700/30" :
+              "text-slate-500 bg-slate-800/30 border border-slate-700/30"
+            }`}
+            title={`Conviction score: ${cat.convictionScore}/100`}
+          >
+            {cat.convictionScore}
+          </span>
+        )}
+        {signal && (
+          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${signalStyle.badge}`}>
+            {signal}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -166,7 +217,7 @@ export default function SignalReadinessPanel({ categories }: Props) {
       <div className="px-4 py-2.5 border-b border-slate-700/40 flex items-center justify-between gap-3 bg-slate-800/60">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Signal Readiness</span>
-          <span className="text-[9px] text-slate-600">conditions met toward BUY: Score + RRG + Trend + Regime</span>
+          <span className="text-[9px] text-slate-600">conditions toward BUY: Score · RRG · Trend · Regime · RS · Flow</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {buyCount > 0 && (
@@ -195,7 +246,7 @@ export default function SignalReadinessPanel({ categories }: Props) {
         <span className="flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-slate-700 border border-slate-600 inline-block" /> condition missing
         </span>
-        <span className="ml-auto">S=Score≥65 · R=RRG Improving+ · T=Trend+ · Regime=MacroFit≥60%</span>
+        <span className="ml-auto">S=Score≥65 · Q=RRG Improving+ · T=Trend+ · M=Macro≥60% · R=RS-20&gt;RS-60 · F=Flow≥+0.5σ</span>
       </div>
     </div>
   );

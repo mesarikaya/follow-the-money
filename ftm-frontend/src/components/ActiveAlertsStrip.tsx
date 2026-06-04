@@ -28,6 +28,7 @@ const RULE_SHORT: Record<string, string> = {
   pre_buy_flow_surge:       "Pre-BUY Flow",
   rrg_rs_divergence:        "RRG÷RS",
   score_percentile_extreme: "Pct Extreme",
+  score_velocity:           "Velocity",
 };
 
 const SEV_STYLES: Record<string, { strip: string; badge: string; dot: string }> = {

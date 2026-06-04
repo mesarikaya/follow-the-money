@@ -119,6 +119,9 @@ class AlertRulesEngineTest {
         .when(alertRulesRepository.findById("score_percentile_extreme"))
         .thenReturn(Optional.of(disabled("score_percentile_extreme")));
     lenient()
+        .when(alertRulesRepository.findById("score_velocity"))
+        .thenReturn(Optional.of(disabled("score_velocity")));
+    lenient()
         .when(signalRepository.findScorePercentile252d())
         .thenReturn(Map.of());
   }
@@ -1346,6 +1349,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("rrg_rs_divergence")));
     when(alertRulesRepository.findById("score_percentile_extreme"))
         .thenReturn(Optional.of(disabled("score_percentile_extreme")));
+    when(alertRulesRepository.findById("score_velocity"))
+        .thenReturn(Optional.of(disabled("score_velocity")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
@@ -1951,6 +1956,120 @@ class AlertRulesEngineTest {
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
+    verify(alertRepository, never()).insert(any());
+  }
+
+  // ─── score_velocity ─────────────────────────────────────────────────────────
+
+  private void stubAllRulesDisabledExceptScoreVelocity() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bear")));
+    when(alertRulesRepository.findById("pre_buy_flow_surge"))
+        .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
+    when(alertRulesRepository.findById("rrg_rs_divergence"))
+        .thenReturn(Optional.of(disabled("rrg_rs_divergence")));
+    when(alertRulesRepository.findById("score_percentile_extreme"))
+        .thenReturn(Optional.of(disabled("score_percentile_extreme")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+  }
+
+  @Test
+  @DisplayName("score_velocity: fires WARNING alert when 5d trend surges ≥ +12pts")
+  void shouldCreateScoreVelocitySurgeAlertWhenTrendSurgesAboveThreshold() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptScoreVelocity();
+    when(alertRulesRepository.findById("score_velocity"))
+        .thenReturn(Optional.of(enabled("score_velocity", Severity.WARNING)));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.14"))); // +14pts — above +12 threshold
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.59")));
+    when(alertRepository.existsActiveAlert("score_velocity", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).insert(
+        argThat(a -> a.ruleId().equals("score_velocity")
+            && a.categoryId() == CategoryId.TECH
+            && a.severity() == Severity.WARNING
+            && a.message().contains("TECH")
+            && a.message().contains("SURGE")));
+  }
+
+  @Test
+  @DisplayName("score_velocity: fires WARNING alert when 5d trend crashes ≤ -12pts")
+  void shouldCreateScoreVelocityCrashAlertWhenTrendDropsBelowThreshold() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptScoreVelocity();
+    when(alertRulesRepository.findById("score_velocity"))
+        .thenReturn(Optional.of(enabled("score_velocity", Severity.WARNING)));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.15"))); // -15pts — below -12 threshold
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.45")));
+    when(alertRepository.existsActiveAlert("score_velocity", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).insert(
+        argThat(a -> a.ruleId().equals("score_velocity")
+            && a.categoryId() == CategoryId.TECH
+            && a.severity() == Severity.WARNING
+            && a.message().contains("TECH")
+            && a.message().contains("CRASH")));
+  }
+
+  @Test
+  @DisplayName("score_velocity: no alert when rule disabled")
+  void shouldNotCreateScoreVelocityAlertWhenRuleDisabled() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptScoreVelocity();
+    // rule stays disabled — engine returns early
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("score_velocity: no alert when 5d trend is within normal range")
+  void shouldNotCreateScoreVelocityAlertWhenTrendIsNormal() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptScoreVelocity();
+    when(alertRulesRepository.findById("score_velocity"))
+        .thenReturn(Optional.of(enabled("score_velocity", Severity.WARNING)));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.04"))); // +4pts — normal, below threshold
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.55")));
+    when(alertRepository.existsActiveAlert("score_velocity", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("score_velocity: resolves when trend moderates back to normal")
+  void shouldResolveScoreVelocityAlertWhenTrendModerates() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptScoreVelocity();
+    when(alertRulesRepository.findById("score_velocity"))
+        .thenReturn(Optional.of(enabled("score_velocity", Severity.WARNING)));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.03"))); // returned to normal
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.62")));
+    when(alertRepository.existsActiveAlert("score_velocity", "TECH")).thenReturn(true); // was active
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).resolveAlertsByRuleAndCategory("score_velocity", "TECH");
     verify(alertRepository, never()).insert(any());
   }
 

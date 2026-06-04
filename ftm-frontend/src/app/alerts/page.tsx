@@ -72,6 +72,7 @@ const RULE_LABELS: Record<string, string> = {
   flow_surge:                     "Flow Surge",
   rrg_rs_divergence:              "RRG/RS Divergence",
   score_percentile_extreme:       "Percentile Extreme",
+  score_velocity:                 "Score Velocity",
   flow_inflow_5d:         "Flow Inflow (5d)",
   flow_inflow_10d:        "Flow Inflow (10d)",
   flow_inflow_20d:        "Flow Inflow (20d)",
@@ -81,6 +82,7 @@ const RULE_LABELS: Record<string, string> = {
 };
 
 const BUILTIN_RULES = [
+  { id: "score_velocity", label: "Score Velocity", condition: "5d score change ≥ +12pts (SURGE) or ≤ -12pts (CRASH)", severity: "WARNING", note: "Rate-of-change alert: fires when a sector's composite score moves 12+ percentage points in either direction over 5 trading days. A SURGE (e.g. +14pts in 5d) signals unusual momentum acceleration — the sector is heating up fast regardless of absolute score level. A CRASH signals rapid deterioration — early warning before the formal REDUCE signal. Distinct from score_approaching_buy which tracks absolute score level. Resolves when trend moderates back inside ±5pts." },
   { id: "score_percentile_extreme", label: "Percentile Extreme", condition: "score ≥ 90th or ≤ 10th percentile (252d)", severity: "WARNING", note: "Historical extreme alert: fires when a sector's composite score is at its highest or lowest point in the past 252 trading days. A 90th-percentile HIGH signals potential mean reversion risk (sector may be overextended). A 10th-percentile LOW signals a historically depressed setup — watch for turnaround signals. Resolves when percentile returns to 20th–80th range." },
   { id: "rrg_rs_divergence", label: "RRG/RS Divergence", condition: "RRG quadrant contradicts RS-20 vs RS-60", severity: "WARNING", note: "Early turn signal: fires when a Leading/Improving sector already has RS-20 < RS-60 (momentum cracking before the chart shows it), or when a Lagging/Weakening sector has RS-20 > RS-60 (recovery emerging before the chart catches up). Resolves when the divergence closes." },
   { id: "rs_breadth_bull",   label: "RS Breadth ⊕",       condition: "≥60% of equity sectors have RS-20 > RS-60",  severity: "INFO",    note: "Broad market momentum: when 60%+ of GICS sectors show short-term RS above medium-term RS, it signals institutional rotation is broadly positive — a regime-level tailwind. Resolves below 45%." },

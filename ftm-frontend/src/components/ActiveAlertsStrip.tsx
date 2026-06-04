@@ -27,9 +27,10 @@ const RULE_SHORT: Record<string, string> = {
   rs_breadth_bear:          "RS Breadth⊖",
   pre_buy_flow_surge:       "Pre-BUY Flow",
   rrg_rs_divergence:        "RRG÷RS",
-  score_percentile_extreme: "Pct Extreme",
-  score_velocity:           "Velocity",
-  multi_alert_bull_confluence: "Multi-Signal",
+  score_percentile_extreme:      "Pct Extreme",
+  score_velocity:                "Velocity",
+  multi_alert_bull_confluence:   "Multi-Signal",
+  cross_horizon_rs_divergence:   "RS÷Horizon",
 };
 
 const SEV_STYLES: Record<string, { strip: string; badge: string; dot: string }> = {

@@ -125,6 +125,9 @@ class AlertRulesEngineTest {
         .when(alertRulesRepository.findById("multi_alert_bull_confluence"))
         .thenReturn(Optional.of(disabled("multi_alert_bull_confluence")));
     lenient()
+        .when(alertRulesRepository.findById("cross_horizon_rs_divergence"))
+        .thenReturn(Optional.of(disabled("cross_horizon_rs_divergence")));
+    lenient()
         .when(signalRepository.findScorePercentile252d())
         .thenReturn(Map.of());
   }
@@ -1356,6 +1359,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("score_velocity")));
     when(alertRulesRepository.findById("multi_alert_bull_confluence"))
         .thenReturn(Optional.of(disabled("multi_alert_bull_confluence")));
+    when(alertRulesRepository.findById("cross_horizon_rs_divergence"))
+        .thenReturn(Optional.of(disabled("cross_horizon_rs_divergence")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
@@ -2198,5 +2203,133 @@ class AlertRulesEngineTest {
 
     verify(alertRepository).resolveAlertsByRuleAndCategory("multi_alert_bull_confluence", "TECH");
     verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("multi_alert_bull_confluence")));
+  }
+
+  // ─── cross_horizon_rs_divergence ─────────────────────────────────────────────
+
+  private void stubAllRulesDisabledExceptCrossHorizonRsDiv() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bear")));
+    when(alertRulesRepository.findById("pre_buy_flow_surge"))
+        .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
+    when(alertRulesRepository.findById("rrg_rs_divergence"))
+        .thenReturn(Optional.of(disabled("rrg_rs_divergence")));
+    when(alertRulesRepository.findById("score_percentile_extreme"))
+        .thenReturn(Optional.of(disabled("score_percentile_extreme")));
+    when(alertRulesRepository.findById("score_velocity"))
+        .thenReturn(Optional.of(disabled("score_velocity")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+  }
+
+  @Test
+  @DisplayName("cross_horizon_rs_divergence: fires WARNING when short-term RS bull contradicts medium-term RS bear (counter-trend bounce)")
+  void shouldCreateCrossHorizonDivAlertForCounterTrendBounce() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptCrossHorizonRsDiv();
+    when(alertRulesRepository.findById("cross_horizon_rs_divergence"))
+        .thenReturn(Optional.of(enabled("cross_horizon_rs_divergence", Severity.WARNING)));
+    // rs20 > rs60 (short-term bull) but rs60 < rs120 (medium-term bear) → counter-trend bounce
+    when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.600")));
+    when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.580")));
+    when(signalRepository.findByTypeAndDate(SignalType.RS_120, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.610")));
+    when(alertRepository.existsActiveAlert("cross_horizon_rs_divergence", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).insert(
+        argThat(a -> a.ruleId().equals("cross_horizon_rs_divergence")
+            && a.categoryId() == CategoryId.TECH
+            && a.severity() == Severity.WARNING
+            && a.message().contains("TECH")
+            && a.message().contains("counter-trend")));
+  }
+
+  @Test
+  @DisplayName("cross_horizon_rs_divergence: fires WARNING when short-term RS bear contradicts medium-term RS bull (pullback in bull)")
+  void shouldCreateCrossHorizonDivAlertForPullbackInBull() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptCrossHorizonRsDiv();
+    when(alertRulesRepository.findById("cross_horizon_rs_divergence"))
+        .thenReturn(Optional.of(enabled("cross_horizon_rs_divergence", Severity.WARNING)));
+    // rs20 < rs60 (short-term bear) but rs60 > rs120 (medium-term bull) → pullback in a bull
+    when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.560")));
+    when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.590")));
+    when(signalRepository.findByTypeAndDate(SignalType.RS_120, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.565")));
+    when(alertRepository.existsActiveAlert("cross_horizon_rs_divergence", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).insert(
+        argThat(a -> a.ruleId().equals("cross_horizon_rs_divergence")
+            && a.categoryId() == CategoryId.TECH
+            && a.severity() == Severity.WARNING
+            && a.message().contains("TECH")
+            && a.message().contains("pullback")));
+  }
+
+  @Test
+  @DisplayName("cross_horizon_rs_divergence: no alert when rule disabled")
+  void shouldNotCreateCrossHorizonDivAlertWhenRuleDisabled() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptCrossHorizonRsDiv();
+    // rule stays disabled — engine returns early
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("cross_horizon_rs_divergence: no alert when all RS horizons are aligned (rs20 > rs60 > rs120)")
+  void shouldNotCreateCrossHorizonDivAlertWhenHorizonsAreAligned() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptCrossHorizonRsDiv();
+    when(alertRulesRepository.findById("cross_horizon_rs_divergence"))
+        .thenReturn(Optional.of(enabled("cross_horizon_rs_divergence", Severity.WARNING)));
+    // All aligned bullish: rs20 > rs60 > rs120 — no divergence
+    when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.620")));
+    when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.590")));
+    when(signalRepository.findByTypeAndDate(SignalType.RS_120, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.560")));
+    when(alertRepository.existsActiveAlert("cross_horizon_rs_divergence", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("cross_horizon_rs_divergence: resolves when horizons re-align after prior divergence")
+  void shouldResolveCrossHorizonDivAlertWhenHorizonsRealign() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptCrossHorizonRsDiv();
+    when(alertRulesRepository.findById("cross_horizon_rs_divergence"))
+        .thenReturn(Optional.of(enabled("cross_horizon_rs_divergence", Severity.WARNING)));
+    // Horizons now aligned — divergence closed
+    when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.600")));
+    when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.580")));
+    when(signalRepository.findByTypeAndDate(SignalType.RS_120, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.555")));
+    when(alertRepository.existsActiveAlert("cross_horizon_rs_divergence", "TECH")).thenReturn(true);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).resolveAlertsByRuleAndCategory("cross_horizon_rs_divergence", "TECH");
+    verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("cross_horizon_rs_divergence")));
   }
 }

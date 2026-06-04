@@ -104,6 +104,8 @@ public class AlertRulesEngine {
     private static final int BREADTH_VELOCITY_THRESHOLD_PP = 10;
     private static final BigDecimal BUY_SCORE_THRESHOLD = new BigDecimal("0.65");
     private static final BigDecimal REDUCE_SCORE_THRESHOLD = new BigDecimal("0.35");
+    private static final String RULE_CROSS_HORIZON_RS_DIV = "cross_horizon_rs_divergence";
+    private static final double CROSS_HORIZON_RS_MIN_GAP = 0.001;
 
     private final AlertRepository alertRepository;
     private final AlertRulesRepository alertRulesRepository;
@@ -156,6 +158,7 @@ public class AlertRulesEngine {
         alertsCreated += evaluateRrgRsDivergence(signalDate, equityCategoryIds);
         alertsCreated += evaluateScorePercentileExtreme(equityCategoryIds);
         alertsCreated += evaluateScoreVelocity(signalDate, topLevelCategoryIds);
+        alertsCreated += evaluateCrossHorizonRsDivergence(signalDate, equityCategoryIds);
         // Must run last: reads active alerts inserted by earlier evaluators in this cycle
         alertsCreated += evaluateMultiAlertBullConfluence(topLevelCategoryIds);
 
@@ -1799,6 +1802,78 @@ public class AlertRulesEngine {
             } else if (activeRules.size() < BULL_CONFLUENCE_THRESHOLD && hasConfluence) {
                 alertRepository.resolveAlertsByRuleAndCategory(RULE_MULTI_ALERT_BULL, categoryId);
                 log.info("multi_alert_bull_confluence: resolved for category={} (activeCount={})", categoryId, activeRules.size());
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Fires when a sector's short-term RS direction (RS-20 vs RS-60) contradicts its medium-term
+     * RS direction (RS-60 vs RS-120). This cross-horizon divergence identifies counter-trend moves:
+     * a sector with short-term strength embedded in a medium-term downtrend (fade candidate) or
+     * short-term weakness within a medium-term uptrend (pullback opportunity).
+     * Resolves when the two horizons align again.
+     */
+    private int evaluateCrossHorizonRsDivergence(LocalDate signalDate, Set<String> equityCategoryIds) {
+        Optional<AlertRule> rule = alertRulesRepository.findById(RULE_CROSS_HORIZON_RS_DIV);
+        if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+        Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
+
+        Map<String, BigDecimal> rs20Map = signalRepository.findByTypeAndDate(SignalType.RS_20, signalDate);
+        Map<String, BigDecimal> rs60Map = signalRepository.findByTypeAndDate(SignalType.RS_60, signalDate);
+        Map<String, BigDecimal> rs120Map = signalRepository.findByTypeAndDate(SignalType.RS_120, signalDate);
+        if (rs20Map.isEmpty() || rs60Map.isEmpty() || rs120Map.isEmpty()) return 0;
+
+        int count = 0;
+        for (String categoryId : equityCategoryIds) {
+            BigDecimal rs20 = rs20Map.get(categoryId);
+            BigDecimal rs60 = rs60Map.get(categoryId);
+            BigDecimal rs120 = rs120Map.get(categoryId);
+            if (rs20 == null || rs60 == null || rs120 == null) continue;
+
+            double r20 = rs20.doubleValue();
+            double r60 = rs60.doubleValue();
+            double r120 = rs120.doubleValue();
+
+            boolean shortTermBull = r20 > r60 + CROSS_HORIZON_RS_MIN_GAP;
+            boolean shortTermBear = r20 < r60 - CROSS_HORIZON_RS_MIN_GAP;
+            boolean medTermBull = r60 > r120 + CROSS_HORIZON_RS_MIN_GAP;
+            boolean medTermBear = r60 < r120 - CROSS_HORIZON_RS_MIN_GAP;
+
+            // Divergence: short-term direction contradicts medium-term direction
+            boolean counterTrendBounce = shortTermBull && medTermBear; // strength in structurally weak sector
+            boolean pullbackInBull = shortTermBear && medTermBull;     // weakness in structurally strong sector
+            boolean hasDivergence = counterTrendBounce || pullbackInBull;
+            boolean hasActive = alertRepository.existsActiveAlert(RULE_CROSS_HORIZON_RS_DIV, categoryId);
+
+            if (hasDivergence && !hasActive) {
+                CategoryId catId;
+                try {
+                    catId = CategoryId.valueOf(categoryId);
+                } catch (IllegalArgumentException e) {
+                    log.debug("cross_horizon_rs_divergence: skipping unknown CategoryId={}", categoryId);
+                    continue;
+                }
+                String divergenceType = counterTrendBounce ? "COUNTER_TREND_BOUNCE" : "PULLBACK_IN_BULL";
+                String message = counterTrendBounce
+                        ? String.format(
+                                "%s short-term RS spiking while medium-term RS downtrend persists — counter-trend bounce, fading risk",
+                                categoryId)
+                        : String.format(
+                                "%s short-term RS softening while medium-term RS uptrend intact — pullback in a bull, potential entry",
+                                categoryId);
+                String snapshot = String.format(
+                        "{\"rs20\":%.4f,\"rs60\":%.4f,\"rs120\":%.4f,\"divergenceType\":\"%s\",\"signalDate\":\"%s\"}",
+                        r20, r60, r120, divergenceType, signalDate);
+                alertRepository.insert(new Alert(
+                        OffsetDateTime.now(), catId, RULE_CROSS_HORIZON_RS_DIV, severity,
+                        message, snapshot, AlertStatus.ACTIVE));
+                log.info("cross_horizon_rs_divergence: category={} type={} rs20={} rs60={} rs120={}",
+                        categoryId, divergenceType, rs20, rs60, rs120);
+                count++;
+            } else if (!hasDivergence && hasActive) {
+                alertRepository.resolveAlertsByRuleAndCategory(RULE_CROSS_HORIZON_RS_DIV, categoryId);
+                log.info("cross_horizon_rs_divergence: resolved for category={} (horizons aligned)", categoryId);
             }
         }
         return count;

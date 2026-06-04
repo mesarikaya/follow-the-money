@@ -130,6 +130,9 @@ class AlertRulesEngineTest {
     lenient()
         .when(alertRulesRepository.findById("sub_sector_breadth_divergence"))
         .thenReturn(Optional.of(disabled("sub_sector_breadth_divergence")));
+    lenient()
+        .when(alertRulesRepository.findById("sub_sector_bull_confluence"))
+        .thenReturn(Optional.of(disabled("sub_sector_bull_confluence")));
     lenient().when(signalRepository.findScorePercentile252d()).thenReturn(Map.of());
   }
 
@@ -1559,6 +1562,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("macro_sector_mismatch")));
     when(alertRulesRepository.findById("sub_sector_breadth_divergence"))
         .thenReturn(Optional.of(disabled("sub_sector_breadth_divergence")));
+    when(alertRulesRepository.findById("sub_sector_bull_confluence"))
+        .thenReturn(Optional.of(disabled("sub_sector_bull_confluence")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
@@ -2773,6 +2778,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("cross_horizon_rs_divergence")));
     when(alertRulesRepository.findById("macro_sector_mismatch"))
         .thenReturn(Optional.of(disabled("macro_sector_mismatch")));
+    when(alertRulesRepository.findById("sub_sector_bull_confluence"))
+        .thenReturn(Optional.of(disabled("sub_sector_bull_confluence")));
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
   }
 
@@ -2907,5 +2914,129 @@ class AlertRulesEngineTest {
         .resolveAlertsByRuleAndCategory("sub_sector_breadth_divergence", "TECH");
     verify(alertRepository, never())
         .insert(argThat(a -> a.ruleId().equals("sub_sector_breadth_divergence")));
+  }
+
+  // ===== Sub-Sector Bull Confluence Alert Tests =====
+
+  private void stubAllRulesDisabledExceptSubSectorBullConfluence() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bear")));
+    when(alertRulesRepository.findById("pre_buy_flow_surge"))
+        .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
+    when(alertRulesRepository.findById("rrg_rs_divergence"))
+        .thenReturn(Optional.of(disabled("rrg_rs_divergence")));
+    when(alertRulesRepository.findById("score_percentile_extreme"))
+        .thenReturn(Optional.of(disabled("score_percentile_extreme")));
+    when(alertRulesRepository.findById("score_velocity"))
+        .thenReturn(Optional.of(disabled("score_velocity")));
+    when(alertRulesRepository.findById("cross_horizon_rs_divergence"))
+        .thenReturn(Optional.of(disabled("cross_horizon_rs_divergence")));
+    when(alertRulesRepository.findById("macro_sector_mismatch"))
+        .thenReturn(Optional.of(disabled("macro_sector_mismatch")));
+    when(alertRulesRepository.findById("sub_sector_breadth_divergence"))
+        .thenReturn(Optional.of(disabled("sub_sector_breadth_divergence")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+  }
+
+  @Test
+  @DisplayName(
+      "sub_sector_bull_confluence: fires INFO when >=75% of sub-sectors are in Leading/Improving RRG")
+  void shouldCreateSubSectorBullConfluenceAlertWhenBroadBullishBreadth() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptSubSectorBullConfluence();
+    when(alertRulesRepository.findById("sub_sector_bull_confluence"))
+        .thenReturn(Optional.of(enabled("sub_sector_bull_confluence", Severity.INFO)));
+    when(alertRepository.existsActiveAlert("sub_sector_bull_confluence", "TECH"))
+        .thenReturn(false);
+    when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(techSubSectors());
+    // 3 of 4 sub-sectors bullish (75%) — meets threshold
+    when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(
+            Map.of(
+                "SEMI", new BigDecimal("4"),
+                "AIRO", new BigDecimal("3"),
+                "CLOD", new BigDecimal("4"),
+                "SOFT", new BigDecimal("1")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository)
+        .insert(argThat(a -> a.ruleId().equals("sub_sector_bull_confluence")
+            && a.severity() == Severity.INFO
+            && a.categoryId() == CategoryId.TECH));
+  }
+
+  @Test
+  @DisplayName(
+      "sub_sector_bull_confluence: no alert when breadth is below 75%")
+  void shouldNotCreateSubSectorBullConfluenceAlertWhenBreadthInsufficient() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptSubSectorBullConfluence();
+    when(alertRulesRepository.findById("sub_sector_bull_confluence"))
+        .thenReturn(Optional.of(enabled("sub_sector_bull_confluence", Severity.INFO)));
+    when(alertRepository.existsActiveAlert("sub_sector_bull_confluence", "TECH"))
+        .thenReturn(false);
+    when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(techSubSectors());
+    // 2 of 4 sub-sectors bullish (50%) — below 75% threshold
+    when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(
+            Map.of(
+                "SEMI", new BigDecimal("4"),
+                "AIRO", new BigDecimal("1"),
+                "CLOD", new BigDecimal("3"),
+                "SOFT", new BigDecimal("2")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("sub_sector_bull_confluence")));
+  }
+
+  @Test
+  @DisplayName(
+      "sub_sector_bull_confluence: no alert when rule is disabled")
+  void shouldNotCreateSubSectorBullConfluenceAlertWhenRuleDisabled() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptSubSectorBullConfluence();
+    when(alertRulesRepository.findById("sub_sector_bull_confluence"))
+        .thenReturn(Optional.of(disabled("sub_sector_bull_confluence")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("sub_sector_bull_confluence")));
+  }
+
+  @Test
+  @DisplayName(
+      "sub_sector_bull_confluence: resolves when breadth drops below 55%")
+  void shouldResolveSubSectorBullConfluenceWhenBreadthDrops() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptSubSectorBullConfluence();
+    when(alertRulesRepository.findById("sub_sector_bull_confluence"))
+        .thenReturn(Optional.of(enabled("sub_sector_bull_confluence", Severity.INFO)));
+    when(alertRepository.existsActiveAlert("sub_sector_bull_confluence", "TECH"))
+        .thenReturn(true);
+    when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(techSubSectors());
+    // 1 of 4 bullish (25%) — below 55% resolve threshold
+    when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(
+            Map.of(
+                "SEMI", new BigDecimal("4"),
+                "AIRO", new BigDecimal("1"),
+                "CLOD", new BigDecimal("2"),
+                "SOFT", new BigDecimal("1")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository)
+        .resolveAlertsByRuleAndCategory("sub_sector_bull_confluence", "TECH");
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("sub_sector_bull_confluence")));
   }
 }

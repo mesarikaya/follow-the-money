@@ -123,6 +123,10 @@ public class AlertRulesEngine {
   private static final double SUB_SECTOR_BREADTH_FIRE_FRACTION = 0.40;
   private static final double SUB_SECTOR_BREADTH_RESOLVE_FRACTION = 0.55;
   private static final int SUB_SECTOR_MIN_COUNT = 2;
+  private static final String RULE_SUB_SECTOR_BULL_CONFLUENCE = "sub_sector_bull_confluence";
+  // Fires when >=75% of sub-sectors are in Leading/Improving RRG (broad internal participation)
+  private static final double SUB_SECTOR_BULL_CONFLUENCE_FIRE_FRACTION = 0.75;
+  private static final double SUB_SECTOR_BULL_CONFLUENCE_RESOLVE_FRACTION = 0.55;
 
   private final AlertRepository alertRepository;
   private final AlertRulesRepository alertRulesRepository;
@@ -178,6 +182,7 @@ public class AlertRulesEngine {
     alertsCreated += evaluateCrossHorizonRsDivergence(signalDate, equityCategoryIds);
     alertsCreated += evaluateMacroSectorMismatch(signalDate, equityCategoryIds);
     alertsCreated += evaluateSubSectorBreadthDivergence(signalDate, equityCategoryIds);
+    alertsCreated += evaluateSubSectorBullConfluence(signalDate, equityCategoryIds);
     // Must run last: reads active alerts inserted by earlier evaluators in this cycle
     alertsCreated += evaluateMultiAlertBullConfluence(topLevelCategoryIds);
 
@@ -2224,6 +2229,93 @@ public class AlertRulesEngine {
         log.info(
             "sub_sector_breadth_divergence: resolved category={} hasBuyAlert={} breadth={}%",
             categoryId, hasBuyAlert, Math.round(breadth * 100));
+      }
+    }
+    return count;
+  }
+
+  private int evaluateSubSectorBullConfluence(
+      LocalDate signalDate, Set<String> equityCategoryIds) {
+    Optional<AlertRule> rule =
+        alertRulesRepository.findById(RULE_SUB_SECTOR_BULL_CONFLUENCE);
+    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+    Severity severity = rule.map(AlertRule::severity).orElse(Severity.INFO);
+
+    Map<String, BigDecimal> rrgMap =
+        signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
+
+    int count = 0;
+    for (String categoryId : equityCategoryIds) {
+      List<String> subIds;
+      try {
+        subIds =
+            categoryRepository.findSubCategoriesByParentId(categoryId).stream()
+                .map(c -> c.id().name())
+                .toList();
+      } catch (IllegalArgumentException e) {
+        log.debug(
+            "sub_sector_bull_confluence: skipping {}, sub-category enum mismatch", categoryId);
+        continue;
+      }
+
+      boolean hasActive =
+          alertRepository.existsActiveAlert(RULE_SUB_SECTOR_BULL_CONFLUENCE, categoryId);
+
+      if (subIds.size() < SUB_SECTOR_MIN_COUNT) {
+        if (hasActive) {
+          alertRepository.resolveAlertsByRuleAndCategory(
+              RULE_SUB_SECTOR_BULL_CONFLUENCE, categoryId);
+        }
+        continue;
+      }
+
+      List<BigDecimal> subQuadrants =
+          subIds.stream().map(rrgMap::get).filter(q -> q != null).toList();
+      if (subQuadrants.size() < SUB_SECTOR_MIN_COUNT) continue;
+
+      long bullishCount =
+          subQuadrants.stream().filter(q -> q.intValue() == 3 || q.intValue() == 4).count();
+      double breadth = (double) bullishCount / subQuadrants.size();
+
+      boolean broadConfluence = breadth >= SUB_SECTOR_BULL_CONFLUENCE_FIRE_FRACTION;
+
+      if (broadConfluence && !hasActive) {
+        CategoryId catId;
+        try {
+          catId = CategoryId.valueOf(categoryId);
+        } catch (IllegalArgumentException e) {
+          continue;
+        }
+        String message =
+            String.format(
+                "%s has broad sub-sector confluence: %d%% of sub-sectors in Leading/Improving RRG (%d/%d) — internally confirmed sector rotation",
+                categoryId,
+                Math.round(breadth * 100),
+                (int) bullishCount,
+                subQuadrants.size());
+        String snapshot =
+            String.format(
+                "{\"subBreadth\":%.2f,\"bullishCount\":%d,\"totalSubSectors\":%d,\"signalDate\":\"%s\"}",
+                breadth, (int) bullishCount, subQuadrants.size(), signalDate);
+        alertRepository.insert(
+            new Alert(
+                OffsetDateTime.now(),
+                catId,
+                RULE_SUB_SECTOR_BULL_CONFLUENCE,
+                severity,
+                message,
+                snapshot,
+                AlertStatus.ACTIVE));
+        log.info(
+            "sub_sector_bull_confluence: fired category={} breadth={}% ({}/{})",
+            categoryId, Math.round(breadth * 100), (int) bullishCount, subQuadrants.size());
+        count++;
+      } else if (hasActive && breadth < SUB_SECTOR_BULL_CONFLUENCE_RESOLVE_FRACTION) {
+        alertRepository.resolveAlertsByRuleAndCategory(
+            RULE_SUB_SECTOR_BULL_CONFLUENCE, categoryId);
+        log.info(
+            "sub_sector_bull_confluence: resolved category={} breadth={}%",
+            categoryId, Math.round(breadth * 100));
       }
     }
     return count;

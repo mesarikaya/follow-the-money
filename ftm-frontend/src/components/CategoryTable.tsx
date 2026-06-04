@@ -267,8 +267,15 @@ function RsCell({ value, rs120, rs20, period, rankPct }: { value: number | null;
   const rs20Pts = rs20Diff != null ? Math.round(rs20Diff * 100) : null;
   const allAlignedBullish = rs20 != null && rs120 != null && rs20 > value && value > rs120;
   const allAlignedBearish = rs20 != null && rs120 != null && rs20 < value && value < rs120;
+  // Cross-horizon divergence: short-term RS direction contradicts medium-term RS direction
+  const gap = 0.001;
+  const shortBull = rs20 != null && rs20 > value + gap;
+  const shortBear = rs20 != null && rs20 < value - gap;
+  const medBull = rs120 != null && value > rs120 + gap;
+  const medBear = rs120 != null && value < rs120 - gap;
+  const crossHorizonDiv = rs20 != null && rs120 != null && ((shortBull && medBear) || (shortBear && medBull));
   const rs20Title = rs20 != null
-    ? `RS-20: ${rs20 > 0 ? "+" : ""}${(rs20 * 100).toFixed(1)}% (fastest RS signal — 20-day window).${rs20Pts != null ? ` Divergence from RS-60: ${rs20Pts > 0 ? "+" : ""}${rs20Pts}pts — ${rs20Pts > 0 ? "short-term outpacing long-term (momentum building)" : "short-term lagging long-term (momentum fading)"}` : ""}${allAlignedBullish ? "\n✓ All RS signals aligned bullish (RS-20 > RS-60 > RS-120) — strong momentum confirmation" : allAlignedBearish ? "\n✗ All RS signals aligned bearish (RS-20 < RS-60 < RS-120) — deteriorating across all horizons" : ""}`
+    ? `RS-20: ${rs20 > 0 ? "+" : ""}${(rs20 * 100).toFixed(1)}% (fastest RS signal — 20-day window).${rs20Pts != null ? ` Divergence from RS-60: ${rs20Pts > 0 ? "+" : ""}${rs20Pts}pts — ${rs20Pts > 0 ? "short-term outpacing long-term (momentum building)" : "short-term lagging long-term (momentum fading)"}` : ""}${allAlignedBullish ? "\n✓ All RS signals aligned bullish (RS-20 > RS-60 > RS-120) — strong momentum confirmation" : allAlignedBearish ? "\n✗ All RS signals aligned bearish (RS-20 < RS-60 < RS-120) — deteriorating across all horizons" : crossHorizonDiv ? `\n⚠ Cross-horizon RS divergence: short-term ${shortBull ? "bull" : "bear"} but medium-term ${medBull ? "bull" : "bear"} — ${shortBull && medBear ? "counter-trend bounce (fading risk)" : "pullback in bull (potential entry)"}` : ""}`
     : "";
 
   return (
@@ -282,6 +289,9 @@ function RsCell({ value, rs120, rs20, period, rankPct }: { value: number | null;
       )}
       {allAlignedBearish && (
         <span className="text-[7px] text-red-500 font-mono" title={rs20Title}>⊖</span>
+      )}
+      {crossHorizonDiv && !allAlignedBullish && !allAlignedBearish && (
+        <span className="text-[7px] text-orange-400 font-mono" title={rs20Title}>÷</span>
       )}
       {rankPct != null && rankColor && (
         <span className={`text-[8px] tabular-nums ${rankColor}`} title={`${rankPct}th percentile RS among 11 GICS sectors`}>P{rankPct}</span>

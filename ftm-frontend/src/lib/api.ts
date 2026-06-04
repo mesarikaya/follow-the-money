@@ -228,6 +228,8 @@ export type BacktestResult = {
   annualizedReturnPct: number;
   maxDrawdownPct: number;
   sharpeRatio: number;
+  sortinoRatio: number | null;
+  calmarRatio: number | null;
   spyTotalReturnPct: number;
   spyAnnualizedReturnPct: number | null;
   spyMaxDrawdownPct: number | null;

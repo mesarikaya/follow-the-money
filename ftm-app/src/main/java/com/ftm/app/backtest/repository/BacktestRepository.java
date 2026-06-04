@@ -41,6 +41,8 @@ public class BacktestRepository {
         .set(DSL.field("annualized_return_pct"), result.annualizedReturnPct())
         .set(DSL.field("max_drawdown_pct"), result.maxDrawdownPct())
         .set(DSL.field("sharpe_ratio"), result.sharpeRatio())
+        .set(DSL.field("sortino_ratio"), result.sortinoRatio())
+        .set(DSL.field("calmar_ratio"), result.calmarRatio())
         .set(DSL.field("spy_total_return_pct"), result.spyTotalReturnPct())
         .set(DSL.field("spy_annualized_return_pct"), result.spyAnnualizedReturnPct())
         .set(DSL.field("spy_max_drawdown_pct"), result.spyMaxDrawdownPct())
@@ -61,6 +63,8 @@ public class BacktestRepository {
         result.annualizedReturnPct(),
         result.maxDrawdownPct(),
         result.sharpeRatio(),
+        result.sortinoRatio(),
+        result.calmarRatio(),
         result.spyTotalReturnPct(),
         result.spyAnnualizedReturnPct(),
         result.spyMaxDrawdownPct(),
@@ -98,6 +102,8 @@ public class BacktestRepository {
         r.get("annualized_return_pct", java.math.BigDecimal.class),
         r.get("max_drawdown_pct", java.math.BigDecimal.class),
         r.get("sharpe_ratio", java.math.BigDecimal.class),
+        r.get("sortino_ratio", java.math.BigDecimal.class),
+        r.get("calmar_ratio", java.math.BigDecimal.class),
         r.get("spy_total_return_pct", java.math.BigDecimal.class),
         r.get("spy_annualized_return_pct", java.math.BigDecimal.class),
         r.get("spy_max_drawdown_pct", java.math.BigDecimal.class),

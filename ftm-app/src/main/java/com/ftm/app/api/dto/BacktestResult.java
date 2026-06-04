@@ -18,6 +18,8 @@ public record BacktestResult(
     BigDecimal annualizedReturnPct,
     BigDecimal maxDrawdownPct,
     BigDecimal sharpeRatio,
+    BigDecimal sortinoRatio,
+    BigDecimal calmarRatio,
     BigDecimal spyTotalReturnPct,
     BigDecimal spyAnnualizedReturnPct,
     BigDecimal spyMaxDrawdownPct,

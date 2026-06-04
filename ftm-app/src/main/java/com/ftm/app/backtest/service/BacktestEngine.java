@@ -335,6 +335,8 @@ public class BacktestEngine {
         (Math.pow(lastSpy / firstSpy, 1.0 / yearsElapsed) - 1.0) * 100.0;
     double sharpeRatio = computeSharpeRatio(equityCurve, false);
     double spySharpeRatio = computeSharpeRatio(equityCurve, true);
+    double sortinoRatio = computeSortinoRatio(equityCurve, false);
+    double calmarRatio = computeCalmarRatio(annualizedReturnPct, maxDrawdownPct);
 
     return new BacktestResult(
         null, // run_id set by repository after insert
@@ -348,6 +350,8 @@ public class BacktestEngine {
         roundToFour(annualizedReturnPct),
         roundToFour(maxDrawdownPct),
         roundToFour(sharpeRatio),
+        roundToFour(sortinoRatio),
+        roundToFour(calmarRatio),
         roundToFour(spyTotalReturnPct),
         roundToFour(spyAnnualizedReturnPct),
         roundToFour(spyMaxDrawdownPct),
@@ -355,6 +359,29 @@ public class BacktestEngine {
         tradingDays,
         equityCurve,
         rebalanceHistory);
+  }
+
+  private double computeSortinoRatio(List<EquityCurvePoint> curve, boolean useSpy) {
+    if (curve.size() < 2) return 0.0;
+    List<Double> dailyReturns = new ArrayList<>();
+    for (int i = 1; i < curve.size(); i++) {
+      double previous = useSpy ? curve.get(i - 1).spyValue() : curve.get(i - 1).portfolioValue();
+      double current = useSpy ? curve.get(i).spyValue() : curve.get(i).portfolioValue();
+      if (previous > 0) dailyReturns.add((current - previous) / previous);
+    }
+    if (dailyReturns.isEmpty()) return 0.0;
+    double meanReturn = dailyReturns.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+    // Downside variance: sum(min(r,0)^2) / n  — matches frontend formula
+    double downsideVariance =
+        dailyReturns.stream().mapToDouble(r -> Math.pow(Math.min(r, 0.0), 2)).average().orElse(0.0);
+    double downsideDeviation = Math.sqrt(downsideVariance);
+    if (downsideDeviation == 0.0) return 0.0;
+    return (meanReturn / downsideDeviation) * Math.sqrt(TRADING_DAYS_PER_YEAR);
+  }
+
+  private double computeCalmarRatio(double annualizedReturnPct, double maxDrawdownPct) {
+    if (maxDrawdownPct == 0.0) return 0.0;
+    return annualizedReturnPct / maxDrawdownPct;
   }
 
   private double computeMaxDrawdown(List<EquityCurvePoint> curve, boolean useSpy) {

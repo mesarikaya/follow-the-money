@@ -812,12 +812,13 @@ export default function BacktesterPage() {
                       <MetricCard label="Ann. Return" value={formatPct(result.annualizedReturnPct)} color={result.annualizedReturnPct >= 0 ? winColor : lossColor} tooltip="CAGR: compound annual growth rate." />
                       <MetricCard label="Max Drawdown" value={`-${result.maxDrawdownPct?.toFixed(2)}%`} color={lossColor} tooltip="Largest peak-to-trough decline. Lower is better." />
                       <MetricCard label="Sharpe Ratio" value={formatDecimal(result.sharpeRatio)} color={(result.sharpeRatio ?? 0) >= 1 ? winColor : neutColor} tooltip="Ann. return / ann. volatility. >1.0 = good, >2.0 = excellent." />
-                      {result.maxDrawdownPct > 0 && (() => {
-                        const calmar = result.annualizedReturnPct / result.maxDrawdownPct;
+                      {(() => {
+                        const calmar = result.calmarRatio ?? (result.maxDrawdownPct > 0 ? result.annualizedReturnPct / result.maxDrawdownPct : null);
+                        if (calmar == null) return null;
                         return <MetricCard label="Calmar Ratio" value={calmar.toFixed(2)} color={calmar >= 1.5 ? winColor : calmar >= 0.5 ? neutColor : lossColor} tooltip="Ann. return ÷ max drawdown. >1.5 = good; favored by trend-following funds." />;
                       })()}
-                      {result.equityCurve && (() => {
-                        const sortino = computeSortino(result.equityCurve, false);
+                      {(() => {
+                        const sortino = result.sortinoRatio ?? computeSortino(result.equityCurve, false);
                         if (sortino == null) return null;
                         return <MetricCard label="Sortino Ratio" value={sortino.toFixed(2)} color={sortino >= 1.5 ? winColor : sortino >= 0.7 ? neutColor : lossColor} tooltip="Ann. return / downside deviation (negative-return days only). Better than Sharpe for asymmetric return profiles. >1.5 = excellent." />;
                       })()}
@@ -833,11 +834,13 @@ export default function BacktesterPage() {
                       <MetricCard label="Ann. Return" value={formatPct(result.spyAnnualizedReturnPct)} color="text-slate-300" tooltip="SPY CAGR over the backtest period." />
                       <MetricCard label="Max Drawdown" value={result.spyMaxDrawdownPct != null ? `-${result.spyMaxDrawdownPct.toFixed(2)}%` : "—"} color="text-slate-300" tooltip="Largest peak-to-trough decline for SPY." />
                       <MetricCard label="Sharpe Ratio" value={formatDecimal(result.spySharpeRatio)} color="text-slate-300" />
-                      {result.spyMaxDrawdownPct != null && result.spyMaxDrawdownPct > 0 && result.spyAnnualizedReturnPct != null && (() => {
-                        const spyCalmar = result.spyAnnualizedReturnPct / result.spyMaxDrawdownPct;
+                      {(() => {
+                        const spyCalmar = result.spyAnnualizedReturnPct != null && result.spyMaxDrawdownPct != null && result.spyMaxDrawdownPct > 0
+                          ? result.spyAnnualizedReturnPct / result.spyMaxDrawdownPct : null;
+                        if (spyCalmar == null) return null;
                         return <MetricCard label="Calmar Ratio" value={spyCalmar.toFixed(2)} color="text-slate-300" tooltip="SPY ann. return ÷ max drawdown." />;
                       })()}
-                      {result.equityCurve && (() => {
+                      {(() => {
                         const spySortino = computeSortino(result.equityCurve, true);
                         if (spySortino == null) return null;
                         return <MetricCard label="Sortino Ratio" value={spySortino.toFixed(2)} color="text-slate-300" tooltip="SPY ann. return / downside deviation." />;
@@ -882,7 +885,9 @@ export default function BacktesterPage() {
                         <th className="pb-2 pr-3 font-medium text-right">SPY</th>
                         <th className="pb-2 pr-3 font-medium text-right">Excess</th>
                         <th className="pb-2 pr-3 font-medium text-right">DD</th>
-                        <th className="pb-2 font-medium text-right">Sharpe</th>
+                        <th className="pb-2 pr-3 font-medium text-right">Sharpe</th>
+                        <th className="pb-2 pr-3 font-medium text-right">Sortino</th>
+                        <th className="pb-2 font-medium text-right">Calmar</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800">
@@ -911,8 +916,14 @@ export default function BacktesterPage() {
                             <td className="py-1.5 pr-3 font-mono tabular-nums text-red-400 text-right">
                               -{run.maxDrawdownPct?.toFixed(1)}%
                             </td>
-                            <td className={`py-1.5 font-mono tabular-nums text-right ${(run.sharpeRatio ?? 0) >= 1 ? "text-emerald-400" : "text-slate-400"}`}>
+                            <td className={`py-1.5 pr-3 font-mono tabular-nums text-right ${(run.sharpeRatio ?? 0) >= 1 ? "text-emerald-400" : "text-slate-400"}`}>
                               {run.sharpeRatio?.toFixed(2)}
+                            </td>
+                            <td className={`py-1.5 pr-3 font-mono tabular-nums text-right ${(run.sortinoRatio ?? 0) >= 1.5 ? "text-emerald-400" : "text-slate-400"}`}>
+                              {run.sortinoRatio != null ? run.sortinoRatio.toFixed(2) : "—"}
+                            </td>
+                            <td className={`py-1.5 font-mono tabular-nums text-right ${(run.calmarRatio ?? 0) >= 1.5 ? "text-emerald-400" : "text-slate-400"}`}>
+                              {run.calmarRatio != null ? run.calmarRatio.toFixed(2) : "—"}
                             </td>
                           </tr>
                         );

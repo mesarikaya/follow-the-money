@@ -26,13 +26,38 @@ function TrendChip({
   );
 }
 
-function RsConfirmBadge({ rs60, rs120, trendPositive }: { rs60: number | null; rs120: number | null; trendPositive: boolean }) {
+function RsConfirmBadge({ rs20, rs60, rs120, trendPositive }: { rs20: number | null; rs60: number | null; rs120: number | null; trendPositive: boolean }) {
   if (rs60 == null || rs120 == null) return null;
   const rsAccel = rs60 - rs120;
   const rsAccelPositive = rsAccel > 0.001;
   const rsAccelNegative = rsAccel < -0.001;
-  if (!rsAccelPositive && !rsAccelNegative) return null;
 
+  // Check full RS-20 all-aligned (overrides the 2-horizon badge)
+  const allAlignedBull = rs20 != null && rs60 != null && rs120 != null && rs20 > rs60 && rs60 > rs120;
+  const allAlignedBear = rs20 != null && rs60 != null && rs120 != null && rs20 < rs60 && rs60 < rs120;
+
+  if (allAlignedBull) {
+    return (
+      <span
+        className="text-[9px] px-1 py-0.5 rounded tabular-nums font-semibold bg-emerald-900/50 text-emerald-300 border border-emerald-700/40"
+        title="RS-20 > RS-60 > RS-120: all three horizons aligned bullish — momentum conviction at maximum"
+      >
+        ⊕RS
+      </span>
+    );
+  }
+  if (allAlignedBear) {
+    return (
+      <span
+        className="text-[9px] px-1 py-0.5 rounded tabular-nums font-semibold bg-red-900/50 text-red-300 border border-red-700/40"
+        title="RS-20 < RS-60 < RS-120: all three horizons aligned bearish — momentum deteriorating on every timeframe"
+      >
+        ⊖RS
+      </span>
+    );
+  }
+
+  if (!rsAccelPositive && !rsAccelNegative) return null;
   const confirms = (trendPositive && rsAccelPositive) || (!trendPositive && rsAccelNegative);
   const ptsAbs = Math.round(Math.abs(rsAccel) * 100);
 
@@ -94,7 +119,7 @@ function MomentumRow({ cat, isLast }: { cat: CategorySummary; isLast: boolean })
         {t20 != null && Math.abs(Math.round(t20 * 100)) >= 2 && (
           <TrendChip label="20d" value={t20} positive={t20 >= 0} />
         )}
-        <RsConfirmBadge rs60={cat.rs60} rs120={cat.rs120} trendPositive={trendPositive} />
+        <RsConfirmBadge rs20={cat.rs20 ?? null} rs60={cat.rs60 ?? null} rs120={cat.rs120 ?? null} trendPositive={trendPositive} />
         {tripleConfirmed && (
           <span
             className={`text-[9px] font-bold px-1 py-0.5 rounded ${trendPositive ? "text-emerald-300 bg-emerald-900/50 border border-emerald-700/50" : "text-red-300 bg-red-900/50 border border-red-700/50"}`}

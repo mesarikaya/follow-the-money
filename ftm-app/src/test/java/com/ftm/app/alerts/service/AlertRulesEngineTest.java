@@ -86,7 +86,8 @@ class AlertRulesEngineTest {
     lenient()
         .when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
         .thenReturn(Map.of());
-    // flow_surge, rs_aligned_bull, rs_aligned_bear, and pre_buy_flow_surge rules default to disabled; individual tests override
+    // flow_surge, rs_aligned_bull, rs_aligned_bear, pre_buy_flow_surge, and
+    // high_conviction_reduce_cluster rules default to disabled; individual tests override
     lenient()
         .when(alertRulesRepository.findById("flow_surge"))
         .thenReturn(Optional.of(disabled("flow_surge")));
@@ -99,6 +100,9 @@ class AlertRulesEngineTest {
     lenient()
         .when(alertRulesRepository.findById("pre_buy_flow_surge"))
         .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
+    lenient()
+        .when(alertRulesRepository.findById("high_conviction_reduce_cluster"))
+        .thenReturn(Optional.of(disabled("high_conviction_reduce_cluster")));
   }
 
   private AlertRule enabled(String ruleId, Severity severity) {
@@ -1139,6 +1143,79 @@ class AlertRulesEngineTest {
     verify(alertRepository, never()).insert(any());
   }
 
+  // ===== High Conviction REDUCE Cluster Alert Tests =====
+
+  @Test
+  @DisplayName("high_conviction_reduce_cluster: inserts ACTION when ≥3 sectors are high-conviction REDUCE")
+  void shouldCreateReduceClusterAlertWhenThreeOrMoreSectorsAreHighConvictionReduce() {
+    stubTopLevelCategories("TECH", "FINL", "HLTH");
+    stubAllRulesDisabledExceptReduceCluster();
+    when(alertRulesRepository.findById("high_conviction_reduce_cluster"))
+        .thenReturn(Optional.of(enabled("high_conviction_reduce_cluster", Severity.ACTION)));
+
+    // All 3 sectors: score=0.28 (<0.35 → REDUCE), rrg=1 (Lagging), trend20d=-0.04,
+    // trend5d=-0.08 (accel=-0.04 clearly ≤ -0.02 → +12), flow20d=-2.0 (<-1.5 → +5)
+    // conviction = 25 + 12 + 5 = 42 ≥ 40
+    when(signalRepository.findLatestByTypes(any()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE,
+                    Map.of("TECH", new BigDecimal("0.28"), "FINL", new BigDecimal("0.28"), "HLTH", new BigDecimal("0.28")),
+                SignalType.RRG_QUADRANT,
+                    Map.of("TECH", new BigDecimal("1"), "FINL", new BigDecimal("1"), "HLTH", new BigDecimal("1")),
+                SignalType.COMPOSITE_TREND_20D,
+                    Map.of("TECH", new BigDecimal("-0.04"), "FINL", new BigDecimal("-0.04"), "HLTH", new BigDecimal("-0.04")),
+                SignalType.COMPOSITE_TREND_5D,
+                    Map.of("TECH", new BigDecimal("-0.08"), "FINL", new BigDecimal("-0.08"), "HLTH", new BigDecimal("-0.08")),
+                SignalType.FLOW_20D,
+                    Map.of("TECH", new BigDecimal("-2.0"), "FINL", new BigDecimal("-2.0"), "HLTH", new BigDecimal("-2.0"))));
+    when(signalRepository.findScorePercentile252d())
+        .thenReturn(Map.of("TECH", new BigDecimal("0.10"), "FINL", new BigDecimal("0.10"), "HLTH", new BigDecimal("0.10")));
+    when(alertRepository.existsActiveAlert("high_conviction_reduce_cluster", null)).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("high_conviction_reduce_cluster");
+    assertThat(inserted.categoryId()).isNull();
+    assertThat(inserted.severity()).isEqualTo(Severity.ACTION);
+    assertThat(inserted.message()).contains("3").containsIgnoringCase("cluster");
+  }
+
+  @Test
+  @DisplayName("high_conviction_reduce_cluster: no alert when fewer than 3 sectors are high-conviction REDUCE")
+  void shouldNotCreateReduceClusterAlertWhenFewerThanThreeSectorsQualify() {
+    stubTopLevelCategories("TECH", "FINL", "HLTH");
+    stubAllRulesDisabledExceptReduceCluster();
+    when(alertRulesRepository.findById("high_conviction_reduce_cluster"))
+        .thenReturn(Optional.of(enabled("high_conviction_reduce_cluster", Severity.ACTION)));
+
+    // TECH: REDUCE conviction 42 (qualifies), FINL+HLTH: REDUCE but conviction=34 only (below 40)
+    // TECH: accel=-0.08-(-0.04)=-0.04 ≤ -0.02 → +12; flow=-2.0 < -1.5 → +5; total=25+12+5=42
+    // FINL/HLTH: accel=-0.01-(-0.01)=0 → +4 only; flow=0.1 → 0; total=25+4=29
+    when(signalRepository.findLatestByTypes(any()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE,
+                    Map.of("TECH", new BigDecimal("0.28"), "FINL", new BigDecimal("0.28"), "HLTH", new BigDecimal("0.28")),
+                SignalType.RRG_QUADRANT,
+                    Map.of("TECH", new BigDecimal("1"), "FINL", new BigDecimal("2"), "HLTH", new BigDecimal("2")),
+                SignalType.COMPOSITE_TREND_20D,
+                    Map.of("TECH", new BigDecimal("-0.04"), "FINL", new BigDecimal("-0.01"), "HLTH", new BigDecimal("-0.01")),
+                SignalType.COMPOSITE_TREND_5D,
+                    Map.of("TECH", new BigDecimal("-0.08"), "FINL", new BigDecimal("-0.01"), "HLTH", new BigDecimal("-0.01")),
+                SignalType.FLOW_20D,
+                    Map.of("TECH", new BigDecimal("-2.0"), "FINL", new BigDecimal("0.1"), "HLTH", new BigDecimal("0.1"))));
+    when(signalRepository.findScorePercentile252d())
+        .thenReturn(Map.of("TECH", new BigDecimal("0.10"), "FINL", new BigDecimal("0.40"), "HLTH", new BigDecimal("0.40")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
   // ===== Signal Deterioration Alert Tests =====
 
   private void stubAllRulesDisabledExceptSignalDeterioration() {
@@ -1152,6 +1229,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("high_conviction_buy")));
     when(alertRulesRepository.findById("high_conviction_cluster"))
         .thenReturn(Optional.of(disabled("high_conviction_cluster")));
+    when(alertRulesRepository.findById("high_conviction_reduce_cluster"))
+        .thenReturn(Optional.of(disabled("high_conviction_reduce_cluster")));
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
   }
 
@@ -1239,12 +1318,16 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
     when(alertRulesRepository.findById("rs_aligned_bear"))
         .thenReturn(Optional.of(disabled("rs_aligned_bear")));
+    when(alertRulesRepository.findById("high_conviction_reduce_cluster"))
+        .thenReturn(Optional.of(disabled("high_conviction_reduce_cluster")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
     stubAllOtherRulesDisabled();
     when(alertRulesRepository.findById("rs_aligned_bull"))
         .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bear")));
   }
 
   private void stubAllRulesDisabledExceptRsAlignedBull() {
@@ -1273,6 +1356,19 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("rs_aligned_bull")));
     when(alertRulesRepository.findById("rs_aligned_bear"))
         .thenReturn(Optional.of(disabled("rs_aligned_bear")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+  }
+
+  private void stubAllRulesDisabledExceptReduceCluster() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bear")));
+    when(alertRulesRepository.findById("pre_buy_flow_surge"))
+        .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
     when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
   }
 

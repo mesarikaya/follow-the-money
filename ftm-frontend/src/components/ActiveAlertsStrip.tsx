@@ -20,6 +20,7 @@ const RULE_SHORT: Record<string, string> = {
   flow_surge:               "Flow⬆",
   signal_deterioration:     "Deteriorating",
   high_conviction_buy:      "High-C BUY",
+  high_conviction_reduce_cluster: "RISK-OFF Cluster",
   rs_aligned_bull:          "RS Aligned⊕",
   rs_aligned_bear:          "RS Bear⊖",
   pre_buy_flow_surge:       "Pre-BUY Flow",

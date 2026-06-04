@@ -63,8 +63,10 @@ public class AlertRulesEngine {
     private static final int HIGH_CONVICTION_THRESHOLD = 75;
     private static final int HIGH_CONVICTION_RESOLVE_THRESHOLD = 65;
     private static final String RULE_HIGH_CONVICTION_CLUSTER = "high_conviction_cluster";
+    private static final String RULE_HIGH_CONVICTION_REDUCE_CLUSTER = "high_conviction_reduce_cluster";
     private static final int CLUSTER_MIN_SIZE = 3;
     private static final int CLUSTER_RESOLVE_SIZE = 2;
+    private static final int REDUCE_CLUSTER_CONVICTION_THRESHOLD = 40;
     private static final String RULE_SIGNAL_DETERIORATION = "signal_deterioration";
     private static final String RULE_FLOW_SURGE = "flow_surge";
     private static final String RULE_RS_ALIGNED_BULL = "rs_aligned_bull";
@@ -125,6 +127,7 @@ public class AlertRulesEngine {
         alertsCreated += evaluateApproachingReduceSignal(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateHighConvictionBuy(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateHighConvictionCluster(signalDate, topLevelCategoryIds);
+        alertsCreated += evaluateHighConvictionReduceCluster(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateSignalDeterioration(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateRsAlignedBull(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateRsAlignedBear(signalDate, topLevelCategoryIds);
@@ -1112,6 +1115,64 @@ public class AlertRulesEngine {
         } else if (clusterSize < CLUSTER_RESOLVE_SIZE && hasActiveAlert) {
             alertRepository.resolveAlertsByRuleAndCategory(RULE_HIGH_CONVICTION_CLUSTER, null);
             log.info("high_conviction_cluster: resolved, clusterSize dropped to {}", clusterSize);
+        }
+        return 0;
+    }
+
+    /**
+     * Fires when 3+ sectors simultaneously have high-conviction REDUCE signals (conviction ≥ 40).
+     * A synchronized multi-sector REDUCE cluster indicates systemic risk-off rotation — not just
+     * single-sector weakness. This is the REDUCE counterpart to high_conviction_cluster (BUY regime).
+     * Resolves when the cluster shrinks below 2 sectors.
+     */
+    private int evaluateHighConvictionReduceCluster(LocalDate signalDate, Set<String> topLevelCategoryIds) {
+        Optional<AlertRule> rule = alertRulesRepository.findById(RULE_HIGH_CONVICTION_REDUCE_CLUSTER);
+        if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+        Severity severity = rule.map(AlertRule::severity).orElse(Severity.ACTION);
+
+        ConvictionSignalMaps maps = fetchConvictionSignals();
+
+        List<String> reduceClusterIds = new java.util.ArrayList<>();
+        for (String categoryId : topLevelCategoryIds) {
+            BigDecimal score = maps.composite().get(categoryId);
+            if (score == null) continue;
+            String rrgStr = maps.rrg().containsKey(categoryId)
+                    ? String.valueOf(maps.rrg().get(categoryId).intValue()) : null;
+            String signal = TradeSignalDeriver.derive(score, rrgStr, maps.trend20d().get(categoryId));
+            if (!"REDUCE".equals(signal)) continue;
+            int conviction = TradeSignalDeriver.convictionScore(
+                    score, rrgStr, maps.trend20d().get(categoryId), maps.macroFit().get(categoryId),
+                    maps.percentile252d().get(categoryId), maps.trend5d().get(categoryId),
+                    maps.rs60().get(categoryId), maps.rs120().get(categoryId),
+                    maps.flow20d().get(categoryId), maps.rs20().get(categoryId));
+            if (conviction >= REDUCE_CLUSTER_CONVICTION_THRESHOLD) {
+                reduceClusterIds.add(categoryId);
+            }
+        }
+
+        int clusterSize = reduceClusterIds.size();
+        boolean hasActiveAlert = alertRepository.existsActiveAlert(RULE_HIGH_CONVICTION_REDUCE_CLUSTER, null);
+
+        if (clusterSize >= CLUSTER_MIN_SIZE && !hasActiveAlert) {
+            String tickers = String.join(", ", reduceClusterIds.stream().sorted().limit(5).toList());
+            alertRepository.insert(
+                    new Alert(
+                            OffsetDateTime.now(),
+                            null,
+                            RULE_HIGH_CONVICTION_REDUCE_CLUSTER,
+                            severity,
+                            String.format(
+                                    "REDUCE CLUSTER: %d sectors at conviction ≥%d — broad RISK-OFF rotation detected (%s)",
+                                    clusterSize, REDUCE_CLUSTER_CONVICTION_THRESHOLD, tickers),
+                            String.format(
+                                    "{\"clusterSize\":%d,\"sectors\":\"%s\",\"signalDate\":\"%s\"}",
+                                    clusterSize, tickers, signalDate),
+                            AlertStatus.ACTIVE));
+            log.info("high_conviction_reduce_cluster: clusterSize={} sectors={}", clusterSize, tickers);
+            return 1;
+        } else if (clusterSize < CLUSTER_RESOLVE_SIZE && hasActiveAlert) {
+            alertRepository.resolveAlertsByRuleAndCategory(RULE_HIGH_CONVICTION_REDUCE_CLUSTER, null);
+            log.info("high_conviction_reduce_cluster: resolved, clusterSize dropped to {}", clusterSize);
         }
         return 0;
     }

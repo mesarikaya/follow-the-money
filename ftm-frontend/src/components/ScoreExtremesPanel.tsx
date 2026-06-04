@@ -7,6 +7,9 @@ type ExtremeEntry = {
   score: number;
   delta: number; // distance from extreme as fraction (0 = exactly at extreme)
   persistence20d: number | null;
+  flow20d: number | null;
+  rsAlignedBull: boolean;
+  rsAlignedBear: boolean;
 };
 
 function PersistencePip({ value }: { value: number | null }) {
@@ -51,10 +54,16 @@ export default function ScoreExtremesPanel({
     const fromLow = (current - min30d) / range;
 
     const persistence20d = cat.persistence20d ?? null;
+    const flow20d = cat.flow20d ?? null;
+    const rs20 = cat.rs20 ?? null;
+    const rs60 = cat.rs60 ?? null;
+    const rs120 = cat.rs120 ?? null;
+    const rsAlignedBull = rs20 != null && rs60 != null && rs120 != null && rs20 > rs60 && rs60 > rs120;
+    const rsAlignedBear = rs20 != null && rs60 != null && rs120 != null && rs20 < rs60 && rs60 < rs120;
     if (fromHigh <= 0.08) {
-      atHighs.push({ id: cat.id, name: cat.name, etfTicker: cat.etfTicker, score: current, delta: fromHigh, persistence20d });
+      atHighs.push({ id: cat.id, name: cat.name, etfTicker: cat.etfTicker, score: current, delta: fromHigh, persistence20d, flow20d, rsAlignedBull, rsAlignedBear });
     } else if (fromLow <= 0.08) {
-      atLows.push({ id: cat.id, name: cat.name, etfTicker: cat.etfTicker, score: current, delta: fromLow, persistence20d });
+      atLows.push({ id: cat.id, name: cat.name, etfTicker: cat.etfTicker, score: current, delta: fromLow, persistence20d, flow20d, rsAlignedBull, rsAlignedBear });
     }
   }
 
@@ -78,6 +87,8 @@ export default function ScoreExtremesPanel({
         ) : (
           atHighs.map((entry, i) => {
             const isFragile = entry.persistence20d != null && entry.persistence20d < 8;
+            const flowDistrib = entry.flow20d != null && entry.flow20d <= -0.8;
+            const flowConfirm = entry.flow20d != null && entry.flow20d >= 1.5;
             return (
               <div
                 key={entry.id}
@@ -85,10 +96,29 @@ export default function ScoreExtremesPanel({
               >
                 <span className="font-mono text-xs text-blue-300 w-9 shrink-0">{entry.etfTicker}</span>
                 <span className="flex-1 text-xs text-slate-300 truncate">{entry.name}</span>
-                {isFragile && (
+                {flowDistrib && (
+                  <span
+                    className="text-[8px] text-rose-400 border border-rose-700/50 px-1 py-0.5 rounded shrink-0"
+                    title={`Distribution signal: score at 30d high but institutional outflows (flow z=${entry.flow20d?.toFixed(1)}σ) — smart money reducing exposure`}
+                  >
+                    ⬇ Distrib
+                  </span>
+                )}
+                {flowConfirm && (
+                  <span
+                    className="text-[8px] text-teal-400 border border-teal-700/50 px-1 py-0.5 rounded shrink-0"
+                    title={`Flow confirmed: score at 30d high with strong institutional inflows (flow z=+${entry.flow20d?.toFixed(1)}σ) — trend may extend`}
+                  >
+                    ⬆ Confirmed
+                  </span>
+                )}
+                {!flowDistrib && !flowConfirm && isFragile && (
                   <span className="text-[8px] text-amber-400 border border-amber-700/50 px-1 py-0.5 rounded shrink-0" title="Fragile leadership: score at 30d high but persistence is low — momentum may not be sustainable">
                     ⚠ Fragile
                   </span>
+                )}
+                {entry.rsAlignedBull && (
+                  <span className="text-[8px] text-emerald-400 font-semibold shrink-0" title="RS-20 > RS-60 > RS-120: all-horizon momentum aligned bullish">⊕</span>
                 )}
                 <PersistencePip value={entry.persistence20d} />
                 <span className="text-xs tabular-nums text-green-400 shrink-0">
@@ -118,6 +148,8 @@ export default function ScoreExtremesPanel({
         ) : (
           atLows.map((entry, i) => {
             const isRecovering = entry.persistence20d != null && entry.persistence20d >= 8;
+            const flowAccum = entry.flow20d != null && entry.flow20d >= 1.5;
+            const flowConfirmsBear = entry.flow20d != null && entry.flow20d <= -0.8;
             return (
               <div
                 key={entry.id}
@@ -125,10 +157,29 @@ export default function ScoreExtremesPanel({
               >
                 <span className="font-mono text-xs text-blue-300 w-9 shrink-0">{entry.etfTicker}</span>
                 <span className="flex-1 text-xs text-slate-300 truncate">{entry.name}</span>
-                {isRecovering && (
+                {flowAccum && (
+                  <span
+                    className="text-[8px] text-teal-400 border border-teal-700/50 px-1 py-0.5 rounded shrink-0"
+                    title={`Accumulation signal: score at 30d low but institutional inflows surging (flow z=+${entry.flow20d?.toFixed(1)}σ) — smart money buying the dip`}
+                  >
+                    ⬆ Accum
+                  </span>
+                )}
+                {flowConfirmsBear && (
+                  <span
+                    className="text-[8px] text-rose-400 border border-rose-700/50 px-1 py-0.5 rounded shrink-0"
+                    title={`Confirmed weakness: score at 30d low with institutional outflows (flow z=${entry.flow20d?.toFixed(1)}σ) — distribution ongoing`}
+                  >
+                    ⬇ Distrib
+                  </span>
+                )}
+                {!flowAccum && !flowConfirmsBear && isRecovering && (
                   <span className="text-[8px] text-cyan-400 border border-cyan-700/50 px-1 py-0.5 rounded shrink-0" title="Score at 30d low but persistence is still healthy — potential divergence, watch for reversal">
                     ↑ Diverging
                   </span>
+                )}
+                {entry.rsAlignedBear && (
+                  <span className="text-[8px] text-red-400 font-semibold shrink-0" title="RS-20 < RS-60 < RS-120: all-horizon momentum aligned bearish">⊖</span>
                 )}
                 <PersistencePip value={entry.persistence20d} />
                 <span className="text-xs tabular-nums text-red-400 shrink-0">

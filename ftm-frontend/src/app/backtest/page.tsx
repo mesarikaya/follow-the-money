@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { runBacktest, runBacktestSweep, runBacktestFrequencySweep, fetchRecentBacktests, fetchCategories, fetchMacro, BacktestResult, EquityCurvePoint, RebalanceEvent, CategorySummary } from "@/lib/api";
+import { runBacktest, runBacktestSweep, runBacktestFrequencySweep, fetchRecentBacktests, fetchCategories, fetchMacro, BacktestResult, EquityCurvePoint, RebalanceEvent, CategorySummary, MacroResponse } from "@/lib/api";
 import { CATEGORY_ETF_MAP } from "@/lib/sectors";
 import { deriveTradeSignal } from "@/lib/signals";
 
@@ -760,6 +760,121 @@ function SweepTable({ rows, currentTopN }: { rows: BacktestResult[]; currentTopN
   );
 }
 
+const REGIME_COLORS: Record<string, { label: string; dot: string; textClass: string }> = {
+  RISK_ON_GROWTH:    { label: "Risk-On Growth",    dot: "bg-emerald-500", textClass: "text-emerald-400" },
+  RISK_ON_DEFENSIVE: { label: "Risk-On Defensive", dot: "bg-blue-500",    textClass: "text-blue-400"   },
+  RISK_OFF_FLIGHT:   { label: "Risk-Off / Flight", dot: "bg-red-500",     textClass: "text-red-400"    },
+  STAGFLATION:       { label: "Stagflation",        dot: "bg-amber-500",   textClass: "text-amber-400"  },
+};
+
+type RegimeBreakdown = {
+  regime: string;
+  days: number;
+  portReturn: number;
+  spyReturn: number;
+};
+
+function computeRegimeBreakdown(
+  curve: EquityCurvePoint[],
+  history: { date: string; regime: string }[],
+): RegimeBreakdown[] {
+  if (curve.length < 2 || history.length === 0) return [];
+  const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date));
+
+  // Build date→regime lookup by extending each weekly observation forward
+  const regimeByDate: Record<string, string> = {};
+  for (let i = 0; i < sorted.length; i++) {
+    const start = sorted[i].date;
+    const end = sorted[i + 1]?.date ?? "9999-99-99";
+    for (const pt of curve) {
+      if (pt.date >= start && pt.date < end) {
+        regimeByDate[pt.date] = sorted[i].regime;
+      }
+    }
+  }
+
+  // Group equity curve points by regime, compute compounded return per regime
+  const regimeGroups: Record<string, { portValues: number[]; spyValues: number[] }> = {};
+  for (const pt of curve) {
+    const regime = regimeByDate[pt.date];
+    if (!regime) continue;
+    if (!regimeGroups[regime]) regimeGroups[regime] = { portValues: [], spyValues: [] };
+    regimeGroups[regime].portValues.push(pt.portfolioValue);
+    regimeGroups[regime].spyValues.push(pt.spyValue);
+  }
+
+  return Object.entries(regimeGroups).map(([regime, { portValues, spyValues }]) => {
+    const portReturn = portValues.length > 1
+      ? (portValues[portValues.length - 1] / portValues[0] - 1) * 100 : 0;
+    const spyReturn = spyValues.length > 1
+      ? (spyValues[spyValues.length - 1] / spyValues[0] - 1) * 100 : 0;
+    return { regime, days: portValues.length, portReturn, spyReturn };
+  }).sort((a, b) => b.days - a.days);
+}
+
+function RegimeBreakdownTable({ curve, history }: { curve: EquityCurvePoint[]; history: { date: string; regime: string }[] }) {
+  const rows = computeRegimeBreakdown(curve, history);
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-sm font-semibold text-slate-200">Performance by Macro Regime</div>
+        <div className="text-[10px] text-slate-500">
+          Compounded strategy return vs SPY in each regime · coverage from weekly macro signal
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-slate-700 text-slate-500 text-left">
+              <th className="pb-2 pr-3 font-medium">Regime</th>
+              <th className="pb-2 pr-3 font-medium text-right">Days</th>
+              <th className="pb-2 pr-3 font-medium text-right">Strategy</th>
+              <th className="pb-2 pr-3 font-medium text-right">SPY</th>
+              <th className="pb-2 pr-3 font-medium text-right">Alpha</th>
+              <th className="pb-2 font-medium text-right">Daily Avg</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800">
+            {rows.map(r => {
+              const alpha = r.portReturn - r.spyReturn;
+              const rc = REGIME_COLORS[r.regime] ?? { label: r.regime, dot: "bg-slate-500", textClass: "text-slate-400" };
+              const dailyAvg = r.days > 1 ? r.portReturn / r.days : 0;
+              return (
+                <tr key={r.regime} className="hover:bg-slate-800/40 transition-colors">
+                  <td className="py-2 pr-3">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${rc.dot} inline-block shrink-0`} />
+                      <span className={`font-medium ${rc.textClass}`}>{rc.label}</span>
+                    </div>
+                  </td>
+                  <td className="py-2 pr-3 font-mono tabular-nums text-right text-slate-400">{r.days}</td>
+                  <td className={`py-2 pr-3 font-mono tabular-nums text-right ${r.portReturn >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {r.portReturn >= 0 ? "+" : ""}{r.portReturn.toFixed(1)}%
+                  </td>
+                  <td className={`py-2 pr-3 font-mono tabular-nums text-right ${r.spyReturn >= 0 ? "text-slate-300" : "text-red-400"}`}>
+                    {r.spyReturn >= 0 ? "+" : ""}{r.spyReturn.toFixed(1)}%
+                  </td>
+                  <td className={`py-2 pr-3 font-mono tabular-nums text-right font-semibold ${alpha >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {alpha >= 0 ? "+" : ""}{alpha.toFixed(1)}%
+                  </td>
+                  <td className={`py-2 font-mono tabular-nums text-right text-[10px] ${dailyAvg >= 0 ? "text-slate-400" : "text-red-400/70"}`}>
+                    {dailyAvg >= 0 ? "+" : ""}{dailyAvg.toFixed(3)}%/d
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-2 text-[10px] text-slate-600">
+        Regime classification is weekly (FRED data lag). Days = trading days in this backtest where the regime applied. Alpha = strategy minus SPY for that regime period only.
+      </div>
+    </div>
+  );
+}
+
 const FREQ_LABELS: Record<string, { label: string; shortLabel: string; colorClass: string }> = {
   WEEKLY:    { label: "Weekly",    shortLabel: "W", colorClass: "text-purple-400" },
   MONTHLY:   { label: "Monthly",   shortLabel: "M", colorClass: "text-blue-400"   },
@@ -862,11 +977,12 @@ export default function BacktesterPage() {
   const [isFreqSweeping, setIsFreqSweeping] = useState(false);
   const [liveCategories, setLiveCategories] = useState<CategorySummary[]>([]);
   const [liveRegime, setLiveRegime] = useState<string | null>(null);
+  const [regimeHistory, setRegimeHistory] = useState<MacroResponse["regimeHistory"]>([]);
 
   useEffect(() => {
     fetchRecentBacktests().then(setRecentRuns).catch(() => {});
     fetchCategories("MONTH").then(r => setLiveCategories(r.categories)).catch(() => {});
-    fetchMacro().then(r => setLiveRegime(r.regime)).catch(() => {});
+    fetchMacro().then(r => { setLiveRegime(r.regime); setRegimeHistory(r.regimeHistory ?? []); }).catch(() => {});
   }, []);
 
   const handleRun = async () => {
@@ -1415,6 +1531,11 @@ export default function BacktesterPage() {
                       Each point = trailing 252-day (1-year) return at that date. Shows consistency of strategy edge vs SPY over time.
                     </div>
                   </div>
+                )}
+
+                {/* Regime breakdown table */}
+                {result.equityCurve && result.equityCurve.length > 0 && regimeHistory.length > 0 && (
+                  <RegimeBreakdownTable curve={result.equityCurve} history={regimeHistory} />
                 )}
 
                 {/* Rotation Heatmap */}

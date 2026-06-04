@@ -86,6 +86,9 @@ class AlertRulesEngineTest {
     lenient()
         .when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
         .thenReturn(Map.of());
+    lenient()
+        .when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(Map.of());
     // flow_surge, rs_aligned_bull, rs_aligned_bear, pre_buy_flow_surge, and
     // high_conviction_reduce_cluster rules default to disabled; individual tests override
     lenient()
@@ -109,6 +112,9 @@ class AlertRulesEngineTest {
     lenient()
         .when(alertRulesRepository.findById("rs_breadth_bear"))
         .thenReturn(Optional.of(disabled("rs_breadth_bear")));
+    lenient()
+        .when(alertRulesRepository.findById("rrg_rs_divergence"))
+        .thenReturn(Optional.of(disabled("rrg_rs_divergence")));
   }
 
   private AlertRule enabled(String ruleId, Severity severity) {
@@ -1330,6 +1336,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("rs_breadth_bull")));
     when(alertRulesRepository.findById("rs_breadth_bear"))
         .thenReturn(Optional.of(disabled("rs_breadth_bear")));
+    when(alertRulesRepository.findById("rrg_rs_divergence"))
+        .thenReturn(Optional.of(disabled("rrg_rs_divergence")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
@@ -1694,6 +1702,19 @@ class AlertRulesEngineTest {
         && a.message().contains("RS-20 > RS-60")));
   }
 
+  private void stubAllRulesDisabledExceptRrgRsDivergence() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bear")));
+    when(alertRulesRepository.findById("pre_buy_flow_surge"))
+        .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+  }
+
   @Test
   @DisplayName("rs_breadth_bear: inserts WARNING alert when ≥60% of equity sectors have RS-20 < RS-60")
   void shouldCreateRsBreadthBearAlertWhenMajorityOfSectorsShowRsDeterioration() {
@@ -1726,5 +1747,115 @@ class AlertRulesEngineTest {
         && a.severity() == Severity.WARNING
         && a.message().contains("7/7")
         && a.message().contains("RS-20 < RS-60")));
+  }
+
+  // ===== RRG/RS Divergence Alert Tests =====
+
+  @Test
+  @DisplayName("rrg_rs_divergence: inserts WARNING for bearish divergence (Leading RRG but RS-20 < RS-60)")
+  void shouldCreateRrgRsDivergenceAlertForBearishDivergenceWhenLeadingButRsCracking() {
+    // TECH in Q4 (Leading) but RS-20 < RS-60 — momentum cracking while RRG still shows strength
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptRrgRsDivergence();
+    when(alertRulesRepository.findById("rrg_rs_divergence"))
+        .thenReturn(Optional.of(enabled("rrg_rs_divergence", Severity.WARNING)));
+    when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("4"))); // Q4 = Leading
+    when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.05"))); // RS-20 < RS-60
+    when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.10"))); // RS-60 > RS-20 → bearish divergence
+    when(alertRepository.existsActiveAlert("rrg_rs_divergence", "TECH")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).insert(argThat(a ->
+        a.ruleId().equals("rrg_rs_divergence")
+        && a.categoryId() == CategoryId.TECH
+        && a.severity() == Severity.WARNING
+        && a.message().contains("TECH")
+        && a.message().contains("BEARISH DIVERGENCE")
+        && a.message().contains("Leading")));
+  }
+
+  @Test
+  @DisplayName("rrg_rs_divergence: inserts WARNING for bullish divergence (Lagging RRG but RS-20 > RS-60)")
+  void shouldCreateRrgRsDivergenceAlertForBullishDivergenceWhenLaggingButRsRecovering() {
+    // FINL in Q1 (Lagging) but RS-20 > RS-60 — early recovery signal before RRG catches up
+    stubTopLevelCategories("FINL");
+    stubAllRulesDisabledExceptRrgRsDivergence();
+    when(alertRulesRepository.findById("rrg_rs_divergence"))
+        .thenReturn(Optional.of(enabled("rrg_rs_divergence", Severity.WARNING)));
+    when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(Map.of("FINL", new BigDecimal("1"))); // Q1 = Lagging
+    when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
+        .thenReturn(Map.of("FINL", new BigDecimal("0.12"))); // RS-20 > RS-60 → bullish divergence
+    when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
+        .thenReturn(Map.of("FINL", new BigDecimal("0.07")));
+    when(alertRepository.existsActiveAlert("rrg_rs_divergence", "FINL")).thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).insert(argThat(a ->
+        a.ruleId().equals("rrg_rs_divergence")
+        && a.categoryId() == CategoryId.FINL
+        && a.severity() == Severity.WARNING
+        && a.message().contains("FINL")
+        && a.message().contains("BULLISH DIVERGENCE")
+        && a.message().contains("Lagging")));
+  }
+
+  @Test
+  @DisplayName("rrg_rs_divergence: no alert when rule is disabled")
+  void shouldNotCreateRrgRsDivergenceAlertWhenRuleDisabled() {
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptRrgRsDivergence();
+    // rule stays disabled (setUp lenient stub — engine returns early, no signal data fetched)
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("rrg_rs_divergence: no alert when RRG and RS-20/60 agree (no divergence)")
+  void shouldNotCreateRrgRsDivergenceAlertWhenNoConflictBetweenRrgAndRs() {
+    // TECH in Q4 (Leading) AND RS-20 > RS-60 — no divergence
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptRrgRsDivergence();
+    when(alertRulesRepository.findById("rrg_rs_divergence"))
+        .thenReturn(Optional.of(enabled("rrg_rs_divergence", Severity.WARNING)));
+    when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("4"))); // Leading
+    when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.15"))); // RS-20 > RS-60 — agrees with Q4
+    when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.10")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(any());
+  }
+
+  @Test
+  @DisplayName("rrg_rs_divergence: resolves when divergence closes")
+  void shouldResolveRrgRsDivergenceAlertWhenDivergenceCloses() {
+    // TECH was diverging (Q4 + RS-20 < RS-60), but now RS-20 > RS-60 (aligned with Q4)
+    stubTopLevelCategories("TECH");
+    stubAllRulesDisabledExceptRrgRsDivergence();
+    when(alertRulesRepository.findById("rrg_rs_divergence"))
+        .thenReturn(Optional.of(enabled("rrg_rs_divergence", Severity.WARNING)));
+    when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("4"))); // Still Leading
+    when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.15"))); // RS-20 now > RS-60 (divergence closed)
+    when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.10")));
+    when(alertRepository.existsActiveAlert("rrg_rs_divergence", "TECH")).thenReturn(true); // was active
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository).resolveAlertsByRuleAndCategory("rrg_rs_divergence", "TECH");
+    verify(alertRepository, never()).insert(any());
   }
 }

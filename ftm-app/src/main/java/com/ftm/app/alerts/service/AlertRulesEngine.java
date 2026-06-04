@@ -76,6 +76,7 @@ public class AlertRulesEngine {
     private static final String RULE_RS_BREADTH_BEAR = "rs_breadth_bear";
     private static final double RS_BREADTH_FIRE_FRACTION = 0.60;
     private static final double RS_BREADTH_RESOLVE_FRACTION = 0.45;
+    private static final String RULE_RRG_RS_DIVERGENCE = "rrg_rs_divergence";
     private static final BigDecimal FLOW_SURGE_Z_THRESHOLD = new BigDecimal("2.0");
     private static final BigDecimal FLOW_SURGE_RESOLVE_THRESHOLD = new BigDecimal("1.0");
     private static final BigDecimal PRE_BUY_FLOW_SURGE_Z_THRESHOLD = new BigDecimal("1.5");
@@ -137,6 +138,7 @@ public class AlertRulesEngine {
         alertsCreated += evaluateRsAlignedBear(signalDate, topLevelCategoryIds);
         alertsCreated += evaluatePreBuyFlowSurge(signalDate, topLevelCategoryIds);
         alertsCreated += evaluateRsBreadthExtreme(signalDate, equityCategoryIds);
+        alertsCreated += evaluateRrgRsDivergence(signalDate, equityCategoryIds);
 
         log.info(
                 "Alert rule evaluation complete: {} created, {} resolved for date={}",
@@ -1541,6 +1543,80 @@ public class AlertRulesEngine {
             }
         }
 
+        return count;
+    }
+
+    /**
+     * Fires when RRG quadrant direction contradicts RS-20 vs RS-60 momentum direction.
+     * <ul>
+     *   <li>Bearish divergence: sector in Leading (4) or Improving (3) — RRG says strong —
+     *       but RS-20 &lt; RS-60 meaning short-term momentum is already cracking. Early warning
+     *       that the sector is about to roll over into Weakening.</li>
+     *   <li>Bullish divergence: sector in Lagging (1) or Weakening (2) — RRG says weak —
+     *       but RS-20 &gt; RS-60 meaning short-term momentum has already turned up. Early
+     *       recovery signal before the RRG chart catches up.</li>
+     * </ul>
+     * Resolves when divergence closes (RS-20/RS-60 relationship aligns with RRG direction).
+     */
+    private int evaluateRrgRsDivergence(LocalDate signalDate, Set<String> equityCategoryIds) {
+        Optional<AlertRule> rule = alertRulesRepository.findById(RULE_RRG_RS_DIVERGENCE);
+        if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+
+        Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
+
+        Map<String, BigDecimal> rrgMap = signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
+        Map<String, BigDecimal> rs20Map = signalRepository.findByTypeAndDate(SignalType.RS_20, signalDate);
+        Map<String, BigDecimal> rs60Map = signalRepository.findByTypeAndDate(SignalType.RS_60, signalDate);
+
+        if (rrgMap.isEmpty() || rs20Map.isEmpty() || rs60Map.isEmpty()) return 0;
+
+        int count = 0;
+        for (String categoryId : equityCategoryIds) {
+            BigDecimal rrgRaw = rrgMap.get(categoryId);
+            BigDecimal rs20 = rs20Map.get(categoryId);
+            BigDecimal rs60 = rs60Map.get(categoryId);
+            if (rrgRaw == null || rs20 == null || rs60 == null) continue;
+
+            int rrg = rrgRaw.intValue();
+            boolean rrgBullish = rrg == 3 || rrg == 4; // Improving or Leading
+            boolean rrgBearish = rrg == 1 || rrg == 2; // Lagging or Weakening
+            int rsCmp = rs20.compareTo(rs60);
+            boolean rsMomentumBullish = rsCmp > 0; // RS-20 > RS-60: short-term outpacing medium-term
+            boolean rsMomentumBearish = rsCmp < 0;
+
+            boolean bearishDivergence = rrgBullish && rsMomentumBearish; // RRG says strong, RS cracks
+            boolean bullishDivergence = rrgBearish && rsMomentumBullish; // RRG says weak, RS recovers
+
+            boolean hasActive = alertRepository.existsActiveAlert(RULE_RRG_RS_DIVERGENCE, categoryId);
+            boolean anyDivergence = bearishDivergence || bullishDivergence;
+
+            if (anyDivergence && !hasActive) {
+                CategoryId catId;
+                try {
+                    catId = CategoryId.valueOf(categoryId);
+                } catch (IllegalArgumentException e) {
+                    log.debug("rrg_rs_divergence: skipping unknown CategoryId={}", categoryId);
+                    continue;
+                }
+                String rrgLabel = rrg == 4 ? "Leading" : rrg == 3 ? "Improving" : rrg == 2 ? "Weakening" : "Lagging";
+                String divergenceType = bearishDivergence ? "BEARISH DIVERGENCE" : "BULLISH DIVERGENCE";
+                String explanation = bearishDivergence
+                        ? String.format("RRG %s (Q%d) but RS-20 already below RS-60 — momentum cracking before chart shows it", rrgLabel, rrg)
+                        : String.format("RRG %s (Q%d) but RS-20 already above RS-60 — momentum recovering before chart shows it", rrgLabel, rrg);
+                alertRepository.insert(new Alert(
+                        OffsetDateTime.now(), catId, RULE_RRG_RS_DIVERGENCE, severity,
+                        String.format("%s %s: %s", categoryId, divergenceType, explanation),
+                        String.format("{\"rrgQuadrant\":%d,\"rs20\":%.4f,\"rs60\":%.4f,\"divergenceType\":\"%s\",\"signalDate\":\"%s\"}",
+                                rrg, rs20.doubleValue(), rs60.doubleValue(), divergenceType, signalDate),
+                        AlertStatus.ACTIVE));
+                log.info("rrg_rs_divergence: category={} type={} rrg={} rs20={} rs60={}",
+                        categoryId, divergenceType, rrg, rs20, rs60);
+                count++;
+            } else if (!anyDivergence && hasActive) {
+                alertRepository.resolveAlertsByRuleAndCategory(RULE_RRG_RS_DIVERGENCE, categoryId);
+                log.info("rrg_rs_divergence: resolved for category={} (divergence closed)", categoryId);
+            }
+        }
         return count;
     }
 

@@ -59,16 +59,11 @@ public class AlertService {
   }
 
   public AlertRuleDto setRuleEnabled(String ruleId, boolean enabled) {
-    boolean updated = alertRulesRepository.updateEnabled(ruleId, enabled);
-    if (!updated) {
-      throw new NoSuchElementException("Alert rule not found: " + ruleId);
-    }
-    log.info("Alert rule '{}' set enabled={}", ruleId, enabled);
     AlertRule rule =
         alertRulesRepository
-            .findById(ruleId)
-            .orElseThrow(
-                () -> new NoSuchElementException("Alert rule not found after update: " + ruleId));
+            .updateEnabled(ruleId, enabled)
+            .orElseThrow(() -> new NoSuchElementException("Alert rule not found: " + ruleId));
+    log.info("Alert rule '{}' set enabled={}", ruleId, enabled);
     return new AlertRuleDto(
         rule.ruleId(),
         rule.enabled(),

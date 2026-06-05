@@ -140,8 +140,8 @@ class AlertServiceTest {
   @DisplayName("setRuleEnabled updates rule and returns updated dto")
   void shouldSetRuleEnabled() {
     AlertRule updatedRule = alertRule("rrg_transition", false);
-    when(alertRulesRepository.updateEnabled("rrg_transition", false)).thenReturn(true);
-    when(alertRulesRepository.findById("rrg_transition")).thenReturn(Optional.of(updatedRule));
+    when(alertRulesRepository.updateEnabled("rrg_transition", false))
+        .thenReturn(Optional.of(updatedRule));
 
     AlertRuleDto result = alertService.setRuleEnabled("rrg_transition", false);
 
@@ -153,7 +153,7 @@ class AlertServiceTest {
   @Test
   @DisplayName("setRuleEnabled throws NoSuchElementException when rule not found")
   void shouldThrowWhenRuleNotFound() {
-    when(alertRulesRepository.updateEnabled("unknown_rule", true)).thenReturn(false);
+    when(alertRulesRepository.updateEnabled("unknown_rule", true)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> alertService.setRuleEnabled("unknown_rule", true))
         .isInstanceOf(NoSuchElementException.class)

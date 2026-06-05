@@ -38,14 +38,25 @@ public class AlertRulesRepository {
                     r.getLastUpdated()));
   }
 
-  public boolean updateEnabled(String ruleId, boolean enabled) {
-    int updated =
-        dsl.update(ALERT_RULES)
-            .set(ALERT_RULES.ENABLED, enabled)
-            .set(ALERT_RULES.LAST_UPDATED, OffsetDateTime.now())
-            .where(ALERT_RULES.RULE_ID.eq(ruleId))
-            .execute();
-    return updated > 0;
+  public Optional<AlertRule> updateEnabled(String ruleId, boolean enabled) {
+    return dsl.update(ALERT_RULES)
+        .set(ALERT_RULES.ENABLED, enabled)
+        .set(ALERT_RULES.LAST_UPDATED, OffsetDateTime.now())
+        .where(ALERT_RULES.RULE_ID.eq(ruleId))
+        .returning(ALERT_RULES.fields())
+        .fetchOptional()
+        .map(
+            r ->
+                new AlertRule(
+                    r.getValue(ALERT_RULES.RULE_ID),
+                    r.getValue(ALERT_RULES.ENABLED),
+                    r.getValue(ALERT_RULES.Z_THRESHOLD),
+                    r.getValue(ALERT_RULES.PERSISTENCE_DAYS),
+                    r.getValue(ALERT_RULES.COMPOSITE_THRESHOLD),
+                    Severity.valueOf(r.getValue(ALERT_RULES.SEVERITY)),
+                    jsonbToString(r.getValue(ALERT_RULES.CATEGORY_FILTER)),
+                    jsonbToString(r.getValue(ALERT_RULES.CONFIG)),
+                    r.getValue(ALERT_RULES.LAST_UPDATED)));
   }
 
   public List<AlertRule> findAllEnabled() {

@@ -301,6 +301,61 @@ const INGEST_RESPONSE = {
   message: "Ingestion started",
 };
 
+const WIN_RATES_RESPONSE = [
+  { categoryId: "TECH", signalCount: 42, winRate: 0.74, avgReturn30d: 0.038 },
+  { categoryId: "HLTH", signalCount: 31, winRate: 0.68, avgReturn30d: 0.021 },
+  { categoryId: "ENRG", signalCount: 18, winRate: 0.44, avgReturn30d: -0.012 },
+  { categoryId: "GOLD", signalCount: 24, winRate: 0.58, avgReturn30d: 0.015 },
+  { categoryId: "TLTD", signalCount: 12, winRate: 0.50, avgReturn30d: 0.004 },
+];
+
+const PRICE_LEVELS_RESPONSE = [
+  { categoryId: "TECH", currentPrice: 192.5, high52w: 205.0, low52w: 152.0, drawdownFromHigh: -0.061, positionInRange: 0.76, daysOfData: 252 },
+  { categoryId: "HLTH", currentPrice: 145.3, high52w: 158.2, low52w: 127.4, drawdownFromHigh: -0.082, positionInRange: 0.58, daysOfData: 252 },
+  { categoryId: "ENRG", currentPrice: 87.4,  high52w: 104.1, low52w: 78.2,  drawdownFromHigh: -0.160, positionInRange: 0.35, daysOfData: 252 },
+  { categoryId: "GOLD", currentPrice: 310.2, high52w: 318.5, low52w: 264.0, drawdownFromHigh: -0.026, positionInRange: 0.84, daysOfData: 252 },
+  { categoryId: "TLTD", currentPrice: 88.6,  high52w: 98.2,  low52w: 82.1,  drawdownFromHigh: -0.098, positionInRange: 0.41, daysOfData: 252 },
+  { categoryId: "CASH", currentPrice: 91.1,  high52w: 91.5,  low52w: 90.8,  drawdownFromHigh: -0.004, positionInRange: 0.43, daysOfData: 252 },
+];
+
+const TRANSITIONS_RESPONSE = [
+  { categoryId: "TECH", categoryName: "Information Technology", etfTicker: "XLK", previousSignal: "WATCH", currentSignal: "BUY",    currentScore: 0.82, comparisonDate: "2026-05-08", daysAgo: 7, scorePercentile252d: 0.88, macroFit: 0.78, signalDaysActive: 7, convictionScore: 85 },
+  { categoryId: "ENRG", categoryName: "Energy",                 etfTicker: "XLE", previousSignal: "HOLD",  currentSignal: "REDUCE", currentScore: 0.31, comparisonDate: "2026-05-12", daysAgo: 3, scorePercentile252d: 0.18, macroFit: 0.48, signalDaysActive: 3, convictionScore: null },
+];
+
+function generateMacroHistory(days) {
+  const indicators = ["vix", "tenYearYield", "fedFundsRate", "usdIndex", "wtiCrudeOilPrice"];
+  const bases = { vix: 15.2, tenYearYield: 4.5, fedFundsRate: 5.25, usdIndex: 104.5, wtiCrudeOilPrice: 78.5 };
+  const result = {};
+  for (const ind of indicators) {
+    result[ind] = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date("2026-05-15");
+      date.setDate(date.getDate() - i);
+      const noise = (Math.sin(i * 0.3) * 0.5 + Math.cos(i * 0.1) * 0.3) * (bases[ind] * 0.03);
+      result[ind].push({ date: date.toISOString().split("T")[0], value: Math.round((bases[ind] + noise) * 100) / 100 });
+    }
+  }
+  return result;
+}
+
+function generateSignalHistory(categoryId, days) {
+  const signalTypes = ["COMPOSITE", "RS_60", "RS_20", "MOM", "FLOW_20D"];
+  const baseValues = { TECH: 0.82, HLTH: 0.64, ENRG: 0.31, GOLD: 0.71, TLTD: 0.38, CASH: null };
+  const base = baseValues[categoryId] ?? 0.5;
+  const entries = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date("2026-05-15");
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toISOString().split("T")[0];
+    for (const signalType of signalTypes) {
+      const noise = (Math.random() - 0.5) * 0.1;
+      entries.push({ signalDate: dateStr, signalType, value: Math.max(0, Math.min(1, base + noise)), computedAt: dateStr + "T06:00:00Z" });
+    }
+  }
+  return entries;
+}
+
 const server = http.createServer(async (req, res) => {
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -315,7 +370,43 @@ const server = http.createServer(async (req, res) => {
   const path = url.pathname;
   const parent = url.searchParams.get("parent");
 
-  if (path === "/api/v1/categories/seasonal") {
+  if (path === "/api/v1/alerts/active/count") {
+    res.writeHead(200);
+    res.end(JSON.stringify({ active: 1 }));
+  } else if (path === "/api/v1/categories/win-rates") {
+    res.writeHead(200);
+    res.end(JSON.stringify(WIN_RATES_RESPONSE));
+  } else if (path === "/api/v1/categories/price-levels") {
+    res.writeHead(200);
+    res.end(JSON.stringify(PRICE_LEVELS_RESPONSE));
+  } else if (path === "/api/v1/categories/transitions") {
+    res.writeHead(200);
+    res.end(JSON.stringify(TRANSITIONS_RESPONSE));
+  } else if (path === "/api/v1/macro/history") {
+    const days = parseInt(url.searchParams.get("days") ?? "90", 10);
+    res.writeHead(200);
+    res.end(JSON.stringify(generateMacroHistory(Math.min(days, 90))));
+  } else if (/^\/api\/v1\/signals\/[^/]+$/.test(path)) {
+    const catId = path.split("/").at(-1).toUpperCase();
+    const days = parseInt(url.searchParams.get("days") ?? "90", 10);
+    res.writeHead(200);
+    res.end(JSON.stringify(generateSignalHistory(catId, Math.min(days, 90))));
+  } else if (path === "/api/v1/portfolio/holdings/refresh-prices" && req.method === "POST") {
+    res.writeHead(200);
+    res.end(JSON.stringify({ updated: 2 }));
+  } else if (path === "/api/v1/portfolio/holdings/upload" && req.method === "POST") {
+    res.writeHead(200);
+    res.end(JSON.stringify({ imported: 2, skipped: 0 }));
+  } else if (path === "/api/v1/backtest/sweep" && req.method === "POST") {
+    res.writeHead(200);
+    res.end(JSON.stringify([]));
+  } else if (path === "/api/v1/backtest/frequency-sweep" && req.method === "POST") {
+    res.writeHead(200);
+    res.end(JSON.stringify([]));
+  } else if (path === "/api/v1/alerts/bulk-dismiss" && req.method === "POST") {
+    res.writeHead(200);
+    res.end(JSON.stringify({ dismissed: 1 }));
+  } else if (path === "/api/v1/categories/seasonal") {
     res.writeHead(200);
     res.end(JSON.stringify([
       { categoryId: "TECH", month: 1,  avgReturn: 0.0312, sampleCount: 5 },

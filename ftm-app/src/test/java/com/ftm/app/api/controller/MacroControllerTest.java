@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.ftm.app.api.dto.MacroRegimeHistoryEntry;
 import com.ftm.app.api.dto.MacroResponse;
+import com.ftm.app.api.dto.MacroSeriesPoint;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
 import com.ftm.app.api.service.MacroService;
 import java.math.BigDecimal;
@@ -85,5 +86,22 @@ class MacroControllerTest {
     when(macroService.getMacroResponse()).thenThrow(new RuntimeException("DB unavailable"));
 
     mockMvc.perform(get("/macro")).andExpect(status().isInternalServerError());
+  }
+
+  @Test
+  @DisplayName("GET /macro/history returns 200 with map of series points")
+  void shouldReturnMacroHistory() throws Exception {
+    LocalDate date = LocalDate.of(2024, 1, 15);
+    Map<String, List<MacroSeriesPoint>> history = Map.of(
+        "VIXCLS", List.of(new MacroSeriesPoint(date, new BigDecimal("18.50"))),
+        "T10Y2Y", List.of(new MacroSeriesPoint(date, new BigDecimal("-0.40")))
+    );
+    when(macroService.getMacroHistory(365)).thenReturn(history);
+
+    mockMvc
+        .perform(get("/macro/history?days=365"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.VIXCLS").isArray())
+        .andExpect(jsonPath("$.VIXCLS[0].value").value(18.50));
   }
 }

@@ -1,4 +1,4 @@
-import { fetchSubSectors, SubSectorSummary } from "@/lib/api";
+import { fetchSubSectors, fetchCategoryScoreHistory, SubSectorSummary } from "@/lib/api";
 
 const QUADRANT_LABELS: Record<string, string> = {
   "4": "↗ Leading",
@@ -38,6 +38,88 @@ function formatMom(value: number | null): string {
   if (value === null) return "—";
   const pct = (value * 100).toFixed(1);
   return value >= 0 ? `+${pct}%` : `${pct}%`;
+}
+
+const FACTOR_COLORS: Record<string, { stroke: string; label: string }> = {
+  MTUM: { stroke: "#34d399", label: "MTUM" },
+  QUAL: { stroke: "#60a5fa", label: "QUAL" },
+  USMV: { stroke: "#fbbf24", label: "USMV" },
+  VLUE: { stroke: "#c084fc", label: "VLUE" },
+};
+
+function FactorScoreHistoryChart({ scoreHistory }: { scoreHistory: Record<string, number[]> }) {
+  const series = Object.entries(FACTOR_COLORS)
+    .map(([id, cfg]) => ({ id, ...cfg, scores: scoreHistory[id] ?? [] }))
+    .filter(s => s.scores.length >= 5);
+
+  if (series.length === 0) return null;
+
+  const DAYS = Math.min(60, Math.max(...series.map(s => s.scores.length)));
+  const W = 520, H = 130, padL = 36, padR = 14, padT = 16, padB = 28;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+
+  const toX = (i: number, n: number) => padL + (i / (n - 1)) * innerW;
+  const toY = (v: number) => padT + (1 - v) * innerH;
+
+  const xLabelIdxs = [0, Math.floor(DAYS * 0.25), Math.floor(DAYS * 0.5), Math.floor(DAYS * 0.75), DAYS - 1];
+  const daysAgo = xLabelIdxs.map(i => -(DAYS - 1 - i));
+
+  return (
+    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 mb-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-sm font-semibold text-slate-200">Factor Score History</div>
+        <div className="flex items-center gap-4 text-[10px] text-slate-500">
+          {series.map(s => (
+            <span key={s.id} className="flex items-center gap-1.5">
+              <span className="inline-block w-5 h-0.5 rounded" style={{ backgroundColor: s.stroke }} />
+              {s.label}
+            </span>
+          ))}
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "110px" }}>
+        {/* Gridlines at 0.25, 0.5, 0.75 */}
+        {[0.25, 0.5, 0.75].map((f, i) => {
+          const y = toY(f);
+          return (
+            <g key={i}>
+              <line x1={padL} x2={W - padR} y1={y} y2={y} stroke="#334155" strokeWidth="0.5" strokeDasharray="3,4" />
+              <text x={padL - 4} y={y + 3} fontSize="7" fill="#475569" textAnchor="end">{Math.round(f * 100)}</text>
+            </g>
+          );
+        })}
+        {/* Series lines */}
+        {series.map(({ id, stroke, scores }) => {
+          const slice = scores.slice(-DAYS);
+          if (slice.length < 2) return null;
+          const pts = slice.map((v, i) => `${toX(i, slice.length).toFixed(1)},${toY(v).toFixed(1)}`);
+          const last = slice[slice.length - 1];
+          const lastX = toX(slice.length - 1, slice.length);
+          return (
+            <g key={id}>
+              <polyline points={pts.join(" ")} fill="none" stroke={stroke} strokeWidth="1.8" opacity="0.9" />
+              <circle cx={lastX.toFixed(1)} cy={toY(last).toFixed(1)} r="2.5" fill={stroke} />
+            </g>
+          );
+        })}
+        {/* X-axis labels */}
+        {xLabelIdxs.map((_, i) => {
+          const x = toX(xLabelIdxs[i], DAYS);
+          const d = daysAgo[i];
+          return (
+            <text key={i} x={x.toFixed(1)} y={H - 4} fontSize="7" fill="#475569" textAnchor="middle">
+              {d === 0 ? "now" : `${d}d`}
+            </text>
+          );
+        })}
+        <line x1={padL} x2={W - padR} y1={padT + innerH} y2={padT + innerH} stroke="#334155" strokeWidth="0.5" />
+      </svg>
+      <div className="text-[10px] text-slate-600 mt-1 text-center">
+        Composite signal score 0–100 · {DAYS}-day history · MTUM rising = risk-on shift
+      </div>
+    </div>
+  );
 }
 
 function FactorComparisonStrip({ factors }: { factors: SubSectorSummary[] }) {
@@ -217,12 +299,21 @@ function deriveFactorRegime(factors: SubSectorSummary[]): RegimeSignal | null {
 
 export default async function FactorFlowsPage() {
   let factors: SubSectorSummary[] = [];
+  let scoreHistory: Record<string, number[]> = {};
   let error: string | null = null;
 
-  try {
-    factors = await fetchSubSectors("FTRS");
-  } catch (err) {
-    error = err instanceof Error ? err.message : "Failed to load factor data";
+  const [factorsResult, historyResult] = await Promise.allSettled([
+    fetchSubSectors("FTRS"),
+    fetchCategoryScoreHistory(60),
+  ]);
+
+  if (factorsResult.status === "fulfilled") {
+    factors = factorsResult.value;
+  } else {
+    error = factorsResult.reason instanceof Error ? factorsResult.reason.message : "Failed to load factor data";
+  }
+  if (historyResult.status === "fulfilled") {
+    scoreHistory = historyResult.value;
   }
 
   const regime = factors.length > 0 ? deriveFactorRegime(factors) : null;
@@ -264,6 +355,10 @@ export default async function FactorFlowsPage() {
             <span className="text-slate-700">·</span>
             <span className="text-xs text-slate-400">{regime.description}</span>
           </div>
+        )}
+
+        {Object.keys(scoreHistory).some(k => FACTOR_COLORS[k]) && (
+          <FactorScoreHistoryChart scoreHistory={scoreHistory} />
         )}
 
         <FactorComparisonStrip factors={factors} />

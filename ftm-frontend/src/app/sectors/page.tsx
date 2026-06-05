@@ -380,6 +380,105 @@ function SubSectorBreadthBar({ breakdown }: { breakdown: SubSectorBreakdown }) {
   );
 }
 
+function RrgScatterChart({ sectors }: { sectors: CategorySummary[] }) {
+  const pts = sectors.filter(s => s.rs60 != null && s.rs20 != null);
+  if (pts.length < 4) return null;
+
+  const W = 520, H = 340, padL = 44, padR = 20, padT = 22, padB = 32;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+
+  const rs60Vals = pts.map(p => p.rs60! * 100);
+  const momVals = pts.map(p => (p.rs20! - p.rs60!) * 100);
+  const absMaxX = Math.max(8, Math.max(...rs60Vals.map(Math.abs)) + 1);
+  const absMaxY = Math.max(4, Math.max(...momVals.map(Math.abs)) + 0.5);
+
+  const xMin = -absMaxX, xMax = absMaxX;
+  const yMin = -absMaxY, yMax = absMaxY;
+
+  const toX = (v: number) => padL + ((v - xMin) / (xMax - xMin)) * innerW;
+  const toY = (v: number) => padT + (1 - (v - yMin) / (yMax - yMin)) * innerH;
+
+  const zeroX = toX(0);
+  const zeroY = toY(0);
+
+  const QUAD_FILLS = [
+    { x: zeroX, y: padT, w: W - padR - zeroX, h: zeroY - padT, fill: "#052e16", label: "↗ Leading",   lx: W - padR - 4, ly: padT + 11, ta: "end",   tc: "#4ade80" },
+    { x: padL,  y: padT, w: zeroX - padL,       h: zeroY - padT, fill: "#042f4f", label: "↖ Improving",lx: padL + 4,       ly: padT + 11, ta: "start", tc: "#22d3ee" },
+    { x: padL,  y: zeroY, w: zeroX - padL,       h: H - padB - zeroY, fill: "#1c1917", label: "↙ Lagging",  lx: padL + 4,  ly: H - padB - 5, ta: "start", tc: "#94a3b8" },
+    { x: zeroX, y: zeroY, w: W - padR - zeroX, h: H - padB - zeroY, fill: "#2d1b00", label: "↘ Weakening",lx: W - padR - 4, ly: H - padB - 5, ta: "end", tc: "#fb923c" },
+  ];
+
+  const QUAD_COLORS: Record<string, string> = {
+    "4": "#4ade80", "3": "#22d3ee", "2": "#fb923c", "1": "#94a3b8",
+  };
+
+  const xTicks = [-8, -4, 0, 4, 8].filter(v => v > xMin && v < xMax);
+  const yTicks = [-3, -1.5, 0, 1.5, 3].filter(v => v > yMin && v < yMax);
+
+  return (
+    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 mt-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-sm font-semibold text-slate-200">Relative Rotation Graph</div>
+        <div className="text-[10px] text-slate-500">X = RS-60 vs SPY · Y = RS momentum (RS-20 minus RS-60)</div>
+      </div>
+      <div className="overflow-x-auto">
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", minWidth: "340px", height: `${H}px` }}>
+          {QUAD_FILLS.map((q, i) => (
+            <g key={i}>
+              <rect x={q.x} y={q.y} width={q.w} height={q.h} fill={q.fill} opacity="0.75" />
+              <text x={q.lx} y={q.ly} fontSize="9" fill={q.tc} textAnchor={q.ta as "start" | "end"} opacity="0.65"
+                style={{ fontFamily: "var(--font-rajdhani)", fontWeight: 600 }}>{q.label}</text>
+            </g>
+          ))}
+          {/* Grid lines */}
+          {xTicks.map(v => (
+            <line key={v} x1={toX(v)} x2={toX(v)} y1={padT} y2={H - padB} stroke="#334155" strokeWidth="0.5" strokeDasharray="3,4" />
+          ))}
+          {yTicks.map(v => (
+            <line key={v} x1={padL} x2={W - padR} y1={toY(v)} y2={toY(v)} stroke="#334155" strokeWidth="0.5" strokeDasharray="3,4" />
+          ))}
+          {/* Axes */}
+          <line x1={padL} x2={W - padR} y1={zeroY} y2={zeroY} stroke="#475569" strokeWidth="1" />
+          <line x1={zeroX} x2={zeroX} y1={padT} y2={H - padB} stroke="#475569" strokeWidth="1" />
+          {/* X-axis ticks */}
+          {xTicks.map(v => (
+            <text key={v} x={toX(v)} y={H - padB + 10} fontSize="7.5" fill="#475569" textAnchor="middle">
+              {v > 0 ? `+${v}%` : `${v}%`}
+            </text>
+          ))}
+          {/* Y-axis ticks */}
+          {yTicks.filter(v => v !== 0).map(v => (
+            <text key={v} x={padL - 4} y={toY(v) + 3} fontSize="7" fill="#475569" textAnchor="end">
+              {v > 0 ? `+${v.toFixed(1)}` : v.toFixed(1)}
+            </text>
+          ))}
+          <text x={padL - 4} y={padT + 4} fontSize="7" fill="#475569" textAnchor="end">↑mom</text>
+          {/* Sector dots + labels */}
+          {pts.map(cat => {
+            const x = toX(cat.rs60! * 100);
+            const y = toY((cat.rs20! - cat.rs60!) * 100);
+            const color = QUAD_COLORS[cat.rrgQuadrant ?? ""] ?? "#64748b";
+            return (
+              <g key={cat.id}>
+                <circle cx={x.toFixed(1)} cy={y.toFixed(1)} r="8" fill={color} opacity="0.18" />
+                <circle cx={x.toFixed(1)} cy={y.toFixed(1)} r="5" fill={color} opacity="0.9" />
+                <text x={x.toFixed(1)} y={(y - 9).toFixed(1)} fontSize="8.5" fill="#e2e8f0" textAnchor="middle"
+                  fontWeight="700" style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+                  {cat.etfTicker}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      <div className="text-[10px] text-slate-600 mt-1 text-center">
+        Leading = outperforming + momentum building · Rotation: clockwise through Leading→Weakening→Lagging→Improving
+      </div>
+    </div>
+  );
+}
+
 const PARENT_SHORT: Record<string, string> = {
   TECH: "XLK", HLTH: "XLV", FINL: "XLF", DISR: "XLY",
   INDU: "XLI", ENRG: "XLE", MATL: "XLB", UTIL: "XLU",
@@ -647,6 +746,10 @@ export default async function SectorsHubPage() {
 
         {sectors.length === 0 && !error && (
           <p className="text-slate-500 text-sm">No sector data available. Trigger ingestion first.</p>
+        )}
+
+        {sectors.some(s => s.rs60 != null && s.rs20 != null) && (
+          <RrgScatterChart sectors={sectors} />
         )}
 
         {allSubSectors.some(s => s.rs20 != null) && (

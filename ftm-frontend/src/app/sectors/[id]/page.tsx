@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { fetchSubSectors, fetchCategoryScoreHistory, SubSectorSummary } from "@/lib/api";
+import { fetchSubSectors, fetchCategoryScoreHistory, fetchSignalHistory, SignalHistoryEntry, SubSectorSummary } from "@/lib/api";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 import SubSectorTable from "@/components/SubSectorTable";
 import RefreshButton from "@/components/RefreshButton";
@@ -32,6 +32,121 @@ function SectorScoreSparkline({ scores }: { scores: number[] }) {
       <span className={`text-xs font-mono ${trendColor}`}>
         {trendStr} {Math.round(last * 100)}
       </span>
+    </div>
+  );
+}
+
+const SIGNAL_SERIES = [
+  { key: "COMPOSITE", label: "Composite", stroke: "#22d3ee",   fillOp: 0.08 },
+  { key: "RS_60",     label: "RS-60",     stroke: "#4ade80",   fillOp: 0.06 },
+  { key: "MACRO_FIT", label: "Macro Fit", stroke: "#a78bfa",   fillOp: 0.06 },
+] as const;
+
+function SignalComponentChart({ entries }: { entries: SignalHistoryEntry[] }) {
+  if (!entries || entries.length === 0) return null;
+
+  const byType: Record<string, { date: string; value: number }[]> = {};
+  for (const e of entries) {
+    if (!byType[e.signalType]) byType[e.signalType] = [];
+    byType[e.signalType].push({ date: e.signalDate, value: e.value });
+  }
+
+  const hasSeries = SIGNAL_SERIES.some(s => byType[s.key]?.length >= 5);
+  if (!hasSeries) return null;
+
+  const allDates = Array.from(
+    new Set(entries.map(e => e.signalDate))
+  ).sort();
+  const dates = allDates.slice(-90);
+  if (dates.length < 5) return null;
+
+  const W = 540, H = 120, padL = 38, padR = 12, padT = 10, padB = 28;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+
+  const toX = (i: number, n: number) => padL + (i / (n - 1)) * innerW;
+
+  function normSeries(key: string): { x: number; y: number; v: number }[] | null {
+    const raw = byType[key];
+    if (!raw || raw.length < 5) return null;
+    const dateMap = new Map(raw.map(p => [p.date, p.value]));
+    const pts = dates.map(d => dateMap.get(d) ?? null);
+    const valid = pts.filter((v): v is number => v !== null);
+    if (valid.length < 5) return null;
+    const min = Math.min(...valid);
+    const max = Math.max(...valid);
+    const range = max - min || 1;
+    return pts
+      .map((v, i) => v !== null ? { x: toX(i, dates.length), y: padT + (1 - (v - min) / range) * innerH, v } : null)
+      .filter((p): p is { x: number; y: number; v: number } => p !== null);
+  }
+
+  const seriesData = SIGNAL_SERIES.map(s => ({ ...s, pts: normSeries(s.key) }));
+
+  function toPolyline(pts: { x: number; y: number }[]): string {
+    return pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  }
+  function toFillPoly(pts: { x: number; y: number }[]): string {
+    if (pts.length === 0) return "";
+    return `${pts[0].x.toFixed(1)},${(padT + innerH).toFixed(1)} ${toPolyline(pts)} ${pts[pts.length - 1].x.toFixed(1)},${(padT + innerH).toFixed(1)}`;
+  }
+
+  const xLabelIdxs = [0, Math.floor(dates.length * 0.25), Math.floor(dates.length * 0.5), Math.floor(dates.length * 0.75), dates.length - 1];
+
+  return (
+    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-sm font-semibold text-slate-200">Signal Components</div>
+        <div className="flex items-center gap-4 text-[10px] text-slate-500">
+          {SIGNAL_SERIES.map(s => (
+            <span key={s.key} className="flex items-center gap-1.5">
+              <span className="inline-block w-4 h-0.5 rounded" style={{ backgroundColor: s.stroke }} />
+              {s.label}
+            </span>
+          ))}
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "100px" }}>
+        {/* Gridlines */}
+        {[0.25, 0.5, 0.75].map((f, i) => {
+          const y = padT + f * innerH;
+          return (
+            <line key={i} x1={padL} x2={W - padR} y1={y} y2={y}
+              stroke="#334155" strokeWidth="0.5" strokeDasharray="3,4" />
+          );
+        })}
+        {/* Y-axis labels */}
+        {["Hi", "Mid", "Lo"].map((l, i) => (
+          <text key={l} x={padL - 4} y={padT + [0.1, 0.5, 0.9][i] * innerH + 4}
+            fontSize="7" fill="#64748b" textAnchor="end">{l}</text>
+        ))}
+        {/* Series */}
+        {seriesData.map(({ key, stroke, fillOp, pts }) => {
+          if (!pts || pts.length < 2) return null;
+          return (
+            <g key={key}>
+              <polygon points={toFillPoly(pts)} fill={stroke} opacity={fillOp} />
+              <polyline points={toPolyline(pts)} fill="none" stroke={stroke} strokeWidth="1.5" opacity="0.85" />
+              <circle cx={pts[pts.length - 1].x.toFixed(1)} cy={pts[pts.length - 1].y.toFixed(1)} r="2.5" fill={stroke} />
+            </g>
+          );
+        })}
+        {/* X-axis date labels */}
+        {xLabelIdxs.map(i => {
+          const d = dates[i];
+          if (!d) return null;
+          const x = toX(i, dates.length);
+          const label = d.slice(5); // MM-DD
+          return (
+            <text key={i} x={x} y={H - 4} fontSize="7" fill="#475569" textAnchor="middle">{label}</text>
+          );
+        })}
+        {/* X-axis baseline */}
+        <line x1={padL} x2={W - padR} y1={padT + innerH} y2={padT + innerH} stroke="#334155" strokeWidth="0.5" />
+      </svg>
+      <div className="text-[10px] text-slate-600 mt-1 text-center">
+        Signal history (last {dates.length} trading days) — each series independently normalized to [Lo, Hi] for visual comparison
+      </div>
     </div>
   );
 }
@@ -105,10 +220,12 @@ export default async function SectorDrilldownPage({ params }: Props) {
   let subSectors: SubSectorSummary[] = [];
   let error: string | null = null;
   let scoreHistory: number[] = [];
+  let signalHistory: SignalHistoryEntry[] = [];
 
-  const [subSectorsResult, scoreHistoryResult] = await Promise.allSettled([
+  const [subSectorsResult, scoreHistoryResult, signalHistoryResult] = await Promise.allSettled([
     fetchSubSectors(sectorId),
     fetchCategoryScoreHistory(60),
+    fetchSignalHistory(sectorId),
   ]);
 
   if (subSectorsResult.status === "fulfilled") {
@@ -120,6 +237,9 @@ export default async function SectorDrilldownPage({ params }: Props) {
   }
   if (scoreHistoryResult.status === "fulfilled") {
     scoreHistory = scoreHistoryResult.value[sectorId] ?? [];
+  }
+  if (signalHistoryResult.status === "fulfilled") {
+    signalHistory = signalHistoryResult.value;
   }
 
   const quadrantCounts: Record<string, SubSectorSummary[]> = { "4": [], "3": [], "2": [], "1": [] };
@@ -311,6 +431,11 @@ export default async function SectorDrilldownPage({ params }: Props) {
                 </span>
                 {confluenceNarrative.text}
               </div>
+            )}
+
+            {/* Signal component history chart */}
+            {signalHistory.length > 0 && (
+              <SignalComponentChart entries={signalHistory} />
             )}
 
             {/* Sortable sub-sector table */}

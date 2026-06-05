@@ -176,10 +176,14 @@ public class SignalRepository {
                     r.get(SIGNALS.VALUE)));
   }
 
-  public List<HistoryRow> findByCategoryId(String categoryId) {
+  public List<HistoryRow> findByCategoryId(String categoryId, int days) {
+    var condition = SIGNALS.CATEGORY_ID.eq(categoryId);
+    if (days > 0) {
+      condition = condition.and(SIGNALS.SIGNAL_DATE.ge(LocalDate.now().minusDays(days)));
+    }
     return dsl.select(SIGNALS.SIGNAL_DATE, SIGNALS.SIGNAL_TYPE, SIGNALS.VALUE, SIGNALS.COMPUTED_AT)
         .from(SIGNALS)
-        .where(SIGNALS.CATEGORY_ID.eq(categoryId))
+        .where(condition)
         .orderBy(SIGNALS.SIGNAL_DATE.desc(), SIGNALS.SIGNAL_TYPE.asc())
         .fetch()
         .map(

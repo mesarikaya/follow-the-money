@@ -426,6 +426,78 @@ function YieldCurveChart({ indicators }: { indicators: MacroIndicators }) {
   );
 }
 
+function RealYieldCard({ indicators, history }: { indicators: MacroIndicators; history: MacroHistory }) {
+  const nominal = indicators.tenYearYield;
+  const breakeven = indicators.breakevenInflation;
+  if (nominal == null || breakeven == null) return null;
+
+  const realYield = nominal - breakeven;
+
+  // Compute historical real yield from DGS10 and T10YIE series (inner join on date)
+  const nominalSeries = history["DGS10"] ?? [];
+  const breakevenSeries = history["T10YIE"] ?? [];
+  const nominalByDate = new Map(nominalSeries.map(p => [p.date, p.value]));
+  const realHistory: number[] = breakevenSeries
+    .filter(p => nominalByDate.has(p.date))
+    .map(p => (nominalByDate.get(p.date)! - p.value))
+    .slice(-60);
+
+  const isNegative = realYield < 0;
+  const isExtreme = realYield < -1 || realYield > 2;
+  const label = realYield < -1
+    ? "Deeply Negative"
+    : realYield < 0
+    ? "Negative"
+    : realYield < 1
+    ? "Low Positive"
+    : realYield < 2
+    ? "Moderate"
+    : "Elevated";
+  const color = realYield < 0 ? "text-emerald-400" : realYield < 1.5 ? "text-amber-400" : "text-red-400";
+  const interpretation = realYield < -0.5
+    ? "Stimulative — favors risk assets, growth stocks, gold"
+    : realYield < 0.5
+    ? "Near-neutral — modest headwind to valuations"
+    : "Restrictive — headwind for long-duration assets";
+
+  const W = 280, H = 44, padX = 4, padY = 6;
+  const sparkColor = isNegative ? "#34d399" : isExtreme ? "#f87171" : "#fbbf24";
+  const hasSparkline = realHistory.length >= 5;
+  const sparkMin = hasSparkline ? Math.min(...realHistory) - 0.1 : 0;
+  const sparkMax = hasSparkline ? Math.max(...realHistory) + 0.1 : 1;
+  const sparkRange = sparkMax - sparkMin || 1;
+  const toSX = (i: number) => padX + (i / (realHistory.length - 1)) * (W - padX * 2);
+  const toSY = (v: number) => padY + (1 - (v - sparkMin) / sparkRange) * (H - padY * 2);
+  const sparkPts = realHistory.map((v, i) => `${toSX(i).toFixed(1)},${toSY(v).toFixed(1)}`).join(" ");
+  const zeroY = sparkMin < 0 && sparkMax > 0 ? toSY(0) : null;
+
+  return (
+    <div
+      className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 space-y-1"
+      title={`Real 10Y yield = nominal DGS10 minus T10YIE breakeven. Negative = real rates below inflation; gold and growth equities historically outperform. Current: ${realYield.toFixed(2)}%`}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-slate-500">Real 10Y Yield</span>
+        <span className={`text-[10px] font-semibold ${color}`}>{label}</span>
+      </div>
+      <div className={`text-xl font-bold tabular-nums ${color}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+        {realYield >= 0 ? "+" : ""}{realYield.toFixed(2)}%
+      </div>
+      {hasSparkline && (
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-8">
+          {zeroY != null && (
+            <line x1={padX} x2={W - padX} y1={zeroY.toFixed(1)} y2={zeroY.toFixed(1)}
+              stroke="#475569" strokeWidth="0.8" strokeDasharray="2,3" />
+          )}
+          <polyline points={sparkPts} fill="none" stroke={sparkColor} strokeWidth="1.5" opacity="0.8" />
+          <circle cx={toSX(realHistory.length - 1).toFixed(1)} cy={toSY(realYield).toFixed(1)} r="2.5" fill={sparkColor} />
+        </svg>
+      )}
+      <div className="text-[9px] text-slate-600">{interpretation}</div>
+    </div>
+  );
+}
+
 const SIGNAL_STYLES: Record<string, { className: string }> = {
   BUY:    { className: "bg-green-900/60 text-green-300 border-green-700/60" },
   WATCH:  { className: "bg-cyan-900/50 text-cyan-300 border-cyan-700/50" },
@@ -611,6 +683,7 @@ export default async function MacroRegimePage() {
                   );
                 })}
                 <YieldCurveChart indicators={macro!.indicators} />
+                <RealYieldCard indicators={macro!.indicators} history={indicatorHistory} />
               </div>
             </section>
 

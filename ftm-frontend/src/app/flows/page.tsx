@@ -1,6 +1,7 @@
 import {
   fetchRotation,
   fetchCategories,
+  fetchCategoryScoreHistory,
   RotationLeaderEntry,
   RotationEventEntry,
   CategorySummary,
@@ -327,16 +328,139 @@ function RsScoreScatter({ categories }: { categories: CategorySummary[] }) {
   );
 }
 
+function scoreToColor(s: number | null | undefined): string {
+  if (s == null) return "#1e293b";
+  if (s >= 0.7) return "#15803d";
+  if (s >= 0.6) return "#16a34a";
+  if (s >= 0.5) return "#22c55e";
+  if (s >= 0.4) return "#ca8a04";
+  if (s >= 0.3) return "#d97706";
+  return "#b91c1c";
+}
+
+type ScoreHistoryMap = Record<string, number[]>;
+
+function ScoreHistoryHeatmap({
+  categories,
+  scoreHistory,
+}: {
+  categories: CategorySummary[];
+  scoreHistory: ScoreHistoryMap;
+}) {
+  const rows = categories
+    .filter(c => scoreHistory[c.id]?.length >= 5)
+    .sort((a, b) => {
+      const aLast = scoreHistory[a.id]?.slice(-1)[0] ?? 0;
+      const bLast = scoreHistory[b.id]?.slice(-1)[0] ?? 0;
+      return bLast - aLast;
+    });
+
+  if (rows.length === 0) return null;
+
+  const DAYS = 30;
+  const cellW = 12, cellH = 14, gap = 1;
+  const labelW = 44, scoreW = 32, padL = 8, padR = 8, padT = 24, padB = 20;
+  const innerW = DAYS * (cellW + gap) - gap;
+  const W = padL + labelW + 4 + innerW + 4 + scoreW + padR;
+  const H = padT + rows.length * (cellH + gap) - gap + padB;
+
+  const colDates: string[] = [];
+  if (rows[0]) {
+    const hist = scoreHistory[rows[0].id] ?? [];
+    for (let i = Math.max(0, hist.length - DAYS); i < hist.length; i++) colDates.push("");
+    while (colDates.length < DAYS) colDates.unshift("");
+  }
+
+  const colX = (col: number) => padL + labelW + 4 + col * (cellW + gap);
+  const rowY = (row: number) => padT + row * (cellH + gap);
+
+  const tickCols = [0, 6, 13, 20, DAYS - 1];
+  const tickLabels = ["-30d", "-23d", "-16d", "-9d", "now"];
+
+  return (
+    <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+      <div className="flex items-baseline justify-between mb-3">
+        <h2
+          className="text-slate-300 text-[10px] font-semibold uppercase tracking-widest"
+          style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.1em" }}
+        >
+          Score Momentum — 30-Day Heatmap
+        </h2>
+        <div className="flex items-center gap-2 text-[9px] text-slate-600">
+          <span className="inline-block w-3 h-3 rounded-sm bg-green-600" />Strong
+          <span className="inline-block w-3 h-3 rounded-sm bg-yellow-600" />Mid
+          <span className="inline-block w-3 h-3 rounded-sm bg-red-700" />Weak
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", minWidth: "340px", height: `${H}px` }}>
+          {/* Column tick labels */}
+          {tickCols.map((col, i) => (
+            <text key={col} x={colX(col) + cellW / 2} y={padT - 6}
+              fontSize="7" fill="#475569" textAnchor="middle">{tickLabels[i]}</text>
+          ))}
+          {rows.map((cat, ri) => {
+            const hist = scoreHistory[cat.id] ?? [];
+            const slice = hist.slice(-DAYS);
+            const padded = Array(DAYS - slice.length).fill(null).concat(slice);
+            const latest = slice[slice.length - 1] ?? null;
+            const trend5 = slice.length >= 5 ? latest! - slice[slice.length - 5] : null;
+            const trendColor = trend5 == null ? "#64748b" : trend5 > 0.03 ? "#4ade80" : trend5 < -0.03 ? "#f87171" : "#94a3b8";
+            void colDates;
+
+            return (
+              <g key={cat.id}>
+                {/* Category ticker label */}
+                <text x={padL + labelW - 2} y={rowY(ri) + cellH * 0.72}
+                  fontSize="8" fill="#94a3b8" textAnchor="end"
+                  style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+                  {cat.etfTicker}
+                </text>
+                {/* Score cells */}
+                {padded.map((score, ci) => (
+                  <rect
+                    key={ci}
+                    x={colX(ci)} y={rowY(ri)}
+                    width={cellW} height={cellH}
+                    rx="1"
+                    fill={scoreToColor(score)}
+                    opacity={score == null ? 0.3 : 0.85}
+                    title={score != null ? `${cat.etfTicker} · ${Math.round(score * 100)}/100` : "no data"}
+                  />
+                ))}
+                {/* Current score */}
+                <text x={colX(DAYS) + 4} y={rowY(ri) + cellH * 0.72}
+                  fontSize="8" fill={trendColor} textAnchor="start"
+                  style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+                  {latest != null ? Math.round(latest * 100) : "—"}
+                </text>
+              </g>
+            );
+          })}
+          {/* Bottom axis */}
+          <line x1={colX(0)} x2={colX(DAYS - 1) + cellW} y1={H - padB + 2} y2={H - padB + 2}
+            stroke="#334155" strokeWidth="0.5" />
+        </svg>
+      </div>
+      <div className="text-[10px] text-slate-600 mt-1 text-center">
+        Each column = 1 trading day · Score 0–100 · Score rising right = momentum building
+      </div>
+    </div>
+  );
+}
+
 type Props = {
   searchParams: Promise<{ timeframe?: string }>;
 };
 
 export default async function CapitalFlowsPage({ searchParams }: Props) {
   const { timeframe = "MONTH" } = await searchParams;
-  const [rotation, categories] = await Promise.all([
+  const [rotation, categories, scoreHistoryRaw] = await Promise.all([
     fetchRotation().catch(() => null),
     fetchCategories(timeframe).catch(() => null),
+    fetchCategoryScoreHistory(30).catch(() => null),
   ]);
+  const scoreHistory: ScoreHistoryMap = scoreHistoryRaw ?? {};
 
   const allRanked = (categories?.categories ?? [])
     .filter((c) => c.rs60 !== null)
@@ -412,6 +536,13 @@ export default async function CapitalFlowsPage({ searchParams }: Props) {
 
         {(categories?.categories ?? []).length >= 3 && (
           <RsScoreScatter categories={categories!.categories} />
+        )}
+
+        {(categories?.categories ?? []).length > 0 && Object.keys(scoreHistory).length > 0 && (
+          <ScoreHistoryHeatmap
+            categories={categories!.categories}
+            scoreHistory={scoreHistory}
+          />
         )}
 
         {allRanked.length > 0 && (

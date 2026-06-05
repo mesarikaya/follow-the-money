@@ -60,7 +60,7 @@ class SignalControllerTest {
     SignalHistoryDto dto =
         new SignalHistoryDto(DATE, SignalType.COMPOSITE, new BigDecimal("0.750"), row.computedAt());
 
-    when(signalRepository.findByCategoryId("TECH")).thenReturn(List.of(row));
+    when(signalRepository.findByCategoryId("TECH", 0)).thenReturn(List.of(row));
     when(signalHistoryMapper.toDto(row)).thenReturn(dto);
 
     mockMvc
@@ -74,23 +74,33 @@ class SignalControllerTest {
   @Test
   @DisplayName("GET /signals/{categoryId} uppercases the category ID before lookup")
   void shouldUppercaseCategoryId() throws Exception {
-    when(signalRepository.findByCategoryId("TECH")).thenReturn(List.of());
+    when(signalRepository.findByCategoryId("TECH", 0)).thenReturn(List.of());
 
     mockMvc.perform(get("/signals/tech")).andExpect(status().isOk());
 
-    verify(signalRepository).findByCategoryId("TECH");
+    verify(signalRepository).findByCategoryId("TECH", 0);
   }
 
   @Test
   @DisplayName("GET /signals/{categoryId} returns 200 with empty list when no signals exist")
   void shouldReturnEmptyListWhenNoSignals() throws Exception {
-    when(signalRepository.findByCategoryId("FINL")).thenReturn(List.of());
+    when(signalRepository.findByCategoryId("FINL", 0)).thenReturn(List.of());
 
     mockMvc
         .perform(get("/signals/FINL"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$").isArray())
         .andExpect(jsonPath("$").isEmpty());
+  }
+
+  @Test
+  @DisplayName("GET /signals/{categoryId}?days=90 filters results to recent 90 days")
+  void shouldPassDaysParameterToRepository() throws Exception {
+    when(signalRepository.findByCategoryId("XLK", 90)).thenReturn(List.of());
+
+    mockMvc.perform(get("/signals/XLK?days=90")).andExpect(status().isOk());
+
+    verify(signalRepository).findByCategoryId("XLK", 90);
   }
 
   @Test

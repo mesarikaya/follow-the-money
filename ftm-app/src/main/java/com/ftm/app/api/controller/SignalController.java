@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -32,9 +33,11 @@ public class SignalController {
   }
 
   @GetMapping("/signals/{categoryId}")
-  @Operation(summary = "Full signal history for a category")
-  public List<SignalHistoryDto> getSignalHistory(@PathVariable String categoryId) {
-    return signalRepository.findByCategoryId(categoryId.toUpperCase()).stream()
+  @Operation(summary = "Signal history for a category, optionally limited to recent N days")
+  public List<SignalHistoryDto> getSignalHistory(
+      @PathVariable String categoryId,
+      @RequestParam(defaultValue = "0") int days) {
+    return signalRepository.findByCategoryId(categoryId.toUpperCase(), days).stream()
         .map(signalHistoryMapper::toDto)
         .toList();
   }

@@ -46,7 +46,7 @@ class SignalComputationServiceIT {
 
     service.computeAndStore();
 
-    List<SignalRepository.HistoryRow> allSignals = signalRepository.findByCategoryId("TECH");
+    List<SignalRepository.HistoryRow> allSignals = signalRepository.findByCategoryId("TECH", 0);
 
     // Latest date must have all expected signal types
     List<SignalRepository.HistoryRow> latestDateSignals =
@@ -89,7 +89,7 @@ class SignalComputationServiceIT {
 
     service.computeAndStore();
 
-    List<SignalRepository.HistoryRow> allSignals = signalRepository.findByCategoryId("TECH");
+    List<SignalRepository.HistoryRow> allSignals = signalRepository.findByCategoryId("TECH", 0);
 
     // Latest date: signals possible with 25 prices including composite-from-persistence
     List<SignalRepository.HistoryRow> latestDateSignals =
@@ -113,7 +113,7 @@ class SignalComputationServiceIT {
   void shouldSkipComputationAndNotPublishEventWhenNoPriceData() {
     service.computeAndStore();
 
-    assertThat(signalRepository.findByCategoryId("TECH")).isEmpty();
+    assertThat(signalRepository.findByCategoryId("TECH", 0)).isEmpty();
     assertThat(applicationEvents.stream(SignalsUpdatedEvent.class)).isEmpty();
   }
 

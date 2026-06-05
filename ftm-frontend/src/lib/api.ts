@@ -539,3 +539,13 @@ export type MacroHistoryResponse = Record<string, MacroSeriesPoint[]>;
 
 export const fetchMacroHistory = (days = 365) =>
   get<MacroHistoryResponse>(`/api/v1/macro/history?days=${days}`);
+
+export type SignalHistoryEntry = {
+  signalDate: string;
+  signalType: string;
+  value: number;
+  computedAt: string;
+};
+
+export const fetchSignalHistory = (categoryId: string, days = 90) =>
+  get<SignalHistoryEntry[]>(`/api/v1/signals/${categoryId.toUpperCase()}?days=${days}`);

@@ -41,7 +41,7 @@ class SignalRepositoryIT {
     int written = repository.batchUpsert(rows);
 
     assertThat(written).isEqualTo(2);
-    var history = repository.findByCategoryId(TECH);
+    var history = repository.findByCategoryId(TECH, 0);
     assertThat(history).hasSize(2);
   }
 
@@ -56,7 +56,7 @@ class SignalRepositoryIT {
         List.of(new SignalRepository.Row(DATE, TECH, SignalType.RS_60, new BigDecimal("1.100000")));
     repository.batchUpsert(updated);
 
-    var history = repository.findByCategoryId(TECH);
+    var history = repository.findByCategoryId(TECH, 0);
     assertThat(history).hasSize(1);
     assertThat(history.getFirst().value()).isEqualByComparingTo("1.100000");
   }
@@ -91,7 +91,7 @@ class SignalRepositoryIT {
             new SignalRepository.Row(
                 DATE.minusDays(1), TECH, SignalType.RS_60, new BigDecimal("1.040000"))));
 
-    var history = repository.findByCategoryId(TECH);
+    var history = repository.findByCategoryId(TECH, 0);
 
     assertThat(history.getFirst().signalDate()).isEqualTo(DATE);
     assertThat(history.getLast().signalDate()).isEqualTo(DATE.minusDays(1));

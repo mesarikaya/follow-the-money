@@ -2,6 +2,7 @@ package com.ftm.app.api.service;
 
 import com.ftm.app.api.dto.CategoriesResponse;
 import com.ftm.app.api.dto.PriceLevelDto;
+import com.ftm.app.api.dto.SeasonalReturnDto;
 import com.ftm.app.api.dto.SignalTransitionDto;
 import com.ftm.app.api.dto.SignalWinRateDto;
 import com.ftm.app.api.mapper.CategoryMapper;
@@ -257,6 +258,12 @@ public class CategoryService {
         .filter(Objects::nonNull)
         .sorted(
             Comparator.comparing(t -> signalPriority(t.currentSignal()), Comparator.naturalOrder()))
+        .toList();
+  }
+
+  public List<SeasonalReturnDto> getSeasonalReturns() {
+    return categoryRepository.findSeasonalMonthlyReturns().stream()
+        .map(r -> new SeasonalReturnDto(r.categoryId(), r.month(), r.avgReturn(), r.sampleCount()))
         .toList();
   }
 

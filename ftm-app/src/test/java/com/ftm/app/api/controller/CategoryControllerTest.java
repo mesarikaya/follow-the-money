@@ -9,8 +9,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ftm.app.api.dto.CategoriesResponse;
+import com.ftm.app.api.dto.SeasonalReturnDto;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
 import com.ftm.app.api.service.CategoryService;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import org.instancio.Instancio;
@@ -102,5 +104,23 @@ class CategoryControllerTest {
         .perform(get("/categories/score-history"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(0));
+  }
+
+  @Test
+  @DisplayName("GET /categories/seasonal returns average monthly returns per category")
+  void shouldReturnSeasonalReturns() throws Exception {
+    var data = List.of(
+        new SeasonalReturnDto("TECH", 1, new BigDecimal("0.0312"), 5),
+        new SeasonalReturnDto("TECH", 6, new BigDecimal("-0.0145"), 5),
+        new SeasonalReturnDto("FINL", 3, new BigDecimal("0.0210"), 4));
+    when(categoryService.getSeasonalReturns()).thenReturn(data);
+
+    mockMvc
+        .perform(get("/categories/seasonal"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(3))
+        .andExpect(jsonPath("$[0].categoryId").value("TECH"))
+        .andExpect(jsonPath("$[0].month").value(1))
+        .andExpect(jsonPath("$[0].avgReturn").value(0.0312));
   }
 }

@@ -2,6 +2,7 @@ package com.ftm.app.api.controller;
 
 import com.ftm.app.api.dto.CategoriesResponse;
 import com.ftm.app.api.dto.PriceLevelDto;
+import com.ftm.app.api.dto.SeasonalReturnDto;
 import com.ftm.app.api.dto.SignalTransitionDto;
 import com.ftm.app.api.dto.SignalWinRateDto;
 import com.ftm.app.api.service.CategoryService;
@@ -72,6 +73,16 @@ public class CategoryController {
   public ResponseEntity<List<SignalWinRateDto>> getWinRates(
       @RequestParam(defaultValue = "365") @Min(90) @Max(730) int lookbackDays) {
     return ResponseEntity.ok(categoryService.getBuySignalWinRates(lookbackDays));
+  }
+
+  @GetMapping("/seasonal")
+  @Operation(
+      summary = "Average monthly returns by calendar month",
+      description =
+          "Returns historical average return for each category × month combination. "
+              + "Requires at least 2 complete calendar months of data per bucket.")
+  public ResponseEntity<List<SeasonalReturnDto>> getSeasonalReturns() {
+    return ResponseEntity.ok(categoryService.getSeasonalReturns());
   }
 
   @GetMapping("/transitions")

@@ -549,3 +549,13 @@ export type SignalHistoryEntry = {
 
 export const fetchSignalHistory = (categoryId: string, days = 90) =>
   get<SignalHistoryEntry[]>(`/api/v1/signals/${categoryId.toUpperCase()}?days=${days}`);
+
+export type SeasonalReturn = {
+  categoryId: string;
+  month: number;
+  avgReturn: number;
+  sampleCount: number;
+};
+
+export const fetchSeasonalReturns = () =>
+  get<SeasonalReturn[]>("/api/v1/categories/seasonal");

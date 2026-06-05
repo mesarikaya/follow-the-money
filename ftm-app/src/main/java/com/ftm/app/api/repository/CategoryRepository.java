@@ -167,6 +167,55 @@ public class CategoryRepository {
       BigDecimal positionInRange,
       int daysOfData) {}
 
+  public record SeasonalRow(String categoryId, int month, BigDecimal avgReturn, int sampleCount) {}
+
+  public List<SeasonalRow> findSeasonalMonthlyReturns() {
+    return dsl.resultQuery(
+            """
+        WITH monthly_prices AS (
+          SELECT
+            category_id,
+            EXTRACT(MONTH FROM trade_date)::int AS month,
+            DATE_TRUNC('month', trade_date)     AS month_bucket,
+            ROW_NUMBER() OVER (PARTITION BY category_id, DATE_TRUNC('month', trade_date)
+                               ORDER BY trade_date ASC)  AS rn_asc,
+            ROW_NUMBER() OVER (PARTITION BY category_id, DATE_TRUNC('month', trade_date)
+                               ORDER BY trade_date DESC) AS rn_desc,
+            adj_close
+          FROM raw_prices
+          WHERE adj_close > 0
+        ),
+        month_open_close AS (
+          SELECT
+            category_id,
+            month,
+            month_bucket,
+            MAX(CASE WHEN rn_asc  = 1 THEN adj_close END) AS open_price,
+            MAX(CASE WHEN rn_desc = 1 THEN adj_close END) AS close_price
+          FROM monthly_prices
+          GROUP BY category_id, month, month_bucket
+        )
+        SELECT
+          category_id,
+          month,
+          ROUND(AVG((close_price - open_price) / NULLIF(open_price, 0))::numeric, 4) AS avg_return,
+          COUNT(*)::int AS sample_count
+        FROM month_open_close
+        WHERE open_price > 0 AND close_price > 0
+        GROUP BY category_id, month
+        HAVING COUNT(*) >= 2
+        ORDER BY category_id, month
+        """)
+        .fetch()
+        .map(
+            r ->
+                new SeasonalRow(
+                    r.get("category_id", String.class),
+                    r.get("month", Integer.class),
+                    r.get("avg_return", BigDecimal.class),
+                    r.get("sample_count", Integer.class)));
+  }
+
   public List<Category> findSubCategoriesByParentId(String parentId) {
     return dsl.selectFrom(CATEGORIES)
         .where(CATEGORIES.PARENT_ID.eq(parentId))

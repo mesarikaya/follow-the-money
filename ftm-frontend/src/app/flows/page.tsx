@@ -2,9 +2,11 @@ import {
   fetchRotation,
   fetchCategories,
   fetchCategoryScoreHistory,
+  fetchSeasonalReturns,
   RotationLeaderEntry,
   RotationEventEntry,
   CategorySummary,
+  SeasonalReturn,
 } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -449,18 +451,210 @@ function ScoreHistoryHeatmap({
   );
 }
 
+function RiskAdjustedRanking({ categories }: { categories: CategorySummary[] }) {
+  const DEFAULT_VOL = 0.20;
+  const ranked = categories
+    .filter(c => c.rs60 != null)
+    .map(c => {
+      const vol = c.realizedVol20d ?? DEFAULT_VOL;
+      const sharpeProxy = (c.rs60! * 100) / (vol * 100 || DEFAULT_VOL * 100);
+      return { ...c, vol, sharpeProxy };
+    })
+    .sort((a, b) => b.sharpeProxy - a.sharpeProxy);
+
+  if (ranked.length === 0) return null;
+
+  const absMax = Math.max(Math.abs(ranked[0].sharpeProxy), Math.abs(ranked[ranked.length - 1].sharpeProxy), 0.5);
+
+  return (
+    <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+      <div className="flex items-baseline justify-between mb-3">
+        <h2
+          className="text-slate-300 text-[10px] font-semibold uppercase tracking-widest"
+          style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.1em" }}
+        >
+          Risk-Adjusted Strength (RS-60 ÷ Vol)
+        </h2>
+        <span className="text-[10px] text-slate-500" style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+          Sharpe proxy · default vol 20% if unavailable
+        </span>
+      </div>
+      {ranked.map((c, i) => {
+        const isPos = c.sharpeProxy >= 0;
+        const barW = Math.min(Math.abs(c.sharpeProxy) / absMax, 1) * 100;
+        const barColor = isPos ? "bg-violet-500" : "bg-rose-700";
+        const valColor = isPos ? "text-violet-400" : "text-rose-400";
+        const rankColor = i === 0 ? "text-green-400" : i === ranked.length - 1 ? "text-red-400" : "text-slate-500";
+        const volKnown = c.realizedVol20d != null;
+        return (
+          <div key={c.id} className="flex items-center gap-3 py-1.5 border-b border-slate-700/20 last:border-0">
+            <span className={`text-[10px] font-bold tabular-nums w-4 shrink-0 ${rankColor}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+              #{i + 1}
+            </span>
+            <span className="text-xs text-slate-300 w-44 truncate shrink-0">{c.name}</span>
+            <span className="text-[10px] text-cyan-400 w-10 shrink-0" style={{ fontFamily: "var(--font-jetbrains-mono)" }}>{c.etfTicker}</span>
+            <div className="flex-1 h-2 bg-slate-700/50 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full ${barColor}`} style={{ width: `${barW}%` }} />
+            </div>
+            <span className={`text-xs tabular-nums w-14 text-right shrink-0 ${valColor}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+              {c.sharpeProxy >= 0 ? "+" : ""}{c.sharpeProxy.toFixed(2)}
+            </span>
+            <span
+              className={`text-[9px] tabular-nums w-12 text-right shrink-0 ${volKnown ? "text-slate-500" : "text-slate-700"}`}
+              title={volKnown ? `Realized 20d vol: ${(c.vol * 100).toFixed(1)}%` : "Vol unavailable — default 20% used"}
+              style={{ fontFamily: "var(--font-jetbrains-mono)" }}
+            >
+              {volKnown ? `σ${(c.vol * 100).toFixed(0)}%` : "~σ20%"}
+            </span>
+          </div>
+        );
+      })}
+      <div className="mt-3 text-[10px] text-slate-600">
+        Formula: RS-60 ÷ Realized Vol (20d annualized). Positive = outperforming per unit of risk. Higher = better risk-adjusted rotation signal.
+      </div>
+    </div>
+  );
+}
+
+const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function returnToColor(r: number, maxAbs: number): string {
+  if (maxAbs === 0) return "#1e293b";
+  const t = Math.min(Math.abs(r) / maxAbs, 1);
+  if (r > 0) {
+    const g = Math.round(60 + t * 130);
+    const b = Math.round(40 + t * 40);
+    return `rgb(20,${g},${b})`;
+  } else {
+    const red = Math.round(80 + t * 130);
+    return `rgb(${red},20,20)`;
+  }
+}
+
+function SeasonalHeatmap({
+  seasonalReturns,
+  categories,
+}: {
+  seasonalReturns: SeasonalReturn[];
+  categories: CategorySummary[];
+}) {
+  if (seasonalReturns.length === 0) return null;
+
+  // Build a map: categoryId → month → SeasonalReturn
+  const byCategory: Record<string, Record<number, SeasonalReturn>> = {};
+  for (const sr of seasonalReturns) {
+    if (!byCategory[sr.categoryId]) byCategory[sr.categoryId] = {};
+    byCategory[sr.categoryId][sr.month] = sr;
+  }
+
+  const catIds = categories.filter(c => byCategory[c.id]).slice(0, 18);
+  if (catIds.length === 0) return null;
+
+  const allAbsReturns = seasonalReturns.map(r => Math.abs(r.avgReturn));
+  const maxAbs = Math.max(...allAbsReturns, 0.01);
+  const currentMonth = new Date().getMonth() + 1;
+
+  const cellW = 32, cellH = 18, gap = 2;
+  const labelW = 48, padL = 8, padR = 8, padT = 28, padB = 20;
+  const innerW = 12 * (cellW + gap) - gap;
+  const W = padL + labelW + 4 + innerW + padR;
+  const H = padT + catIds.length * (cellH + gap) - gap + padB;
+
+  const colX = (col: number) => padL + labelW + 4 + col * (cellW + gap);
+  const rowY = (row: number) => padT + row * (cellH + gap);
+
+  return (
+    <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+      <div className="flex items-baseline justify-between mb-3">
+        <h2
+          className="text-slate-300 text-[10px] font-semibold uppercase tracking-widest"
+          style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.1em" }}
+        >
+          Seasonal Monthly Returns
+        </h2>
+        <div className="flex items-center gap-2 text-[9px] text-slate-600">
+          <span className="inline-block w-3 h-3 rounded-sm bg-green-700" />+ve
+          <span className="inline-block w-3 h-3 rounded-sm bg-red-800" />-ve
+          <span className="text-slate-700">· sample ≥2yr</span>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", minWidth: "480px", height: `${H}px` }}>
+          {/* Month header labels */}
+          {MONTH_LABELS.map((m, mi) => (
+            <text
+              key={m}
+              x={colX(mi) + cellW / 2} y={padT - 8}
+              fontSize="8" fill={mi + 1 === currentMonth ? "#22d3ee" : "#475569"}
+              textAnchor="middle"
+              fontWeight={mi + 1 === currentMonth ? "bold" : "normal"}
+            >{m}</text>
+          ))}
+          {catIds.map((cat, ri) => {
+            const monthMap = byCategory[cat.id] ?? {};
+            return (
+              <g key={cat.id}>
+                <text
+                  x={padL + labelW - 2} y={rowY(ri) + cellH * 0.72}
+                  fontSize="8" fill="#94a3b8" textAnchor="end"
+                  style={{ fontFamily: "var(--font-jetbrains-mono)" }}
+                >{cat.etfTicker}</text>
+                {MONTH_LABELS.map((_, mi) => {
+                  const month = mi + 1;
+                  const sr = monthMap[month];
+                  const ret = sr ? sr.avgReturn : null;
+                  const fill = ret != null ? returnToColor(ret, maxAbs) : "#1e293b";
+                  const isCurrentMonth = month === currentMonth;
+                  return (
+                    <g key={mi}>
+                      <rect
+                        x={colX(mi)} y={rowY(ri)}
+                        width={cellW} height={cellH}
+                        rx="2"
+                        fill={fill}
+                        opacity={ret == null ? 0.3 : 0.9}
+                        stroke={isCurrentMonth ? "#22d3ee" : "none"}
+                        strokeWidth={isCurrentMonth ? "1" : "0"}
+                      />
+                      {ret != null && (
+                        <text
+                          x={colX(mi) + cellW / 2} y={rowY(ri) + cellH * 0.72}
+                          fontSize="7" fill={Math.abs(ret) > 0.02 ? "#e2e8f0" : "#94a3b8"}
+                          textAnchor="middle"
+                          style={{ fontFamily: "var(--font-jetbrains-mono)" }}
+                        >{ret >= 0 ? "+" : ""}{(ret * 100).toFixed(1)}</text>
+                      )}
+                    </g>
+                  );
+                })}
+              </g>
+            );
+          })}
+          <line x1={colX(0)} x2={colX(11) + cellW} y1={H - padB + 2} y2={H - padB + 2}
+            stroke="#334155" strokeWidth="0.5" />
+        </svg>
+      </div>
+      <div className="text-[10px] text-slate-600 mt-1 text-center">
+        Average monthly return by calendar month · current month highlighted in cyan · values in %
+      </div>
+    </div>
+  );
+}
+
 type Props = {
   searchParams: Promise<{ timeframe?: string }>;
 };
 
 export default async function CapitalFlowsPage({ searchParams }: Props) {
   const { timeframe = "MONTH" } = await searchParams;
-  const [rotation, categories, scoreHistoryRaw] = await Promise.all([
+  const [rotation, categories, scoreHistoryRaw, seasonalRaw] = await Promise.all([
     fetchRotation().catch(() => null),
     fetchCategories(timeframe).catch(() => null),
     fetchCategoryScoreHistory(30).catch(() => null),
+    fetchSeasonalReturns().catch(() => null),
   ]);
   const scoreHistory: ScoreHistoryMap = scoreHistoryRaw ?? {};
+  const seasonalReturns: SeasonalReturn[] = seasonalRaw ?? [];
 
   const allRanked = (categories?.categories ?? [])
     .filter((c) => c.rs60 !== null)
@@ -542,6 +736,17 @@ export default async function CapitalFlowsPage({ searchParams }: Props) {
           <ScoreHistoryHeatmap
             categories={categories!.categories}
             scoreHistory={scoreHistory}
+          />
+        )}
+
+        {allRanked.length > 0 && (
+          <RiskAdjustedRanking categories={allRanked} />
+        )}
+
+        {seasonalReturns.length > 0 && (categories?.categories ?? []).length > 0 && (
+          <SeasonalHeatmap
+            seasonalReturns={seasonalReturns}
+            categories={categories!.categories}
           />
         )}
 

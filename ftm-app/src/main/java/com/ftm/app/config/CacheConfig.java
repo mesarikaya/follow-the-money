@@ -25,6 +25,10 @@ public class CacheConfig {
     manager.registerCustomCache(
         "macro-latest",
         Caffeine.newBuilder().maximumSize(10).expireAfterWrite(6, TimeUnit.HOURS).build());
+    // Evicted on IngestionCompleteEvent (source=MACRO) — keyed by lookback days
+    manager.registerCustomCache(
+        "macro-history",
+        Caffeine.newBuilder().maximumSize(20).expireAfterWrite(6, TimeUnit.HOURS).build());
     // Evicted on SignalsUpdatedEvent (EP-008)
     manager.registerCustomCache(
         "rotation-latest",

@@ -30,6 +30,7 @@ public class CacheEvictionListener {
     }
     if (event.source() == IngestSource.MACRO) {
       evict("macro-latest");
+      evict("macro-history");
     }
   }
 

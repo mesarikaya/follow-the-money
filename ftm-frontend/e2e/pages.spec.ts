@@ -200,6 +200,20 @@ test.describe("Capital Flows page", () => {
     await expect(page.getByText("XLK").first()).toBeVisible();
     await expect(page.getByText("XLE").first()).toBeVisible();
   });
+
+  test("shows seasonal headings from /categories/seasonal mock", async ({ page }) => {
+    await page.goto("/flows");
+    // SeasonalTailwindsPanel and SeasonalHeatmap both render from seasonal mock data
+    await expect(page.getByText(/Seasonal/i).first()).toBeVisible();
+    await expect(page.getByText(/Seasonal Monthly Returns/i)).toBeVisible();
+  });
+});
+
+test.describe("Sectors hub page — confluence matrix", () => {
+  test("shows Signal Confluence Matrix", async ({ page }) => {
+    await page.goto("/sectors");
+    await expect(page.getByText("Signal Confluence Matrix")).toBeVisible();
+  });
 });
 
 test.describe("Dashboard (/) page", () => {

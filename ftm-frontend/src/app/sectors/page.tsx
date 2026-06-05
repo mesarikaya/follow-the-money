@@ -554,6 +554,163 @@ function SubSectorLeaderboard({ leaders }: { leaders: SubSectorLeader[] }) {
   );
 }
 
+type ConfluenceSignal = {
+  key: string;
+  label: string;
+  get: (s: CategorySummary) => number | null;
+  bullish: (v: number) => boolean;
+  format: (v: number) => string;
+};
+
+const CONFLUENCE_SIGNALS: ConfluenceSignal[] = [
+  {
+    key: "rrg",
+    label: "RRG",
+    get: s => s.rrgQuadrant != null ? Number(s.rrgQuadrant) : null,
+    bullish: v => v >= 3,
+    format: v => v === 4 ? "↗L" : v === 3 ? "↖I" : v === 2 ? "↘W" : "↙Lg",
+  },
+  {
+    key: "score",
+    label: "Score",
+    get: s => s.compositeScore,
+    bullish: v => v >= 0.5,
+    format: v => `${Math.round(v * 100)}`,
+  },
+  {
+    key: "pct",
+    label: "Pctile",
+    get: s => s.scorePercentile252d,
+    bullish: v => v >= 0.6,
+    format: v => `P${Math.round(v * 100)}`,
+  },
+  {
+    key: "rs60",
+    label: "RS-60",
+    get: s => s.rs60,
+    bullish: v => v > 0,
+    format: v => `${v >= 0 ? "+" : ""}${(v * 100).toFixed(0)}%`,
+  },
+  {
+    key: "flow",
+    label: "Flow",
+    get: s => s.flow20d,
+    bullish: v => v > 0.3,
+    format: v => `${v >= 0 ? "+" : ""}${v.toFixed(1)}σ`,
+  },
+  {
+    key: "macro",
+    label: "Macro",
+    get: s => s.macroFit,
+    bullish: v => v >= 0.55,
+    format: v => `${Math.round(v * 100)}%`,
+  },
+];
+
+function SignalConfluenceMatrix({ sectors }: { sectors: CategorySummary[] }) {
+  const rows = sectors.filter(s => s.compositeScore != null);
+  if (rows.length === 0) return null;
+
+  const sortedRows = [...rows].sort((a, b) => {
+    const aScore = CONFLUENCE_SIGNALS.filter(sig => {
+      const v = sig.get(a);
+      return v != null && sig.bullish(v);
+    }).length;
+    const bScore = CONFLUENCE_SIGNALS.filter(sig => {
+      const v = sig.get(b);
+      return v != null && sig.bullish(v);
+    }).length;
+    return bScore - aScore;
+  });
+
+  return (
+    <div className="mt-6 bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+      <div className="flex items-baseline justify-between mb-3">
+        <h2
+          className="text-slate-300 text-[10px] font-semibold uppercase tracking-widest"
+          style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.1em" }}
+        >
+          Signal Confluence Matrix
+        </h2>
+        <div className="text-[9px] text-slate-600">sorted by bullish signal count ↓</div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[10px]" style={{ minWidth: "480px" }}>
+          <thead>
+            <tr>
+              <th className="text-left text-slate-500 font-normal pb-1.5 pr-3 w-20">Sector</th>
+              {CONFLUENCE_SIGNALS.map(sig => (
+                <th key={sig.key} className="text-center text-slate-500 font-normal pb-1.5 px-1 min-w-[52px]"
+                  style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+                  {sig.label}
+                </th>
+              ))}
+              <th className="text-center text-slate-500 font-normal pb-1.5 px-1">✓</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedRows.map(sector => {
+              let bullishCount = 0;
+              return (
+                <tr key={sector.id} className="border-t border-slate-700/30">
+                  <td className="py-1 pr-3">
+                    <span
+                      className="text-[10px] text-cyan-400"
+                      style={{ fontFamily: "var(--font-jetbrains-mono)" }}
+                    >
+                      {sector.etfTicker}
+                    </span>
+                  </td>
+                  {CONFLUENCE_SIGNALS.map(sig => {
+                    const raw = sig.get(sector);
+                    if (raw == null) {
+                      return (
+                        <td key={sig.key} className="text-center py-1 px-1">
+                          <span className="text-slate-700">—</span>
+                        </td>
+                      );
+                    }
+                    const isBull = sig.bullish(raw);
+                    if (isBull) bullishCount++;
+                    const cellBg = isBull
+                      ? "bg-emerald-900/30 text-emerald-300"
+                      : "bg-red-900/20 text-red-400";
+                    return (
+                      <td key={sig.key} className="text-center py-1 px-1">
+                        <span
+                          className={`inline-block px-1.5 py-0.5 rounded text-[9px] tabular-nums font-mono ${cellBg}`}
+                          title={`${sector.etfTicker} ${sig.label}: ${sig.format(raw)} — ${isBull ? "bullish" : "bearish"}`}
+                        >
+                          {sig.format(raw)}
+                        </span>
+                      </td>
+                    );
+                  })}
+                  <td className="text-center py-1 px-1">
+                    <span
+                      className={`text-xs font-bold tabular-nums ${
+                        bullishCount >= 5 ? "text-emerald-400" :
+                        bullishCount >= 3 ? "text-amber-400" :
+                        "text-slate-500"
+                      }`}
+                      style={{ fontFamily: "var(--font-jetbrains-mono)" }}
+                    >
+                      {bullishCount}/{CONFLUENCE_SIGNALS.length}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="text-[9px] text-slate-600 mt-2">
+        Green = bullish threshold met · RRG Leading/Improving · Score≥50 · P60+ percentile · RS-60{">"}0 · Flow{">"}+0.3σ · MacroFit≥55%
+      </div>
+    </div>
+  );
+}
+
 const QUADRANT_STRIP_CONFIG: Array<{ key: string; label: string; colorClass: string; dotClass: string }> = [
   { key: "4", label: "↗ Leading",   colorClass: "text-green-400",  dotClass: "bg-green-500"  },
   { key: "3", label: "↖ Improving", colorClass: "text-cyan-400",   dotClass: "bg-cyan-500"   },
@@ -750,6 +907,10 @@ export default async function SectorsHubPage() {
 
         {sectors.some(s => s.rs60 != null && s.rs20 != null) && (
           <RrgScatterChart sectors={sectors} />
+        )}
+
+        {sectors.some(s => s.compositeScore != null) && (
+          <SignalConfluenceMatrix sectors={sectors} />
         )}
 
         {allSubSectors.some(s => s.rs20 != null) && (

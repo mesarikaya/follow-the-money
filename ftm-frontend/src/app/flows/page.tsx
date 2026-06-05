@@ -518,6 +518,102 @@ function RiskAdjustedRanking({ categories }: { categories: CategorySummary[] }) 
 
 const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
+function SeasonalTailwindsPanel({
+  seasonalReturns,
+  categories,
+}: {
+  seasonalReturns: SeasonalReturn[];
+  categories: CategorySummary[];
+}) {
+  if (seasonalReturns.length === 0 || categories.length === 0) return null;
+
+  const currentMonth = new Date().getMonth() + 1;
+  const monthLabel = MONTH_LABELS[currentMonth - 1];
+
+  // Build lookup: categoryId → current month avg return
+  const monthReturn: Record<string, SeasonalReturn> = {};
+  for (const sr of seasonalReturns) {
+    if (sr.month === currentMonth) monthReturn[sr.categoryId] = sr;
+  }
+
+  const catMap: Record<string, CategorySummary> = {};
+  for (const c of categories) catMap[c.id] = c;
+
+  const entries = Object.entries(monthReturn)
+    .map(([catId, sr]) => ({ cat: catMap[catId], sr }))
+    .filter(e => e.cat != null)
+    .sort((a, b) => b.sr.avgReturn - a.sr.avgReturn);
+
+  const tailwinds = entries.filter(e => e.sr.avgReturn > 0.005).slice(0, 5);
+  const headwinds = entries.filter(e => e.sr.avgReturn < -0.005).slice(0, 4);
+
+  if (tailwinds.length === 0 && headwinds.length === 0) return null;
+
+  function EntryRow({ e, isGood }: { e: { cat: CategorySummary; sr: SeasonalReturn }; isGood: boolean }) {
+    const retPct = (e.sr.avgReturn * 100).toFixed(1);
+    const signal = e.cat.tradeSignal;
+    const signalAligned = isGood ? (signal === "BUY" || signal === "WATCH") : (signal === "REDUCE");
+    const retColor = isGood ? "text-emerald-400" : "text-red-400";
+    return (
+      <div className="flex items-center gap-2 py-1 border-b border-slate-700/20 last:border-0">
+        <span className="text-[10px] text-cyan-400 w-10 shrink-0" style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
+          {e.cat.etfTicker}
+        </span>
+        <span className="text-[10px] text-slate-400 flex-1 truncate">{e.cat.name}</span>
+        <span className={`text-[10px] tabular-nums shrink-0 font-mono ${retColor}`}>
+          {isGood ? "+" : ""}{retPct}%
+        </span>
+        <span className="text-[9px] text-slate-600 shrink-0">n={e.sr.sampleCount}</span>
+        {signal && (
+          <span className={`text-[9px] shrink-0 font-bold px-1 rounded ${
+            signalAligned
+              ? (isGood ? "text-emerald-300 bg-emerald-900/30" : "text-red-300 bg-red-900/30")
+              : "text-slate-500 bg-slate-800/60"
+          }`} style={{ fontFamily: "var(--font-rajdhani)" }}>
+            {signal}
+            {signalAligned && " ✓"}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+      <div className="flex items-baseline justify-between mb-3">
+        <h2
+          className="text-slate-300 text-[10px] font-semibold uppercase tracking-widest"
+          style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.1em" }}
+        >
+          {monthLabel} Seasonal Tailwinds &amp; Headwinds
+        </h2>
+        <span className="text-[9px] text-slate-600">avg monthly return · ✓ = signal aligned</span>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {tailwinds.length > 0 && (
+          <div>
+            <div className="text-[9px] text-emerald-500 uppercase tracking-wider mb-1.5 font-semibold">
+              ↑ Seasonal Tailwinds
+            </div>
+            {tailwinds.map(e => <EntryRow key={e.cat.id} e={e} isGood={true} />)}
+          </div>
+        )}
+        {headwinds.length > 0 && (
+          <div>
+            <div className="text-[9px] text-red-500 uppercase tracking-wider mb-1.5 font-semibold">
+              ↓ Seasonal Headwinds
+            </div>
+            {headwinds.map(e => <EntryRow key={e.cat.id} e={e} isGood={false} />)}
+          </div>
+        )}
+      </div>
+      <div className="text-[9px] text-slate-600 mt-2">
+        Historical average for {monthLabel} across all available years (min 2 samples) · ✓ means current signal aligns with seasonal pattern
+      </div>
+    </div>
+  );
+}
+
 function returnToColor(r: number, maxAbs: number): string {
   if (maxAbs === 0) return "#1e293b";
   const t = Math.min(Math.abs(r) / maxAbs, 1);
@@ -741,6 +837,13 @@ export default async function CapitalFlowsPage({ searchParams }: Props) {
 
         {allRanked.length > 0 && (
           <RiskAdjustedRanking categories={allRanked} />
+        )}
+
+        {seasonalReturns.length > 0 && (categories?.categories ?? []).length > 0 && (
+          <SeasonalTailwindsPanel
+            seasonalReturns={seasonalReturns}
+            categories={categories!.categories}
+          />
         )}
 
         {seasonalReturns.length > 0 && (categories?.categories ?? []).length > 0 && (

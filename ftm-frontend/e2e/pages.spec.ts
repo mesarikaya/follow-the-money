@@ -233,6 +233,25 @@ test.describe("Sectors hub page — confluence matrix", () => {
   });
 });
 
+test.describe("Dashboard — Sector Rotation Wheel", () => {
+  test("renders Sector Rotation Wheel on dashboard", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Sector Rotation Wheel")).toBeVisible();
+    // Description text is always present
+    await expect(page.getByText(/RS-60.*5d score trend/)).toBeVisible();
+  });
+
+  test("renders quadrant labels and sector tickers in the wheel SVG", async ({ page }) => {
+    await page.goto("/");
+    // SVG text elements for quadrant labels (full label string rendered inside SVG)
+    await expect(page.getByText("↗ Leading")).toBeVisible();
+    await expect(page.getByText("↙ Lagging")).toBeVisible();
+    // SVG text for sector ETF tickers (TECH=XLK, ENRG=XLE have non-null rs60+compositeTrend5d)
+    await expect(page.getByText("XLK").first()).toBeVisible();
+    await expect(page.getByText("XLE").first()).toBeVisible();
+  });
+});
+
 test.describe("Dashboard (/) page", () => {
   test("loads and shows category table with data from mock", async ({ page }) => {
     await page.goto("/");

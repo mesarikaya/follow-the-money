@@ -123,12 +123,8 @@ public class MacroService {
   }
 
   private static String ordinalToRegimeName(int ordinal) {
-    return switch (ordinal) {
-      case 0 -> MacroRegime.STAGFLATION.name();
-      case 1 -> MacroRegime.RISK_OFF_FLIGHT.name();
-      case 2 -> MacroRegime.RISK_ON_GROWTH.name();
-      case 3 -> MacroRegime.RISK_ON_DEFENSIVE.name();
-      default -> "UNKNOWN";
-    };
+    MacroRegime[] values = MacroRegime.values();
+    if (ordinal < 0 || ordinal >= values.length) return "UNKNOWN";
+    return values[ordinal].name();
   }
 }

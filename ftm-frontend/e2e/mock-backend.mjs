@@ -227,17 +227,17 @@ const RRG_RESPONSE = {
 };
 
 const TECH_SUB_SECTORS_RESPONSE = [
-  { id: "SEMI", name: "Semiconductors",  parentId: "TECH", etfTicker: "SMH",  rs20: 1.08, rs60: 1.12, rs120: 1.15, momentum: 0.03, rrgQuadrant: "4", compositeScore: 0.84, compositeTrend5d: 0.05, compositeTrend20d: 0.09 },
-  { id: "AIRO", name: "AI & Robotics",   parentId: "TECH", etfTicker: "BOTZ", rs20: 1.05, rs60: 1.08, rs120: 1.10, momentum: 0.01, rrgQuadrant: "3", compositeScore: 0.71, compositeTrend5d: 0.02, compositeTrend20d: 0.04 },
-  { id: "CLOD", name: "Cloud Computing", parentId: "TECH", etfTicker: "WCLD", rs20: 0.98, rs60: 1.02, rs120: 1.04, momentum: -0.01, rrgQuadrant: "2", compositeScore: 0.55, compositeTrend5d: -0.03, compositeTrend20d: -0.05 },
-  { id: "SOFT", name: "Software",        parentId: "TECH", etfTicker: "IGV",  rs20: 0.95, rs60: 0.97, rs120: 0.99, momentum: -0.02, rrgQuadrant: "1", compositeScore: 0.38, compositeTrend5d: -0.04, compositeTrend20d: -0.07 },
+  { id: "SEMI", name: "Semiconductors",  parentId: "TECH", etfTicker: "SMH",  rs20: 1.08, rs60: 1.12, rs120: 1.15, momentum: 0.03, rrgQuadrant: "4", compositeScore: 0.84, compositeTrend5d: 0.05, compositeTrend20d: 0.09, scorePercentile252d: 0.92, tradeSignal: "BUY",  persistence5d: 4, persistence20d: 16, macroFit: 0.72, convictionScore: 88, signalDaysActive: 14 },
+  { id: "AIRO", name: "AI & Robotics",   parentId: "TECH", etfTicker: "BOTZ", rs20: 1.05, rs60: 1.08, rs120: 1.10, momentum: 0.01, rrgQuadrant: "3", compositeScore: 0.71, compositeTrend5d: 0.02, compositeTrend20d: 0.04, scorePercentile252d: 0.75, tradeSignal: "WATCH", persistence5d: 3, persistence20d: 12, macroFit: 0.60, convictionScore: 71, signalDaysActive: 8 },
+  { id: "CLOD", name: "Cloud Computing", parentId: "TECH", etfTicker: "WCLD", rs20: 0.98, rs60: 1.02, rs120: 1.04, momentum: -0.01, rrgQuadrant: "2", compositeScore: 0.55, compositeTrend5d: -0.03, compositeTrend20d: -0.05, scorePercentile252d: 0.48, tradeSignal: "HOLD",  persistence5d: 2, persistence20d: 9,  macroFit: 0.45, convictionScore: null, signalDaysActive: 3 },
+  { id: "SOFT", name: "Software",        parentId: "TECH", etfTicker: "IGV",  rs20: 0.95, rs60: 0.97, rs120: 0.99, momentum: -0.02, rrgQuadrant: "1", compositeScore: 0.38, compositeTrend5d: -0.04, compositeTrend20d: -0.07, scorePercentile252d: 0.22, tradeSignal: "REDUCE", persistence5d: 1, persistence20d: 5, macroFit: 0.30, convictionScore: null, signalDaysActive: 5 },
 ];
 
 const FACTOR_ETF_RESPONSE = [
-  { id: "MTUM", name: "Momentum Factor",       parentId: "FTRS", etfTicker: "MTUM", rs20: 1.04, rs60: 1.07, rs120: 1.09, momentum: 0.02, rrgQuadrant: "4", compositeScore: 0.78, compositeTrend5d: 0.03, compositeTrend20d: 0.06 },
-  { id: "QUAL", name: "Quality Factor",        parentId: "FTRS", etfTicker: "QUAL", rs20: 1.02, rs60: 1.04, rs120: 1.06, momentum: 0.01, rrgQuadrant: "3", compositeScore: 0.65, compositeTrend5d: 0.01, compositeTrend20d: 0.02 },
-  { id: "USMV", name: "Low Volatility Factor", parentId: "FTRS", etfTicker: "USMV", rs20: 0.99, rs60: 1.01, rs120: 1.02, momentum: -0.01, rrgQuadrant: "2", compositeScore: 0.51, compositeTrend5d: -0.02, compositeTrend20d: -0.03 },
-  { id: "VLUE", name: "Value Factor",          parentId: "FTRS", etfTicker: "VLUE", rs20: 0.97, rs60: 0.99, rs120: 1.00, momentum: -0.02, rrgQuadrant: "1", compositeScore: 0.43, compositeTrend5d: -0.03, compositeTrend20d: -0.06 },
+  { id: "MTUM", name: "Momentum Factor",       parentId: "FTRS", etfTicker: "MTUM", rs20: 1.04, rs60: 1.07, rs120: 1.09, momentum: 0.02, rrgQuadrant: "4", compositeScore: 0.78, compositeTrend5d: 0.03, compositeTrend20d: 0.06, scorePercentile252d: 0.82, tradeSignal: "BUY",  persistence5d: 4, persistence20d: 15, macroFit: 0.68, convictionScore: 80, signalDaysActive: 12 },
+  { id: "QUAL", name: "Quality Factor",        parentId: "FTRS", etfTicker: "QUAL", rs20: 1.02, rs60: 1.04, rs120: 1.06, momentum: 0.01, rrgQuadrant: "3", compositeScore: 0.65, compositeTrend5d: 0.01, compositeTrend20d: 0.02, scorePercentile252d: 0.70, tradeSignal: "WATCH", persistence5d: 3, persistence20d: 13, macroFit: 0.60, convictionScore: 65, signalDaysActive: 7 },
+  { id: "USMV", name: "Low Volatility Factor", parentId: "FTRS", etfTicker: "USMV", rs20: 0.99, rs60: 1.01, rs120: 1.02, momentum: -0.01, rrgQuadrant: "2", compositeScore: 0.51, compositeTrend5d: -0.02, compositeTrend20d: -0.03, scorePercentile252d: 0.50, tradeSignal: "HOLD",  persistence5d: 2, persistence20d: 10, macroFit: 0.48, convictionScore: null, signalDaysActive: 4 },
+  { id: "VLUE", name: "Value Factor",          parentId: "FTRS", etfTicker: "VLUE", rs20: 0.97, rs60: 0.99, rs120: 1.00, momentum: -0.02, rrgQuadrant: "1", compositeScore: 0.43, compositeTrend5d: -0.03, compositeTrend20d: -0.06, scorePercentile252d: 0.35, tradeSignal: "REDUCE", persistence5d: 1, persistence20d: 7, macroFit: 0.35, convictionScore: null, signalDaysActive: 6 },
 ];
 
 const PORTFOLIO_RESPONSE = {
@@ -315,7 +315,15 @@ const server = http.createServer(async (req, res) => {
   const path = url.pathname;
   const parent = url.searchParams.get("parent");
 
-  if (path === "/api/v1/categories/score-history") {
+  if (path === "/api/v1/categories/seasonal") {
+    res.writeHead(200);
+    res.end(JSON.stringify([
+      { categoryId: "TECH", month: 1,  avgReturn: 0.0312, sampleCount: 5 },
+      { categoryId: "TECH", month: 6,  avgReturn: -0.0145, sampleCount: 5 },
+      { categoryId: "HLTH", month: 3,  avgReturn: 0.0210, sampleCount: 4 },
+      { categoryId: "ENRG", month: 6,  avgReturn: 0.0180, sampleCount: 6 },
+    ]));
+  } else if (path === "/api/v1/categories/score-history") {
     const scores30 = [0.55,0.57,0.58,0.61,0.63,0.65,0.67,0.68,0.70,0.71,0.72,0.73,0.74,0.75,0.76,0.77,0.78,0.79,0.80,0.81,0.81,0.82,0.83,0.83,0.84,0.84,0.83,0.82,0.82,0.82];
     res.writeHead(200);
     res.end(JSON.stringify({

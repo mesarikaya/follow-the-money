@@ -95,6 +95,7 @@ export type SubSectorSummary = {
   macroFit: number | null;
   convictionScore: number | null;
   signalDaysActive: number | null;
+  scorePercentile252d: number | null;
 };
 
 async function get<T>(path: string): Promise<T> {

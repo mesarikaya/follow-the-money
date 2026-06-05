@@ -20,4 +20,5 @@ public record SubSectorSummaryDto(
     Integer persistence20d,
     BigDecimal macroFit,
     Integer convictionScore,
-    Integer signalDaysActive) {}
+    Integer signalDaysActive,
+    BigDecimal scorePercentile252d) {}

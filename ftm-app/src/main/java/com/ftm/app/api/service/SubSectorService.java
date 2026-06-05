@@ -121,7 +121,8 @@ public class SubSectorService {
                   persistence20d,
                   macroFit,
                   rawConviction > 0 ? rawConviction : null,
-                  signalDaysActiveByCategory.get(categoryId));
+                  signalDaysActiveByCategory.get(categoryId),
+                  percentile);
             })
         .sorted(
             (subSectorA, subSectorB) -> {

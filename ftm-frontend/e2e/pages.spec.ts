@@ -7,10 +7,11 @@ test.describe("Macro Regime page", () => {
     await expect(page.getByRole("heading", { name: "Macro Regime", level: 1 })).toBeVisible();
     // Badge label appears in header badge AND body section — .first() avoids strict mode
     await expect(page.getByText("Risk On — Growth").first()).toBeVisible();
-    await expect(page.getByText("VIX", { exact: true })).toBeVisible();
-    await expect(page.getByText("10Y Yield")).toBeVisible();
-    await expect(page.getByText("Fed Funds Rate")).toBeVisible();
-    await expect(page.getByText("WTI Crude Oil")).toBeVisible();
+    await expect(page.getByText("VIX", { exact: true }).first()).toBeVisible();
+    // "10Y Yield" vs "Real 10Y Yield" — use exact match and first() to pick indicator card
+    await expect(page.getByText("10Y Yield", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Fed Funds Rate", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("WTI Crude Oil", { exact: true }).first()).toBeVisible();
   });
 
   test("shows regime description for current regime", async ({ page }) => {
@@ -39,10 +40,11 @@ test.describe("Factor Flows page", () => {
 
   test("renders factor names", async ({ page }) => {
     await page.goto("/factors");
-    await expect(page.getByText("Momentum Factor")).toBeVisible();
-    await expect(page.getByText("Quality Factor")).toBeVisible();
-    await expect(page.getByText("Low Volatility Factor")).toBeVisible();
-    await expect(page.getByText("Value Factor")).toBeVisible();
+    // exact:true to avoid partial substring matches against longer sentences
+    await expect(page.getByText("Momentum Factor", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Quality Factor", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Low Volatility Factor", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Value Factor", { exact: true }).first()).toBeVisible();
   });
 });
 
@@ -104,7 +106,8 @@ test.describe("Backtester page", () => {
     await page.goto("/backtest");
     // Use heading role — getByText("Strategy") would substring-match container divs
     await expect(page.getByRole("heading", { name: "Strategy Parameters" })).toBeVisible();
-    await expect(page.getByRole("combobox")).toBeVisible();
+    // Multiple <select> elements exist — use first() to avoid strict mode
+    await expect(page.getByRole("combobox").first()).toBeVisible();
   });
 });
 
@@ -241,21 +244,24 @@ test.describe("Dashboard (/) page", () => {
 
   test("shows market breadth bar with equity sectors", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText("Market Breadth")).toBeVisible();
+    // exact:true avoids matching sentences like "Market breadth is mixed…"
+    await expect(page.getByText("Market Breadth", { exact: true })).toBeVisible();
   });
 
   test("shows macro panel with regime and indicators", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText("Macro Environment")).toBeVisible();
-    await expect(page.getByText("VIX", { exact: true })).toBeVisible();
+    await expect(page.getByText("VIX", { exact: true }).first()).toBeVisible();
   });
 
   test("shows section dividers in category table for non-equity types", async ({ page }) => {
     await page.goto("/");
     // GOLD is PRECIOUS_METAL → divider appears; TLT is FIXED_INCOME
-    await expect(page.getByText("Precious Metals")).toBeVisible();
-    await expect(page.getByText("Fixed Income")).toBeVisible();
-    await expect(page.getByText("Cash")).toBeVisible();
+    // "Precious Metals" (with s) is unique to the divider row (footer badge says "Precious Metal")
+    await expect(page.getByText("Precious Metals", { exact: true })).toBeVisible();
+    // Scope to <td> elements to avoid matching the footer badge with the same text
+    await expect(page.locator("td").filter({ hasText: /^Fixed Income$/ }).first()).toBeVisible();
+    await expect(page.locator("td").filter({ hasText: /^Cash$/ }).first()).toBeVisible();
   });
 
   test("BIL Cash category renders Cash badge, not Alternative", async ({ page }) => {
@@ -324,14 +330,16 @@ test.describe("Dashboard — trade signals", () => {
 test.describe("Sidebar navigation", () => {
   test("sidebar contains all main section links", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("link", { name: /Macro/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Sub-Sectors/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Factor/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Capital Flows/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /RRG/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Portfolio/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Alerts/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Backtest/ })).toBeVisible();
+    // Scope all sidebar link checks to the <aside> to avoid matching dashboard panel links
+    const sidebar = page.locator("aside");
+    await expect(sidebar.getByRole("link", { name: /Macro/ })).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: /Sub-Sectors/ })).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: /Factor/ })).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: /Capital Flows/ })).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: /RRG/ })).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: /Portfolio/ })).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: /Alerts/ })).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: /Backtest/ })).toBeVisible();
   });
 
   test("clicking sidebar links navigates to the correct page", async ({ page }) => {
@@ -350,15 +358,17 @@ test.describe("Ticker Mappings admin page", () => {
     await page.goto("/admin/ticker-mappings");
     await expect(page.getByRole("heading", { name: "Ticker Mappings" })).toBeVisible();
     await expect(page.getByText("3 entries")).toBeVisible();
-    await expect(page.getByText("XLK")).toBeVisible();
-    await expect(page.getByText("GLD")).toBeVisible();
+    // ActiveAlertsStrip shows "BUY XLK" — scope to table cells to avoid strict mode violation
+    await expect(page.getByRole("cell", { name: "XLK", exact: true })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "GLD", exact: true })).toBeVisible();
   });
 
   test("filter narrows visible rows", async ({ page }) => {
     await page.goto("/admin/ticker-mappings");
     await page.getByPlaceholder(/Filter/).fill("TECH");
-    await expect(page.getByText("XLK")).toBeVisible();
-    await expect(page.getByText("GLD")).not.toBeVisible();
+    // Scope to table cells to avoid matching the ActiveAlertsStrip ticker spans
+    await expect(page.getByRole("cell", { name: "XLK", exact: true })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "GLD", exact: true })).not.toBeVisible();
   });
 
   test("sidebar shows Ticker Mappings link", async ({ page }) => {

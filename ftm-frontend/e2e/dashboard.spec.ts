@@ -55,8 +55,8 @@ test.describe("Dashboard shell", () => {
 
   test("equity sector ETF tickers in category table link to sector drilldown", async ({ page }) => {
     await page.goto("/");
-    // XLK is an equity sector — its ETF ticker cell should be a link to /sectors/TECH
-    const xlkLink = page.getByRole("link", { name: "XLK", exact: true });
+    // XLK appears in many panels (breadth bar, momentum leaders, category table…) — scope to table
+    const xlkLink = page.locator("table").getByRole("link", { name: "XLK", exact: true }).first();
     await expect(xlkLink).toBeVisible();
     await xlkLink.click();
     await expect(page).toHaveURL(/\/sectors\/TECH/);
@@ -72,8 +72,9 @@ test.describe("Dashboard shell", () => {
   test("shows momentum leaders panel with accelerating and decelerating sections", async ({ page }) => {
     await page.goto("/");
     // Mock data has TECH (+8 pts trend), HLTH (+3 pts), ENRG (-12 pts)
-    await expect(page.getByText("Accelerating")).toBeVisible();
-    await expect(page.getByText("Decelerating")).toBeVisible();
+    // exact:true avoids matching longer sentences containing "accelerating/decelerating"
+    await expect(page.getByText("Accelerating", { exact: true })).toBeVisible();
+    await expect(page.getByText("Decelerating", { exact: true })).toBeVisible();
     // TECH should be in the accelerating column (highest positive trend)
     await expect(page.getByText("XLK").first()).toBeVisible();
     // ENRG should appear as a decelerator (largest negative trend)
@@ -82,7 +83,8 @@ test.describe("Dashboard shell", () => {
 
   test("market breadth bar shows sector breadth signal", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText("Market Breadth")).toBeVisible();
+    // exact:true avoids matching sentences like "Market breadth is mixed…"
+    await expect(page.getByText("Market Breadth", { exact: true })).toBeVisible();
     // Mock data has TECH (bullish), HLTH (moderate), ENRG (bearish) — Mixed signal
     await expect(page.getByText(/Risk-On|Risk-Off|Mixed/).first()).toBeVisible();
   });

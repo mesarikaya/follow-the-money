@@ -618,6 +618,94 @@ function computeMonthlyReturns(curve: EquityCurvePoint[]) {
   return rows;
 }
 
+function computeAnnualReturns(curve: EquityCurvePoint[]): { yr: number; port: number; spy: number }[] {
+  if (curve.length < 2) return [];
+  const monthEnd = new Map<string, { portfolio: number; spy: number }>();
+  for (const pt of curve) monthEnd.set(pt.date.slice(0, 7), { portfolio: pt.portfolioValue, spy: pt.spyValue });
+  const sortedYears = Array.from(new Set(Array.from(monthEnd.keys()).map(ym => Number(ym.slice(0, 4))))).sort();
+  return sortedYears.map(yr => {
+    const yrMonths = Array.from(monthEnd.keys()).filter(ym => ym.startsWith(String(yr))).sort();
+    const prevYrMonths = Array.from(monthEnd.keys()).filter(ym => ym.startsWith(String(yr - 1))).sort();
+    const startVal = prevYrMonths.length > 0 ? monthEnd.get(prevYrMonths[prevYrMonths.length - 1])! : monthEnd.get(yrMonths[0])!;
+    const endVal = monthEnd.get(yrMonths[yrMonths.length - 1])!;
+    return { yr, port: endVal.portfolio / startVal.portfolio - 1, spy: endVal.spy / startVal.spy - 1 };
+  });
+}
+
+function AnnualReturnsChart({ curve }: { curve: EquityCurvePoint[] }) {
+  const annuals = computeAnnualReturns(curve);
+  if (annuals.length < 2) return null;
+
+  const allRets = annuals.flatMap(a => [a.port * 100, a.spy * 100]);
+  const maxAbs = Math.max(Math.abs(Math.min(...allRets)), Math.abs(Math.max(...allRets)), 5);
+  const BAR_W = 18, GAP = 6, GROUP_GAP = 16;
+  const LABEL_H = 36, PAD_T = 8, PAD_R = 8;
+  const CHART_H = 110;
+  const innerH = CHART_H - PAD_T - LABEL_H;
+  const totalW = annuals.length * (BAR_W * 2 + GAP + GROUP_GAP) - GROUP_GAP + PAD_R;
+  const zeroY = PAD_T + (1 - (0 - (-maxAbs)) / (maxAbs * 2)) * innerH;
+  const toY = (v: number) => PAD_T + (1 - (v - (-maxAbs)) / (maxAbs * 2)) * innerH;
+  const barH = (v: number) => Math.abs(toY(v) - zeroY);
+
+  return (
+    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-sm font-semibold text-slate-200">Annual Returns vs SPY</div>
+        <div className="flex items-center gap-4 text-[10px] text-slate-500">
+          <span className="flex items-center gap-1"><span className="inline-block w-3 h-2 rounded-sm bg-blue-500/80" />Strategy</span>
+          <span className="flex items-center gap-1"><span className="inline-block w-3 h-2 rounded-sm bg-slate-500/60" />SPY</span>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <svg viewBox={`0 0 ${totalW} ${CHART_H}`} className="w-full" style={{ minWidth: `${Math.min(totalW, 320)}px` }}>
+          {/* Zero line */}
+          <line x1={0} y1={zeroY.toFixed(1)} x2={totalW} y2={zeroY.toFixed(1)} stroke="#475569" strokeWidth="0.5" />
+          {/* Y-axis grid at ±max/2 */}
+          {[maxAbs * 0.5, -maxAbs * 0.5].map(v => (
+            <g key={v}>
+              <line x1={0} y1={toY(v).toFixed(1)} x2={totalW} y2={toY(v).toFixed(1)} stroke="#334155" strokeWidth="0.5" strokeDasharray="2,2" />
+              <text x={2} y={(toY(v) - 2).toFixed(1)} fill="#64748b" fontSize="7" textAnchor="start">{v > 0 ? "+" : ""}{v.toFixed(0)}%</text>
+            </g>
+          ))}
+          {annuals.map((a, i) => {
+            const x = i * (BAR_W * 2 + GAP + GROUP_GAP);
+            const portPct = a.port * 100;
+            const spyPct = a.spy * 100;
+            const portColor = portPct >= 0 ? "#3b82f6" : "#ef4444";
+            const spyColor = spyPct >= 0 ? "#64748b" : "#dc2626";
+            const portBarY = portPct >= 0 ? toY(portPct) : zeroY;
+            const spyBarY = spyPct >= 0 ? toY(spyPct) : zeroY;
+            const portH = barH(portPct);
+            const spyH = barH(spyPct);
+            const excess = portPct - spyPct;
+            return (
+              <g key={a.yr}>
+                {/* Strategy bar */}
+                <rect x={x} y={portBarY.toFixed(1)} width={BAR_W} height={portH.toFixed(1)} fill={portColor} opacity="0.85" rx="1"
+                  title={`${a.yr} Strategy: ${portPct >= 0 ? "+" : ""}${portPct.toFixed(1)}%`} />
+                {/* SPY bar */}
+                <rect x={x + BAR_W + GAP} y={spyBarY.toFixed(1)} width={BAR_W} height={spyH.toFixed(1)} fill={spyColor} opacity="0.55" rx="1"
+                  title={`${a.yr} SPY: ${spyPct >= 0 ? "+" : ""}${spyPct.toFixed(1)}%`} />
+                {/* Excess label above higher bar */}
+                <text x={(x + BAR_W).toFixed(1)} y={(Math.min(portBarY, spyBarY) - 2).toFixed(1)} fill={excess >= 0 ? "#34d399" : "#f87171"} fontSize="6.5" textAnchor="middle">
+                  {excess >= 0 ? "+" : ""}{excess.toFixed(0)}
+                </text>
+                {/* Year label */}
+                <text x={(x + BAR_W).toFixed(1)} y={(CHART_H - 2).toFixed(1)} fill="#94a3b8" fontSize="8" textAnchor="middle">
+                  {a.yr}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      <div className="text-[10px] text-slate-600 mt-1 text-center">
+        Numbers above bars = excess return vs SPY (green = outperform, red = underperform) · Partial years shown at actual period returns
+      </div>
+    </div>
+  );
+}
+
 function cellBg(excess: number): string {
   if (excess >= 0.03)  return "bg-emerald-800/80 text-emerald-200";
   if (excess >= 0.01)  return "bg-emerald-900/60 text-emerald-300";
@@ -1774,6 +1862,11 @@ export default function BacktesterPage() {
                 {/* Monthly returns calendar */}
                 {result.equityCurve && result.equityCurve.length > 2 && (
                   <MonthlyReturnsTable curve={result.equityCurve} />
+                )}
+
+                {/* Annual returns bar chart */}
+                {result.equityCurve && result.equityCurve.length > 30 && (
+                  <AnnualReturnsChart curve={result.equityCurve} />
                 )}
 
                 {/* Rolling 1-year return chart */}

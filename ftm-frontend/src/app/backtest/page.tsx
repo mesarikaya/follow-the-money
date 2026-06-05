@@ -301,6 +301,96 @@ function RollingReturnChart({ curve }: { curve: EquityCurvePoint[] }) {
   );
 }
 
+const SHARPE_H = 90;
+
+function RollingSharpeChart({ curve }: { curve: EquityCurvePoint[] }) {
+  if (curve.length <= ROLL_WINDOW + 5) return null;
+
+  const portRet: number[] = [];
+  const spyRet: number[] = [];
+  for (let i = 1; i < curve.length; i++) {
+    portRet.push(curve[i].portfolioValue / curve[i - 1].portfolioValue - 1);
+    spyRet.push(curve[i].spyValue / curve[i - 1].spyValue - 1);
+  }
+
+  const rolling: { date: string; sharpe: number }[] = [];
+  for (let i = ROLL_WINDOW; i < portRet.length; i++) {
+    const excess = portRet.slice(i - ROLL_WINDOW, i).map((r, j) => r - spyRet[i - ROLL_WINDOW + j]);
+    const mean = excess.reduce((s, r) => s + r, 0) / excess.length;
+    const variance = excess.reduce((s, r) => s + (r - mean) ** 2, 0) / excess.length;
+    const std = Math.sqrt(variance) || 1e-10;
+    rolling.push({ date: curve[i + 1]?.date ?? curve[i].date, sharpe: (mean / std) * Math.sqrt(252) });
+  }
+
+  if (rolling.length < 2) return null;
+
+  const innerW = CHART_W - PAD_L - PAD_R;
+  const innerH = SHARPE_H - PAD_T - PAD_B;
+  const sharpes = rolling.map(p => p.sharpe);
+  const minS = Math.min(Math.min(...sharpes), -1.5);
+  const maxS = Math.max(Math.max(...sharpes), 1.5);
+  const range = maxS - minS || 1;
+  const n = rolling.length;
+  const toX = (i: number) => PAD_L + (i / (n - 1)) * innerW;
+  const toY = (v: number) => PAD_T + (1 - (v - minS) / range) * innerH;
+  const zeroY = toY(0);
+  const oneY  = toY(1);
+
+  const pts = rolling.map((p, i) => ({ x: toX(i), y: toY(p.sharpe), sharpe: p.sharpe }));
+  const polyPts = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+
+  const xLabelIndices = [0, Math.floor(n * 0.5), n - 1];
+
+  return (
+    <svg viewBox={`0 0 ${CHART_W} ${SHARPE_H}`} className="w-full">
+      {/* Reference lines */}
+      {[{ v: 0, stroke: "#475569", label: "0" }, { v: 1, stroke: "#1d4ed8", label: "1.0" }].map(({ v, stroke, label }) => {
+        const y = toY(v);
+        return (
+          <g key={v}>
+            <line x1={PAD_L} y1={y.toFixed(1)} x2={CHART_W - PAD_R} y2={y.toFixed(1)} stroke={stroke} strokeWidth="0.7" strokeDasharray={v === 1 ? "4,2" : "none"} />
+            <text x={PAD_L - 4} y={(y + 3).toFixed(1)} fill="#64748b" fontSize="8" textAnchor="end">{label}</text>
+          </g>
+        );
+      })}
+      {/* Min/max labels */}
+      {[minS, maxS].map(v => (
+        <g key={v}>
+          <text x={PAD_L - 4} y={(toY(v) + 3).toFixed(1)} fill="#475569" fontSize="7" textAnchor="end">{v.toFixed(1)}</text>
+        </g>
+      ))}
+      {/* Fill: above zero = green, below = red */}
+      {pts.map((p, i) => {
+        if (i === 0) return null;
+        const prev = pts[i - 1];
+        if ((p.sharpe >= 0) === (prev.sharpe >= 0)) {
+          const x1 = prev.x, x2 = p.x;
+          const y1 = prev.y, y2 = p.y;
+          const pos = p.sharpe >= 0;
+          return (
+            <polygon key={i}
+              points={`${x1.toFixed(1)},${zeroY.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)} ${x2.toFixed(1)},${zeroY.toFixed(1)}`}
+              fill={pos ? "#10b981" : "#ef4444"} fillOpacity="0.12"
+            />
+          );
+        }
+        return null;
+      })}
+      {/* Sharpe = 1 fill highlight */}
+      <rect x={PAD_L} y={Math.min(zeroY, oneY).toFixed(1)} width={innerW} height={Math.abs(zeroY - oneY).toFixed(1)} fill="#3b82f6" fillOpacity="0.04" />
+      {/* Polyline */}
+      <polyline points={polyPts} fill="none" stroke="#a78bfa" strokeWidth="1.6" strokeLinejoin="round" />
+      {/* X-axis dates */}
+      {xLabelIndices.map(i => (
+        <text key={i} x={toX(i).toFixed(1)} y={SHARPE_H - 4} fill="#64748b" fontSize="8" textAnchor="middle">
+          {rolling[i]?.date?.slice(0, 7) ?? ""}
+        </text>
+      ))}
+      <text x={PAD_L + 4} y="16" fill="#a78bfa" fontSize="8" opacity="0.8">Rolling 1Y Sharpe (vs SPY)</text>
+    </svg>
+  );
+}
+
 const DD_H = 90;
 
 function DrawdownChart({ curve }: { curve: EquityCurvePoint[] }) {
@@ -1883,6 +1973,23 @@ export default function BacktesterPage() {
                     <RollingReturnChart curve={result.equityCurve} />
                     <div className="text-[10px] text-slate-600 mt-1 text-center">
                       Each point = trailing 252-day (1-year) return at that date. Shows consistency of strategy edge vs SPY over time.
+                    </div>
+                  </div>
+                )}
+
+                {/* Rolling Sharpe ratio chart */}
+                {result.equityCurve && result.equityCurve.length > ROLL_WINDOW + 5 && (
+                  <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm font-semibold text-slate-200">Rolling 1-Year Sharpe</div>
+                      <div className="flex items-center gap-4 text-[10px] text-slate-500">
+                        <span className="flex items-center gap-1.5"><span className="inline-block w-5 h-0.5 bg-violet-400" />Sharpe (vs SPY)</span>
+                        <span className="flex items-center gap-1.5"><span className="inline-block w-5 border-t border-dashed border-blue-600" />Target: 1.0</span>
+                      </div>
+                    </div>
+                    <RollingSharpeChart curve={result.equityCurve} />
+                    <div className="text-[10px] text-slate-600 mt-1 text-center">
+                      Rolling 252-day Sharpe ratio of excess returns vs SPY. Above 0 = outperforming risk-adjusted · Above 1 = strong edge
                     </div>
                   </div>
                 )}

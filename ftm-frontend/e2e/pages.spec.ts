@@ -214,6 +214,13 @@ test.describe("Capital Flows page", () => {
     await expect(page.getByText(/Seasonal/i).first()).toBeVisible();
     await expect(page.getByText(/Seasonal Monthly Returns/i)).toBeVisible();
   });
+
+  test("shows RS vs Flow scatter panel when flow20d data is available", async ({ page }) => {
+    await page.goto("/flows");
+    // RSFlowScatterPanel renders when categories have rs60 + flow20d
+    await expect(page.getByText("RS vs Flow Positioning")).toBeVisible();
+    await expect(page.getByText("Confirmed").first()).toBeVisible();
+  });
 });
 
 test.describe("Sectors hub page — confluence matrix", () => {

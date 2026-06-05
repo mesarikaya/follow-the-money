@@ -8,6 +8,7 @@ import {
   CategorySummary,
   SeasonalReturn,
 } from "@/lib/api";
+import RSFlowScatterPanel from "@/components/RSFlowScatterPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -822,6 +823,10 @@ export default async function CapitalFlowsPage({ searchParams }: Props) {
               ))}
             </div>
           </div>
+        )}
+
+        {(categories?.categories ?? []).some(c => c.rs60 != null && c.flow20d != null) && (
+          <RSFlowScatterPanel categories={categories!.categories} />
         )}
 
         {(categories?.categories ?? []).length >= 3 && (

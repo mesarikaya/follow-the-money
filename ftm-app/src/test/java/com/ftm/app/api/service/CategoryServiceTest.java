@@ -10,14 +10,20 @@ import static org.mockito.Mockito.when;
 
 import com.ftm.app.api.dto.CategoriesResponse;
 import com.ftm.app.api.dto.CategorySummaryDto;
+import com.ftm.app.api.dto.PriceLevelDto;
+import com.ftm.app.api.dto.SeasonalReturnDto;
+import com.ftm.app.api.dto.SignalWinRateDto;
 import com.ftm.app.api.mapper.CategoryMapper;
 import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.api.repository.CategoryRepository.CategoryPriceRow;
+import com.ftm.app.api.repository.CategoryRepository.PriceLevelRow;
+import com.ftm.app.api.repository.CategoryRepository.SeasonalRow;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.CategoryId;
 import com.ftm.app.domain.CategoryType;
 import com.ftm.app.domain.SignalType;
 import com.ftm.app.signals.repository.SignalRepository;
+import com.ftm.app.signals.repository.SignalRepository.BuySignalWinRateRow;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -256,5 +262,106 @@ class CategoryServiceTest {
     CategoriesResponse result = categoryService.getCategoriesResponse("MONTH");
 
     assertThat(result.categories()).containsExactly(dto1, dto2);
+  }
+
+  // ===== getPriceLevels =====
+
+  @Test
+  @DisplayName("getPriceLevels maps repository rows to PriceLevelDto")
+  void shouldMapPriceLevelRowsToDto() {
+    PriceLevelRow row = new PriceLevelRow(
+        "TECH",
+        new BigDecimal("192.5"),
+        new BigDecimal("205.0"),
+        new BigDecimal("152.0"),
+        new BigDecimal("-0.061"),
+        new BigDecimal("0.76"),
+        252);
+
+    when(categoryRepository.findPriceLevels()).thenReturn(List.of(row));
+
+    List<PriceLevelDto> result = categoryService.getPriceLevels();
+
+    assertThat(result).hasSize(1);
+    PriceLevelDto dto = result.get(0);
+    assertThat(dto.categoryId()).isEqualTo("TECH");
+    assertThat(dto.currentPrice()).isEqualByComparingTo("192.5");
+    assertThat(dto.high52w()).isEqualByComparingTo("205.0");
+    assertThat(dto.low52w()).isEqualByComparingTo("152.0");
+    assertThat(dto.drawdownFromHigh()).isEqualByComparingTo("-0.061");
+    assertThat(dto.positionInRange()).isEqualByComparingTo("0.76");
+    assertThat(dto.daysOfData()).isEqualTo(252);
+  }
+
+  @Test
+  @DisplayName("getPriceLevels returns empty list when repository returns no rows")
+  void shouldReturnEmptyListWhenNoPriceLevels() {
+    when(categoryRepository.findPriceLevels()).thenReturn(List.of());
+
+    List<PriceLevelDto> result = categoryService.getPriceLevels();
+
+    assertThat(result).isEmpty();
+  }
+
+  // ===== getBuySignalWinRates =====
+
+  @Test
+  @DisplayName("getBuySignalWinRates maps repository rows to SignalWinRateDto")
+  void shouldMapWinRateRowsToDto() {
+    BuySignalWinRateRow row = new BuySignalWinRateRow(
+        "TECH", 42, new BigDecimal("0.74"), new BigDecimal("0.038"));
+
+    when(signalRepository.findBuySignalWinRates(365)).thenReturn(List.of(row));
+
+    List<SignalWinRateDto> result = categoryService.getBuySignalWinRates(365);
+
+    assertThat(result).hasSize(1);
+    SignalWinRateDto dto = result.get(0);
+    assertThat(dto.categoryId()).isEqualTo("TECH");
+    assertThat(dto.signalCount()).isEqualTo(42);
+    assertThat(dto.winRate()).isEqualByComparingTo("0.74");
+    assertThat(dto.avgReturn30d()).isEqualByComparingTo("0.038");
+  }
+
+  @Test
+  @DisplayName("getBuySignalWinRates clamps lookback days to [90, 730]")
+  void shouldClampWinRateLookbackDays() {
+    when(signalRepository.findBuySignalWinRates(90)).thenReturn(List.of());
+    when(signalRepository.findBuySignalWinRates(730)).thenReturn(List.of());
+
+    categoryService.getBuySignalWinRates(30);
+    verify(signalRepository).findBuySignalWinRates(90);
+
+    categoryService.getBuySignalWinRates(999);
+    verify(signalRepository).findBuySignalWinRates(730);
+  }
+
+  // ===== getSeasonalReturns =====
+
+  @Test
+  @DisplayName("getSeasonalReturns maps repository rows to SeasonalReturnDto")
+  void shouldMapSeasonalReturnRowsToDto() {
+    SeasonalRow row = new SeasonalRow("TECH", 6, new BigDecimal("0.031"), 5);
+
+    when(categoryRepository.findSeasonalMonthlyReturns()).thenReturn(List.of(row));
+
+    List<SeasonalReturnDto> result = categoryService.getSeasonalReturns();
+
+    assertThat(result).hasSize(1);
+    SeasonalReturnDto dto = result.get(0);
+    assertThat(dto.categoryId()).isEqualTo("TECH");
+    assertThat(dto.month()).isEqualTo(6);
+    assertThat(dto.avgReturn()).isEqualByComparingTo("0.031");
+    assertThat(dto.sampleCount()).isEqualTo(5);
+  }
+
+  @Test
+  @DisplayName("getSeasonalReturns returns empty list when repository returns no rows")
+  void shouldReturnEmptyListWhenNoSeasonalReturns() {
+    when(categoryRepository.findSeasonalMonthlyReturns()).thenReturn(List.of());
+
+    List<SeasonalReturnDto> result = categoryService.getSeasonalReturns();
+
+    assertThat(result).isEmpty();
   }
 }

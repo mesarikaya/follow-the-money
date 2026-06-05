@@ -69,6 +69,14 @@ public class CacheConfig {
     manager.registerCustomCache(
         "signal-history",
         Caffeine.newBuilder().maximumSize(200).expireAfterWrite(1, TimeUnit.HOURS).build());
+    // Not evicted by events — FX rates fetched from FRED/Yahoo on every upload; 1h TTL avoids
+    // repeated external calls when multiple holdings share the same currency conversion step
+    manager.registerCustomCache(
+        "fx-rate-usd-per-eur",
+        Caffeine.newBuilder().maximumSize(1).expireAfterWrite(1, TimeUnit.HOURS).build());
+    manager.registerCustomCache(
+        "fx-rate-gbp-usd",
+        Caffeine.newBuilder().maximumSize(1).expireAfterWrite(1, TimeUnit.HOURS).build());
     return manager;
   }
 }

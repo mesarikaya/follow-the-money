@@ -24,6 +24,7 @@ import ScoreMoversPanel from "@/components/ScoreMoversPanel";
 import SignalTransitionsPanel from "@/components/SignalTransitionsPanel";
 import DailyPlaybookPanel from "@/components/DailyPlaybookPanel";
 import MarketRegimeBanner from "@/components/MarketRegimeBanner";
+import SectorRotationWheel from "@/components/SectorRotationWheel";
 
 export const dynamic = "force-dynamic";
 
@@ -137,6 +138,8 @@ export default async function Home({ searchParams }: Props) {
         {categories.length > 0 && <MarketBreadthBar categories={categories} />}
 
         {categories.length > 0 && <RotationPhaseIndicator categories={categories} />}
+
+        {categories.length > 0 && <SectorRotationWheel categories={categories} />}
 
         {categories.length > 0 && <MomentumLeadersPanel categories={categories} />}
 

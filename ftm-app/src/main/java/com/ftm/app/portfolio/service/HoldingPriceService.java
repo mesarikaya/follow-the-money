@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -36,6 +37,7 @@ public class HoldingPriceService {
     this.fredClient = fredClient;
   }
 
+  @Cacheable("fx-rate-usd-per-eur")
   public BigDecimal fetchUsdPerEurRate() {
     try {
       LocalDate today = LocalDate.now();
@@ -55,6 +57,7 @@ public class HoldingPriceService {
     return FALLBACK_USD_PER_EUR;
   }
 
+  @Cacheable("fx-rate-gbp-usd")
   public BigDecimal fetchGbpUsdRate() {
     try {
       LocalDate today = LocalDate.now();

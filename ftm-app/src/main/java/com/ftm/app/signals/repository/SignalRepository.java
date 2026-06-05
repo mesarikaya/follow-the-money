@@ -10,6 +10,7 @@ import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 import org.jooq.DSLContext;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -428,6 +429,7 @@ public class SignalRepository {
     return result;
   }
 
+  @Cacheable("score-percentile-252d")
   public Map<String, BigDecimal> findScorePercentile252d() {
     return dsl.resultQuery(
             """

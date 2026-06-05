@@ -41,6 +41,7 @@ public class CacheEvictionListener {
     evict("rotation-latest");
     evict("sub-sectors-latest");
     evict("transitions-latest");
+    evict("score-percentile-252d");
   }
 
   private void evict(String cacheName) {

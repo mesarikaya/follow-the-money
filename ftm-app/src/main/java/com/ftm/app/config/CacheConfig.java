@@ -37,6 +37,10 @@ public class CacheConfig {
     manager.registerCustomCache(
         "transitions-latest",
         Caffeine.newBuilder().maximumSize(20).expireAfterWrite(1, TimeUnit.HOURS).build());
+    // Evicted on SignalsUpdatedEvent — expensive PERCENT_RANK window function; no-arg (single entry)
+    manager.registerCustomCache(
+        "score-percentile-252d",
+        Caffeine.newBuilder().maximumSize(1).expireAfterWrite(1, TimeUnit.HOURS).build());
     return manager;
   }
 }

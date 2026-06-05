@@ -23,9 +23,9 @@ const MANAGEMENT_ITEMS = [
 function useActiveAlertCount(): number {
   const [count, setCount] = useState(0);
   useEffect(() => {
-    fetch("/api/v1/alerts")
+    fetch("/api/v1/alerts/active/count")
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data?.activeCount) setCount(data.activeCount); })
+      .then(data => { if (data?.active) setCount(data.active); })
       .catch(() => {});
   }, []);
   return count;

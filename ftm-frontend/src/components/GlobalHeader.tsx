@@ -5,7 +5,7 @@ import Link from "next/link";
 import TimeframeSelector from "@/components/TimeframeSelector";
 import RefreshButton from "@/components/RefreshButton";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
-import { fetchActiveAlertCount } from "@/lib/api";
+import { fetchActiveAlertCount, CategorySummary } from "@/lib/api";
 
 type SignalChip = {
   id: string;
@@ -42,8 +42,7 @@ function MarketSignalStrip() {
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (!data?.categories) return;
-        type RawCat = { id: string; etfTicker: string; compositeScore: number | null; rrgQuadrant: string | null; compositeTrend20d: number | null; tradeSignal: string | null; convictionScore: number | null; signalDaysActive: number | null; type: string };
-        const sectors = (data.categories as RawCat[])
+        const sectors = (data.categories as CategorySummary[])
           .filter(c => c.type === "EQUITY_SECTOR" && c.compositeScore != null && SECTOR_DRILLDOWN_IDS.has(c.id))
           .map(c => ({
             id: c.id,

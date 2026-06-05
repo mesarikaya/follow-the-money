@@ -103,4 +103,32 @@ class TickerMappingRepositoryIT {
 
     assertThat(map).isEmpty();
   }
+
+  @Test
+  @DisplayName("findByTicker returns the mapping when ticker exists")
+  void shouldFindByTicker() {
+    repository.upsert("MSFT", "TECH", "Microsoft");
+
+    var result = repository.findByTicker("MSFT");
+
+    assertThat(result).isPresent();
+    assertThat(result.get().ticker()).isEqualTo("MSFT");
+    assertThat(result.get().categoryId()).isEqualTo("TECH");
+    assertThat(result.get().notes()).isEqualTo("Microsoft");
+  }
+
+  @Test
+  @DisplayName("findByTicker is case-insensitive for the lookup")
+  void shouldFindByTickerCaseInsensitively() {
+    repository.upsert("NVDA", "TECH", null);
+
+    assertThat(repository.findByTicker("nvda")).isPresent();
+    assertThat(repository.findByTicker("NVDA")).isPresent();
+  }
+
+  @Test
+  @DisplayName("findByTicker returns empty when ticker does not exist")
+  void shouldReturnEmptyWhenTickerNotFound() {
+    assertThat(repository.findByTicker("NOTEXIST")).isEmpty();
+  }
 }

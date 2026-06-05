@@ -41,6 +41,10 @@ public class CacheConfig {
     manager.registerCustomCache(
         "score-percentile-252d",
         Caffeine.newBuilder().maximumSize(1).expireAfterWrite(1, TimeUnit.HOURS).build());
+    // Evicted on SignalsUpdatedEvent — window function over 365d of COMPOSITE signals; keyed by threshold
+    manager.registerCustomCache(
+        "signal-days-active",
+        Caffeine.newBuilder().maximumSize(10).expireAfterWrite(1, TimeUnit.HOURS).build());
     return manager;
   }
 }

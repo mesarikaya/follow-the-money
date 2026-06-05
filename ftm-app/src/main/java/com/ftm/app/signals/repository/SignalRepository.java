@@ -243,6 +243,7 @@ public class SignalRepository {
             r -> r.get("annualized_vol", BigDecimal.class));
   }
 
+  @Cacheable(value = "signal-days-active", key = "#threshold")
   public Map<String, Integer> findSignalDaysActive(BigDecimal threshold) {
     return dsl.resultQuery(
             """

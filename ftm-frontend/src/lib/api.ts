@@ -533,3 +533,9 @@ export const deleteTickerMapping = (ticker: string): Promise<void> =>
   }).then(async (res) => {
     if (!res.ok) throw new Error(`DELETE /api/v1/admin/ticker-mappings/${ticker} → ${res.status}`);
   });
+
+export type MacroSeriesPoint = { date: string; value: number };
+export type MacroHistoryResponse = Record<string, MacroSeriesPoint[]>;
+
+export const fetchMacroHistory = (days = 365) =>
+  get<MacroHistoryResponse>(`/api/v1/macro/history?days=${days}`);

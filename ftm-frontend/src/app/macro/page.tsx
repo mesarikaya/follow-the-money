@@ -1,4 +1,4 @@
-import { fetchMacro, fetchCategories, CategorySummary } from "@/lib/api";
+import { fetchMacro, fetchCategories, fetchMacroHistory, CategorySummary, MacroSeriesPoint } from "@/lib/api";
 import type { MacroResponse, MacroIndicators } from "@/lib/api";
 
 const REGIME_STYLES: Record<string, { label: string; color: string; ring: string; bg: string }> = {
@@ -57,14 +57,40 @@ const INDICATOR_LABELS: Record<keyof MacroIndicators, IndicatorConfig> = {
   wtiCrudeOilPrice:   { label: "WTI Crude Oil",       series: "DCOILWTICO", format: v => v == null ? "—" : `$${v.toFixed(2)}`, tooltip: "WTI crude oil price USD/barrel (FRED DCOILWTICO). Key cross-asset inflation signal" },
 };
 
+function IndicatorSparkline({ points, seriesId }: { points: MacroSeriesPoint[]; seriesId: string }) {
+  if (!points || points.length < 2) return null;
+  const W = 120, H = 32, padX = 2, padY = 4;
+  const values = points.map(p => p.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const toX = (i: number) => padX + (i / (points.length - 1)) * (W - padX * 2);
+  const toY = (v: number) => padY + (1 - (v - min) / range) * (H - padY * 2);
+  const last = points[points.length - 1].value;
+  const first = points[0].value;
+  const isUp = last >= first;
+  const strokeColor = isUp ? "#34d399" : "#f87171";
+  const polyline = points.map((p, i) => `${toX(i).toFixed(1)},${toY(p.value).toFixed(1)}`).join(" ");
+  const dotY = toY(last);
+  void seriesId;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-8" preserveAspectRatio="none">
+      <polyline points={polyline} fill="none" stroke={strokeColor} strokeWidth="1.5" opacity="0.7" />
+      <circle cx={toX(points.length - 1).toFixed(1)} cy={dotY.toFixed(1)} r="2" fill={strokeColor} />
+    </svg>
+  );
+}
+
 function IndicatorCard({
   indicatorKey,
   value,
   previousValue,
+  history,
 }: {
   indicatorKey: keyof MacroIndicators;
   value: number | null;
   previousValue: number | null;
+  history?: MacroSeriesPoint[];
 }) {
   const config = INDICATOR_LABELS[indicatorKey];
   if (!config) return null;
@@ -97,7 +123,12 @@ function IndicatorCard({
       <div className="text-xs text-slate-500">{config.label}</div>
       <div className="text-2xl font-semibold tabular-nums text-slate-100">{config.format(value)}</div>
       {trendEl && <div className="text-xs">{trendEl}</div>}
-      <div className="text-[10px] text-slate-600">Series: {config.series} · Source: FRED</div>
+      {history && history.length > 1 && (
+        <div className="pt-1">
+          <IndicatorSparkline points={history} seriesId={config.series} />
+        </div>
+      )}
+      <div className="text-[10px] text-slate-600">Series: {config.series} · 1Y · FRED</div>
     </div>
   );
 }
@@ -336,10 +367,13 @@ function RegimeAlignmentTable({
 }
 
 export default async function MacroRegimePage() {
-  const [macroResult, categoriesResult] = await Promise.allSettled([
+  const [macroResult, categoriesResult, historyResult] = await Promise.allSettled([
     fetchMacro(),
     fetchCategories("MONTH"),
+    fetchMacroHistory(365),
   ]);
+
+  const indicatorHistory = historyResult.status === "fulfilled" ? historyResult.value : {};
 
   const macro = macroResult.status === "fulfilled" ? macroResult.value : null;
   const categories = categoriesResult.status === "fulfilled" ? categoriesResult.value.categories : [];
@@ -392,14 +426,19 @@ export default async function MacroRegimePage() {
             <section className="space-y-3">
               <h2 className="text-sm font-semibold text-slate-300">Indicators</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {(Object.keys(INDICATOR_LABELS) as (keyof MacroIndicators)[]).map((key) => (
-                  <IndicatorCard
-                    key={key}
-                    indicatorKey={key}
-                    value={macro!.indicators[key] ?? null}
-                    previousValue={macro!.previousIndicators?.[key] ?? null}
-                  />
-                ))}
+                {(Object.keys(INDICATOR_LABELS) as (keyof MacroIndicators)[]).map((key) => {
+                  const seriesId = INDICATOR_LABELS[key].series;
+                  const history = indicatorHistory[seriesId] ?? [];
+                  return (
+                    <IndicatorCard
+                      key={key}
+                      indicatorKey={key}
+                      value={macro!.indicators[key] ?? null}
+                      previousValue={macro!.previousIndicators?.[key] ?? null}
+                      history={history}
+                    />
+                  );
+                })}
               </div>
             </section>
 

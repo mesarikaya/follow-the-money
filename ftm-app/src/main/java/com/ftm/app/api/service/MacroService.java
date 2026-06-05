@@ -3,6 +3,7 @@ package com.ftm.app.api.service;
 import com.ftm.app.api.dto.MacroIndicatorsDto;
 import com.ftm.app.api.dto.MacroRegimeHistoryEntry;
 import com.ftm.app.api.dto.MacroResponse;
+import com.ftm.app.api.dto.MacroSeriesPoint;
 import com.ftm.app.api.repository.MacroIndicatorReadRepository;
 import com.ftm.app.domain.MacroIndicator;
 import com.ftm.app.signals.domain.MacroRegime;
@@ -10,6 +11,8 @@ import com.ftm.app.signals.repository.SignalRepository;
 import com.ftm.app.signals.service.MacroRegimeService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -85,6 +88,26 @@ public class MacroService {
         previousIndicatorsDto,
         regimeHistory,
         macroFitByCategory);
+  }
+
+  private static final List<String> ALL_SERIES =
+      List.of("T10Y2Y", "VIXCLS", "DTWEXBGS", "T10YIE", "FEDFUNDS", "DGS10", "DGS2", "DCOILWTICO");
+
+  @Cacheable("macro-history")
+  public Map<String, List<MacroSeriesPoint>> getMacroHistory(int days) {
+    LocalDate from = LocalDate.now().minusDays(days);
+    List<MacroIndicator> raw = macroIndicatorRepository.findHistoricalForSeries(ALL_SERIES, from);
+    Map<String, List<MacroSeriesPoint>> result = new LinkedHashMap<>();
+    for (String series : ALL_SERIES) {
+      result.put(series, new ArrayList<>());
+    }
+    for (MacroIndicator mi : raw) {
+      if (mi.value() != null) {
+        result.computeIfAbsent(mi.seriesId(), k -> new ArrayList<>())
+            .add(new MacroSeriesPoint(mi.observationDate(), mi.value()));
+      }
+    }
+    return result;
   }
 
   private static MacroIndicatorsDto buildIndicatorsDto(Map<String, BigDecimal> bySeriesId) {

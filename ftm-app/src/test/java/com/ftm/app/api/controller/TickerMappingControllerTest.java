@@ -93,7 +93,7 @@ class TickerMappingControllerTest {
             .set(field(TickerMapping::notes), "Apple Inc.")
             .create();
     TickerMappingDto savedDto = new TickerMappingDto("AAPL", "TECH", "Apple Inc.", UPDATED_AT);
-    when(tickerMappingRepository.findAll()).thenReturn(List.of(saved));
+    when(tickerMappingRepository.findByTicker("AAPL")).thenReturn(java.util.Optional.of(saved));
     when(tickerMappingMapper.toDto(any(TickerMapping.class))).thenReturn(savedDto);
 
     mockMvc

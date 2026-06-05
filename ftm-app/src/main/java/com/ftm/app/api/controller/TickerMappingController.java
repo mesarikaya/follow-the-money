@@ -47,9 +47,8 @@ public class TickerMappingController {
     tickerMappingRepository.upsert(request.ticker(), request.categoryId(), request.notes());
     holdingClassificationService.refreshCache();
     TickerMapping saved =
-        tickerMappingRepository.findAll().stream()
-            .filter(m -> m.ticker().equalsIgnoreCase(request.ticker()))
-            .findFirst()
+        tickerMappingRepository
+            .findByTicker(request.ticker())
             .orElseThrow();
     return ResponseEntity.ok(tickerMappingMapper.toDto(saved));
   }

@@ -7,6 +7,7 @@ import com.ftm.app.portfolio.domain.TickerMapping;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.jooq.DSLContext;
 import org.jooq.Field;
 import org.jooq.Record;
@@ -42,6 +43,14 @@ public class TickerMappingRepository {
         .orderBy(CATEGORY_ID.asc(), TICKER.asc())
         .fetch()
         .map(r -> new TickerMapping(r.value1(), r.value2(), r.value3(), r.value4()));
+  }
+
+  public Optional<TickerMapping> findByTicker(String ticker) {
+    return dsl.select(TICKER, CATEGORY_ID, NOTES, UPDATED_AT)
+        .from(TICKER_CATEGORY_MAP)
+        .where(TICKER.eq(ticker.toUpperCase()))
+        .fetchOptional()
+        .map(r -> new TickerMapping(r.get(TICKER), r.get(CATEGORY_ID), r.get(NOTES), r.get(UPDATED_AT)));
   }
 
   public void upsert(String ticker, String categoryId, String notes) {

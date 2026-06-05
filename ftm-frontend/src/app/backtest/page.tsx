@@ -370,6 +370,119 @@ function DrawdownChart({ curve }: { curve: EquityCurvePoint[] }) {
   );
 }
 
+type DrawdownPeriod = {
+  startDate: string;
+  troughDate: string;
+  endDate: string | null;
+  depthPct: number;
+  durationDays: number;
+  recoveryDays: number | null;
+};
+
+function computeDrawdownPeriods(curve: EquityCurvePoint[], useSpy = false): DrawdownPeriod[] {
+  if (curve.length < 2) return [];
+  const getValue = (pt: EquityCurvePoint) => useSpy ? pt.spyValue : pt.portfolioValue;
+  const periods: DrawdownPeriod[] = [];
+  let peakIdx = 0;
+  let peakVal = getValue(curve[0]);
+  let inDrawdown = false;
+  let startIdx = 0;
+  let troughIdx = 0;
+  let troughVal = peakVal;
+
+  for (let i = 1; i < curve.length; i++) {
+    const v = getValue(curve[i]);
+    if (v >= peakVal) {
+      if (inDrawdown) {
+        const depthPct = (1 - troughVal / peakVal) * 100;
+        if (depthPct >= 2) {
+          const durationDays = i - startIdx;
+          const recoveryDays = i - troughIdx;
+          periods.push({ startDate: curve[startIdx].date, troughDate: curve[troughIdx].date, endDate: curve[i].date, depthPct, durationDays, recoveryDays });
+        }
+        inDrawdown = false;
+      }
+      peakVal = v;
+      peakIdx = i;
+    } else {
+      if (!inDrawdown) {
+        inDrawdown = true;
+        startIdx = peakIdx;
+        troughIdx = i;
+        troughVal = v;
+      } else if (v < troughVal) {
+        troughIdx = i;
+        troughVal = v;
+      }
+    }
+  }
+  if (inDrawdown && peakVal > 0) {
+    const depthPct = (1 - troughVal / peakVal) * 100;
+    if (depthPct >= 2) {
+      periods.push({ startDate: curve[startIdx].date, troughDate: curve[troughIdx].date, endDate: null, depthPct, durationDays: curve.length - 1 - startIdx, recoveryDays: null });
+    }
+  }
+  return periods.sort((a, b) => b.depthPct - a.depthPct).slice(0, 5);
+}
+
+function DrawdownAnalysisTable({ curve }: { curve: EquityCurvePoint[] }) {
+  const stratPeriods = computeDrawdownPeriods(curve, false);
+  if (stratPeriods.length === 0) return null;
+
+  return (
+    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+      <div className="text-sm font-semibold text-slate-200 mb-3">Worst Drawdowns</div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-slate-700 text-slate-500 text-left">
+              <th className="pb-2 pr-4 font-medium">#</th>
+              <th className="pb-2 pr-4 font-medium">Peak → Trough</th>
+              <th className="pb-2 pr-4 font-medium text-right">Depth</th>
+              <th className="pb-2 pr-4 font-medium text-right">Duration</th>
+              <th className="pb-2 pr-4 font-medium text-right">Recovery</th>
+              <th className="pb-2 font-medium text-right">Recovered</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800">
+            {stratPeriods.map((dd, i) => (
+              <tr key={i} className="hover:bg-slate-700/20 transition-colors">
+                <td className="py-1.5 pr-4 text-slate-600 tabular-nums font-mono">{i + 1}</td>
+                <td className="py-1.5 pr-4 text-slate-400 font-mono tabular-nums">
+                  {dd.startDate} → {dd.troughDate}
+                </td>
+                <td className="py-1.5 pr-4 text-right font-mono tabular-nums">
+                  <span className={`font-semibold ${dd.depthPct >= 20 ? "text-red-400" : dd.depthPct >= 10 ? "text-amber-400" : "text-slate-300"}`}>
+                    -{dd.depthPct.toFixed(1)}%
+                  </span>
+                </td>
+                <td className="py-1.5 pr-4 text-right font-mono tabular-nums text-slate-400">
+                  {dd.durationDays}d
+                </td>
+                <td className="py-1.5 pr-4 text-right font-mono tabular-nums">
+                  {dd.recoveryDays != null
+                    ? <span className={dd.recoveryDays < 60 ? "text-emerald-400" : dd.recoveryDays < 252 ? "text-amber-400" : "text-red-400"}>{dd.recoveryDays}d</span>
+                    : <span className="text-red-400">ongoing</span>
+                  }
+                </td>
+                <td className="py-1.5 text-right">
+                  {dd.endDate != null
+                    ? <span className="text-emerald-400">✓ {dd.endDate}</span>
+                    : <span className="text-red-400">✗ not yet</span>
+                  }
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-2 text-[10px] text-slate-600">
+        Top 5 drawdowns ≥2% · Duration = peak to trough · Recovery = trough to new high · Ongoing = not yet recovered at end of period
+      </div>
+    </div>
+  );
+}
+
 const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 function computeRiskAttribution(curve: EquityCurvePoint[]) {
@@ -1653,6 +1766,11 @@ export default function BacktesterPage() {
                     </div>
                   </div>
                 </div>
+                {/* Drawdown analysis */}
+                {result.equityCurve && result.equityCurve.length > 30 && (
+                  <DrawdownAnalysisTable curve={result.equityCurve} />
+                )}
+
                 {/* Monthly returns calendar */}
                 {result.equityCurve && result.equityCurve.length > 2 && (
                   <MonthlyReturnsTable curve={result.equityCurve} />

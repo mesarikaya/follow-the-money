@@ -5,9 +5,12 @@ import com.ftm.app.api.dto.MacroSeriesPoint;
 import com.ftm.app.api.service.MacroService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/macro")
 @Tag(name = "Macro", description = "Macro indicators and regime classification")
+@Validated
 public class MacroController {
 
   private final MacroService macroService;
@@ -33,7 +37,7 @@ public class MacroController {
   @GetMapping("/history")
   @Operation(summary = "Historical FRED series data for macro sparklines")
   public ResponseEntity<Map<String, List<MacroSeriesPoint>>> getMacroHistory(
-      @RequestParam(defaultValue = "365") int days) {
+      @RequestParam(defaultValue = "365") @Min(7) @Max(3650) int days) {
     return ResponseEntity.ok(macroService.getMacroHistory(days));
   }
 }

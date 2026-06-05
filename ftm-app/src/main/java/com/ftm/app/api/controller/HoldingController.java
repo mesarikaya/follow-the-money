@@ -6,6 +6,7 @@ import com.ftm.app.api.dto.HoldingUpdateRequest;
 import com.ftm.app.api.dto.HoldingsUploadResponse;
 import com.ftm.app.portfolio.service.HoldingUploadService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -19,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/portfolio/holdings")
+@Tag(name = "Holdings", description = "Individual portfolio holdings — CSV bulk upload and manual CRUD")
 public class HoldingController {
 
   private final HoldingUploadService holdingUploadService;

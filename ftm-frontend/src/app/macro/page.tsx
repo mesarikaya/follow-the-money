@@ -260,6 +260,90 @@ function RegimePlaybook({ regime }: { regime: string }) {
   );
 }
 
+type YieldPoint = { label: string; maturity: number; value: number };
+
+function YieldCurveChart({ indicators }: { indicators: MacroIndicators }) {
+  const raw: { label: string; maturity: number; value: number | null }[] = [
+    { label: "FF", maturity: 0,  value: indicators.fedFundsRate },
+    { label: "2Y", maturity: 2,  value: indicators.twoYearYield },
+    { label: "10Y", maturity: 10, value: indicators.tenYearYield },
+  ];
+  const points: YieldPoint[] = raw.filter((p): p is YieldPoint => p.value != null);
+  if (points.length < 2) return null;
+
+  const spread = (indicators.tenYearYield ?? 0) - (indicators.twoYearYield ?? 0);
+  const ffTo10 = (indicators.tenYearYield ?? 0) - (indicators.fedFundsRate ?? 0);
+  const isInverted = spread < -0.1 || ffTo10 < -0.1;
+  const isFlat = !isInverted && Math.abs(spread) < 0.25;
+  const shapeLabel = isInverted ? "Inverted" : isFlat ? "Flat" : "Normal";
+  const shapeColor = isInverted ? "text-red-400" : isFlat ? "text-amber-400" : "text-emerald-400";
+  const lineColor  = isInverted ? "#f87171"    : isFlat ? "#fbbf24"    : "#34d399";
+
+  const W = 300, H = 80, padX = 36, padY = 10;
+  const values = points.map(p => p.value);
+  const yMin = Math.min(...values) - 0.4;
+  const yMax = Math.max(...values) + 0.4;
+  const yRange = yMax - yMin || 1;
+  const maxMat = 10;
+
+  const toX = (mat: number) => padX + (mat / maxMat) * (W - padX * 2);
+  const toY = (v: number) => padY + (1 - (v - yMin) / yRange) * (H - padY * 2 - 14);
+  const polyline = points.map(p => `${toX(p.maturity).toFixed(1)},${toY(p.value).toFixed(1)}`).join(" ");
+
+  const yGridValues = [Math.floor(yMin * 2) / 2, Math.ceil(yMax * 2) / 2];
+
+  return (
+    <div
+      className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 space-y-1"
+      title="Term structure (yield curve): Fed Funds rate, 2Y Treasury, 10Y Treasury. Shape indicates economic cycle phase — inverted curves precede recessions."
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-slate-500">Yield Curve</span>
+        <span className={`text-xs font-semibold tabular-nums ${shapeColor}`}>
+          {shapeLabel}
+          {spread != null && (
+            <span className="ml-1.5 text-[10px] text-slate-500 font-normal">
+              10Y–2Y {spread >= 0 ? "+" : ""}{spread.toFixed(2)}%
+            </span>
+          )}
+        </span>
+      </div>
+
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-20">
+        {/* Y-axis grid lines */}
+        {yGridValues.map(v => (
+          <g key={v}>
+            <line x1={padX} y1={toY(v).toFixed(1)} x2={W - 10} y2={toY(v).toFixed(1)} stroke="#334155" strokeWidth="0.5" strokeDasharray="3,2" />
+            <text x={padX - 4} y={(toY(v) + 3).toFixed(1)} fill="#475569" fontSize="7" textAnchor="end">{v.toFixed(1)}%</text>
+          </g>
+        ))}
+        {/* Fill area under curve */}
+        <polygon
+          points={`${toX(points[0].maturity).toFixed(1)},${(H - 14).toFixed(1)} ${polyline} ${toX(points[points.length - 1].maturity).toFixed(1)},${(H - 14).toFixed(1)}`}
+          fill={lineColor}
+          opacity="0.08"
+        />
+        {/* Curve line */}
+        <polyline points={polyline} fill="none" stroke={lineColor} strokeWidth="1.8" strokeLinejoin="round" />
+        {/* Data points */}
+        {points.map(p => (
+          <g key={p.maturity}>
+            <circle cx={toX(p.maturity).toFixed(1)} cy={toY(p.value).toFixed(1)} r="3" fill={lineColor} />
+            <text x={toX(p.maturity).toFixed(1)} y={(H - 4).toFixed(1)} fill="#64748b" fontSize="8" textAnchor="middle">{p.label}</text>
+            <text x={toX(p.maturity).toFixed(1)} y={(toY(p.value) - 5).toFixed(1)} fill="#94a3b8" fontSize="7.5" textAnchor="middle">
+              {p.value.toFixed(2)}%
+            </text>
+          </g>
+        ))}
+      </svg>
+
+      <div className="text-[9px] text-slate-600">
+        FF (overnight) · 2Y · 10Y · FRED · Inverted = recession signal · Normal = growth
+      </div>
+    </div>
+  );
+}
+
 const SIGNAL_STYLES: Record<string, { className: string }> = {
   BUY:    { className: "bg-green-900/60 text-green-300 border-green-700/60" },
   WATCH:  { className: "bg-cyan-900/50 text-cyan-300 border-cyan-700/50" },
@@ -439,6 +523,7 @@ export default async function MacroRegimePage() {
                     />
                   );
                 })}
+                <YieldCurveChart indicators={macro!.indicators} />
               </div>
             </section>
 

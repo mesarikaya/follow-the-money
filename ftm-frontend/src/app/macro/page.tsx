@@ -57,6 +57,88 @@ const INDICATOR_LABELS: Record<keyof MacroIndicators, IndicatorConfig> = {
   wtiCrudeOilPrice:   { label: "WTI Crude Oil",       series: "DCOILWTICO", format: v => v == null ? "—" : `$${v.toFixed(2)}`, tooltip: "WTI crude oil price USD/barrel (FRED DCOILWTICO). Key cross-asset inflation signal" },
 };
 
+type MacroHistory = Record<string, MacroSeriesPoint[]>;
+
+function computeMacroStress(history: MacroHistory, indicators: MacroIndicators): { score: number; components: { label: string; score: number; weight: number }[] } {
+  const vixPts = history["VIXCLS"] ?? [];
+  const spreadPts = history["T10Y2Y"] ?? [];
+  const usdPts = history["DTWEXBGS"] ?? [];
+  const inflPts = history["T10YIE"] ?? [];
+
+  function zScore(pts: MacroSeriesPoint[], current: number | null): number {
+    if (!current || pts.length < 20) return 0;
+    const vals = pts.map(p => p.value);
+    const mean = vals.reduce((s, v) => s + v, 0) / vals.length;
+    const std = Math.sqrt(vals.reduce((s, v) => s + (v - mean) ** 2, 0) / vals.length) || 1;
+    return (current - mean) / std;
+  }
+
+  const vixZ = zScore(vixPts, indicators.vix);
+  const vixStress = Math.max(0, Math.min(100, 50 + vixZ * 20));
+
+  const spread = indicators.yieldSpread10y2y ?? 0;
+  const spreadStress = Math.max(0, Math.min(100, spread < 0 ? Math.min(-spread / 1.5, 1) * 100 : 0));
+
+  const usdZ = zScore(usdPts, indicators.usdIndex);
+  const usdStress = Math.max(0, Math.min(100, Math.max(0, usdZ) * 20));
+
+  const infl = indicators.breakevenInflation ?? 2;
+  const inflStress = Math.max(0, Math.min(100, Math.abs(infl - 2.2) / 1.5 * 60));
+
+  const weights = [0.40, 0.35, 0.15, 0.10];
+  const scores  = [vixStress, spreadStress, usdStress, inflStress];
+  const score = Math.round(weights.reduce((s, w, i) => s + w * scores[i], 0));
+  return {
+    score,
+    components: [
+      { label: "VIX",           score: Math.round(vixStress),    weight: 40 },
+      { label: "Yield Curve",   score: Math.round(spreadStress), weight: 35 },
+      { label: "USD Strength",  score: Math.round(usdStress),    weight: 15 },
+      { label: "Inflation",     score: Math.round(inflStress),   weight: 10 },
+    ],
+  };
+}
+
+function MacroStressMeter({ score, components }: { score: number; components: { label: string; score: number; weight: number }[] }) {
+  const label = score >= 70 ? "High Stress" : score >= 40 ? "Moderate" : "Low Stress";
+  const color = score >= 70 ? "#f87171" : score >= 40 ? "#fbbf24" : "#34d399";
+  const bgColor = score >= 70 ? "border-red-700/50 bg-red-950/20" : score >= 40 ? "border-amber-700/50 bg-amber-950/15" : "border-emerald-700/40 bg-emerald-950/10";
+  const W = 240, H = 12;
+  return (
+    <div className={`bg-slate-800/60 border rounded-xl px-4 py-3 space-y-2.5 ${bgColor}`}
+      title="Composite macro stress score: weighted blend of VIX z-score (40%), yield curve inversion (35%), USD strength vs 1Y avg (15%), and breakeven inflation deviation from 2.2% (10%). 0 = calm, 100 = maximum stress.">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-slate-500 font-medium">Macro Stress</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-slate-500">{label}</span>
+          <span className="text-xl font-bold tabular-nums" style={{ color, fontFamily: "var(--font-jetbrains-mono)" }}>
+            {score}
+          </span>
+          <span className="text-[10px] text-slate-600">/100</span>
+        </div>
+      </div>
+      <div className="space-y-1">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-3">
+          <rect x={0} y={0} width={W} height={H} rx={H / 2} fill="#1e293b" />
+          <rect x={0} y={0} width={Math.round(score / 100 * W)} height={H} rx={H / 2} fill={color} opacity="0.85" />
+        </svg>
+        <div className="flex items-center gap-3 flex-wrap">
+          {components.map(c => {
+            const cColor = c.score >= 70 ? "text-red-400" : c.score >= 40 ? "text-amber-400" : "text-emerald-400";
+            return (
+              <span key={c.label} className="text-[10px] flex items-center gap-1 text-slate-500">
+                {c.label}
+                <span className={`font-mono ${cColor}`}>{c.score}</span>
+                <span className="text-slate-700">({c.weight}%)</span>
+              </span>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function IndicatorSparkline({ points, seriesId }: { points: MacroSeriesPoint[]; seriesId: string }) {
   if (!points || points.length < 2) return null;
   const W = 120, H = 32, padX = 2, padY = 4;
@@ -506,6 +588,11 @@ export default async function MacroRegimePage() {
                 </div>
               </div>
             </section>
+
+            {Object.keys(indicatorHistory).length > 0 && (() => {
+              const stress = computeMacroStress(indicatorHistory, macro!.indicators);
+              return <MacroStressMeter score={stress.score} components={stress.components} />;
+            })()}
 
             <section className="space-y-3">
               <h2 className="text-sm font-semibold text-slate-300">Indicators</h2>

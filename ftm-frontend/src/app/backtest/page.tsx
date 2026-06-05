@@ -372,6 +372,121 @@ function DrawdownChart({ curve }: { curve: EquityCurvePoint[] }) {
 
 const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
+function computeRiskAttribution(curve: EquityCurvePoint[]) {
+  if (curve.length < 30) return null;
+  const portRet: number[] = [];
+  const spyRet: number[] = [];
+  for (let i = 1; i < curve.length; i++) {
+    portRet.push(curve[i].portfolioValue / curve[i-1].portfolioValue - 1);
+    spyRet.push(curve[i].spyValue / curve[i-1].spyValue - 1);
+  }
+  const n = portRet.length;
+  const meanPort = portRet.reduce((s, r) => s + r, 0) / n;
+  const meanSpy  = spyRet.reduce((s, r) => s + r, 0) / n;
+  let covPS = 0, varSpy = 0, varPort = 0;
+  for (let i = 0; i < n; i++) {
+    covPS   += (portRet[i] - meanPort) * (spyRet[i] - meanSpy);
+    varSpy  += (spyRet[i]  - meanSpy)  ** 2;
+    varPort += (portRet[i] - meanPort) ** 2;
+  }
+  covPS  /= n;
+  varSpy  /= n;
+  varPort /= n;
+  const beta = varSpy > 0 ? covPS / varSpy : null;
+  const correlation = (varSpy > 0 && varPort > 0) ? covPS / Math.sqrt(varSpy * varPort) : null;
+  const capmAlphaDailyAnn = beta != null ? (meanPort - beta * meanSpy) * 252 : null;
+  const diffRet = portRet.map((p, i) => p - spyRet[i]);
+  const meanDiff = diffRet.reduce((s, r) => s + r, 0) / n;
+  const varDiff = diffRet.reduce((s, r) => s + (r - meanDiff) ** 2, 0) / n;
+  const trackingError = Math.sqrt(varDiff * 252);
+
+  const upDays  = portRet.filter((_, i) => spyRet[i] > 0);
+  const upSpy   = spyRet.filter(r => r > 0);
+  const downDays = portRet.filter((_, i) => spyRet[i] < 0);
+  const downSpy  = spyRet.filter(r => r < 0);
+  const upCapture   = upDays.length > 0 && upSpy.length > 0
+    ? (upDays.reduce((s, r) => s + r, 0) / upDays.length) / (upSpy.reduce((s, r) => s + r, 0) / upSpy.length) * 100
+    : null;
+  const downCapture = downDays.length > 0 && downSpy.length > 0
+    ? (downDays.reduce((s, r) => s + r, 0) / downDays.length) / (downSpy.reduce((s, r) => s + r, 0) / downSpy.length) * 100
+    : null;
+  const informationRatio = trackingError > 0 ? (meanDiff * 252) / trackingError : null;
+  return { beta, correlation, capmAlphaDailyAnn, trackingError: trackingError * 100, informationRatio, upCapture, downCapture };
+}
+
+function RiskAttributionPanel({ curve }: { curve: EquityCurvePoint[] }) {
+  const ra = computeRiskAttribution(curve);
+  if (!ra) return null;
+
+  type Cell = { label: string; value: string; sub?: string; color?: string; tooltip: string };
+  const cells: Cell[] = [
+    {
+      label: "Beta",
+      value: ra.beta != null ? ra.beta.toFixed(2) : "—",
+      color: ra.beta != null ? (ra.beta < 0.8 ? "text-emerald-400" : ra.beta < 1.1 ? "text-slate-300" : "text-amber-400") : undefined,
+      tooltip: "Sensitivity to SPY daily moves. β<1 = less market exposure than index; β>1 = amplified market risk.",
+    },
+    {
+      label: "Correlation",
+      value: ra.correlation != null ? ra.correlation.toFixed(3) : "—",
+      color: ra.correlation != null ? (ra.correlation < 0.7 ? "text-emerald-400" : ra.correlation < 0.85 ? "text-slate-300" : "text-amber-400") : undefined,
+      tooltip: "Pearson r of daily returns vs SPY. Lower = more independent return stream; ideal rotation strategy < 0.75.",
+    },
+    {
+      label: "CAPM α (ann.)",
+      value: ra.capmAlphaDailyAnn != null ? `${ra.capmAlphaDailyAnn >= 0 ? "+" : ""}${ra.capmAlphaDailyAnn.toFixed(2)}%` : "—",
+      color: ra.capmAlphaDailyAnn != null ? (ra.capmAlphaDailyAnn > 0 ? "text-emerald-400" : "text-red-400") : undefined,
+      tooltip: "Annualized Jensen's alpha — return unexplained by market beta. Positive = genuine skill after adjusting for market exposure.",
+    },
+    {
+      label: "Tracking Error",
+      value: ra.trackingError != null ? `${ra.trackingError.toFixed(2)}%` : "—",
+      color: "text-slate-300",
+      sub: "annualized",
+      tooltip: "Annualized std dev of (strategy − SPY) daily returns. Measures how much the strategy deviates from the index.",
+    },
+    {
+      label: "Info Ratio",
+      value: ra.informationRatio != null ? ra.informationRatio.toFixed(2) : "—",
+      color: ra.informationRatio != null ? (ra.informationRatio > 0.5 ? "text-emerald-400" : ra.informationRatio > 0 ? "text-slate-300" : "text-red-400") : undefined,
+      tooltip: "Annualized alpha / tracking error. Measures consistency of excess return. >0.5 = good active management.",
+    },
+    {
+      label: "Up Capture",
+      value: ra.upCapture != null ? `${ra.upCapture.toFixed(1)}%` : "—",
+      color: ra.upCapture != null ? (ra.upCapture > 100 ? "text-emerald-400" : ra.upCapture > 80 ? "text-blue-300" : "text-amber-400") : undefined,
+      sub: "of SPY up moves",
+      tooltip: "On days when SPY rises, what % of SPY's gain does the strategy capture? >100% = amplified upside.",
+    },
+    {
+      label: "Down Capture",
+      value: ra.downCapture != null ? `${ra.downCapture.toFixed(1)}%` : "—",
+      color: ra.downCapture != null ? (ra.downCapture < 70 ? "text-emerald-400" : ra.downCapture < 90 ? "text-blue-300" : "text-amber-400") : undefined,
+      sub: "of SPY down moves",
+      tooltip: "On days when SPY falls, what % of SPY's loss does the strategy incur? <70% = strong downside protection.",
+    },
+  ];
+
+  return (
+    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+      <div className="text-sm font-semibold text-slate-200 mb-3">Risk Attribution vs SPY</div>
+      <div className="grid grid-cols-4 sm:grid-cols-7 gap-3">
+        {cells.map(cell => (
+          <div key={cell.label} className="space-y-0.5" title={cell.tooltip}>
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider">{cell.label}</div>
+            <div className={`text-lg font-bold font-mono tabular-nums ${cell.color ?? "text-slate-300"}`}>{cell.value}</div>
+            {cell.sub && <div className="text-[9px] text-slate-600">{cell.sub}</div>}
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 pt-2.5 border-t border-slate-700/40 grid grid-cols-2 gap-x-8 gap-y-0.5 text-[10px] text-slate-500">
+        <span><span className="text-slate-400">Ideal rotation signal:</span> β≈0.7–0.9 · r&lt;0.8 · α&gt;2% · Up≥85% · Down≤75%</span>
+        <span><span className="text-slate-400">Computed from:</span> {curve.length - 1} daily return pairs · no annualization of individual metrics except where noted</span>
+      </div>
+    </div>
+  );
+}
+
 function computeMonthlyReturns(curve: EquityCurvePoint[]) {
   if (curve.length < 2) return [];
   const monthEnd = new Map<string, { portfolio: number; spy: number }>();
@@ -1481,6 +1596,11 @@ export default function BacktesterPage() {
                     </div>
                   );
                 })()}
+
+                {/* Risk Attribution panel */}
+                {result.equityCurve && result.equityCurve.length > 30 && (
+                  <RiskAttributionPanel curve={result.equityCurve} />
+                )}
 
                 {/* Side-by-side metrics: Strategy | SPY */}
                 <div className="grid grid-cols-2 gap-4">

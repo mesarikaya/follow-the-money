@@ -59,31 +59,7 @@ public class BacktestController {
               request.topN(),
               request.signalThreshold(),
               request.categoryScope());
-      BacktestResult result = backtestEngine.run(swept);
-      results.add(
-          new BacktestResult(
-              null,
-              null,
-              result.startDate(),
-              result.endDate(),
-              result.rebalanceFrequency(),
-              result.topN(),
-              result.signalThreshold(),
-              result.totalReturnPct(),
-              result.annualizedReturnPct(),
-              result.maxDrawdownPct(),
-              result.sharpeRatio(),
-              result.sortinoRatio(),
-              result.calmarRatio(),
-              result.spyTotalReturnPct(),
-              result.spyAnnualizedReturnPct(),
-              result.spyMaxDrawdownPct(),
-              result.spySharpeRatio(),
-              result.spySortinoRatio(),
-              result.spyCalmarRatio(),
-              result.tradingDays(),
-              List.of(),
-              List.of()));
+      results.add(backtestEngine.run(swept).stripped());
     }
     return results;
   }
@@ -100,32 +76,7 @@ public class BacktestController {
               n,
               request.signalThreshold(),
               request.categoryScope());
-      BacktestResult result = backtestEngine.run(swept);
-      // strip the equity curve and rebalance history — sweep responses are summary-only
-      results.add(
-          new BacktestResult(
-              null,
-              null,
-              result.startDate(),
-              result.endDate(),
-              result.rebalanceFrequency(),
-              result.topN(),
-              result.signalThreshold(),
-              result.totalReturnPct(),
-              result.annualizedReturnPct(),
-              result.maxDrawdownPct(),
-              result.sharpeRatio(),
-              result.sortinoRatio(),
-              result.calmarRatio(),
-              result.spyTotalReturnPct(),
-              result.spyAnnualizedReturnPct(),
-              result.spyMaxDrawdownPct(),
-              result.spySharpeRatio(),
-              result.spySortinoRatio(),
-              result.spyCalmarRatio(),
-              result.tradingDays(),
-              List.of(),
-              List.of()));
+      results.add(backtestEngine.run(swept).stripped());
     }
     return results;
   }

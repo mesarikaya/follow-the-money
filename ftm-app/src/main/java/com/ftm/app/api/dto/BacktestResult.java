@@ -30,6 +30,17 @@ public record BacktestResult(
     List<EquityCurvePoint> equityCurve,
     List<RebalanceEvent> rebalanceHistory) {
 
+  public BacktestResult stripped() {
+    return new BacktestResult(
+        null, null,
+        startDate, endDate, rebalanceFrequency, topN, signalThreshold,
+        totalReturnPct, annualizedReturnPct, maxDrawdownPct,
+        sharpeRatio, sortinoRatio, calmarRatio,
+        spyTotalReturnPct, spyAnnualizedReturnPct, spyMaxDrawdownPct,
+        spySharpeRatio, spySortinoRatio, spyCalmarRatio,
+        tradingDays, List.of(), List.of());
+  }
+
   public record EquityCurvePoint(LocalDate date, double portfolioValue, double spyValue) {}
 
   public record RebalanceEvent(LocalDate date, List<String> categoryIds, double portfolioValue) {}

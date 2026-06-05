@@ -65,6 +65,10 @@ public class CacheConfig {
     manager.registerCustomCache(
         "seasonal-returns",
         Caffeine.newBuilder().maximumSize(1).expireAfterWrite(1, TimeUnit.HOURS).build());
+    // Evicted on SignalsUpdatedEvent — keyed by categoryId+days; ~20 categories × a few day params
+    manager.registerCustomCache(
+        "signal-history",
+        Caffeine.newBuilder().maximumSize(200).expireAfterWrite(1, TimeUnit.HOURS).build());
     return manager;
   }
 }

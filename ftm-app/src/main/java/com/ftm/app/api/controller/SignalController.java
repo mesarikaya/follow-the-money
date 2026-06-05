@@ -1,8 +1,7 @@
 package com.ftm.app.api.controller;
 
 import com.ftm.app.api.dto.SignalHistoryDto;
-import com.ftm.app.api.mapper.SignalHistoryMapper;
-import com.ftm.app.signals.repository.SignalRepository;
+import com.ftm.app.api.service.SignalHistoryService;
 import com.ftm.app.signals.service.SignalComputationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,16 +18,13 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Signals", description = "Signal history per category")
 public class SignalController {
 
-  private final SignalRepository signalRepository;
-  private final SignalHistoryMapper signalHistoryMapper;
+  private final SignalHistoryService signalHistoryService;
   private final SignalComputationService signalComputationService;
 
   public SignalController(
-      SignalRepository signalRepository,
-      SignalHistoryMapper signalHistoryMapper,
+      SignalHistoryService signalHistoryService,
       SignalComputationService signalComputationService) {
-    this.signalRepository = signalRepository;
-    this.signalHistoryMapper = signalHistoryMapper;
+    this.signalHistoryService = signalHistoryService;
     this.signalComputationService = signalComputationService;
   }
 
@@ -37,9 +33,7 @@ public class SignalController {
   public List<SignalHistoryDto> getSignalHistory(
       @PathVariable String categoryId,
       @RequestParam(defaultValue = "0") int days) {
-    return signalRepository.findByCategoryId(categoryId.toUpperCase(), days).stream()
-        .map(signalHistoryMapper::toDto)
-        .toList();
+    return signalHistoryService.getHistory(categoryId.toUpperCase(), days);
   }
 
   @PostMapping("/signals/compute")

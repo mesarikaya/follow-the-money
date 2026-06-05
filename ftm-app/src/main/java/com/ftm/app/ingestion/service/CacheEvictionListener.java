@@ -48,6 +48,7 @@ public class CacheEvictionListener {
     evict("win-rates");
     evict("score-history");
     evict("seasonal-returns");
+    evict("signal-history");
   }
 
   private void evict(String cacheName) {

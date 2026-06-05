@@ -35,40 +35,67 @@ class CacheEvictionListenerTest {
   }
 
   @Test
-  @DisplayName("MACRO SUCCESS evicts macro-latest cache")
-  void shouldEvictMacroCacheOnMacroSuccess() {
+  @DisplayName("MACRO SUCCESS evicts macro-latest and macro-history caches")
+  void shouldEvictMacroCachesOnMacroSuccess() {
+    Cache macroHistoryCache = mock(Cache.class);
     when(cacheManager.getCache("macro-latest")).thenReturn(macroCache);
+    when(cacheManager.getCache("macro-history")).thenReturn(macroHistoryCache);
+
     listener.onIngestionComplete(ingestionEvent(IngestSource.MACRO, IngestStatus.SUCCESS));
+
     verify(macroCache).clear();
+    verify(macroHistoryCache).clear();
   }
 
   @Test
-  @DisplayName("MACRO PARTIAL evicts macro-latest cache")
-  void shouldEvictMacroCacheOnMacroPartial() {
+  @DisplayName("MACRO PARTIAL evicts macro-latest and macro-history caches")
+  void shouldEvictMacroCachesOnMacroPartial() {
+    Cache macroHistoryCache = mock(Cache.class);
     when(cacheManager.getCache("macro-latest")).thenReturn(macroCache);
+    when(cacheManager.getCache("macro-history")).thenReturn(macroHistoryCache);
+
     listener.onIngestionComplete(ingestionEvent(IngestSource.MACRO, IngestStatus.PARTIAL));
+
     verify(macroCache).clear();
+    verify(macroHistoryCache).clear();
   }
 
   @Test
-  @DisplayName("MACRO FAILED does not evict cache")
+  @DisplayName("MACRO FAILED does not evict any cache")
   void shouldNotEvictCacheOnFailure() {
     listener.onIngestionComplete(ingestionEvent(IngestSource.MACRO, IngestStatus.FAILED));
     verifyNoInteractions(cacheManager);
   }
 
   @Test
-  @DisplayName("PRICES SUCCESS does not evict macro-latest cache")
+  @DisplayName("PRICES SUCCESS does not evict macro caches")
   void shouldNotEvictMacroCacheOnPricesEvent() {
     listener.onIngestionComplete(ingestionEvent(IngestSource.PRICES, IngestStatus.SUCCESS));
     verifyNoInteractions(cacheManager);
   }
 
   @Test
-  @DisplayName("SignalsUpdatedEvent evicts signals-latest cache")
-  void shouldEvictSignalsCacheOnSignalsUpdated() {
-    when(cacheManager.getCache("signals-latest")).thenReturn(signalsCache);
+  @DisplayName("SignalsUpdatedEvent evicts all signal and alert caches")
+  void shouldEvictAllSignalCachesOnSignalsUpdated() {
+    var cacheNames = java.util.List.of(
+        "signals-latest", "rrg-latest", "rotation-latest", "sub-sectors-latest",
+        "transitions-latest", "score-percentile-252d", "signal-days-active",
+        "price-levels", "win-rates", "score-history", "seasonal-returns",
+        "signal-history", "alerts-latest", "alerts-count");
+    cacheNames.forEach(name -> when(cacheManager.getCache(name)).thenReturn(signalsCache));
+
     listener.onSignalsUpdated(new SignalsUpdatedEvent(LocalDate.now()));
-    verify(signalsCache).clear();
+
+    verify(signalsCache, times(cacheNames.size())).clear();
+  }
+
+  @Test
+  @DisplayName("SignalsUpdatedEvent skips null caches gracefully")
+  void shouldSkipNullCachesOnSignalsUpdated() {
+    when(cacheManager.getCache(anyString())).thenReturn(null);
+
+    listener.onSignalsUpdated(new SignalsUpdatedEvent(LocalDate.now()));
+
+    verify(signalsCache, never()).clear();
   }
 }

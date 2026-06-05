@@ -1,8 +1,40 @@
 import Link from "next/link";
-import { fetchSubSectors, SubSectorSummary } from "@/lib/api";
+import { fetchSubSectors, fetchCategoryScoreHistory, SubSectorSummary } from "@/lib/api";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 import SubSectorTable from "@/components/SubSectorTable";
 import RefreshButton from "@/components/RefreshButton";
+
+function SectorScoreSparkline({ scores }: { scores: number[] }) {
+  if (scores.length < 5) return null;
+  const W = 160, H = 40, padX = 2, padY = 4;
+  const min = Math.min(...scores);
+  const max = Math.max(...scores);
+  const range = max - min || 1;
+  const toX = (i: number) => padX + (i / (scores.length - 1)) * (W - padX * 2);
+  const toY = (v: number) => padY + (1 - (v - min) / range) * (H - padY * 2);
+  const last = scores[scores.length - 1];
+  const first = scores[0];
+  const isUp = last >= first;
+  const color = last >= 0.65 ? "#34d399" : last >= 0.45 ? "#fbbf24" : "#f87171";
+  const polyline = scores.map((v, i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(" ");
+  const fillPts = `${toX(0).toFixed(1)},${H} ${polyline} ${toX(scores.length - 1).toFixed(1)},${H}`;
+  const trend5 = scores.length >= 5 ? last - scores[scores.length - 5] : 0;
+  const trendStr = trend5 > 0.01 ? "↑" : trend5 < -0.01 ? "↓" : "→";
+  const trendColor = trend5 > 0.01 ? "text-emerald-400" : trend5 < -0.01 ? "text-red-400" : "text-slate-500";
+  void isUp;
+  return (
+    <div className="flex items-end gap-2" title={`Composite score trend (${scores.length}d) — most recent: ${Math.round(last * 100)}/100`}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "80px", height: "20px" }}>
+        <polygon points={fillPts} fill={color} opacity="0.12" />
+        <polyline points={polyline} fill="none" stroke={color} strokeWidth="1.5" opacity="0.8" />
+        <circle cx={toX(scores.length - 1).toFixed(1)} cy={toY(last).toFixed(1)} r="2" fill={color} />
+      </svg>
+      <span className={`text-xs font-mono ${trendColor}`}>
+        {trendStr} {Math.round(last * 100)}
+      </span>
+    </div>
+  );
+}
 
 function buildConfluenceNarrative(
   bullishCount: number,
@@ -72,11 +104,22 @@ export default async function SectorDrilldownPage({ params }: Props) {
 
   let subSectors: SubSectorSummary[] = [];
   let error: string | null = null;
+  let scoreHistory: number[] = [];
 
-  try {
-    subSectors = await fetchSubSectors(sectorId);
-  } catch (err) {
-    error = err instanceof Error ? err.message : "Failed to load sub-sectors";
+  const [subSectorsResult, scoreHistoryResult] = await Promise.allSettled([
+    fetchSubSectors(sectorId),
+    fetchCategoryScoreHistory(60),
+  ]);
+
+  if (subSectorsResult.status === "fulfilled") {
+    subSectors = subSectorsResult.value;
+  } else {
+    error = subSectorsResult.reason instanceof Error
+      ? subSectorsResult.reason.message
+      : "Failed to load sub-sectors";
+  }
+  if (scoreHistoryResult.status === "fulfilled") {
+    scoreHistory = scoreHistoryResult.value[sectorId] ?? [];
   }
 
   const quadrantCounts: Record<string, SubSectorSummary[]> = { "4": [], "3": [], "2": [], "1": [] };
@@ -129,14 +172,22 @@ export default async function SectorDrilldownPage({ params }: Props) {
                 — within-sector rotation signals
               </p>
             </div>
-            {meta && (
-              <span
-                className="text-sm text-cyan-400 bg-cyan-500/8 border border-cyan-500/20 px-3 py-1.5 rounded-lg"
-                style={{ fontFamily: "var(--font-jetbrains-mono)" }}
-              >
-                {meta.etfTicker}
-              </span>
-            )}
+            <div className="flex flex-col items-end gap-2">
+              {meta && (
+                <span
+                  className="text-sm text-cyan-400 bg-cyan-500/8 border border-cyan-500/20 px-3 py-1.5 rounded-lg"
+                  style={{ fontFamily: "var(--font-jetbrains-mono)" }}
+                >
+                  {meta.etfTicker}
+                </span>
+              )}
+              {scoreHistory.length > 5 && (
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-slate-600">60d score</span>
+                  <SectorScoreSparkline scores={scoreHistory} />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>

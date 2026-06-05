@@ -79,4 +79,21 @@ class SubSectorControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(0));
   }
+
+  @Test
+  @DisplayName("GET /sub-sectors?parent=tech normalises lowercase to uppercase")
+  void shouldNormaliseLowercaseParentToUppercase() throws Exception {
+    SubSectorSummaryDto semi =
+        Instancio.of(SubSectorSummaryDto.class)
+            .set(field(SubSectorSummaryDto::id), "SEMI")
+            .set(field(SubSectorSummaryDto::parentId), "TECH")
+            .create();
+    when(subSectorService.getSubSectors("TECH")).thenReturn(List.of(semi));
+
+    mockMvc
+        .perform(get("/sub-sectors").param("parent", "tech"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].id").value("SEMI"));
+  }
+
 }

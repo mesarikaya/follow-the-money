@@ -13,6 +13,9 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -34,6 +37,7 @@ public class AlertService {
     this.alertMapper = alertMapper;
   }
 
+  @Cacheable("alerts-latest")
   public AlertsResponse getAlerts() {
     List<Alert> recentAlerts = alertRepository.findRecentAlerts(RECENT_ALERTS_LIMIT);
     long activeCount = recentAlerts.stream().filter(a -> a.status() == AlertStatus.ACTIVE).count();
@@ -73,16 +77,25 @@ public class AlertService {
         rule.persistenceDays());
   }
 
+  @Cacheable("alerts-count")
   public int countActiveAlerts() {
     return alertRepository.countActive();
   }
 
+  @Caching(evict = {
+    @CacheEvict("alerts-latest"),
+    @CacheEvict("alerts-count")
+  })
   public int acknowledgeAllActive() {
     int count = alertRepository.acknowledgeAllActive();
     log.info("Bulk-dismissed {} active alerts", count);
     return count;
   }
 
+  @Caching(evict = {
+    @CacheEvict("alerts-latest"),
+    @CacheEvict("alerts-count")
+  })
   public AlertDto acknowledgeAlert(Long alertId) {
     int rowsUpdated = alertRepository.acknowledgeAlert(alertId);
     if (rowsUpdated == 0) {

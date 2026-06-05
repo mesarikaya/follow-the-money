@@ -69,6 +69,14 @@ public class CacheConfig {
     manager.registerCustomCache(
         "signal-history",
         Caffeine.newBuilder().maximumSize(200).expireAfterWrite(1, TimeUnit.HOURS).build());
+    // Evicted on SignalsUpdatedEvent (AlertRulesEngine fires after each computation) and on
+    // user-triggered acknowledge operations via @CacheEvict in AlertService
+    manager.registerCustomCache(
+        "alerts-latest",
+        Caffeine.newBuilder().maximumSize(1).expireAfterWrite(30, TimeUnit.MINUTES).build());
+    manager.registerCustomCache(
+        "alerts-count",
+        Caffeine.newBuilder().maximumSize(1).expireAfterWrite(30, TimeUnit.MINUTES).build());
     // Not evicted by events — FX rates fetched from FRED/Yahoo on every upload; 1h TTL avoids
     // repeated external calls when multiple holdings share the same currency conversion step
     manager.registerCustomCache(

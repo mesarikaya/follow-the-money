@@ -52,6 +52,13 @@ test.describe("RRG Chart page", () => {
     // "Relative Rotation Graph" appears as h1 AND as h2 in RRGSection — target h1 by level
     await expect(page.getByRole("heading", { name: "Relative Rotation Graph", level: 1 })).toBeVisible();
   });
+
+  test("shows Rotation Velocity panel from RRG mock data", async ({ page }) => {
+    await page.goto("/rrg");
+    await expect(page.getByText("Rotation Velocity")).toBeVisible();
+    // Velocity table has Speed column header
+    await expect(page.getByText("Speed").first()).toBeVisible();
+  });
 });
 
 test.describe("Portfolio page", () => {

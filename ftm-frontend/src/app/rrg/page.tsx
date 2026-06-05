@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import RRGSection from "@/components/RRGSection";
 import RRGPositionTable from "@/components/RRGPositionTable";
+import RRGVelocityPanel from "@/components/RRGVelocityPanel";
 
 export default function RelativeRotationGraphPage() {
   return (
@@ -43,6 +44,9 @@ export default function RelativeRotationGraphPage() {
         </Suspense>
         <Suspense fallback={null}>
           <RRGPositionTable />
+        </Suspense>
+        <Suspense fallback={null}>
+          <RRGVelocityPanel />
         </Suspense>
       </main>
     </div>

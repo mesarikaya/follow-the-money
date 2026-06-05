@@ -45,6 +45,22 @@ public class CacheConfig {
     manager.registerCustomCache(
         "signal-days-active",
         Caffeine.newBuilder().maximumSize(10).expireAfterWrite(1, TimeUnit.HOURS).build());
+    // Evicted on SignalsUpdatedEvent — ROW_NUMBER CTE over 400d of raw_prices; no-arg (single entry)
+    manager.registerCustomCache(
+        "price-levels",
+        Caffeine.newBuilder().maximumSize(1).expireAfterWrite(1, TimeUnit.HOURS).build());
+    // Evicted on SignalsUpdatedEvent — LAG + LATERAL join win-rate query; keyed by lookbackDays
+    manager.registerCustomCache(
+        "win-rates",
+        Caffeine.newBuilder().maximumSize(10).expireAfterWrite(1, TimeUnit.HOURS).build());
+    // Evicted on SignalsUpdatedEvent — composite score history time series; keyed by days
+    manager.registerCustomCache(
+        "score-history",
+        Caffeine.newBuilder().maximumSize(20).expireAfterWrite(1, TimeUnit.HOURS).build());
+    // Evicted on SignalsUpdatedEvent — seasonal monthly averages; no-arg (single entry)
+    manager.registerCustomCache(
+        "seasonal-returns",
+        Caffeine.newBuilder().maximumSize(1).expireAfterWrite(1, TimeUnit.HOURS).build());
     return manager;
   }
 }

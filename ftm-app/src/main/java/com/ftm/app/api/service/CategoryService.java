@@ -151,6 +151,7 @@ public class CategoryService {
     return new CategoriesResponse(asOfDate, timeframe, categorySummaryDtos);
   }
 
+  @Cacheable(value = "score-history", key = "#days")
   public Map<String, List<Double>> getCompositeScoreHistory(int days) {
     int clamped = Math.max(5, Math.min(days, 120));
     Set<String> topLevelIds = categoryRepository.findTopLevelActiveCategoryIds();
@@ -164,6 +165,7 @@ public class CategoryService {
                         .collect(Collectors.toList())));
   }
 
+  @Cacheable("price-levels")
   public List<PriceLevelDto> getPriceLevels() {
     return categoryRepository.findPriceLevels().stream()
         .map(
@@ -179,6 +181,7 @@ public class CategoryService {
         .toList();
   }
 
+  @Cacheable(value = "win-rates", key = "#lookbackDays")
   public List<SignalWinRateDto> getBuySignalWinRates(int lookbackDays) {
     int clamped = Math.max(90, Math.min(lookbackDays, 730));
     return signalRepository.findBuySignalWinRates(clamped).stream()
@@ -261,6 +264,7 @@ public class CategoryService {
         .toList();
   }
 
+  @Cacheable("seasonal-returns")
   public List<SeasonalReturnDto> getSeasonalReturns() {
     return categoryRepository.findSeasonalMonthlyReturns().stream()
         .map(r -> new SeasonalReturnDto(r.categoryId(), r.month(), r.avgReturn(), r.sampleCount()))

@@ -43,6 +43,10 @@ public class CacheEvictionListener {
     evict("transitions-latest");
     evict("score-percentile-252d");
     evict("signal-days-active");
+    evict("price-levels");
+    evict("win-rates");
+    evict("score-history");
+    evict("seasonal-returns");
   }
 
   private void evict(String cacheName) {

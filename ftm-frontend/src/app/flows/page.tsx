@@ -209,6 +209,124 @@ function EventRow({ event }: { event: RotationEventEntry }) {
   );
 }
 
+const SIGNAL_DOT: Record<string, { fill: string; stroke: string }> = {
+  BUY:    { fill: "#16a34a", stroke: "#4ade80" },
+  WATCH:  { fill: "#0e7490", stroke: "#22d3ee" },
+  HOLD:   { fill: "#374151", stroke: "#6b7280" },
+  REDUCE: { fill: "#991b1b", stroke: "#f87171" },
+};
+
+function RsScoreScatter({ categories }: { categories: CategorySummary[] }) {
+  const pts = categories.filter(c => c.rs60 != null && c.compositeScore != null);
+  if (pts.length < 3) return null;
+
+  const W = 480, H = 280, padL = 40, padR = 16, padT = 24, padB = 32;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+
+  const rs60Vals = pts.map(p => p.rs60! * 100);
+  const scoreVals = pts.map(p => p.compositeScore! * 100);
+  const xMin = Math.min(-8, Math.min(...rs60Vals) - 1);
+  const xMax = Math.max(8, Math.max(...rs60Vals) + 1);
+  const yMin = 0, yMax = 100;
+
+  const toX = (v: number) => padL + ((v - xMin) / (xMax - xMin)) * innerW;
+  const toY = (v: number) => padT + (1 - (v - yMin) / (yMax - yMin)) * innerH;
+  const zeroX = toX(0);
+  const midY  = toY(50);
+
+  // Quadrant labels (positioned at center of each quadrant)
+  const qLabels = [
+    { x: (zeroX + padL + innerW) / 2, y: (padT + midY) / 2,          text: "High RS · High Score",  color: "#22c55e",  opacity: 0.5 },
+    { x: (padL + zeroX) / 2,          y: (padT + midY) / 2,          text: "Low RS · High Score",   color: "#fbbf24",  opacity: 0.4 },
+    { x: (zeroX + padL + innerW) / 2, y: (midY + padT + innerH) / 2, text: "High RS · Low Score",   color: "#22d3ee",  opacity: 0.4 },
+    { x: (padL + zeroX) / 2,          y: (midY + padT + innerH) / 2, text: "Low RS · Low Score",    color: "#f87171",  opacity: 0.35 },
+  ];
+
+  return (
+    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4" title="RS-60 vs Composite Score scatter. X=relative strength vs SPY (60d), Y=composite signal score (0-100). Top-right = strongest buy candidates.">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-sm font-semibold text-slate-200">RS-60 vs Score — Positioning Map</div>
+        <div className="flex items-center gap-3 text-[10px] text-slate-500">
+          {(["BUY","WATCH","HOLD","REDUCE"] as const).map(sig => (
+            <span key={sig} className="flex items-center gap-1">
+              <span className="inline-block w-2 h-2 rounded-full" style={{ background: SIGNAL_DOT[sig].stroke }} />
+              {sig}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: "360px" }}>
+          {/* Background quadrant fills */}
+          <rect x={zeroX}    y={padT}  width={padL + innerW - zeroX} height={midY - padT}  fill="#16a34a" opacity="0.04" />
+          <rect x={padL}     y={padT}  width={zeroX - padL}          height={midY - padT}  fill="#fbbf24" opacity="0.03" />
+          <rect x={zeroX}    y={midY}  width={padL + innerW - zeroX} height={padT + innerH - midY} fill="#06b6d4" opacity="0.03" />
+          <rect x={padL}     y={midY}  width={zeroX - padL}          height={padT + innerH - midY} fill="#ef4444" opacity="0.03" />
+
+          {/* Quadrant labels */}
+          {qLabels.map((q, i) => (
+            <text key={i} x={q.x.toFixed(1)} y={q.y.toFixed(1)} fill={q.color} fontSize="8.5" textAnchor="middle" opacity={q.opacity}>{q.text}</text>
+          ))}
+
+          {/* Grid lines */}
+          <line x1={zeroX.toFixed(1)} y1={padT} x2={zeroX.toFixed(1)} y2={padT + innerH} stroke="#334155" strokeWidth="0.8" />
+          <line x1={padL} y1={midY.toFixed(1)} x2={padL + innerW} y2={midY.toFixed(1)} stroke="#334155" strokeWidth="0.8" />
+
+          {/* X-axis ticks */}
+          {[-6,-4,-2,0,2,4,6].map(v => {
+            const x = toX(v);
+            if (x < padL || x > padL + innerW) return null;
+            return (
+              <g key={v}>
+                <line x1={x.toFixed(1)} y1={(padT + innerH).toFixed(1)} x2={x.toFixed(1)} y2={(padT + innerH + 3).toFixed(1)} stroke="#475569" strokeWidth="0.5" />
+                <text x={x.toFixed(1)} y={H - 6} fill="#64748b" fontSize="8" textAnchor="middle">{v > 0 ? `+${v}` : v}%</text>
+              </g>
+            );
+          })}
+
+          {/* Y-axis ticks */}
+          {[0,25,50,75,100].map(v => {
+            const y = toY(v);
+            return (
+              <g key={v}>
+                <line x1={(padL - 3).toFixed(1)} y1={y.toFixed(1)} x2={padL.toFixed(1)} y2={y.toFixed(1)} stroke="#475569" strokeWidth="0.5" />
+                <text x={(padL - 5).toFixed(1)} y={(y + 3).toFixed(1)} fill="#64748b" fontSize="8" textAnchor="end">{v}</text>
+              </g>
+            );
+          })}
+
+          {/* Axis labels */}
+          <text x={(padL + innerW / 2 + padL / 2).toFixed(1)} y={H - 1} fill="#475569" fontSize="8" textAnchor="middle">RS-60 vs SPY →</text>
+          <text x="8" y={(padT + innerH / 2).toFixed(1)} fill="#475569" fontSize="8" textAnchor="middle" transform={`rotate(-90,8,${(padT + innerH / 2).toFixed(1)})`}>Score</text>
+
+          {/* Data points */}
+          {pts.map(cat => {
+            const x = toX(cat.rs60! * 100);
+            const y = toY(cat.compositeScore! * 100);
+            if (x < padL || x > padL + innerW || y < padT || y > padT + innerH) return null;
+            const sig = cat.tradeSignal ?? "HOLD";
+            const dot = SIGNAL_DOT[sig] ?? SIGNAL_DOT.HOLD;
+            const isLarge = sig === "BUY" || sig === "REDUCE";
+            const r = isLarge ? 5 : 4;
+            return (
+              <g key={cat.id}>
+                <circle cx={x.toFixed(1)} cy={y.toFixed(1)} r={r} fill={dot.fill} stroke={dot.stroke} strokeWidth="0.8" opacity="0.85" />
+                <text x={x.toFixed(1)} y={(y - r - 2).toFixed(1)} fill="#e2e8f0" fontSize="7.5" textAnchor="middle" opacity="0.85">
+                  {cat.etfTicker}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      <div className="text-[10px] text-slate-600 mt-1 text-center">
+        Top-right = strongest buy zone (high RS + high score) · Bottom-left = avoid · Size = signal strength
+      </div>
+    </div>
+  );
+}
+
 type Props = {
   searchParams: Promise<{ timeframe?: string }>;
 };
@@ -290,6 +408,10 @@ export default async function CapitalFlowsPage({ searchParams }: Props) {
               ))}
             </div>
           </div>
+        )}
+
+        {(categories?.categories ?? []).length >= 3 && (
+          <RsScoreScatter categories={categories!.categories} />
         )}
 
         {allRanked.length > 0 && (

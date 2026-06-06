@@ -4,6 +4,7 @@ import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.alerts.repository.AlertRulesRepository;
 import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.api.service.TradeSignalDeriver;
+import com.ftm.app.themes.repository.ThemeRepository;
 import com.ftm.app.domain.Alert;
 import com.ftm.app.domain.AlertRule;
 import com.ftm.app.domain.AlertStatus;
@@ -124,6 +125,12 @@ public class AlertRulesEngine {
   private static final double SUB_SECTOR_BREADTH_RESOLVE_FRACTION = 0.55;
   private static final int SUB_SECTOR_MIN_COUNT = 2;
   private static final String RULE_SUB_SECTOR_BULL_CONFLUENCE = "sub_sector_bull_confluence";
+  private static final String RULE_THEME_SIGNAL_TRANSITION = "theme_dominant_signal_transition";
+  // Fires when a theme's dominant signal transitions to BUY or REDUCE
+  private static final double THEME_BUY_FIRE_FRACTION = 0.50;
+  private static final double THEME_REDUCE_FIRE_FRACTION = 0.50;
+  private static final double THEME_BUY_RESOLVE_FRACTION = 0.35;
+  private static final double THEME_REDUCE_RESOLVE_FRACTION = 0.35;
   // Fires when >=75% of sub-sectors are in Leading/Improving RRG (broad internal participation)
   private static final double SUB_SECTOR_BULL_CONFLUENCE_FIRE_FRACTION = 0.75;
   private static final double SUB_SECTOR_BULL_CONFLUENCE_RESOLVE_FRACTION = 0.55;
@@ -133,18 +140,21 @@ public class AlertRulesEngine {
   private final RotationEventRepository rotationEventRepository;
   private final SignalRepository signalRepository;
   private final CategoryRepository categoryRepository;
+  private final ThemeRepository themeRepository;
 
   public AlertRulesEngine(
       AlertRepository alertRepository,
       AlertRulesRepository alertRulesRepository,
       RotationEventRepository rotationEventRepository,
       SignalRepository signalRepository,
-      CategoryRepository categoryRepository) {
+      CategoryRepository categoryRepository,
+      ThemeRepository themeRepository) {
     this.alertRepository = alertRepository;
     this.alertRulesRepository = alertRulesRepository;
     this.rotationEventRepository = rotationEventRepository;
     this.signalRepository = signalRepository;
     this.categoryRepository = categoryRepository;
+    this.themeRepository = themeRepository;
   }
 
   @EventListener
@@ -183,6 +193,7 @@ public class AlertRulesEngine {
     alertsCreated += evaluateMacroSectorMismatch(signalDate, equityCategoryIds);
     alertsCreated += evaluateSubSectorBreadthDivergence(signalDate, equityCategoryIds);
     alertsCreated += evaluateSubSectorBullConfluence(signalDate, equityCategoryIds);
+    alertsCreated += evaluateThemeSignalTransitions(signalDate);
     // Must run last: reads active alerts inserted by earlier evaluators in this cycle
     alertsCreated += evaluateMultiAlertBullConfluence(topLevelCategoryIds);
 
@@ -2316,6 +2327,84 @@ public class AlertRulesEngine {
         log.info(
             "sub_sector_bull_confluence: resolved category={} breadth={}%",
             categoryId, Math.round(breadth * 100));
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Fires when a theme's majority signal transitions to BUY or REDUCE (≥50% of constituents).
+   * Uses null category_id + theme_id discriminator so each theme gets its own active alert slot.
+   * Resolves when the bullish or bearish fraction drops below the resolve threshold.
+   */
+  private int evaluateThemeSignalTransitions(LocalDate signalDate) {
+    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_SIGNAL_TRANSITION);
+    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+    Severity severity = rule.map(AlertRule::severity).orElse(Severity.ACTION);
+
+    Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
+    if (constituentsByTheme.isEmpty()) return 0;
+
+    Map<String, BigDecimal> compositeMap =
+        signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
+    if (compositeMap.isEmpty()) return 0;
+
+    int count = 0;
+    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
+      String themeId = entry.getKey();
+      List<String> ids = entry.getValue();
+      if (ids.isEmpty()) continue;
+
+      long buyCount = ids.stream()
+          .map(compositeMap::get)
+          .filter(s -> s != null && s.compareTo(BUY_SCORE_THRESHOLD) >= 0)
+          .count();
+      long reduceCount = ids.stream()
+          .map(compositeMap::get)
+          .filter(s -> s != null && s.compareTo(REDUCE_SCORE_THRESHOLD) < 0)
+          .count();
+      int total = ids.size();
+
+      double buyFraction = (double) buyCount / total;
+      double reduceFraction = (double) reduceCount / total;
+      boolean isBuyMajority = buyFraction >= THEME_BUY_FIRE_FRACTION;
+      boolean isReduceMajority = reduceFraction >= THEME_REDUCE_FIRE_FRACTION;
+
+      boolean hasActive = alertRepository.existsActiveAlertForTheme(RULE_THEME_SIGNAL_TRANSITION, themeId);
+
+      if (isBuyMajority && !isReduceMajority && !hasActive) {
+        alertRepository.insert(new Alert(
+            null, OffsetDateTime.now(), null, themeId,
+            RULE_THEME_SIGNAL_TRANSITION, severity,
+            String.format(
+                "%s theme entered BUY: %d/%d constituents above BUY threshold — cross-sector rotation confirmed",
+                themeId, buyCount, total),
+            String.format(
+                "{\"themeId\":\"%s\",\"buyFraction\":%.2f,\"buyCount\":%d,\"total\":%d,\"signalDate\":\"%s\"}",
+                themeId, buyFraction, buyCount, total, signalDate),
+            AlertStatus.ACTIVE, null, null));
+        count++;
+        log.info("theme_signal_transition BUY: theme={} buyFraction={}% ({}/{})",
+            themeId, Math.round(buyFraction * 100), buyCount, total);
+
+      } else if (isReduceMajority && !isBuyMajority && !hasActive) {
+        alertRepository.insert(new Alert(
+            null, OffsetDateTime.now(), null, themeId,
+            RULE_THEME_SIGNAL_TRANSITION, severity,
+            String.format(
+                "%s theme entered REDUCE: %d/%d constituents below REDUCE threshold — theme rotation reversing",
+                themeId, reduceCount, total),
+            String.format(
+                "{\"themeId\":\"%s\",\"reduceFraction\":%.2f,\"reduceCount\":%d,\"total\":%d,\"signalDate\":\"%s\"}",
+                themeId, reduceFraction, reduceCount, total, signalDate),
+            AlertStatus.ACTIVE, null, null));
+        count++;
+        log.info("theme_signal_transition REDUCE: theme={} reduceFraction={}% ({}/{})",
+            themeId, Math.round(reduceFraction * 100), reduceCount, total);
+
+      } else if (hasActive && !isBuyMajority && !isReduceMajority) {
+        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_SIGNAL_TRANSITION, themeId);
+        log.info("theme_signal_transition: resolved theme={} (signal neutralised)", themeId);
       }
     }
     return count;

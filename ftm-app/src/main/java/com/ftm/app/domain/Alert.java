@@ -6,6 +6,7 @@ public record Alert(
     Long id,
     OffsetDateTime createdAt,
     CategoryId categoryId,
+    String themeId,
     String ruleId,
     Severity severity,
     String message,
@@ -13,6 +14,7 @@ public record Alert(
     AlertStatus status,
     OffsetDateTime resolvedAt,
     OffsetDateTime acknowledgedAt) {
+
   public Alert(
       OffsetDateTime createdAt,
       CategoryId categoryId,
@@ -21,16 +23,7 @@ public record Alert(
       String message,
       String triggerSnapshot,
       AlertStatus status) {
-    this(
-        null,
-        createdAt,
-        categoryId,
-        ruleId,
-        severity,
-        message,
-        triggerSnapshot,
-        status,
-        null,
-        null);
+    this(null, createdAt, categoryId, null, ruleId, severity, message, triggerSnapshot, status, null, null);
   }
+
 }

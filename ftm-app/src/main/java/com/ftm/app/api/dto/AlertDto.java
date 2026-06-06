@@ -6,6 +6,7 @@ public record AlertDto(
     Long id,
     OffsetDateTime createdAt,
     String categoryId,
+    String themeId,
     String ruleId,
     String severity,
     String message,

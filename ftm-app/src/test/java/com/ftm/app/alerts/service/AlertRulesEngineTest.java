@@ -25,6 +25,7 @@ import com.ftm.app.domain.SignalType;
 import com.ftm.app.signals.event.SignalsUpdatedEvent;
 import com.ftm.app.signals.repository.RotationEventRepository;
 import com.ftm.app.signals.repository.SignalRepository;
+import com.ftm.app.themes.repository.ThemeRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -48,6 +49,7 @@ class AlertRulesEngineTest {
   @Mock RotationEventRepository rotationEventRepository;
   @Mock SignalRepository signalRepository;
   @Mock CategoryRepository categoryRepository;
+  @Mock ThemeRepository themeRepository;
 
   AlertRulesEngine engine;
 
@@ -62,7 +64,8 @@ class AlertRulesEngineTest {
             alertRulesRepository,
             rotationEventRepository,
             signalRepository,
-            categoryRepository);
+            categoryRepository,
+            themeRepository);
     // resolveStaleAlerts always calls these; lenient prevents PotentialStubbingProblem
     // in tests that stub other SignalTypes (RS_60, RS_120, MACRO_REGIME).
     // Tests that need meaningful values for these types override these stubs inline.
@@ -85,6 +88,9 @@ class AlertRulesEngineTest {
     lenient().when(signalRepository.findByTypeAndDate(SignalType.RS_60, DATE)).thenReturn(Map.of());
     lenient()
         .when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
+        .thenReturn(Map.of());
+    lenient()
+        .when(themeRepository.findAllConstituentsByTheme())
         .thenReturn(Map.of());
     // flow_surge, rs_aligned_bull, rs_aligned_bear, pre_buy_flow_surge, and
     // high_conviction_reduce_cluster rules default to disabled; individual tests override
@@ -1564,6 +1570,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("sub_sector_breadth_divergence")));
     when(alertRulesRepository.findById("sub_sector_bull_confluence"))
         .thenReturn(Optional.of(disabled("sub_sector_bull_confluence")));
+    when(alertRulesRepository.findById("theme_dominant_signal_transition"))
+        .thenReturn(Optional.of(disabled("theme_dominant_signal_transition")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {

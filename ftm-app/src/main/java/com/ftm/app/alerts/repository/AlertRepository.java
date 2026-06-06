@@ -27,6 +27,7 @@ public class AlertRepository {
             ALERTS,
             ALERTS.CREATED_AT,
             ALERTS.CATEGORY_ID,
+            ALERTS.THEME_ID,
             ALERTS.RULE_ID,
             ALERTS.SEVERITY,
             ALERTS.MESSAGE,
@@ -35,6 +36,7 @@ public class AlertRepository {
         .values(
             alert.createdAt(),
             alert.categoryId() != null ? alert.categoryId().name() : null,
+            alert.themeId(),
             alert.ruleId(),
             alert.severity().name(),
             alert.message(),
@@ -48,9 +50,17 @@ public class AlertRepository {
     if (categoryId != null) {
       condition = condition.and(ALERTS.CATEGORY_ID.eq(categoryId));
     } else {
-      condition = condition.and(ALERTS.CATEGORY_ID.isNull());
+      condition = condition.and(ALERTS.CATEGORY_ID.isNull()).and(ALERTS.THEME_ID.isNull());
     }
     return dsl.fetchExists(ALERTS, condition);
+  }
+
+  public boolean existsActiveAlertForTheme(String ruleId, String themeId) {
+    return dsl.fetchExists(
+        ALERTS,
+        ALERTS.RULE_ID.eq(ruleId)
+            .and(ALERTS.STATUS.eq(AlertStatus.ACTIVE.name()))
+            .and(ALERTS.THEME_ID.eq(themeId)));
   }
 
   public int countActive() {
@@ -101,7 +111,7 @@ public class AlertRepository {
     if (categoryId != null) {
       condition = condition.and(ALERTS.CATEGORY_ID.eq(categoryId));
     } else {
-      condition = condition.and(ALERTS.CATEGORY_ID.isNull());
+      condition = condition.and(ALERTS.CATEGORY_ID.isNull()).and(ALERTS.THEME_ID.isNull());
     }
     return dsl.update(ALERTS)
         .set(ALERTS.STATUS, AlertStatus.RESOLVED.name())
@@ -110,12 +120,32 @@ public class AlertRepository {
         .execute();
   }
 
+  public int resolveAlertsByRuleAndTheme(String ruleId, String themeId) {
+    return dsl.update(ALERTS)
+        .set(ALERTS.STATUS, AlertStatus.RESOLVED.name())
+        .set(ALERTS.RESOLVED_AT, OffsetDateTime.now())
+        .where(
+            ALERTS.RULE_ID.eq(ruleId)
+                .and(ALERTS.STATUS.eq(AlertStatus.ACTIVE.name()))
+                .and(ALERTS.THEME_ID.eq(themeId)))
+        .execute();
+  }
+
   private Alert mapRecord(org.jooq.Record record) {
     var r = (com.ftm.app.jooq.tables.records.AlertsRecord) record;
+    CategoryId categoryId = null;
+    if (r.getCategoryId() != null) {
+      try {
+        categoryId = CategoryId.valueOf(r.getCategoryId());
+      } catch (IllegalArgumentException ignored) {
+        // unknown category_id strings (e.g. from future migrations) map to null
+      }
+    }
     return new Alert(
         r.getId(),
         r.getCreatedAt(),
-        r.getCategoryId() != null ? CategoryId.valueOf(r.getCategoryId()) : null,
+        categoryId,
+        r.getThemeId(),
         r.getRuleId(),
         Severity.valueOf(r.getSeverity()),
         r.getMessage(),

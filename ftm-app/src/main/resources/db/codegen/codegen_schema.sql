@@ -99,12 +99,13 @@ CREATE TABLE alerts (
     status           VARCHAR(10)  NOT NULL DEFAULT 'ACTIVE'
                                   CHECK (status IN ('ACTIVE','RESOLVED','ACKNOWLEDGED')),
     resolved_at      TIMESTAMPTZ,
-    acknowledged_at  TIMESTAMPTZ
+    acknowledged_at  TIMESTAMPTZ,
+    theme_id         VARCHAR(30)
 );
 
--- V12: partial unique index — only one ACTIVE alert per (category_id, rule_id)
+-- V12+V49: partial unique index — one ACTIVE alert per (category_id|theme_id, rule_id)
 CREATE UNIQUE INDEX uix_alerts_one_active_per_rule
-    ON alerts (COALESCE(category_id, '__global__'), rule_id)
+    ON alerts (COALESCE(category_id, theme_id, '__global__'), rule_id)
     WHERE status = 'ACTIVE';
 
 CREATE INDEX idx_alerts_active   ON alerts (created_at DESC) WHERE status = 'ACTIVE';

@@ -1,0 +1,16 @@
+package com.ftm.app.api.dto;
+
+import java.util.List;
+
+public record ThemeDetailDto(
+    String id,
+    String name,
+    String thesis,
+    int constituentCount,
+    Double compositeScore,
+    Double rs60,
+    Double flow20d,
+    Double compositeTrend20d,
+    int bullishCount,
+    String dominantSignal,
+    List<ThemeConstituentDto> constituents) {}

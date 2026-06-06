@@ -323,6 +323,59 @@ const TRANSITIONS_RESPONSE = [
   { categoryId: "ENRG", categoryName: "Energy",                 etfTicker: "XLE", previousSignal: "HOLD",  currentSignal: "REDUCE", currentScore: 0.31, comparisonDate: "2026-05-12", daysAgo: 3, scorePercentile252d: 0.18, macroFit: 0.48, signalDaysActive: 3, convictionScore: null },
 ];
 
+const THEMES_RESPONSE = [
+  {
+    id: "AI_INFRA", name: "AI Infrastructure", thesis: "Capital flooding into AI compute: chips, data centers, and the power grid to run them.",
+    constituentCount: 7, compositeScore: 0.78, rs60: 0.062, flow20d: 1.4, compositeTrend20d: 0.018,
+    bullishCount: 5, dominantSignal: "BUY",
+    topConstituents: [
+      { categoryId: "SEMI", name: "Semiconductors", etfTicker: "SMH", compositeScore: 0.88, rs60: 0.09, flow20d: 1.8, compositeTrend20d: 0.025, tradeSignal: "BUY", convictionScore: 90 },
+      { categoryId: "AIRO", name: "AI & Robotics", etfTicker: "BOTZ", compositeScore: 0.82, rs60: 0.07, flow20d: 1.5, compositeTrend20d: 0.020, tradeSignal: "BUY", convictionScore: 82 },
+      { categoryId: "TECH_AIQQ", name: "Artificial Intelligence", etfTicker: "AIQ", compositeScore: 0.79, rs60: 0.06, flow20d: 1.2, compositeTrend20d: 0.015, tradeSignal: "BUY", convictionScore: 75 },
+    ],
+  },
+  {
+    id: "CHIP_COMPUTE", name: "Semiconductor Supercycle", thesis: "Secular demand for advanced chips across AI, EVs, and defense driving a multi-year capex supercycle.",
+    constituentCount: 5, compositeScore: 0.72, rs60: 0.048, flow20d: 1.1, compositeTrend20d: 0.012,
+    bullishCount: 3, dominantSignal: "WATCH",
+    topConstituents: [
+      { categoryId: "SEMI", name: "Semiconductors", etfTicker: "SMH", compositeScore: 0.88, rs60: 0.09, flow20d: 1.8, compositeTrend20d: 0.025, tradeSignal: "BUY", convictionScore: 90 },
+      { categoryId: "AIRO", name: "AI & Robotics", etfTicker: "BOTZ", compositeScore: 0.82, rs60: 0.07, flow20d: 1.5, compositeTrend20d: 0.020, tradeSignal: "BUY", convictionScore: 82 },
+      { categoryId: "MATL_RARE", name: "Rare Earth & Critical Minerals", etfTicker: "REMX", compositeScore: 0.58, rs60: 0.02, flow20d: 0.4, compositeTrend20d: 0.008, tradeSignal: "WATCH", convictionScore: 42 },
+    ],
+  },
+  {
+    id: "SAAS_AT_RISK", name: "SaaS at Risk", thesis: "Traditional SaaS models under pressure from AI-native disruptors. Watch for rotation away from legacy software.",
+    constituentCount: 3, compositeScore: 0.41, rs60: -0.018, flow20d: -0.7, compositeTrend20d: -0.022,
+    bullishCount: 0, dominantSignal: "REDUCE",
+    topConstituents: [
+      { categoryId: "SOFT", name: "Software", etfTicker: "IGV", compositeScore: 0.38, rs60: -0.03, flow20d: -0.9, compositeTrend20d: -0.028, tradeSignal: "REDUCE", convictionScore: null },
+      { categoryId: "CLOD", name: "Cloud Computing", etfTicker: "WCLD", compositeScore: 0.45, rs60: -0.01, flow20d: -0.5, compositeTrend20d: -0.018, tradeSignal: "HOLD", convictionScore: null },
+      { categoryId: "COMM_SOCL", name: "Social Media", etfTicker: "SOCL", compositeScore: 0.40, rs60: -0.02, flow20d: -0.7, compositeTrend20d: -0.020, tradeSignal: "HOLD", convictionScore: null },
+    ],
+  },
+  {
+    id: "DEFENSE_REARM", name: "Defense Rearmament", thesis: "European rearmament plus elevated US defense budgets driving a multi-year supercycle in defense contractors.",
+    constituentCount: 4, compositeScore: 0.68, rs60: 0.041, flow20d: 0.8, compositeTrend20d: 0.009,
+    bullishCount: 2, dominantSignal: "WATCH",
+    topConstituents: [
+      { categoryId: "INDU_ADEF", name: "Aerospace & Defense", etfTicker: "ITA", compositeScore: 0.74, rs60: 0.055, flow20d: 1.0, compositeTrend20d: 0.015, tradeSignal: "BUY", convictionScore: 68 },
+      { categoryId: "INDU_PAVE", name: "US Infrastructure", etfTicker: "PAVE", compositeScore: 0.66, rs60: 0.038, flow20d: 0.6, compositeTrend20d: 0.008, tradeSignal: "WATCH", convictionScore: 52 },
+      { categoryId: "MATL_STEE", name: "Steel", etfTicker: "SLX", compositeScore: 0.62, rs60: 0.029, flow20d: 0.7, compositeTrend20d: 0.005, tradeSignal: "WATCH", convictionScore: 44 },
+    ],
+  },
+  {
+    id: "CLEAN_POWER", name: "Clean Power Renaissance", thesis: "AI data center power demand plus decarbonization mandates channeling capital into nuclear, solar, and grid infrastructure.",
+    constituentCount: 5, compositeScore: 0.58, rs60: 0.022, flow20d: 0.5, compositeTrend20d: 0.006,
+    bullishCount: 2, dominantSignal: "WATCH",
+    topConstituents: [
+      { categoryId: "ENRG_NUCL", name: "Nuclear Energy", etfTicker: "NLR", compositeScore: 0.71, rs60: 0.048, flow20d: 0.9, compositeTrend20d: 0.014, tradeSignal: "BUY", convictionScore: 62 },
+      { categoryId: "ENRG_SOLR", name: "Solar Energy", etfTicker: "TAN", compositeScore: 0.55, rs60: 0.018, flow20d: 0.3, compositeTrend20d: 0.004, tradeSignal: "WATCH", convictionScore: 35 },
+      { categoryId: "UTIL", name: "Utilities", etfTicker: "XLU", compositeScore: 0.52, rs60: 0.012, flow20d: 0.4, compositeTrend20d: 0.002, tradeSignal: "WATCH", convictionScore: 28 },
+    ],
+  },
+];
+
 function generateMacroHistory(days) {
   const indicators = ["vix", "tenYearYield", "fedFundsRate", "usdIndex", "wtiCrudeOilPrice"];
   const bases = { vix: 15.2, tenYearYield: 4.5, fedFundsRate: 5.25, usdIndex: 104.5, wtiCrudeOilPrice: 78.5 };
@@ -435,6 +488,19 @@ const server = http.createServer(async (req, res) => {
   } else if (path === "/api/v1/rrg") {
     res.writeHead(200);
     res.end(JSON.stringify(RRG_RESPONSE));
+  } else if (path === "/api/v1/themes") {
+    res.writeHead(200);
+    res.end(JSON.stringify(THEMES_RESPONSE));
+  } else if (/^\/api\/v1\/themes\/[A-Z0-9_]+$/.test(path)) {
+    const themeId = path.split("/").at(-1);
+    const theme = THEMES_RESPONSE.find(t => t.id === themeId);
+    if (theme) {
+      res.writeHead(200);
+      res.end(JSON.stringify({ ...theme, constituents: theme.topConstituents }));
+    } else {
+      res.writeHead(404);
+      res.end(JSON.stringify({ detail: "Theme not found" }));
+    }
   } else if (path === "/api/v1/sub-sectors") {
     if (parent === "TECH") {
       res.writeHead(200);

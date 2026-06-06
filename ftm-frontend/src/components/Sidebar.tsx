@@ -7,7 +7,8 @@ import { useEffect, useState } from "react";
 const ANALYSIS_ITEMS = [
   { href: "/",             label: "Sector Rotation", icon: "🔄" },
   { href: "/rrg",          label: "RRG Chart",       icon: "🎯" },
-  { href: "/sectors",      label: "Sub-Sectors",      icon: "🔬" },
+  { href: "/themes",       label: "Themes",          icon: "🧩" },
+  { href: "/sectors",      label: "Sub-Sectors",     icon: "🔬" },
   { href: "/factors",      label: "Factor Flows",    icon: "⚖️" },
   { href: "/flows",        label: "Capital Flows",   icon: "💰" },
   { href: "/macro",        label: "Macro Regime",    icon: "🌍" },

@@ -1,0 +1,201 @@
+import Link from "next/link";
+import { fetchThemes, ThemeSummary, ThemeConstituent } from "@/lib/api";
+
+const SIGNAL_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  BUY:    { label: "BUY",    color: "text-emerald-400", bg: "bg-emerald-500/15 border border-emerald-500/30" },
+  WATCH:  { label: "WATCH",  color: "text-cyan-400",    bg: "bg-cyan-500/15 border border-cyan-500/30" },
+  HOLD:   { label: "HOLD",   color: "text-slate-400",   bg: "bg-slate-700/60 border border-slate-600/40" },
+  REDUCE: { label: "REDUCE", color: "text-red-400",     bg: "bg-red-500/15 border border-red-500/30" },
+};
+
+function scoreColor(score: number | null): string {
+  if (score == null) return "text-slate-500";
+  if (score >= 0.65) return "text-emerald-400";
+  if (score >= 0.50) return "text-cyan-400";
+  if (score >= 0.35) return "text-amber-400";
+  return "text-red-400";
+}
+
+function ScoreArc({ score }: { score: number | null }) {
+  if (score == null) return <div className="text-slate-600 text-xs font-mono text-center">—</div>;
+  const pct = Math.round(score * 100);
+  const color = score >= 0.65 ? "#34d399" : score >= 0.50 ? "#22d3ee" : score >= 0.35 ? "#fbbf24" : "#f87171";
+  const r = 20, cx = 24, cy = 24, circumference = 2 * Math.PI * r;
+  const dashOffset = circumference * (1 - score);
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <svg width="48" height="48" viewBox="0 0 48 48">
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#1e293b" strokeWidth="4" />
+        <circle
+          cx={cx} cy={cy} r={r} fill="none"
+          stroke={color} strokeWidth="4"
+          strokeDasharray={circumference}
+          strokeDashoffset={dashOffset}
+          strokeLinecap="round"
+          transform="rotate(-90 24 24)"
+        />
+        <text x={cx} y={cy + 5} textAnchor="middle" fill={color} fontSize="11" fontFamily="monospace" fontWeight="600">
+          {pct}
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+function FlowChip({ flow }: { flow: number | null }) {
+  if (flow == null) return null;
+  const z = flow.toFixed(2);
+  const isIn = flow > 0.3;
+  const isOut = flow < -0.3;
+  const cls = isIn ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
+            : isOut ? "bg-red-500/15 text-red-400 border border-red-500/25"
+            : "bg-slate-700/60 text-slate-400 border border-slate-600/40";
+  const arrow = isIn ? "↑" : isOut ? "↓" : "→";
+  return (
+    <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${cls}`} title={`Avg flow z-score: ${z}σ`}>
+      {arrow} {Math.abs(flow) >= 0.1 ? Math.abs(parseFloat(z)).toFixed(1) : "~0"}σ
+    </span>
+  );
+}
+
+function TrendChip({ trend }: { trend: number | null }) {
+  if (trend == null) return null;
+  const isUp = trend > 0.005;
+  const isDown = trend < -0.005;
+  const cls = isUp ? "text-emerald-400" : isDown ? "text-red-400" : "text-slate-500";
+  const arrow = isUp ? "↑" : isDown ? "↓" : "→";
+  return (
+    <span className={`text-[10px] font-mono ${cls}`} title={`Avg 20d trend: ${trend > 0 ? "+" : ""}${(trend * 100).toFixed(1)}pt`}>
+      {arrow}
+    </span>
+  );
+}
+
+function EtfBubble({ c }: { c: ThemeConstituent }) {
+  const color = c.compositeScore == null ? "bg-slate-700 text-slate-400"
+    : c.compositeScore >= 0.65 ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+    : c.compositeScore >= 0.50 ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+    : c.compositeScore >= 0.35 ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+    : "bg-slate-700 text-slate-400";
+  return (
+    <span
+      className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${color}`}
+      title={`${c.name} — composite: ${c.compositeScore != null ? Math.round(c.compositeScore * 100) : "—"}`}
+    >
+      {c.etfTicker}
+    </span>
+  );
+}
+
+function BullishBar({ bullish, total }: { bullish: number; total: number }) {
+  const pct = total > 0 ? bullish / total : 0;
+  const color = pct >= 0.6 ? "bg-emerald-500" : pct >= 0.4 ? "bg-amber-500" : "bg-red-500";
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="flex-1 h-1 bg-slate-700 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.round(pct * 100)}%` }} />
+      </div>
+      <span className="text-[10px] font-mono text-slate-400">{bullish}/{total}</span>
+    </div>
+  );
+}
+
+function ThemeCard({ theme }: { theme: ThemeSummary }) {
+  const signal = SIGNAL_CONFIG[theme.dominantSignal] ?? SIGNAL_CONFIG.HOLD;
+
+  return (
+    <Link href={`/themes/${theme.id}`} className="block group">
+      <div className="bg-slate-800/70 border border-slate-700/60 rounded-lg p-4 hover:border-slate-500/80 hover:bg-slate-800 transition-all duration-150 group-hover:shadow-lg group-hover:shadow-black/20">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-white font-semibold text-sm leading-tight mb-1 truncate" style={{ fontFamily: "var(--font-rajdhani)" }}>
+              {theme.name}
+            </h3>
+            <p className="text-slate-500 text-[11px] leading-relaxed line-clamp-2">{theme.thesis}</p>
+          </div>
+          <div className="shrink-0">
+            <ScoreArc score={theme.compositeScore} />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${signal.bg} ${signal.color}`}>
+            {signal.label}
+          </span>
+          <FlowChip flow={theme.flow20d} />
+          <TrendChip trend={theme.compositeTrend20d} />
+          {theme.rs60 != null && (
+            <span
+              className={`text-[10px] font-mono ${scoreColor(theme.rs60 > 0 ? 0.65 : 0.3)}`}
+              title={`Avg RS-60: ${theme.rs60 > 0 ? "+" : ""}${(theme.rs60 * 100).toFixed(1)}%`}
+            >
+              RS {theme.rs60 > 0 ? "+" : ""}{(theme.rs60 * 100).toFixed(1)}%
+            </span>
+          )}
+        </div>
+
+        <BullishBar bullish={theme.bullishCount} total={theme.constituentCount} />
+
+        <div className="flex flex-wrap gap-1 mt-2.5">
+          {theme.topConstituents.map(c => <EtfBubble key={c.categoryId} c={c} />)}
+          {theme.constituentCount > theme.topConstituents.length && (
+            <span className="text-[9px] font-mono text-slate-600">
+              +{theme.constituentCount - theme.topConstituents.length}
+            </span>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+export default async function ThemesPage() {
+  const themes = await fetchThemes();
+
+  const buyThemes = themes.filter(t => t.dominantSignal === "BUY").length;
+  const watchThemes = themes.filter(t => t.dominantSignal === "WATCH").length;
+
+  return (
+    <main className="flex-1 min-h-0 overflow-y-auto bg-slate-900 p-4 md:p-6">
+      <div className="max-w-5xl mx-auto">
+        <div className="mb-5">
+          <h1 className="text-xl font-bold text-white mb-1" style={{ fontFamily: "var(--font-rajdhani)" }}>
+            Investment Themes
+          </h1>
+          <p className="text-slate-400 text-sm">
+            Cross-sector capital flow narratives — each theme aggregates signals across constituent ETFs to surface conviction before the mainstream narrative.
+          </p>
+          {themes.length > 0 && (
+            <div className="flex gap-3 mt-2">
+              {buyThemes > 0 && (
+                <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
+                  {buyThemes} BUY
+                </span>
+              )}
+              {watchThemes > 0 && (
+                <span className="text-[11px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
+                  {watchThemes} WATCH
+                </span>
+              )}
+              <span className="text-[11px] font-mono text-slate-500">
+                {themes.length} themes · {themes.reduce((a, t) => a + t.constituentCount, 0)} ETFs
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          {themes.map(theme => (
+            <ThemeCard key={theme.id} theme={theme} />
+          ))}
+        </div>
+
+        {themes.length === 0 && (
+          <div className="text-slate-500 text-sm text-center py-12">
+            No themes available — run ingestion to populate signals.
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}

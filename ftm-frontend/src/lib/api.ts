@@ -560,3 +560,36 @@ export type SeasonalReturn = {
 
 export const fetchSeasonalReturns = () =>
   get<SeasonalReturn[]>("/api/v1/categories/seasonal");
+
+export type ThemeConstituent = {
+  categoryId: string;
+  name: string;
+  etfTicker: string;
+  compositeScore: number | null;
+  rs60: number | null;
+  flow20d: number | null;
+  compositeTrend20d: number | null;
+  tradeSignal: string | null;
+  convictionScore: number | null;
+};
+
+export type ThemeSummary = {
+  id: string;
+  name: string;
+  thesis: string;
+  constituentCount: number;
+  compositeScore: number | null;
+  rs60: number | null;
+  flow20d: number | null;
+  compositeTrend20d: number | null;
+  bullishCount: number;
+  dominantSignal: string;
+  topConstituents: ThemeConstituent[];
+};
+
+export type ThemeDetail = ThemeSummary & {
+  constituents: ThemeConstituent[];
+};
+
+export const fetchThemes = () => get<ThemeSummary[]>("/api/v1/themes");
+export const fetchTheme = (themeId: string) => get<ThemeDetail>(`/api/v1/themes/${themeId}`);

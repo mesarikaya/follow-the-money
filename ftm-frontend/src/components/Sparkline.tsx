@@ -39,7 +39,7 @@ export default function Sparkline({
       width={width}
       height={height}
       className="overflow-visible"
-      title={`30-day composite score trend. Latest: ${Math.round(last * 100)}`}
+      {...{ title: `30-day composite score trend. Latest: ${Math.round(last * 100)}` }}
     >
       <path d={fillPath} fill={fillColor} />
       <polyline

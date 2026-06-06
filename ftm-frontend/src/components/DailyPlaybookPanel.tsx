@@ -133,7 +133,7 @@ function buildReasons(
     }
   }
 
-  if (wr != null && (sig === "BUY" || sig === "REDUCE") && wr.signalCount >= 5) {
+  if (wr != null && wr.winRate != null && (sig === "BUY" || sig === "REDUCE") && wr.signalCount >= 5) {
     const winPct = Math.round(wr.winRate * 100);
     const avgRet = wr.avgReturn30d != null ? (wr.avgReturn30d * 100).toFixed(1) : null;
     reasons.push(`historical win rate ${winPct}% (${wr.signalCount} signals${avgRet ? `, avg +${avgRet}% / 30d` : ""})`);
@@ -154,9 +154,9 @@ function buildReasons(
 
   // Caution flags
   let caution: string | null = null;
-  if (pl != null && sig === "BUY" && pl.drawdownFromHigh >= -0.04) {
+  if (pl != null && pl.drawdownFromHigh != null && sig === "BUY" && pl.drawdownFromHigh >= -0.04) {
     caution = `near 52w high (${(pl.drawdownFromHigh * 100).toFixed(0)}%) — scale in`;
-  } else if (pl != null && sig === "BUY" && pl.drawdownFromHigh <= -0.20) {
+  } else if (pl != null && pl.drawdownFromHigh != null && sig === "BUY" && pl.drawdownFromHigh <= -0.20) {
     caution = `${(pl.drawdownFromHigh * 100).toFixed(0)}% off high — verify trend before adding`;
   } else if (cat.signalDaysActive != null && cat.signalDaysActive < 3 && (sig === "BUY" || sig === "REDUCE")) {
     caution = `signal only ${cat.signalDaysActive}d old — confirm before acting`;

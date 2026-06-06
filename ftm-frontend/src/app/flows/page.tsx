@@ -428,7 +428,7 @@ function ScoreHistoryHeatmap({
                     rx="1"
                     fill={scoreToColor(score)}
                     opacity={score == null ? 0.3 : 0.85}
-                    title={score != null ? `${cat.etfTicker} · ${Math.round(score * 100)}/100` : "no data"}
+                    {...{ title: score != null ? `${cat.etfTicker} · ${Math.round(score * 100)}/100` : "no data" }}
                   />
                 ))}
                 {/* Current score */}

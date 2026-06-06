@@ -114,7 +114,7 @@ export default function SectorRotationWheel({ categories }: { categories: Catego
                 cx={x} cy={y} r="5"
                 fill={dotColor}
                 opacity="0.85"
-                title={`${s.name} — RS60: ${((s.rs60 ?? 0) * 100).toFixed(1)}%, Trend5d: ${((s.compositeTrend5d ?? 0) * 100).toFixed(1)}pts`}
+                {...{ title: `${s.name} — RS60: ${((s.rs60 ?? 0) * 100).toFixed(1)}%, Trend5d: ${((s.compositeTrend5d ?? 0) * 100).toFixed(1)}pts` }}
               />
               <text
                 x={labelX} y={labelY}

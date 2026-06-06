@@ -529,7 +529,7 @@ export default function PortfolioPage() {
                       {entry.compositeScore != null ? Math.round(entry.compositeScore * 100) : "—"}
                     </span>
                     {(() => {
-                      const sig = (entry.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(entry);
+                      const sig = (entry.tradeSignal as TradeSignal | null) ?? deriveTradeSignal({ compositeScore: entry.compositeScore, rrgQuadrant: null, compositeTrend20d: null });
                       if (!sig) return <span className="w-14 shrink-0" />;
                       const cfg = SIGNAL_CONFIG[sig];
                       return (
@@ -587,7 +587,7 @@ export default function PortfolioPage() {
                     const increaseSignals = portfolio.rebalanceSuggestions.filter(s => s.action === "INCREASE" && s.signalAligned);
                     const nearPeak = increaseSignals.filter(s => {
                       const pl = priceLevelByCategory[s.categoryId];
-                      return pl != null && pl.drawdownFromHigh >= -0.05;
+                      return pl != null && pl.drawdownFromHigh != null && pl.drawdownFromHigh >= -0.05;
                     });
                     if (nearPeak.length >= 2) {
                       return (
@@ -612,9 +612,10 @@ export default function PortfolioPage() {
                       };
                       const entryQuality: { label: string; className: string; title: string } | null = (() => {
                         if (!pl || !isIncrease) return null;
-                        if (pl.drawdownFromHigh >= -0.05) return { label: "near peak", className: "text-amber-400 bg-amber-900/20 border-amber-700/30", title: `${(pl.drawdownFromHigh * 100).toFixed(1)}% from 52w high — elevated entry risk` };
-                        if (pl.drawdownFromHigh <= -0.15) return { label: `${(pl.drawdownFromHigh * 100).toFixed(0)}% pullback`, className: "text-cyan-400 bg-cyan-900/20 border-cyan-700/30", title: `${(pl.drawdownFromHigh * 100).toFixed(1)}% from 52w high — potential value entry` };
-                        return { label: `${(pl.drawdownFromHigh * 100).toFixed(0)}% off high`, className: "text-slate-400 bg-slate-800 border-slate-700/50", title: `${(pl.drawdownFromHigh * 100).toFixed(1)}% from 52w high — moderate pullback` };
+                        if (pl.drawdownFromHigh != null && pl.drawdownFromHigh >= -0.05) return { label: "near peak", className: "text-amber-400 bg-amber-900/20 border-amber-700/30", title: `${(pl.drawdownFromHigh * 100).toFixed(1)}% from 52w high — elevated entry risk` };
+                        if (pl.drawdownFromHigh != null && pl.drawdownFromHigh <= -0.15) return { label: `${(pl.drawdownFromHigh * 100).toFixed(0)}% pullback`, className: "text-cyan-400 bg-cyan-900/20 border-cyan-700/30", title: `${(pl.drawdownFromHigh * 100).toFixed(1)}% from 52w high — potential value entry` };
+                        if (pl.drawdownFromHigh != null) return { label: `${(pl.drawdownFromHigh * 100).toFixed(0)}% off high`, className: "text-slate-400 bg-slate-800 border-slate-700/50", title: `${(pl.drawdownFromHigh * 100).toFixed(1)}% from 52w high — moderate pullback` };
+                        return null;
                       })();
                       return (
                         <li key={suggestion.categoryId} className={`flex flex-col gap-1 ${confirmed ? "" : "opacity-60"}`}>
@@ -662,7 +663,7 @@ export default function PortfolioPage() {
                                 {entryQuality.label}
                               </span>
                             )}
-                            {wr != null && isIncrease && suggestion.tradeSignal === "BUY" && (
+                            {wr != null && wr.winRate != null && isIncrease && suggestion.tradeSignal === "BUY" && (
                               <span
                                 className={`text-[9px] font-mono ${wr.winRate >= 0.65 ? "text-green-400" : wr.winRate >= 0.50 ? "text-yellow-400" : "text-slate-500"}`}
                                 title={`Historical win rate: ${Math.round(wr.winRate * 100)}% over ${wr.signalCount} BUY signals (30-day forward return). Avg: ${wr.avgReturn30d != null ? (wr.avgReturn30d * 100).toFixed(1) : "n/a"}%`}
@@ -1042,7 +1043,7 @@ export default function PortfolioPage() {
                           {(() => {
                             const cat = h.categoryId ? categoryById[h.categoryId] : null;
                             if (!cat) return <span className="text-slate-700 text-[10px]">—</span>;
-                            const sig = (cat.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(cat);
+                            const sig = (cat.tradeSignal as TradeSignal | null) ?? deriveTradeSignal({ compositeScore: cat.compositeScore, rrgQuadrant: null, compositeTrend20d: null });
                             const score = cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : null;
                             if (!sig) return <span className="text-slate-700 text-[10px]">—</span>;
                             const cfg = SIGNAL_CONFIG[sig];

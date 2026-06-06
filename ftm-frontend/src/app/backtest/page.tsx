@@ -772,10 +772,10 @@ function AnnualReturnsChart({ curve }: { curve: EquityCurvePoint[] }) {
               <g key={a.yr}>
                 {/* Strategy bar */}
                 <rect x={x} y={portBarY.toFixed(1)} width={BAR_W} height={portH.toFixed(1)} fill={portColor} opacity="0.85" rx="1"
-                  title={`${a.yr} Strategy: ${portPct >= 0 ? "+" : ""}${portPct.toFixed(1)}%`} />
+                  {...{ title: `${a.yr} Strategy: ${portPct >= 0 ? "+" : ""}${portPct.toFixed(1)}%` }} />
                 {/* SPY bar */}
                 <rect x={x + BAR_W + GAP} y={spyBarY.toFixed(1)} width={BAR_W} height={spyH.toFixed(1)} fill={spyColor} opacity="0.55" rx="1"
-                  title={`${a.yr} SPY: ${spyPct >= 0 ? "+" : ""}${spyPct.toFixed(1)}%`} />
+                  {...{ title: `${a.yr} SPY: ${spyPct >= 0 ? "+" : ""}${spyPct.toFixed(1)}%` }} />
                 {/* Excess label above higher bar */}
                 <text x={(x + BAR_W).toFixed(1)} y={(Math.min(portBarY, spyBarY) - 2).toFixed(1)} fill={excess >= 0 ? "#34d399" : "#f87171"} fontSize="6.5" textAnchor="middle">
                   {excess >= 0 ? "+" : ""}{excess.toFixed(0)}

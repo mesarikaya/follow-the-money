@@ -1,5 +1,5 @@
 ---
-last-updated: 2026-05-17 (session 14)
+last-updated: 2026-06-06 (session 18)
 ---
 
 # Follow the Money — AI Context

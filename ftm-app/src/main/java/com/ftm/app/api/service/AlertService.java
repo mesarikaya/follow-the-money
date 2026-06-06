@@ -92,15 +92,12 @@ public class AlertService {
     @CacheEvict("alerts-count")
   })
   public AlertDto acknowledgeAlert(Long alertId) {
-    int rowsUpdated = alertRepository.acknowledgeAlert(alertId);
-    if (rowsUpdated == 0) {
-      throw new NoSuchElementException("Alert not found or already acknowledged: " + alertId);
-    }
+    Alert acknowledged =
+        alertRepository
+            .acknowledgeAlert(alertId)
+            .orElseThrow(
+                () -> new NoSuchElementException("Alert not found or already acknowledged: " + alertId));
     log.info("Alert acknowledged: id={}", alertId);
-    return alertRepository
-        .findById(alertId)
-        .map(alertMapper::toDto)
-        .orElseThrow(
-            () -> new NoSuchElementException("Alert not found after acknowledge: " + alertId));
+    return alertMapper.toDto(acknowledged);
   }
 }

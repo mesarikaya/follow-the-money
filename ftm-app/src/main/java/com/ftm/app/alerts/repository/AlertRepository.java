@@ -73,13 +73,15 @@ public class AlertRepository {
         .map(this::mapRecord);
   }
 
-  public int acknowledgeAlert(Long alertId) {
+  public Optional<Alert> acknowledgeAlert(Long alertId) {
     return dsl.update(ALERTS)
         .set(ALERTS.STATUS, AlertStatus.ACKNOWLEDGED.name())
         .set(ALERTS.ACKNOWLEDGED_AT, OffsetDateTime.now())
         .where(ALERTS.ID.eq(alertId))
         .and(ALERTS.STATUS.eq(AlertStatus.ACTIVE.name()))
-        .execute();
+        .returning(ALERTS.fields())
+        .fetchOptional()
+        .map(this::mapRecord);
   }
 
   public Optional<Alert> findById(Long alertId) {

@@ -85,8 +85,7 @@ class AlertServiceTest {
     Long alertId = 5L;
     Alert acknowledged = Instancio.of(Alert.class).set(field(Alert::id), alertId).create();
     AlertDto dto = Instancio.create(AlertDto.class);
-    when(alertRepository.acknowledgeAlert(alertId)).thenReturn(1);
-    when(alertRepository.findById(alertId)).thenReturn(Optional.of(acknowledged));
+    when(alertRepository.acknowledgeAlert(alertId)).thenReturn(Optional.of(acknowledged));
     when(alertMapper.toDto(acknowledged)).thenReturn(dto);
 
     AlertDto result = alertService.acknowledgeAlert(alertId);
@@ -98,7 +97,7 @@ class AlertServiceTest {
   @Test
   @DisplayName("acknowledgeAlert throws NoSuchElementException when alert not found")
   void shouldThrowWhenAlertNotFound() {
-    when(alertRepository.acknowledgeAlert(99L)).thenReturn(0);
+    when(alertRepository.acknowledgeAlert(99L)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> alertService.acknowledgeAlert(99L))
         .isInstanceOf(NoSuchElementException.class)

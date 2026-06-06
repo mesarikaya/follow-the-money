@@ -116,10 +116,6 @@ class ThemeServiceTest {
   @DisplayName("getTheme throws NoSuchElementException for unknown theme")
   void shouldThrowForUnknownTheme() {
     when(themeRepository.findAll()).thenReturn(List.of(theme("AI_INFRA", "AI Infrastructure")));
-    when(themeRepository.findAllConstituentsByTheme()).thenReturn(Map.of());
-    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc()).thenReturn(List.of());
-    when(signalRepository.findLatestByTypes(org.mockito.ArgumentMatchers.anyList()))
-        .thenReturn(Collections.emptyMap());
 
     assertThatThrownBy(() -> themeService.getTheme("UNKNOWN_THEME"))
         .isInstanceOf(NoSuchElementException.class)

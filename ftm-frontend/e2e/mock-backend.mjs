@@ -327,7 +327,7 @@ const THEMES_RESPONSE = [
   {
     id: "AI_INFRA", name: "AI Infrastructure", thesis: "Capital flooding into AI compute: chips, data centers, and the power grid to run them.",
     constituentCount: 7, compositeScore: 0.78, rs60: 0.062, flow20d: 1.4, compositeTrend20d: 0.018,
-    bullishCount: 5, dominantSignal: "BUY",
+    bullishCount: 5, dominantSignal: "BUY", divergenceFromParentSectors: 0.14,
     topConstituents: [
       { categoryId: "SEMI", name: "Semiconductors", etfTicker: "SMH", compositeScore: 0.88, rs60: 0.09, flow20d: 1.8, compositeTrend20d: 0.025, tradeSignal: "BUY", convictionScore: 90 },
       { categoryId: "AIRO", name: "AI & Robotics", etfTicker: "BOTZ", compositeScore: 0.82, rs60: 0.07, flow20d: 1.5, compositeTrend20d: 0.020, tradeSignal: "BUY", convictionScore: 82 },
@@ -337,7 +337,7 @@ const THEMES_RESPONSE = [
   {
     id: "CHIP_COMPUTE", name: "Semiconductor Supercycle", thesis: "Secular demand for advanced chips across AI, EVs, and defense driving a multi-year capex supercycle.",
     constituentCount: 5, compositeScore: 0.72, rs60: 0.048, flow20d: 1.1, compositeTrend20d: 0.012,
-    bullishCount: 3, dominantSignal: "WATCH",
+    bullishCount: 3, dominantSignal: "WATCH", divergenceFromParentSectors: 0.09,
     topConstituents: [
       { categoryId: "SEMI", name: "Semiconductors", etfTicker: "SMH", compositeScore: 0.88, rs60: 0.09, flow20d: 1.8, compositeTrend20d: 0.025, tradeSignal: "BUY", convictionScore: 90 },
       { categoryId: "AIRO", name: "AI & Robotics", etfTicker: "BOTZ", compositeScore: 0.82, rs60: 0.07, flow20d: 1.5, compositeTrend20d: 0.020, tradeSignal: "BUY", convictionScore: 82 },
@@ -347,7 +347,7 @@ const THEMES_RESPONSE = [
   {
     id: "SAAS_AT_RISK", name: "SaaS at Risk", thesis: "Traditional SaaS models under pressure from AI-native disruptors. Watch for rotation away from legacy software.",
     constituentCount: 3, compositeScore: 0.41, rs60: -0.018, flow20d: -0.7, compositeTrend20d: -0.022,
-    bullishCount: 0, dominantSignal: "REDUCE",
+    bullishCount: 0, dominantSignal: "REDUCE", divergenceFromParentSectors: -0.18,
     topConstituents: [
       { categoryId: "SOFT", name: "Software", etfTicker: "IGV", compositeScore: 0.38, rs60: -0.03, flow20d: -0.9, compositeTrend20d: -0.028, tradeSignal: "REDUCE", convictionScore: null },
       { categoryId: "CLOD", name: "Cloud Computing", etfTicker: "WCLD", compositeScore: 0.45, rs60: -0.01, flow20d: -0.5, compositeTrend20d: -0.018, tradeSignal: "HOLD", convictionScore: null },
@@ -357,7 +357,7 @@ const THEMES_RESPONSE = [
   {
     id: "DEFENSE_REARM", name: "Defense Rearmament", thesis: "European rearmament plus elevated US defense budgets driving a multi-year supercycle in defense contractors.",
     constituentCount: 4, compositeScore: 0.68, rs60: 0.041, flow20d: 0.8, compositeTrend20d: 0.009,
-    bullishCount: 2, dominantSignal: "WATCH",
+    bullishCount: 2, dominantSignal: "WATCH", divergenceFromParentSectors: 0.06,
     topConstituents: [
       { categoryId: "INDU_ADEF", name: "Aerospace & Defense", etfTicker: "ITA", compositeScore: 0.74, rs60: 0.055, flow20d: 1.0, compositeTrend20d: 0.015, tradeSignal: "BUY", convictionScore: 68 },
       { categoryId: "INDU_PAVE", name: "US Infrastructure", etfTicker: "PAVE", compositeScore: 0.66, rs60: 0.038, flow20d: 0.6, compositeTrend20d: 0.008, tradeSignal: "WATCH", convictionScore: 52 },
@@ -367,7 +367,7 @@ const THEMES_RESPONSE = [
   {
     id: "CLEAN_POWER", name: "Clean Power Renaissance", thesis: "AI data center power demand plus decarbonization mandates channeling capital into nuclear, solar, and grid infrastructure.",
     constituentCount: 5, compositeScore: 0.58, rs60: 0.022, flow20d: 0.5, compositeTrend20d: 0.006,
-    bullishCount: 2, dominantSignal: "WATCH",
+    bullishCount: 2, dominantSignal: "WATCH", divergenceFromParentSectors: 0.03,
     topConstituents: [
       { categoryId: "ENRG_NUCL", name: "Nuclear Energy", etfTicker: "NLR", compositeScore: 0.71, rs60: 0.048, flow20d: 0.9, compositeTrend20d: 0.014, tradeSignal: "BUY", convictionScore: 62 },
       { categoryId: "ENRG_SOLR", name: "Solar Energy", etfTicker: "TAN", compositeScore: 0.55, rs60: 0.018, flow20d: 0.3, compositeTrend20d: 0.004, tradeSignal: "WATCH", convictionScore: 35 },

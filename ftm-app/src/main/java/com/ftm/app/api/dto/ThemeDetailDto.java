@@ -13,4 +13,5 @@ public record ThemeDetailDto(
     Double compositeTrend20d,
     int bullishCount,
     String dominantSignal,
+    Double divergenceFromParentSectors,
     List<ThemeConstituentDto> constituents) {}

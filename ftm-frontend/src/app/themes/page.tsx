@@ -87,6 +87,27 @@ function EtfBubble({ c }: { c: ThemeConstituent }) {
   );
 }
 
+function DivergenceChip({ divergence }: { divergence: number | null }) {
+  if (divergence == null) return null;
+  const pts = Math.round(divergence * 100);
+  const isPositive = divergence > 0.02;
+  const isNegative = divergence < -0.02;
+  const cls = isPositive
+    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
+    : isNegative
+    ? "bg-red-500/15 text-red-400 border border-red-500/25"
+    : "bg-slate-700/60 text-slate-400 border border-slate-600/40";
+  const arrow = isPositive ? "▲" : isNegative ? "▼" : "≈";
+  return (
+    <span
+      className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${cls}`}
+      title={`Theme vs parent sectors: ${pts > 0 ? "+" : ""}${pts}pt — positive = theme outpacing sector (rotation signal)`}
+    >
+      {arrow} {pts > 0 ? "+" : ""}{pts}pt
+    </span>
+  );
+}
+
 function BullishBar({ bullish, total }: { bullish: number; total: number }) {
   const pct = total > 0 ? bullish / total : 0;
   const color = pct >= 0.6 ? "bg-emerald-500" : pct >= 0.4 ? "bg-amber-500" : "bg-red-500";
@@ -124,6 +145,7 @@ function ThemeCard({ theme }: { theme: ThemeSummary }) {
           </span>
           <FlowChip flow={theme.flow20d} />
           <TrendChip trend={theme.compositeTrend20d} />
+          <DivergenceChip divergence={theme.divergenceFromParentSectors} />
           {theme.rs60 != null && (
             <span
               className={`text-[10px] font-mono ${scoreColor(theme.rs60 > 0 ? 0.65 : 0.3)}`}

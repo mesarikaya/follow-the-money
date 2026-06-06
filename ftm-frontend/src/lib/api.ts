@@ -584,6 +584,7 @@ export type ThemeSummary = {
   compositeTrend20d: number | null;
   bullishCount: number;
   dominantSignal: string;
+  divergenceFromParentSectors: number | null;
   topConstituents: ThemeConstituent[];
 };
 

@@ -184,6 +184,21 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
                 {theme.bullishCount}/{theme.constituentCount}
               </span>
             </AggMetric>
+            {theme.divergenceFromParentSectors != null && (
+              <AggMetric label="vs Sectors">
+                <span
+                  className={`text-base font-bold font-mono ${
+                    theme.divergenceFromParentSectors > 0.02 ? "text-emerald-400"
+                    : theme.divergenceFromParentSectors < -0.02 ? "text-red-400"
+                    : "text-slate-400"
+                  }`}
+                  title="Theme composite minus average parent-sector composite. Positive = theme sub-sectors outpacing their broad sector — early rotation signal."
+                >
+                  {theme.divergenceFromParentSectors > 0 ? "+" : ""}
+                  {Math.round(theme.divergenceFromParentSectors * 100)}pt
+                </span>
+              </AggMetric>
+            )}
           </div>
         </div>
 

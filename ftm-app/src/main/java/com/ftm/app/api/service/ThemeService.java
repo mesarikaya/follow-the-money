@@ -15,6 +15,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.OptionalDouble;
 import java.util.stream.Collectors;
 import org.springframework.cache.annotation.Cacheable;
@@ -43,6 +44,8 @@ public class ThemeService {
     Map<String, Category> categoriesById = buildCategoryIndex();
     Map<SignalType, Map<String, BigDecimal>> signals = fetchSignals();
 
+    Map<String, BigDecimal> compositeMap = signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap());
+
     return themes.stream()
         .map(theme -> {
           List<String> ids = constituentsByTheme.getOrDefault(theme.id(), List.of());
@@ -52,7 +55,7 @@ public class ThemeService {
               .sorted(Comparator.comparing(ThemeConstituentDto::compositeScore, Comparator.reverseOrder()))
               .limit(3)
               .toList();
-          return toSummary(theme, allConstituents, top3);
+          return toSummary(theme, allConstituents, top3, categoriesById, compositeMap);
         })
         .toList();
   }
@@ -77,7 +80,8 @@ public class ThemeService {
             Comparator.<BigDecimal>reverseOrder()))
         .toList();
 
-    ThemeSummaryDto summary = toSummary(theme, constituents, sorted.stream().limit(3).toList());
+    Map<String, BigDecimal> compositeMap = signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap());
+    ThemeSummaryDto summary = toSummary(theme, constituents, sorted.stream().limit(3).toList(), categoriesById, compositeMap);
     return new ThemeDetailDto(
         summary.id(),
         summary.name(),
@@ -89,6 +93,7 @@ public class ThemeService {
         summary.compositeTrend20d(),
         summary.bullishCount(),
         summary.dominantSignal(),
+        summary.divergenceFromParentSectors(),
         sorted);
   }
 
@@ -148,7 +153,9 @@ public class ThemeService {
   private ThemeSummaryDto toSummary(
       Theme theme,
       List<ThemeConstituentDto> allConstituents,
-      List<ThemeConstituentDto> topConstituents) {
+      List<ThemeConstituentDto> topConstituents,
+      Map<String, Category> categoriesById,
+      Map<String, BigDecimal> compositeByCategory) {
 
     OptionalDouble avgComposite = allConstituents.stream()
         .filter(c -> c.compositeScore() != null)
@@ -179,6 +186,27 @@ public class ThemeService {
     else if (total > 0 && reduceCount * 2 > total) dominantSignal = "REDUCE";
     else dominantSignal = "HOLD";
 
+    // Divergence: theme composite − average composite of constituent parent sectors.
+    // Positive = theme sub-sectors outpacing their sectors → early rotation signal.
+    Double divergence = null;
+    if (avgComposite.isPresent()) {
+      OptionalDouble parentAvg = allConstituents.stream()
+          .map(c -> {
+            Category cat = categoriesById.get(c.categoryId());
+            if (cat == null) return null;
+            String parentId = cat.parentId();
+            if (parentId == null) parentId = c.categoryId();
+            BigDecimal parentScore = compositeByCategory.get(parentId);
+            return parentScore != null ? parentScore.doubleValue() : null;
+          })
+          .filter(Objects::nonNull)
+          .mapToDouble(Double::doubleValue)
+          .average();
+      if (parentAvg.isPresent()) {
+        divergence = avgComposite.getAsDouble() - parentAvg.getAsDouble();
+      }
+    }
+
     return new ThemeSummaryDto(
         theme.id(),
         theme.name(),
@@ -190,6 +218,7 @@ public class ThemeService {
         avgTrend.isPresent() ? avgTrend.getAsDouble() : null,
         bullishCount,
         dominantSignal,
+        divergence,
         topConstituents);
   }
 }

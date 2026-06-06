@@ -395,3 +395,91 @@ test.describe("Ticker Mappings admin page", () => {
     await expect(page.getByRole("link", { name: /Ticker Mappings/ })).toBeVisible();
   });
 });
+
+test.describe("Investment Themes page (/themes)", () => {
+  test("loads with Investment Themes heading", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByRole("heading", { name: "Investment Themes", level: 1 })).toBeVisible();
+  });
+
+  test("renders all five theme cards from mock data", async ({ page }) => {
+    await page.goto("/themes");
+    // Mock has 5 themes — check by theme names
+    await expect(page.getByText("AI Infrastructure")).toBeVisible();
+    await expect(page.getByText("Semiconductor Supercycle")).toBeVisible();
+    await expect(page.getByText("SaaS at Risk")).toBeVisible();
+    await expect(page.getByText("Defense Rearmament")).toBeVisible();
+    await expect(page.getByText("Clean Power Renaissance")).toBeVisible();
+  });
+
+  test("shows dominant signal badges on theme cards", async ({ page }) => {
+    await page.goto("/themes");
+    // AI Infrastructure is BUY, SaaS at Risk is REDUCE in mock data
+    await expect(page.getByText("BUY").first()).toBeVisible();
+    await expect(page.getByText("REDUCE").first()).toBeVisible();
+  });
+
+  test("shows divergence from parent sectors chip", async ({ page }) => {
+    await page.goto("/themes");
+    // AI Infrastructure has divergenceFromParentSectors: 0.14 → shows "+14pt"
+    await expect(page.getByText(/\+14pt/).first()).toBeVisible();
+    // SaaS at Risk has divergence -0.18 → shows "-18pt"
+    await expect(page.getByText(/-18pt/).first()).toBeVisible();
+  });
+
+  test("shows summary stats bar with theme count and ETF count", async ({ page }) => {
+    await page.goto("/themes");
+    // Mock has 5 themes, total constituentCount sums to 7+5+3+4+5=24
+    await expect(page.getByText(/5 themes/)).toBeVisible();
+    await expect(page.getByText(/24 ETFs/)).toBeVisible();
+  });
+
+  test("sidebar shows Themes link", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("link", { name: /Themes/ })).toBeVisible();
+  });
+});
+
+test.describe("Theme detail page (/themes/[id])", () => {
+  test("loads AI Infrastructure detail page with correct heading", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    await expect(page.getByRole("heading", { name: "AI Infrastructure", level: 1 })).toBeVisible();
+  });
+
+  test("shows thesis text on detail page", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    await expect(page.getByText(/Capital flooding into AI compute/)).toBeVisible();
+  });
+
+  test("shows dominant signal badge on detail page", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    // AI Infrastructure is BUY signal
+    await expect(page.getByText("BUY").first()).toBeVisible();
+  });
+
+  test("shows aggregate metrics including vs Sectors divergence", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    await expect(page.getByText("Composite", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("vs Sectors", { exact: true })).toBeVisible();
+    // AI Infrastructure divergence is +14pt
+    await expect(page.getByText("+14pt")).toBeVisible();
+  });
+
+  test("renders constituent ETF table with top ETFs from mock", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    // Mock AI_INFRA detail: SMH, BOTZ, AIQ are top constituents
+    await expect(page.getByText("SMH").first()).toBeVisible();
+    await expect(page.getByText("BOTZ").first()).toBeVisible();
+  });
+
+  test("shows back link to themes hub", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    await expect(page.getByRole("link", { name: /← Themes/ })).toBeVisible();
+  });
+
+  test("returns 404 for unknown theme id", async ({ page }) => {
+    const response = await page.goto("/themes/DOES_NOT_EXIST");
+    // Next.js notFound() returns 404
+    expect(response?.status()).toBe(404);
+  });
+});

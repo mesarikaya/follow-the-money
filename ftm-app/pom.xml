@@ -144,6 +144,13 @@
         </dependency>
         -->
 
+        <!-- ── Docker Compose auto-start (dev only) ─────────────────── -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-docker-compose</artifactId>
+            <optional>true</optional>
+        </dependency>
+
         <!-- ── Test ────────────────────────────────────────────────── -->
         <!-- MockWebServer for RestClient unit tests (no Spring context needed) -->
         <dependency>

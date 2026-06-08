@@ -77,11 +77,22 @@ class CacheEvictionListenerTest {
   @Test
   @DisplayName("SignalsUpdatedEvent evicts all signal and alert caches")
   void shouldEvictAllSignalCachesOnSignalsUpdated() {
-    var cacheNames = java.util.List.of(
-        "signals-latest", "rrg-latest", "rotation-latest", "sub-sectors-latest",
-        "transitions-latest", "score-percentile-252d", "signal-days-active",
-        "price-levels", "win-rates", "score-history", "seasonal-returns",
-        "signal-history", "alerts-latest", "alerts-count");
+    var cacheNames =
+        java.util.List.of(
+            "signals-latest",
+            "rrg-latest",
+            "rotation-latest",
+            "sub-sectors-latest",
+            "transitions-latest",
+            "score-percentile-252d",
+            "signal-days-active",
+            "price-levels",
+            "win-rates",
+            "score-history",
+            "seasonal-returns",
+            "signal-history",
+            "alerts-latest",
+            "alerts-count");
     cacheNames.forEach(name -> when(cacheManager.getCache(name)).thenReturn(signalsCache));
 
     listener.onSignalsUpdated(new SignalsUpdatedEvent(LocalDate.now()));

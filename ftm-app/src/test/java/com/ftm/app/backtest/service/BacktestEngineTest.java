@@ -41,10 +41,11 @@ class BacktestEngineTest {
   @DisplayName("sortino: returns 0 when there are no negative returns (pure uptrend)")
   void sortinoReturnsZeroWhenNoNegativeReturns() {
     // monotonically increasing — downside deviation = 0 → ratio undefined → return 0
-    var curve = List.of(
-        point("2023-01-01", 10_000, 9_000),
-        point("2023-01-02", 10_100, 9_100),
-        point("2023-01-03", 10_200, 9_200));
+    var curve =
+        List.of(
+            point("2023-01-01", 10_000, 9_000),
+            point("2023-01-02", 10_100, 9_100),
+            point("2023-01-03", 10_200, 9_200));
     assertThat(engine.computeSortinoRatio(curve, false)).isEqualTo(0.0);
   }
 
@@ -52,21 +53,23 @@ class BacktestEngineTest {
   @DisplayName("sortino: positive for strategy with mean positive return and some downside days")
   void sortinoIsPositiveForPositiveMeanReturn() {
     // Portfolio goes up 2% then down 1% then up 2%: mean > 0, downside > 0 → sortino > 0
-    var curve = List.of(
-        point("2023-01-01", 10_000, 10_000),
-        point("2023-01-02", 10_200, 10_200),
-        point("2023-01-03", 10_098, 10_098),
-        point("2023-01-04", 10_300, 10_300));
+    var curve =
+        List.of(
+            point("2023-01-01", 10_000, 10_000),
+            point("2023-01-02", 10_200, 10_200),
+            point("2023-01-03", 10_098, 10_098),
+            point("2023-01-04", 10_300, 10_300));
     assertThat(engine.computeSortinoRatio(curve, false)).isGreaterThan(0.0);
   }
 
   @Test
   @DisplayName("sortino: negative for strategy with mean negative return")
   void sortinoIsNegativeForNegativeMeanReturn() {
-    var curve = List.of(
-        point("2023-01-01", 10_000, 10_000),
-        point("2023-01-02",  9_800,  9_800),
-        point("2023-01-03",  9_600,  9_600));
+    var curve =
+        List.of(
+            point("2023-01-01", 10_000, 10_000),
+            point("2023-01-02", 9_800, 9_800),
+            point("2023-01-03", 9_600, 9_600));
     assertThat(engine.computeSortinoRatio(curve, false)).isLessThan(0.0);
   }
 
@@ -74,10 +77,11 @@ class BacktestEngineTest {
   @DisplayName("sortino: spy mode uses spyValue column, not portfolioValue")
   void sortinoSpyModeUsesSpyValues() {
     // portfolio flat, spy moves up → spy sortino should be 0 (no downside days)
-    var curve = List.of(
-        point("2023-01-01", 10_000, 10_000),
-        point("2023-01-02", 10_000, 10_200),
-        point("2023-01-03", 10_000, 10_400));
+    var curve =
+        List.of(
+            point("2023-01-01", 10_000, 10_000),
+            point("2023-01-02", 10_000, 10_200),
+            point("2023-01-03", 10_000, 10_400));
     assertThat(engine.computeSortinoRatio(curve, true)).isEqualTo(0.0);
   }
 
@@ -85,14 +89,16 @@ class BacktestEngineTest {
   @DisplayName("sortino: portfolio and spy sortinos differ when paths diverge")
   void sortinoPortfolioAndSpyDifferWhenPathsDiverge() {
     // portfolio volatile (up/down/up), spy smooth uptrend
-    var curve = List.of(
-        point("2023-01-01", 10_000, 10_000),
-        point("2023-01-02", 10_300, 10_100),
-        point("2023-01-03",  9_900, 10_200),
-        point("2023-01-04", 10_500, 10_300));
+    var curve =
+        List.of(
+            point("2023-01-01", 10_000, 10_000),
+            point("2023-01-02", 10_300, 10_100),
+            point("2023-01-03", 9_900, 10_200),
+            point("2023-01-04", 10_500, 10_300));
     double portSortino = engine.computeSortinoRatio(curve, false);
-    double spySortino  = engine.computeSortinoRatio(curve, true);
-    // spy has no down days in this series → spySortino = 0; portfolio has a down day → portSortino != 0
+    double spySortino = engine.computeSortinoRatio(curve, true);
+    // spy has no down days in this series → spySortino = 0; portfolio has a down day → portSortino
+    // != 0
     assertThat(spySortino).isEqualTo(0.0);
     assertThat(portSortino).isNotEqualTo(0.0);
   }

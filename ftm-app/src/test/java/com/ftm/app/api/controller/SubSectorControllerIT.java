@@ -59,8 +59,6 @@ class SubSectorControllerIT {
   void shouldReturn200ForValidParent() throws Exception {
     when(subSectorService.getSubSectors(anyString())).thenReturn(List.of());
 
-    mockMvc
-        .perform(get("/api/v1/sub-sectors").param("parent", "FINL"))
-        .andExpect(status().isOk());
+    mockMvc.perform(get("/api/v1/sub-sectors").param("parent", "FINL")).andExpect(status().isOk());
   }
 }

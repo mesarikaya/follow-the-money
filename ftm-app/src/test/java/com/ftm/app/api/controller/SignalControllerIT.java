@@ -6,7 +6,6 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.ftm.app.api.dto.SignalHistoryDto;
 import com.ftm.app.api.service.SignalHistoryService;
 import com.ftm.app.signals.service.SignalComputationService;
 import java.util.List;
@@ -67,8 +66,6 @@ class SignalControllerIT {
   void shouldReturn200ForValidDays() throws Exception {
     when(signalHistoryService.getHistory(anyString(), anyInt())).thenReturn(List.of());
 
-    mockMvc
-        .perform(get("/api/v1/signals/TECH").param("days", "90"))
-        .andExpect(status().isOk());
+    mockMvc.perform(get("/api/v1/signals/TECH").param("days", "90")).andExpect(status().isOk());
   }
 }

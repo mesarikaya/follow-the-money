@@ -12,10 +12,10 @@ import static org.mockito.Mockito.when;
 import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.alerts.repository.AlertRulesRepository;
 import com.ftm.app.api.repository.CategoryRepository;
-import com.ftm.app.domain.Category;
 import com.ftm.app.domain.Alert;
 import com.ftm.app.domain.AlertRule;
 import com.ftm.app.domain.AlertStatus;
+import com.ftm.app.domain.Category;
 import com.ftm.app.domain.CategoryId;
 import com.ftm.app.domain.CategoryType;
 import com.ftm.app.domain.RotationEvent;
@@ -89,9 +89,7 @@ class AlertRulesEngineTest {
     lenient()
         .when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
         .thenReturn(Map.of());
-    lenient()
-        .when(themeRepository.findAllConstituentsByTheme())
-        .thenReturn(Map.of());
+    lenient().when(themeRepository.findAllConstituentsByTheme()).thenReturn(Map.of());
     // flow_surge, rs_aligned_bull, rs_aligned_bear, pre_buy_flow_surge, and
     // high_conviction_reduce_cluster rules default to disabled; individual tests override
     lenient()
@@ -2760,10 +2758,42 @@ class AlertRulesEngineTest {
 
   private List<Category> techSubSectors() {
     return List.of(
-        new Category(CategoryId.SEMI, "Semiconductors", CategoryType.EQUITY_SECTOR, "SOXX", "XLK", 101, true, "TECH"),
-        new Category(CategoryId.AIRO, "Aerospace & Defense", CategoryType.EQUITY_SECTOR, "XAR", "XLK", 102, true, "TECH"),
-        new Category(CategoryId.CLOD, "Cloud Computing", CategoryType.EQUITY_SECTOR, "SKYY", "XLK", 103, true, "TECH"),
-        new Category(CategoryId.SOFT, "Software", CategoryType.EQUITY_SECTOR, "IGV", "XLK", 104, true, "TECH"));
+        new Category(
+            CategoryId.SEMI,
+            "Semiconductors",
+            CategoryType.EQUITY_SECTOR,
+            "SOXX",
+            "XLK",
+            101,
+            true,
+            "TECH"),
+        new Category(
+            CategoryId.AIRO,
+            "Aerospace & Defense",
+            CategoryType.EQUITY_SECTOR,
+            "XAR",
+            "XLK",
+            102,
+            true,
+            "TECH"),
+        new Category(
+            CategoryId.CLOD,
+            "Cloud Computing",
+            CategoryType.EQUITY_SECTOR,
+            "SKYY",
+            "XLK",
+            103,
+            true,
+            "TECH"),
+        new Category(
+            CategoryId.SOFT,
+            "Software",
+            CategoryType.EQUITY_SECTOR,
+            "IGV",
+            "XLK",
+            104,
+            true,
+            "TECH"));
   }
 
   private void stubAllRulesDisabledExceptSubSectorBreadthDiv() {
@@ -2828,8 +2858,7 @@ class AlertRulesEngineTest {
   }
 
   @Test
-  @DisplayName(
-      "sub_sector_breadth_divergence: no alert when parent has no active BUY trade signal")
+  @DisplayName("sub_sector_breadth_divergence: no alert when parent has no active BUY trade signal")
   void shouldNotCreateSubSectorBreadthDivAlertWhenParentHasNoBuySignal() {
     stubTopLevelCategories("TECH");
     stubAllRulesDisabledExceptSubSectorBreadthDiv();
@@ -2897,8 +2926,7 @@ class AlertRulesEngineTest {
   }
 
   @Test
-  @DisplayName(
-      "sub_sector_breadth_divergence: resolves when parent BUY signal is gone")
+  @DisplayName("sub_sector_breadth_divergence: resolves when parent BUY signal is gone")
   void shouldResolveSubSectorBreadthDivWhenParentBuySignalGone() {
     stubTopLevelCategories("TECH");
     stubAllRulesDisabledExceptSubSectorBreadthDiv();
@@ -2918,8 +2946,7 @@ class AlertRulesEngineTest {
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository)
-        .resolveAlertsByRuleAndCategory("sub_sector_breadth_divergence", "TECH");
+    verify(alertRepository).resolveAlertsByRuleAndCategory("sub_sector_breadth_divergence", "TECH");
     verify(alertRepository, never())
         .insert(argThat(a -> a.ruleId().equals("sub_sector_breadth_divergence")));
   }
@@ -2959,8 +2986,7 @@ class AlertRulesEngineTest {
     stubAllRulesDisabledExceptSubSectorBullConfluence();
     when(alertRulesRepository.findById("sub_sector_bull_confluence"))
         .thenReturn(Optional.of(enabled("sub_sector_bull_confluence", Severity.INFO)));
-    when(alertRepository.existsActiveAlert("sub_sector_bull_confluence", "TECH"))
-        .thenReturn(false);
+    when(alertRepository.existsActiveAlert("sub_sector_bull_confluence", "TECH")).thenReturn(false);
     when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(techSubSectors());
     // 3 of 4 sub-sectors bullish (75%) — meets threshold
     when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
@@ -2974,21 +3000,22 @@ class AlertRulesEngineTest {
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
     verify(alertRepository)
-        .insert(argThat(a -> a.ruleId().equals("sub_sector_bull_confluence")
-            && a.severity() == Severity.INFO
-            && a.categoryId() == CategoryId.TECH));
+        .insert(
+            argThat(
+                a ->
+                    a.ruleId().equals("sub_sector_bull_confluence")
+                        && a.severity() == Severity.INFO
+                        && a.categoryId() == CategoryId.TECH));
   }
 
   @Test
-  @DisplayName(
-      "sub_sector_bull_confluence: no alert when breadth is below 75%")
+  @DisplayName("sub_sector_bull_confluence: no alert when breadth is below 75%")
   void shouldNotCreateSubSectorBullConfluenceAlertWhenBreadthInsufficient() {
     stubTopLevelCategories("TECH");
     stubAllRulesDisabledExceptSubSectorBullConfluence();
     when(alertRulesRepository.findById("sub_sector_bull_confluence"))
         .thenReturn(Optional.of(enabled("sub_sector_bull_confluence", Severity.INFO)));
-    when(alertRepository.existsActiveAlert("sub_sector_bull_confluence", "TECH"))
-        .thenReturn(false);
+    when(alertRepository.existsActiveAlert("sub_sector_bull_confluence", "TECH")).thenReturn(false);
     when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(techSubSectors());
     // 2 of 4 sub-sectors bullish (50%) — below 75% threshold
     when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
@@ -3006,8 +3033,7 @@ class AlertRulesEngineTest {
   }
 
   @Test
-  @DisplayName(
-      "sub_sector_bull_confluence: no alert when rule is disabled")
+  @DisplayName("sub_sector_bull_confluence: no alert when rule is disabled")
   void shouldNotCreateSubSectorBullConfluenceAlertWhenRuleDisabled() {
     stubTopLevelCategories("TECH");
     stubAllRulesDisabledExceptSubSectorBullConfluence();
@@ -3021,15 +3047,13 @@ class AlertRulesEngineTest {
   }
 
   @Test
-  @DisplayName(
-      "sub_sector_bull_confluence: resolves when breadth drops below 55%")
+  @DisplayName("sub_sector_bull_confluence: resolves when breadth drops below 55%")
   void shouldResolveSubSectorBullConfluenceWhenBreadthDrops() {
     stubTopLevelCategories("TECH");
     stubAllRulesDisabledExceptSubSectorBullConfluence();
     when(alertRulesRepository.findById("sub_sector_bull_confluence"))
         .thenReturn(Optional.of(enabled("sub_sector_bull_confluence", Severity.INFO)));
-    when(alertRepository.existsActiveAlert("sub_sector_bull_confluence", "TECH"))
-        .thenReturn(true);
+    when(alertRepository.existsActiveAlert("sub_sector_bull_confluence", "TECH")).thenReturn(true);
     when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(techSubSectors());
     // 1 of 4 bullish (25%) — below 55% resolve threshold
     when(signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, DATE))
@@ -3042,8 +3066,7 @@ class AlertRulesEngineTest {
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository)
-        .resolveAlertsByRuleAndCategory("sub_sector_bull_confluence", "TECH");
+    verify(alertRepository).resolveAlertsByRuleAndCategory("sub_sector_bull_confluence", "TECH");
     verify(alertRepository, never())
         .insert(argThat(a -> a.ruleId().equals("sub_sector_bull_confluence")));
   }

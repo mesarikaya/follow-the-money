@@ -63,8 +63,6 @@ class MacroControllerIT {
   void shouldReturn200ForValidDays() throws Exception {
     when(macroService.getMacroHistory(anyInt())).thenReturn(Map.of());
 
-    mockMvc
-        .perform(get("/api/v1/macro/history").param("days", "365"))
-        .andExpect(status().isOk());
+    mockMvc.perform(get("/api/v1/macro/history").param("days", "365")).andExpect(status().isOk());
   }
 }

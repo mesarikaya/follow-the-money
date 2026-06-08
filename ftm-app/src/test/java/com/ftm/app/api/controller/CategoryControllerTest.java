@@ -109,10 +109,11 @@ class CategoryControllerTest {
   @Test
   @DisplayName("GET /categories/seasonal returns average monthly returns per category")
   void shouldReturnSeasonalReturns() throws Exception {
-    var data = List.of(
-        new SeasonalReturnDto("TECH", 1, new BigDecimal("0.0312"), 5),
-        new SeasonalReturnDto("TECH", 6, new BigDecimal("-0.0145"), 5),
-        new SeasonalReturnDto("FINL", 3, new BigDecimal("0.0210"), 4));
+    var data =
+        List.of(
+            new SeasonalReturnDto("TECH", 1, new BigDecimal("0.0312"), 5),
+            new SeasonalReturnDto("TECH", 6, new BigDecimal("-0.0145"), 5),
+            new SeasonalReturnDto("FINL", 3, new BigDecimal("0.0210"), 4));
     when(categoryService.getSeasonalReturns()).thenReturn(data);
 
     mockMvc

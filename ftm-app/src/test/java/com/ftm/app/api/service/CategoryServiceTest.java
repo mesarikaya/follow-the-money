@@ -269,14 +269,15 @@ class CategoryServiceTest {
   @Test
   @DisplayName("getPriceLevels maps repository rows to PriceLevelDto")
   void shouldMapPriceLevelRowsToDto() {
-    PriceLevelRow row = new PriceLevelRow(
-        "TECH",
-        new BigDecimal("192.5"),
-        new BigDecimal("205.0"),
-        new BigDecimal("152.0"),
-        new BigDecimal("-0.061"),
-        new BigDecimal("0.76"),
-        252);
+    PriceLevelRow row =
+        new PriceLevelRow(
+            "TECH",
+            new BigDecimal("192.5"),
+            new BigDecimal("205.0"),
+            new BigDecimal("152.0"),
+            new BigDecimal("-0.061"),
+            new BigDecimal("0.76"),
+            252);
 
     when(categoryRepository.findPriceLevels()).thenReturn(List.of(row));
 
@@ -308,8 +309,8 @@ class CategoryServiceTest {
   @Test
   @DisplayName("getBuySignalWinRates maps repository rows to SignalWinRateDto")
   void shouldMapWinRateRowsToDto() {
-    BuySignalWinRateRow row = new BuySignalWinRateRow(
-        "TECH", 42, new BigDecimal("0.74"), new BigDecimal("0.038"));
+    BuySignalWinRateRow row =
+        new BuySignalWinRateRow("TECH", 42, new BigDecimal("0.74"), new BigDecimal("0.038"));
 
     when(signalRepository.findBuySignalWinRates(365)).thenReturn(List.of(row));
 

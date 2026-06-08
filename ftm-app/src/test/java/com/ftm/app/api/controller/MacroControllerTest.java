@@ -92,10 +92,10 @@ class MacroControllerTest {
   @DisplayName("GET /macro/history returns 200 with map of series points")
   void shouldReturnMacroHistory() throws Exception {
     LocalDate date = LocalDate.of(2024, 1, 15);
-    Map<String, List<MacroSeriesPoint>> history = Map.of(
-        "VIXCLS", List.of(new MacroSeriesPoint(date, new BigDecimal("18.50"))),
-        "T10Y2Y", List.of(new MacroSeriesPoint(date, new BigDecimal("-0.40")))
-    );
+    Map<String, List<MacroSeriesPoint>> history =
+        Map.of(
+            "VIXCLS", List.of(new MacroSeriesPoint(date, new BigDecimal("18.50"))),
+            "T10Y2Y", List.of(new MacroSeriesPoint(date, new BigDecimal("-0.40"))));
     when(macroService.getMacroHistory(365)).thenReturn(history);
 
     mockMvc

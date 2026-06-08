@@ -15,7 +15,8 @@ class HoldingCsvParserTest {
   @Test
   @DisplayName("parses comma-delimited CSV with all fields")
   void shouldParseCommaCsv() throws IOException {
-    String csv = """
+    String csv =
+        """
         ticker,name,quantity,currency,avg_cost
         XLK,Technology ETF,100,USD,185.50
         """;
@@ -33,7 +34,8 @@ class HoldingCsvParserTest {
   @Test
   @DisplayName("auto-detects semicolon delimiter when header has more semicolons than commas")
   void shouldParseSemicolonCsv() throws IOException {
-    String csv = """
+    String csv =
+        """
         ticker;name;quantity;currency;avg_cost
         GLD;Gold ETF;50;EUR;150.00
         """;
@@ -49,7 +51,8 @@ class HoldingCsvParserTest {
   @Test
   @DisplayName("parses multiple rows")
   void shouldParseMultipleRows() throws IOException {
-    String csv = """
+    String csv =
+        """
         ticker,name,quantity,currency,avg_cost
         XLK,Tech,100,USD,185.50
         XLV,Health,200,USD,130.00
@@ -65,7 +68,8 @@ class HoldingCsvParserTest {
   @Test
   @DisplayName("returns empty string for missing optional column")
   void shouldReturnEmptyStringForMissingColumn() throws IOException {
-    String csv = """
+    String csv =
+        """
         ticker,quantity
         BIL,1000
         """;
@@ -82,7 +86,8 @@ class HoldingCsvParserTest {
   @Test
   @DisplayName("handles header case-insensitively")
   void shouldHandleCaseInsensitiveHeaders() throws IOException {
-    String csv = """
+    String csv =
+        """
         TICKER,NAME,QUANTITY,CURRENCY,AVG_COST
         XLF,Financials,300,USD,42.00
         """;
@@ -107,7 +112,8 @@ class HoldingCsvParserTest {
   @Test
   @DisplayName("trims whitespace around field values")
   void shouldTrimWhitespace() throws IOException {
-    String csv = """
+    String csv =
+        """
         ticker , name , quantity , currency , avg_cost
           XLB  ,  Materials  ,  100  ,  USD  ,  58.75
         """;

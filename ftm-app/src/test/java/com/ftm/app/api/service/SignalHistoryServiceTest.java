@@ -36,7 +36,8 @@ class SignalHistoryServiceTest {
   @DisplayName("getHistory returns mapped DTOs for the given category and days")
   void shouldReturnMappedHistory() {
     var row = row(SignalType.COMPOSITE, new BigDecimal("0.75"));
-    var dto = new SignalHistoryDto(DATE, SignalType.COMPOSITE, new BigDecimal("0.75"), row.computedAt());
+    var dto =
+        new SignalHistoryDto(DATE, SignalType.COMPOSITE, new BigDecimal("0.75"), row.computedAt());
 
     when(signalRepository.findByCategoryId("TECH", 30)).thenReturn(List.of(row));
     when(signalHistoryMapper.toDto(row)).thenReturn(dto);
@@ -73,9 +74,11 @@ class SignalHistoryServiceTest {
   @DisplayName("getHistory maps multiple rows preserving order")
   void shouldMapMultipleRowsInOrder() {
     var row1 = row(SignalType.COMPOSITE, new BigDecimal("0.80"));
-    var row2 = row(SignalType.RS_60,     new BigDecimal("0.65"));
-    var dto1  = new SignalHistoryDto(DATE, SignalType.COMPOSITE, new BigDecimal("0.80"), row1.computedAt());
-    var dto2  = new SignalHistoryDto(DATE, SignalType.RS_60,     new BigDecimal("0.65"), row2.computedAt());
+    var row2 = row(SignalType.RS_60, new BigDecimal("0.65"));
+    var dto1 =
+        new SignalHistoryDto(DATE, SignalType.COMPOSITE, new BigDecimal("0.80"), row1.computedAt());
+    var dto2 =
+        new SignalHistoryDto(DATE, SignalType.RS_60, new BigDecimal("0.65"), row2.computedAt());
 
     when(signalRepository.findByCategoryId("HLTH", 90)).thenReturn(List.of(row1, row2));
     when(signalHistoryMapper.toDto(row1)).thenReturn(dto1);

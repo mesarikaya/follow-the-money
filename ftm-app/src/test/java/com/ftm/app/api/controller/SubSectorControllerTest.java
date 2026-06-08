@@ -95,5 +95,4 @@ class SubSectorControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].id").value("SEMI"));
   }
-
 }

@@ -208,6 +208,65 @@ function ThemeCard({ theme, history }: { theme: ThemeSummary; history: ThemeHist
   );
 }
 
+function RotationMomentumStrip({ themes }: { themes: ThemeSummary[] }) {
+  const withVelocity = themes.filter(t => t.compositeTrend20d != null);
+  if (withVelocity.length < 2) return null;
+
+  const sorted = [...withVelocity].sort(
+    (a, b) => (b.compositeTrend20d ?? 0) - (a.compositeTrend20d ?? 0)
+  );
+  const rising = sorted.filter(t => (t.compositeTrend20d ?? 0) > 0.003).slice(0, 3);
+  const falling = sorted.filter(t => (t.compositeTrend20d ?? 0) < -0.003).reverse().slice(0, 3);
+
+  if (rising.length === 0 && falling.length === 0) return null;
+
+  const velLabel = (v: number) => `${v > 0 ? "+" : ""}${(v * 100).toFixed(1)}pt`;
+
+  return (
+    <div className="bg-slate-800/50 border border-slate-700/60 rounded-lg p-3 mb-4">
+      <div className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-2">
+        Rotation Momentum · 20-day velocity
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {rising.length > 0 && (
+          <div>
+            <div className="text-[10px] font-semibold text-emerald-400 mb-1.5">↑ Accelerating</div>
+            <div className="space-y-1">
+              {rising.map(t => (
+                <div key={t.id} className="flex items-center justify-between">
+                  <Link href={`/themes/${t.id}`} className="text-[11px] text-slate-300 hover:text-white truncate">
+                    {t.name}
+                  </Link>
+                  <span className="text-[10px] font-mono text-emerald-400 ml-2 shrink-0">
+                    {velLabel(t.compositeTrend20d!)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {falling.length > 0 && (
+          <div>
+            <div className="text-[10px] font-semibold text-red-400 mb-1.5">↓ Decelerating</div>
+            <div className="space-y-1">
+              {falling.map(t => (
+                <div key={t.id} className="flex items-center justify-between">
+                  <Link href={`/themes/${t.id}`} className="text-[11px] text-slate-300 hover:text-white truncate">
+                    {t.name}
+                  </Link>
+                  <span className="text-[10px] font-mono text-red-400 ml-2 shrink-0">
+                    {velLabel(t.compositeTrend20d!)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default async function ThemesPage() {
   const themes = await fetchThemes();
 
@@ -223,6 +282,10 @@ export default async function ThemesPage() {
   const buyThemes = themes.filter(t => t.dominantSignal === "BUY").length;
   const watchThemes = themes.filter(t => t.dominantSignal === "WATCH").length;
   const activeThemes = themes.filter(t => t.dominantSignal === "BUY" || t.dominantSignal === "WATCH").length;
+
+  const sortedByScore = [...themes].sort(
+    (a, b) => (b.compositeScore ?? -1) - (a.compositeScore ?? -1)
+  );
 
   return (
     <main className="flex-1 min-h-0 overflow-y-auto bg-slate-900 p-4 md:p-6">
@@ -256,8 +319,10 @@ export default async function ThemesPage() {
           )}
         </div>
 
+        {themes.length > 0 && <RotationMomentumStrip themes={themes} />}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-          {themes.map(theme => (
+          {sortedByScore.map(theme => (
             <ThemeCard key={theme.id} theme={theme} history={historyByThemeId[theme.id] ?? []} />
           ))}
         </div>

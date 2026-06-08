@@ -71,19 +71,9 @@ export default function RotationHeatmap({ categories }: Props) {
                       "text-orange-400 bg-orange-900/20";
 
     const hasDrilldown = SECTOR_DRILLDOWN_IDS.has(cat.id);
-    const Wrapper = ({ children }: { children: React.ReactNode }) =>
-      hasDrilldown ? (
-        <Link href={`/sectors/${cat.id}`} key={cat.id} className={`border rounded-lg p-3 flex flex-col gap-2 ${colorClass} hover:brightness-110 transition-all`}>
-          {children}
-        </Link>
-      ) : (
-        <div key={cat.id} className={`border rounded-lg p-3 flex flex-col gap-2 ${colorClass}`}>
-          {children}
-        </div>
-      );
-
-    return (
-      <Wrapper>
+    const sharedClass = `border rounded-lg p-3 flex flex-col gap-2 ${colorClass}`;
+    const content = (
+      <>
         <div className="flex items-start justify-between">
           <div className="flex flex-col gap-0.5">
             <span className="text-[10px] font-mono text-slate-500">{cat.etfTicker}</span>
@@ -118,7 +108,17 @@ export default function RotationHeatmap({ categories }: Props) {
             </span>
           )}
         </div>
-      </Wrapper>
+      </>
+    );
+
+    return hasDrilldown ? (
+      <Link key={cat.id} href={`/sectors/${cat.id}`} className={`${sharedClass} hover:brightness-110 transition-all`}>
+        {content}
+      </Link>
+    ) : (
+      <div key={cat.id} className={sharedClass}>
+        {content}
+      </div>
     );
   };
 

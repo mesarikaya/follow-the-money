@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { fetchTheme, ThemeConstituent } from "@/lib/api";
+import { fetchTheme, fetchThemeHistory, ThemeConstituent, ThemeHistoryPoint } from "@/lib/api";
 import { notFound } from "next/navigation";
 
 const SIGNAL_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -101,6 +101,58 @@ function ConstituentRow({ c, index }: { c: ThemeConstituent; index: number }) {
   );
 }
 
+function ThemeHistoryChart({ history }: { history: ThemeHistoryPoint[] }) {
+  if (history.length < 3) return null;
+  const width = 600, height = 72;
+  const padLeft = 28, padRight = 8, padTop = 6, padBottom = 18;
+  const chartWidth = width - padLeft - padRight;
+  const chartHeight = height - padTop - padBottom;
+  const values = history.map(h => h.compositeScore);
+  const minVal = Math.max(0, Math.min(...values) - 0.05);
+  const maxVal = Math.min(1, Math.max(...values) + 0.05);
+  const yRange = maxVal - minVal;
+
+  const toX = (i: number) => padLeft + (i / (values.length - 1)) * chartWidth;
+  const toY = (v: number) => padTop + chartHeight - ((v - minVal) / yRange) * chartHeight;
+
+  const linePath = values
+    .map((v, i) => `${i === 0 ? "M" : "L"} ${toX(i).toFixed(1)} ${toY(v).toFixed(1)}`)
+    .join(" ");
+  const areaPath = `${linePath} L ${toX(values.length - 1).toFixed(1)} ${(padTop + chartHeight).toFixed(1)} L ${padLeft} ${(padTop + chartHeight).toFixed(1)} Z`;
+
+  const latest = values[values.length - 1];
+  const stroke = latest >= 0.65 ? "#34d399" : latest >= 0.50 ? "#22d3ee" : latest >= 0.35 ? "#fbbf24" : "#f87171";
+  const fill = latest >= 0.65 ? "#34d39920" : latest >= 0.50 ? "#22d3ee20" : latest >= 0.35 ? "#fbbf2420" : "#f8717120";
+
+  const buyY = toY(0.65);
+  const reduceY = toY(0.35);
+  const firstDate = history[0].date;
+  const lastDate = history[history.length - 1].date;
+
+  return (
+    <div className="bg-slate-800/40 border border-slate-700/40 rounded-lg p-3 mb-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] text-slate-500 uppercase tracking-wider">30-day composite trend</span>
+        <span className="text-[10px] font-mono text-slate-500">{firstDate} → {lastDate}</span>
+      </div>
+      <svg width="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="overflow-visible">
+        {/* BUY threshold line */}
+        <line x1={padLeft} y1={buyY} x2={width - padRight} y2={buyY} stroke="#34d39930" strokeWidth="1" strokeDasharray="3 3" />
+        <text x={padLeft - 2} y={buyY + 3} fill="#34d39960" fontSize="7" textAnchor="end" fontFamily="monospace">65</text>
+        {/* REDUCE threshold line */}
+        <line x1={padLeft} y1={reduceY} x2={width - padRight} y2={reduceY} stroke="#f8717130" strokeWidth="1" strokeDasharray="3 3" />
+        <text x={padLeft - 2} y={reduceY + 3} fill="#f8717160" fontSize="7" textAnchor="end" fontFamily="monospace">35</text>
+        {/* Area fill */}
+        <path d={areaPath} fill={fill} />
+        {/* Line */}
+        <path d={linePath} fill="none" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        {/* Latest value dot */}
+        <circle cx={toX(values.length - 1)} cy={toY(latest)} r="3" fill={stroke} />
+      </svg>
+    </div>
+  );
+}
+
 function AggMetric({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="text-center">
@@ -120,6 +172,8 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
   } catch {
     notFound();
   }
+
+  const history: ThemeHistoryPoint[] = await fetchThemeHistory(id.toUpperCase(), 30).catch(() => []);
 
   const signal = SIGNAL_CONFIG[theme.dominantSignal] ?? SIGNAL_CONFIG.HOLD;
 
@@ -201,6 +255,8 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
             )}
           </div>
         </div>
+
+        <ThemeHistoryChart history={history} />
 
         <div className="bg-slate-800/40 border border-slate-700/60 rounded-lg overflow-hidden">
           <table className="w-full text-left">

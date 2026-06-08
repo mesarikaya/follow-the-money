@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { fetchAlerts, acknowledgeAlert, bulkDismissAlerts, fetchAlertRules, setAlertRuleEnabled, AlertsResponse, AlertDto, AlertRuleDto } from "@/lib/api";
 
@@ -77,7 +78,8 @@ const RULE_LABELS: Record<string, string> = {
   cross_horizon_rs_divergence:    "Cross-Horizon RS Divergence",
   macro_sector_mismatch:          "Macro/Sector Mismatch",
   sub_sector_breadth_divergence:  "Sub-Sector Breadth Divergence",
-  sub_sector_bull_confluence:     "Sub-Sector Bull Confluence",
+  sub_sector_bull_confluence:          "Sub-Sector Bull Confluence",
+  theme_dominant_signal_transition:    "Theme Signal",
   flow_inflow_5d:         "Flow Inflow (5d)",
   flow_inflow_10d:        "Flow Inflow (10d)",
   flow_inflow_20d:        "Flow Inflow (20d)",
@@ -325,6 +327,15 @@ export default function AlertsPage() {
                       {alert.categoryId && (
                         <span className="font-mono text-sm font-semibold text-slate-200">{alert.categoryId}</span>
                       )}
+                      {alert.themeId && (
+                        <Link
+                          href={`/themes/${alert.themeId}`}
+                          className="font-mono text-xs font-semibold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded hover:bg-cyan-500/20 transition-colors"
+                          title={`View theme: ${alert.themeId}`}
+                        >
+                          {alert.themeId.replace(/_/g, " ")}
+                        </Link>
+                      )}
                       <span className="text-xs text-slate-500">{RULE_LABELS[alert.ruleId] ?? alert.ruleId}</span>
                       <div className="ml-auto flex items-center gap-1.5">
                         {(() => {
@@ -377,7 +388,13 @@ export default function AlertsPage() {
                     {historyAlerts.map((alert: AlertDto) => (
                       <tr key={alert.id} className="hover:bg-slate-800/40 transition-colors" title={alert.message}>
                         <td className="px-4 py-2 text-xs text-slate-500 whitespace-nowrap">{formatDateShort(alert.createdAt)}</td>
-                        <td className="px-4 py-2 font-mono text-blue-300 font-medium text-xs">{alert.categoryId ?? "—"}</td>
+                        <td className="px-4 py-2 font-mono text-blue-300 font-medium text-xs">
+                          {alert.themeId ? (
+                            <Link href={`/themes/${alert.themeId}`} className="text-cyan-400 hover:underline">
+                              {alert.themeId.replace(/_/g, " ")}
+                            </Link>
+                          ) : (alert.categoryId ?? "—")}
+                        </td>
                         <td className="px-4 py-2">
                           <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${severityBadgeCls(alert.severity)}`}>
                             {alert.severity}

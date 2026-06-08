@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { fetchThemes, ThemeSummary, ThemeConstituent } from "@/lib/api";
+import { fetchThemes, fetchThemeHistory, ThemeSummary, ThemeConstituent, ThemeHistoryPoint } from "@/lib/api";
 
 const SIGNAL_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   BUY:    { label: "BUY",    color: "text-emerald-400", bg: "bg-emerald-500/15 border border-emerald-500/30" },
@@ -108,6 +108,42 @@ function DivergenceChip({ divergence }: { divergence: number | null }) {
   );
 }
 
+function ThemeSparkline({ history }: { history: ThemeHistoryPoint[] }) {
+  if (history.length < 2) return null;
+  const values = history.map(h => h.compositeScore);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min;
+  const width = 72, height = 20;
+  const points = values
+    .map((v, i) => {
+      const x = (i / (values.length - 1)) * width;
+      const y = range > 0 ? height - ((v - min) / range) * (height - 2) - 1 : height / 2;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  const latest = values[values.length - 1];
+  const stroke = latest >= 0.65 ? "#34d399" : latest >= 0.50 ? "#22d3ee" : latest >= 0.35 ? "#fbbf24" : "#f87171";
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      className="opacity-70 shrink-0"
+    >
+      <title>{`30-day trend · latest: ${Math.round(latest * 100)}`}</title>
+      <polyline
+        points={points}
+        fill="none"
+        stroke={stroke}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function BullishBar({ bullish, total }: { bullish: number; total: number }) {
   const pct = total > 0 ? bullish / total : 0;
   const color = pct >= 0.6 ? "bg-emerald-500" : pct >= 0.4 ? "bg-amber-500" : "bg-red-500";
@@ -121,7 +157,7 @@ function BullishBar({ bullish, total }: { bullish: number; total: number }) {
   );
 }
 
-function ThemeCard({ theme }: { theme: ThemeSummary }) {
+function ThemeCard({ theme, history }: { theme: ThemeSummary; history: ThemeHistoryPoint[] }) {
   const signal = SIGNAL_CONFIG[theme.dominantSignal] ?? SIGNAL_CONFIG.HOLD;
 
   return (
@@ -134,8 +170,9 @@ function ThemeCard({ theme }: { theme: ThemeSummary }) {
             </h3>
             <p className="text-slate-500 text-[11px] leading-relaxed line-clamp-2">{theme.thesis}</p>
           </div>
-          <div className="shrink-0">
+          <div className="flex flex-col items-end gap-1 shrink-0">
             <ScoreArc score={theme.compositeScore} />
+            <ThemeSparkline history={history} />
           </div>
         </div>
 
@@ -174,8 +211,18 @@ function ThemeCard({ theme }: { theme: ThemeSummary }) {
 export default async function ThemesPage() {
   const themes = await fetchThemes();
 
+  const historyResults = await Promise.allSettled(
+    themes.map(t => fetchThemeHistory(t.id, 30))
+  );
+  const historyByThemeId: Record<string, ThemeHistoryPoint[]> = {};
+  themes.forEach((t, i) => {
+    const result = historyResults[i];
+    historyByThemeId[t.id] = result.status === "fulfilled" ? result.value : [];
+  });
+
   const buyThemes = themes.filter(t => t.dominantSignal === "BUY").length;
   const watchThemes = themes.filter(t => t.dominantSignal === "WATCH").length;
+  const activeThemes = themes.filter(t => t.dominantSignal === "BUY" || t.dominantSignal === "WATCH").length;
 
   return (
     <main className="flex-1 min-h-0 overflow-y-auto bg-slate-900 p-4 md:p-6">
@@ -185,7 +232,7 @@ export default async function ThemesPage() {
             Investment Themes
           </h1>
           <p className="text-slate-400 text-sm">
-            Cross-sector capital flow narratives — each theme aggregates signals across constituent ETFs to surface conviction before the mainstream narrative.
+            Cross-sector capital flow narratives — each theme aggregates signals across constituent ETFs to surface conviction before the mainstream narrative. Sparklines show 30-day composite trend.
           </p>
           {themes.length > 0 && (
             <div className="flex gap-3 mt-2">
@@ -199,8 +246,11 @@ export default async function ThemesPage() {
                   {watchThemes} WATCH
                 </span>
               )}
-              <span className="text-[11px] font-mono text-slate-500">
-                {themes.length} themes · {themes.reduce((a, t) => a + t.constituentCount, 0)} ETFs
+              {activeThemes === 0 && (
+                <span className="text-[11px] font-mono text-slate-500">No active signals</span>
+              )}
+              <span className="text-[11px] font-mono text-slate-600">
+                {themes.length} themes · {themes.reduce((a, t) => a + t.constituentCount, 0)} ETFs tracked
               </span>
             </div>
           )}
@@ -208,7 +258,7 @@ export default async function ThemesPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {themes.map(theme => (
-            <ThemeCard key={theme.id} theme={theme} />
+            <ThemeCard key={theme.id} theme={theme} history={historyByThemeId[theme.id] ?? []} />
           ))}
         </div>
 

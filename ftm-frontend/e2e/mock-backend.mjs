@@ -374,7 +374,60 @@ const THEMES_RESPONSE = [
       { categoryId: "UTIL", name: "Utilities", etfTicker: "XLU", compositeScore: 0.52, rs60: 0.012, flow20d: 0.4, compositeTrend20d: 0.002, tradeSignal: "WATCH", convictionScore: 28 },
     ],
   },
+  {
+    id: "RATE_DURATION", name: "Rate Pivot & Duration Trade", thesis: "When the Fed signals easing, duration-sensitive assets front-run the rally. REITs, utilities, and investment-grade credit re-rate as real yields compress.",
+    constituentCount: 5, compositeScore: 0.52, rs60: 0.008, flow20d: 0.3, compositeTrend20d: 0.004,
+    bullishCount: 2, dominantSignal: "WATCH", divergenceFromParentSectors: 0.04,
+    topConstituents: [
+      { categoryId: "REIT", name: "Real Estate", etfTicker: "XLRE", compositeScore: 0.59, rs60: 0.014, flow20d: 0.5, compositeTrend20d: 0.008, tradeSignal: "WATCH", convictionScore: 38 },
+      { categoryId: "UTIL", name: "Utilities", etfTicker: "XLU", compositeScore: 0.52, rs60: 0.012, flow20d: 0.4, compositeTrend20d: 0.002, tradeSignal: "WATCH", convictionScore: 28 },
+      { categoryId: "TLTD", name: "20yr Treasuries", etfTicker: "TLTD", compositeScore: 0.48, rs60: 0.002, flow20d: 0.2, compositeTrend20d: 0.002, tradeSignal: "HOLD", convictionScore: null },
+    ],
+  },
+  {
+    id: "COMMODITY_ELECTRIFICATION", name: "Commodity Supercycle & Electrification", thesis: "AI buildout, EV adoption, and de-globalization creating structural demand for copper, rare earths, and energy that supply cannot match.",
+    constituentCount: 6, compositeScore: 0.61, rs60: 0.031, flow20d: 0.7, compositeTrend20d: 0.010,
+    bullishCount: 3, dominantSignal: "WATCH", divergenceFromParentSectors: 0.07,
+    topConstituents: [
+      { categoryId: "MATL_COPP", name: "Copper Miners", etfTicker: "COPX", compositeScore: 0.68, rs60: 0.042, flow20d: 0.9, compositeTrend20d: 0.014, tradeSignal: "WATCH", convictionScore: 55 },
+      { categoryId: "MATL_RARE", name: "Rare Earth & Critical Minerals", etfTicker: "REMX", compositeScore: 0.65, rs60: 0.038, flow20d: 0.8, compositeTrend20d: 0.012, tradeSignal: "BUY", convictionScore: 51 },
+      { categoryId: "INDU_ELEC", name: "Smart Grid & Electrification", etfTicker: "GRID", compositeScore: 0.62, rs60: 0.028, flow20d: 0.6, compositeTrend20d: 0.010, tradeSignal: "WATCH", convictionScore: 46 },
+    ],
+  },
+  {
+    id: "PHYSICAL_AI_ROBOTICS", name: "Physical AI & Robotics", thesis: "AI leaving the server room. The next capital wave flows into industrial automation, smart grids, and robotics — the hardware layer of the AI productivity cycle.",
+    constituentCount: 5, compositeScore: 0.70, rs60: 0.044, flow20d: 1.0, compositeTrend20d: 0.013,
+    bullishCount: 3, dominantSignal: "WATCH", divergenceFromParentSectors: 0.08,
+    topConstituents: [
+      { categoryId: "AIRO", name: "AI & Robotics", etfTicker: "BOTZ", compositeScore: 0.82, rs60: 0.07, flow20d: 1.5, compositeTrend20d: 0.020, tradeSignal: "BUY", convictionScore: 82 },
+      { categoryId: "TECH_SMH", name: "Semiconductors (VanEck)", etfTicker: "SMH", compositeScore: 0.76, rs60: 0.055, flow20d: 1.2, compositeTrend20d: 0.016, tradeSignal: "BUY", convictionScore: 74 },
+      { categoryId: "TECH_IOTC", name: "Internet of Things", etfTicker: "SNSR", compositeScore: 0.64, rs60: 0.032, flow20d: 0.7, compositeTrend20d: 0.009, tradeSignal: "WATCH", convictionScore: 50 },
+    ],
+  },
+  {
+    id: "HARD_ASSETS_GOLD", name: "Hard Assets & Precious Metals", thesis: "Central bank gold buying, de-dollarization pressure, and fiscal deficits have structurally re-priced gold. Miners provide leveraged exposure during geopolitical regime shifts.",
+    constituentCount: 5, compositeScore: 0.74, rs60: 0.052, flow20d: 1.1, compositeTrend20d: 0.011,
+    bullishCount: 4, dominantSignal: "BUY", divergenceFromParentSectors: 0.11,
+    topConstituents: [
+      { categoryId: "GOLD", name: "Gold", etfTicker: "GLD", compositeScore: 0.80, rs60: 0.065, flow20d: 1.3, compositeTrend20d: 0.015, tradeSignal: "BUY", convictionScore: 78 },
+      { categoryId: "GDMN", name: "Gold Miners", etfTicker: "GDX", compositeScore: 0.76, rs60: 0.058, flow20d: 1.2, compositeTrend20d: 0.013, tradeSignal: "BUY", convictionScore: 72 },
+      { categoryId: "MATL_GOLD", name: "Gold Miners Senior", etfTicker: "GDX", compositeScore: 0.73, rs60: 0.050, flow20d: 1.0, compositeTrend20d: 0.010, tradeSignal: "BUY", convictionScore: 65 },
+    ],
+  },
 ];
+
+function generateThemeHistory(baseScore, days) {
+  const history = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date("2026-05-15");
+    date.setDate(date.getDate() - i);
+    const trend = (days - i) / days * 0.08 - 0.04;
+    const noise = Math.sin(i * 0.5) * 0.03;
+    const score = Math.max(0.1, Math.min(0.99, baseScore + trend + noise));
+    history.push({ date: date.toISOString().split("T")[0], compositeScore: Math.round(score * 1000) / 1000 });
+  }
+  return history;
+}
 
 function generateMacroHistory(days) {
   const indicators = ["vix", "tenYearYield", "fedFundsRate", "usdIndex", "wtiCrudeOilPrice"];
@@ -491,6 +544,17 @@ const server = http.createServer(async (req, res) => {
   } else if (path === "/api/v1/themes") {
     res.writeHead(200);
     res.end(JSON.stringify(THEMES_RESPONSE));
+  } else if (/^\/api\/v1\/themes\/[A-Z0-9_]+\/history$/.test(path)) {
+    const themeId = path.split("/").at(-2);
+    const theme = THEMES_RESPONSE.find(t => t.id === themeId);
+    if (theme) {
+      const days = parseInt(url.searchParams.get("days") ?? "30", 10);
+      res.writeHead(200);
+      res.end(JSON.stringify(generateThemeHistory(theme.compositeScore ?? 0.5, days)));
+    } else {
+      res.writeHead(404);
+      res.end(JSON.stringify({ detail: "Theme not found" }));
+    }
   } else if (/^\/api\/v1\/themes\/[A-Z0-9_]+$/.test(path)) {
     const themeId = path.split("/").at(-1);
     const theme = THEMES_RESPONSE.find(t => t.id === themeId);

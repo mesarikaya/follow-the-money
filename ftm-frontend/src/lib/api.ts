@@ -178,6 +178,7 @@ export type AlertDto = {
   id: number;
   createdAt: string;
   categoryId: string | null;
+  themeId: string | null;
   ruleId: string;
   severity: "INFO" | "WARNING" | "ACTION" | "URGENT";
   message: string;
@@ -592,5 +593,12 @@ export type ThemeDetail = ThemeSummary & {
   constituents: ThemeConstituent[];
 };
 
+export type ThemeHistoryPoint = {
+  date: string;
+  compositeScore: number;
+};
+
 export const fetchThemes = () => get<ThemeSummary[]>("/api/v1/themes");
 export const fetchTheme = (themeId: string) => get<ThemeDetail>(`/api/v1/themes/${themeId}`);
+export const fetchThemeHistory = (themeId: string, days = 30) =>
+  get<ThemeHistoryPoint[]>(`/api/v1/themes/${themeId}/history?days=${days}`);

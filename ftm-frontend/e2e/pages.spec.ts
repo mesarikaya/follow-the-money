@@ -402,14 +402,21 @@ test.describe("Investment Themes page (/themes)", () => {
     await expect(page.getByRole("heading", { name: "Investment Themes", level: 1 })).toBeVisible();
   });
 
-  test("renders all five theme cards from mock data", async ({ page }) => {
+  test("renders original five theme cards from mock data", async ({ page }) => {
     await page.goto("/themes");
-    // Mock has 5 themes — check by theme names
     await expect(page.getByText("AI Infrastructure")).toBeVisible();
     await expect(page.getByText("Semiconductor Supercycle")).toBeVisible();
     await expect(page.getByText("SaaS at Risk")).toBeVisible();
     await expect(page.getByText("Defense Rearmament")).toBeVisible();
     await expect(page.getByText("Clean Power Renaissance")).toBeVisible();
+  });
+
+  test("renders four additional market-narrative themes", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByText("Rate Pivot & Duration Trade")).toBeVisible();
+    await expect(page.getByText("Commodity Supercycle & Electrification")).toBeVisible();
+    await expect(page.getByText("Physical AI & Robotics")).toBeVisible();
+    await expect(page.getByText("Hard Assets & Precious Metals")).toBeVisible();
   });
 
   test("shows dominant signal badges on theme cards", async ({ page }) => {
@@ -427,11 +434,19 @@ test.describe("Investment Themes page (/themes)", () => {
     await expect(page.getByText(/-18pt/).first()).toBeVisible();
   });
 
-  test("shows summary stats bar with theme count and ETF count", async ({ page }) => {
+  test("shows summary stats bar with theme and ETF count", async ({ page }) => {
     await page.goto("/themes");
-    // Mock has 5 themes, total constituentCount sums to 7+5+3+4+5=24
-    await expect(page.getByText(/5 themes/)).toBeVisible();
-    await expect(page.getByText(/24 ETFs/)).toBeVisible();
+    // Mock now has 9 themes
+    await expect(page.getByText(/9 themes/)).toBeVisible();
+    // constituentCount sum: 7+5+3+4+5+5+6+5+5=45
+    await expect(page.getByText(/45 ETFs tracked/)).toBeVisible();
+  });
+
+  test("shows sparkline SVGs for themes with history data", async ({ page }) => {
+    await page.goto("/themes");
+    // Mock backend serves history for every theme — sparklines are SVG polylines
+    const sparklines = page.locator("svg polyline");
+    await expect(sparklines.first()).toBeVisible();
   });
 
   test("sidebar shows Themes link", async ({ page }) => {

@@ -1,4 +1,4 @@
-import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, fetchWinRates, fetchPriceLevels, fetchSignalTransitions, SignalWinRateDto, PriceLevelDto, SubSectorSummary, SignalTransitionDto } from "@/lib/api";
+import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, fetchWinRates, fetchPriceLevels, fetchSignalTransitions, fetchThemes, fetchThemeHistory, SignalWinRateDto, PriceLevelDto, SubSectorSummary, SignalTransitionDto, ThemeSummary, ThemeHistoryPoint } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import CategoryTable from "@/components/CategoryTable";
 import MacroPanel from "@/components/MacroPanel";
@@ -25,6 +25,7 @@ import SignalTransitionsPanel from "@/components/SignalTransitionsPanel";
 import DailyPlaybookPanel from "@/components/DailyPlaybookPanel";
 import MarketRegimeBanner from "@/components/MarketRegimeBanner";
 import SectorRotationWheel from "@/components/SectorRotationWheel";
+import ThemeSignalWidget from "@/components/ThemeSignalWidget";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +86,16 @@ export default async function Home({ searchParams }: Props) {
   const scoreHistory =
     scoreHistoryResult.status === "fulfilled" ? scoreHistoryResult.value : {};
 
+  const themes: ThemeSummary[] = await fetchThemes().catch(() => []);
+  const themeHistoryResults = await Promise.allSettled(
+    themes.map(t => fetchThemeHistory(t.id, 30))
+  );
+  const historiesByThemeId: Record<string, ThemeHistoryPoint[]> = {};
+  themes.forEach((t, i) => {
+    const result = themeHistoryResults[i];
+    historiesByThemeId[t.id] = result.status === "fulfilled" ? result.value : [];
+  });
+
   return (
     <div className="flex flex-col h-full">
       <main className="flex-1 p-6 space-y-6 overflow-auto">
@@ -102,6 +113,10 @@ export default async function Home({ searchParams }: Props) {
         {categories.length > 0 && <MarketRegimeBanner categories={categories} />}
 
         {categories.length > 0 && <ActionSummaryPanel categories={categories} winRateByCategory={winRateByCategory} priceLevelByCategory={priceLevelByCategory} scoreHistory={scoreHistory} />}
+
+        {themes.length > 0 && (
+          <ThemeSignalWidget themes={themes} historiesByThemeId={historiesByThemeId} />
+        )}
 
         {categories.length > 0 && (
           <DailyPlaybookPanel

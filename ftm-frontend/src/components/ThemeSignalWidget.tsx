@@ -97,23 +97,33 @@ type Props = {
 };
 
 export default function ThemeSignalWidget({ themes, historiesByThemeId }: Props) {
-  const actionableThemes = themes
+  const signalThemes = themes
     .filter(t => t.dominantSignal === "BUY" || t.dominantSignal === "WATCH")
     .sort((a, b) => {
       const scoreA = (b.compositeScore ?? 0) - (a.compositeScore ?? 0);
       if (scoreA !== 0) return scoreA;
       return (b.divergenceFromParentSectors ?? 0) - (a.divergenceFromParentSectors ?? 0);
-    })
-    .slice(0, 4);
+    });
+
+  const actionableThemes = signalThemes.length > 0
+    ? signalThemes.slice(0, 4)
+    : [...themes]
+        .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0))
+        .slice(0, 3);
 
   if (actionableThemes.length === 0) return null;
+  const showingTopByScore = signalThemes.length === 0;
 
   return (
     <section className="bg-slate-800/50 border border-slate-700/60 rounded-lg overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700/60">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-slate-200">Active Themes</h2>
-          <span className="text-[10px] font-mono text-slate-500">{actionableThemes.length} signalling</span>
+          <h2 className="text-sm font-semibold text-slate-200">
+            {showingTopByScore ? "Theme Leaders" : "Active Themes"}
+          </h2>
+          <span className="text-[10px] font-mono text-slate-500">
+            {showingTopByScore ? "top by score" : `${actionableThemes.length} signalling`}
+          </span>
         </div>
         <Link
           href="/themes"

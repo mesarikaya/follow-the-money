@@ -51,32 +51,31 @@ class AlertServiceTest {
   }
 
   @Test
-  @DisplayName("getAlerts returns active count and all mapped alerts")
+  @DisplayName("getAlerts returns only active alerts")
   void shouldReturnActiveCountAndAlerts() {
-    Alert active = activeAlert(1L);
-    Alert resolved = resolvedAlert(2L);
-    AlertDto activeDto = Instancio.create(AlertDto.class);
-    AlertDto resolvedDto = Instancio.create(AlertDto.class);
-    when(alertRepository.findRecentAlerts(100)).thenReturn(List.of(active, resolved));
-    when(alertMapper.toDto(active)).thenReturn(activeDto);
-    when(alertMapper.toDto(resolved)).thenReturn(resolvedDto);
+    Alert active1 = activeAlert(1L);
+    Alert active2 = activeAlert(2L);
+    AlertDto dto1 = Instancio.create(AlertDto.class);
+    AlertDto dto2 = Instancio.create(AlertDto.class);
+    when(alertRepository.findAllActive()).thenReturn(List.of(active1, active2));
+    when(alertMapper.toDto(active1)).thenReturn(dto1);
+    when(alertMapper.toDto(active2)).thenReturn(dto2);
 
     AlertsResponse response = alertService.getAlerts();
 
-    assertThat(response.activeCount()).isEqualTo(1);
+    assertThat(response.activeCount()).isEqualTo(2);
     assertThat(response.alerts()).hasSize(2);
   }
 
   @Test
-  @DisplayName("getAlerts returns 0 active count when all alerts are resolved")
+  @DisplayName("getAlerts returns empty list and zero count when no active alerts")
   void shouldReturnZeroActiveCount() {
-    Alert resolved = resolvedAlert(1L);
-    when(alertRepository.findRecentAlerts(100)).thenReturn(List.of(resolved));
-    when(alertMapper.toDto(resolved)).thenReturn(Instancio.create(AlertDto.class));
+    when(alertRepository.findAllActive()).thenReturn(List.of());
 
     AlertsResponse response = alertService.getAlerts();
 
     assertThat(response.activeCount()).isZero();
+    assertThat(response.alerts()).isEmpty();
   }
 
   @Test

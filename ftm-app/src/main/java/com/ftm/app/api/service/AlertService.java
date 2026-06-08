@@ -39,10 +39,9 @@ public class AlertService {
 
   @Cacheable("alerts-latest")
   public AlertsResponse getAlerts() {
-    List<Alert> recentAlerts = alertRepository.findRecentAlerts(RECENT_ALERTS_LIMIT);
-    long activeCount = recentAlerts.stream().filter(a -> a.status() == AlertStatus.ACTIVE).count();
-    List<AlertDto> alertDtos = recentAlerts.stream().map(alertMapper::toDto).toList();
-    return new AlertsResponse((int) activeCount, alertDtos);
+    List<Alert> activeAlerts = alertRepository.findAllActive();
+    List<AlertDto> alertDtos = activeAlerts.stream().map(alertMapper::toDto).toList();
+    return new AlertsResponse(alertDtos.size(), alertDtos);
   }
 
   public List<AlertRuleDto> getAlertRules() {

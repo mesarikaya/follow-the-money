@@ -208,7 +208,43 @@ function ThemeCard({ theme, history }: { theme: ThemeSummary; history: ThemeHist
   );
 }
 
-function ActiveRotationBanner({ themes }: { themes: ThemeSummary[] }) {
+function DualSparkline({
+  leaderHistory,
+  laggerHistory,
+}: {
+  leaderHistory: ThemeHistoryPoint[];
+  laggerHistory: ThemeHistoryPoint[];
+}) {
+  if (leaderHistory.length < 2 || laggerHistory.length < 2) return null;
+  const W = 96, H = 28;
+
+  const allVals = [...leaderHistory.map(h => h.compositeScore), ...laggerHistory.map(h => h.compositeScore)];
+  const minV = Math.min(...allVals);
+  const maxV = Math.max(...allVals);
+  const range = maxV - minV || 0.01;
+
+  const toPoints = (hist: ThemeHistoryPoint[]) =>
+    hist.map((h, i) => {
+      const x = (i / (hist.length - 1)) * W;
+      const y = H - ((h.compositeScore - minV) / range) * (H - 4) - 2;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(" ");
+
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="opacity-80 shrink-0">
+      <polyline points={toPoints(laggerHistory)} fill="none" stroke="#f87171" strokeWidth="1.2" strokeLinecap="round" />
+      <polyline points={toPoints(leaderHistory)} fill="none" stroke="#34d399" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ActiveRotationBanner({
+  themes,
+  historiesByThemeId,
+}: {
+  themes: ThemeSummary[];
+  historiesByThemeId: Record<string, ThemeHistoryPoint[]>;
+}) {
   const scored = themes.filter(t => t.compositeScore != null && t.compositeTrend20d != null);
   if (scored.length < 2) return null;
 
@@ -243,15 +279,21 @@ function ActiveRotationBanner({ themes }: { themes: ThemeSummary[] }) {
           {lagger.name}
         </Link>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <span className="text-[12px] font-bold font-mono text-white">
-          +{Math.round(divergence * 100)}pt
-        </span>
-        {isRotating && (
-          <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
-            rotating ↑↓
+      <div className="flex items-center gap-3 shrink-0">
+        <DualSparkline
+          leaderHistory={historiesByThemeId[leader.id] ?? []}
+          laggerHistory={historiesByThemeId[lagger.id] ?? []}
+        />
+        <div className="flex flex-col items-end gap-0.5">
+          <span className="text-[13px] font-bold font-mono text-white">
+            +{Math.round(divergence * 100)}pt
           </span>
-        )}
+          {isRotating && (
+            <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+              rotating ↑↓
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -368,7 +410,7 @@ export default async function ThemesPage() {
           )}
         </div>
 
-        {themes.length > 0 && <ActiveRotationBanner themes={themes} />}
+        {themes.length > 0 && <ActiveRotationBanner themes={themes} historiesByThemeId={historyByThemeId} />}
         {themes.length > 0 && <RotationMomentumStrip themes={themes} />}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">

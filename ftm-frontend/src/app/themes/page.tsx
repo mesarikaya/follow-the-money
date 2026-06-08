@@ -208,6 +208,55 @@ function ThemeCard({ theme, history }: { theme: ThemeSummary; history: ThemeHist
   );
 }
 
+function ActiveRotationBanner({ themes }: { themes: ThemeSummary[] }) {
+  const scored = themes.filter(t => t.compositeScore != null && t.compositeTrend20d != null);
+  if (scored.length < 2) return null;
+
+  const byScore = [...scored].sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
+  const leader = byScore[0];
+  const lagger = byScore[byScore.length - 1];
+  const divergence = (leader.compositeScore ?? 0) - (lagger.compositeScore ?? 0);
+
+  if (divergence < 0.12) return null;
+
+  const leaderUp = (leader.compositeTrend20d ?? 0) > 0;
+  const laggerDown = (lagger.compositeTrend20d ?? 0) < 0;
+  const isRotating = leaderUp && laggerDown;
+
+  return (
+    <div className={`rounded-lg px-4 py-2.5 mb-4 flex items-center justify-between gap-4 ${
+      isRotating
+        ? "bg-emerald-900/20 border border-emerald-700/40"
+        : "bg-slate-800/50 border border-slate-700/60"
+    }`}>
+      <div className="flex items-center gap-3 min-w-0">
+        <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider shrink-0">
+          Rotation
+        </span>
+        <Link href={`/themes/${leader.id}`} className="text-[12px] font-semibold text-emerald-400 hover:text-emerald-300 truncate">
+          {leader.name}
+        </Link>
+        <span className="text-[10px] text-slate-500 shrink-0">
+          {isRotating ? "outpacing" : "ahead of"}
+        </span>
+        <Link href={`/themes/${lagger.id}`} className="text-[12px] font-medium text-red-400 hover:text-red-300 truncate">
+          {lagger.name}
+        </Link>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <span className="text-[12px] font-bold font-mono text-white">
+          +{Math.round(divergence * 100)}pt
+        </span>
+        {isRotating && (
+          <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+            rotating ↑↓
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function RotationMomentumStrip({ themes }: { themes: ThemeSummary[] }) {
   const withVelocity = themes.filter(t => t.compositeTrend20d != null);
   if (withVelocity.length < 2) return null;
@@ -319,6 +368,7 @@ export default async function ThemesPage() {
           )}
         </div>
 
+        {themes.length > 0 && <ActiveRotationBanner themes={themes} />}
         {themes.length > 0 && <RotationMomentumStrip themes={themes} />}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">

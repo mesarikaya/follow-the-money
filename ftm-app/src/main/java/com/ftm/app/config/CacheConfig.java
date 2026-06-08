@@ -41,15 +41,18 @@ public class CacheConfig {
     manager.registerCustomCache(
         "transitions-latest",
         Caffeine.newBuilder().maximumSize(20).expireAfterWrite(1, TimeUnit.HOURS).build());
-    // Evicted on SignalsUpdatedEvent — expensive PERCENT_RANK window function; no-arg (single entry)
+    // Evicted on SignalsUpdatedEvent — expensive PERCENT_RANK window function; no-arg (single
+    // entry)
     manager.registerCustomCache(
         "score-percentile-252d",
         Caffeine.newBuilder().maximumSize(1).expireAfterWrite(1, TimeUnit.HOURS).build());
-    // Evicted on SignalsUpdatedEvent — window function over 365d of COMPOSITE signals; keyed by threshold
+    // Evicted on SignalsUpdatedEvent — window function over 365d of COMPOSITE signals; keyed by
+    // threshold
     manager.registerCustomCache(
         "signal-days-active",
         Caffeine.newBuilder().maximumSize(10).expireAfterWrite(1, TimeUnit.HOURS).build());
-    // Evicted on SignalsUpdatedEvent — ROW_NUMBER CTE over 400d of raw_prices; no-arg (single entry)
+    // Evicted on SignalsUpdatedEvent — ROW_NUMBER CTE over 400d of raw_prices; no-arg (single
+    // entry)
     manager.registerCustomCache(
         "price-levels",
         Caffeine.newBuilder().maximumSize(1).expireAfterWrite(1, TimeUnit.HOURS).build());
@@ -77,6 +80,17 @@ public class CacheConfig {
     manager.registerCustomCache(
         "alerts-count",
         Caffeine.newBuilder().maximumSize(1).expireAfterWrite(30, TimeUnit.MINUTES).build());
+    // Evicted on SignalsUpdatedEvent — theme composite aggregations; keyed by themeId
+    manager.registerCustomCache(
+        "themes-latest",
+        Caffeine.newBuilder().maximumSize(50).expireAfterWrite(1, TimeUnit.HOURS).build());
+    manager.registerCustomCache(
+        "theme-detail",
+        Caffeine.newBuilder().maximumSize(50).expireAfterWrite(1, TimeUnit.HOURS).build());
+    // Evicted on SignalsUpdatedEvent — per-theme sparkline history; keyed by themeId+days
+    manager.registerCustomCache(
+        "theme-history",
+        Caffeine.newBuilder().maximumSize(100).expireAfterWrite(1, TimeUnit.HOURS).build());
     // Not evicted by events — FX rates fetched from FRED/Yahoo on every upload; 1h TTL avoids
     // repeated external calls when multiple holdings share the same currency conversion step
     manager.registerCustomCache(

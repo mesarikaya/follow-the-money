@@ -103,7 +103,8 @@ public class MacroService {
     }
     for (MacroIndicator mi : raw) {
       if (mi.value() != null) {
-        result.computeIfAbsent(mi.seriesId(), k -> new ArrayList<>())
+        result
+            .computeIfAbsent(mi.seriesId(), k -> new ArrayList<>())
             .add(new MacroSeriesPoint(mi.observationDate(), mi.value()));
       }
     }

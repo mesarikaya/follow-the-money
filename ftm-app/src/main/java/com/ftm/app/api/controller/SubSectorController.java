@@ -28,7 +28,9 @@ public class SubSectorController {
   @Operation(summary = "All sub-sectors for the given parent category, sorted by RS-60 descending")
   public List<SubSectorSummaryDto> getSubSectors(
       @RequestParam(defaultValue = "TECH")
-          @Pattern(regexp = "[A-Za-z0-9_]{1,20}", message = "parent must be 1–20 alphanumeric characters")
+          @Pattern(
+              regexp = "[A-Za-z0-9_]{1,20}",
+              message = "parent must be 1–20 alphanumeric characters")
           String parent) {
     return subSectorService.getSubSectors(parent.toUpperCase());
   }

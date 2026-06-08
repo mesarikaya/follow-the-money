@@ -50,7 +50,10 @@ public class TickerMappingRepository {
         .from(TICKER_CATEGORY_MAP)
         .where(TICKER.eq(ticker.toUpperCase()))
         .fetchOptional()
-        .map(r -> new TickerMapping(r.get(TICKER), r.get(CATEGORY_ID), r.get(NOTES), r.get(UPDATED_AT)));
+        .map(
+            r ->
+                new TickerMapping(
+                    r.get(TICKER), r.get(CATEGORY_ID), r.get(NOTES), r.get(UPDATED_AT)));
   }
 
   public void upsert(String ticker, String categoryId, String notes) {

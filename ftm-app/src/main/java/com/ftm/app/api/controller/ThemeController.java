@@ -1,22 +1,28 @@
 package com.ftm.app.api.controller;
 
 import com.ftm.app.api.dto.ThemeDetailDto;
+import com.ftm.app.api.dto.ThemeHistoryPointDto;
 import com.ftm.app.api.dto.ThemeSummaryDto;
 import com.ftm.app.api.service.ThemeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import java.util.List;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/themes")
 @Validated
-@Tag(name = "Themes", description = "Cross-sector investment theme baskets with aggregated rotation signals")
+@Tag(
+    name = "Themes",
+    description = "Cross-sector investment theme baskets with aggregated rotation signals")
 public class ThemeController {
 
   private final ThemeService themeService;
@@ -32,11 +38,28 @@ public class ThemeController {
   }
 
   @GetMapping("/{themeId}")
-  @Operation(summary = "Detail view for a single theme: all constituent ETFs with individual signals")
+  @Operation(
+      summary = "Detail view for a single theme: all constituent ETFs with individual signals")
   public ThemeDetailDto getTheme(
       @PathVariable
-          @Pattern(regexp = "[A-Za-z0-9_]{1,30}", message = "themeId must be 1–30 alphanumeric characters")
+          @Pattern(
+              regexp = "[A-Za-z0-9_]{1,30}",
+              message = "themeId must be 1–30 alphanumeric characters")
           String themeId) {
     return themeService.getTheme(themeId.toUpperCase());
+  }
+
+  @GetMapping("/{themeId}/history")
+  @Operation(
+      summary =
+          "Daily composite score history for a theme — per-day average across all constituents, ordered earliest to latest")
+  public List<ThemeHistoryPointDto> getThemeHistory(
+      @PathVariable
+          @Pattern(
+              regexp = "[A-Za-z0-9_]{1,30}",
+              message = "themeId must be 1–30 alphanumeric characters")
+          String themeId,
+      @RequestParam(defaultValue = "30") @Min(1) @Max(252) int days) {
+    return themeService.getThemeHistory(themeId.toUpperCase(), days);
   }
 }

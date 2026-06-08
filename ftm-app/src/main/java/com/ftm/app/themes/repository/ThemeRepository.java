@@ -17,21 +17,42 @@ public class ThemeRepository {
   }
 
   public List<Theme> findAll() {
-    return dsl.resultQuery("SELECT id, name, thesis, display_order FROM themes ORDER BY display_order")
+    return dsl.resultQuery(
+            "SELECT id, name, thesis, display_order FROM themes ORDER BY display_order")
         .fetch()
-        .map(r -> new Theme(
-            r.get("id", String.class),
-            r.get("name", String.class),
-            r.get("thesis", String.class),
-            r.get("display_order", Integer.class)));
+        .map(
+            r ->
+                new Theme(
+                    r.get("id", String.class),
+                    r.get("name", String.class),
+                    r.get("thesis", String.class),
+                    r.get("display_order", Integer.class)));
   }
 
   public Map<String, List<String>> findAllConstituentsByTheme() {
-    return dsl.resultQuery("SELECT theme_id, category_id FROM theme_constituents ORDER BY theme_id, category_id")
+    return dsl
+        .resultQuery(
+            "SELECT theme_id, category_id FROM theme_constituents ORDER BY theme_id, category_id")
         .fetch()
         .stream()
-        .collect(Collectors.groupingBy(
-            r -> r.get("theme_id", String.class),
-            Collectors.mapping(r -> r.get("category_id", String.class), Collectors.toList())));
+        .collect(
+            Collectors.groupingBy(
+                r -> r.get("theme_id", String.class),
+                Collectors.mapping(r -> r.get("category_id", String.class), Collectors.toList())));
+  }
+
+  public boolean existsById(String themeId) {
+    Integer count =
+        dsl.resultQuery("SELECT COUNT(*)::int FROM themes WHERE id = {0}", themeId)
+            .fetchOneInto(Integer.class);
+    return count != null && count > 0;
+  }
+
+  public List<String> findConstituentIds(String themeId) {
+    return dsl.resultQuery(
+            "SELECT category_id FROM theme_constituents WHERE theme_id = {0} ORDER BY category_id",
+            themeId)
+        .fetch()
+        .map(r -> r.get("category_id", String.class));
   }
 }

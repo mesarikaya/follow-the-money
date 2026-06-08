@@ -54,7 +54,8 @@ public class BacktestController {
   }
 
   @PostMapping("/frequency-sweep")
-  @Operation(summary = "Run the same backtest at WEEKLY, MONTHLY, and QUARTERLY rebalance frequencies")
+  @Operation(
+      summary = "Run the same backtest at WEEKLY, MONTHLY, and QUARTERLY rebalance frequencies")
   public List<BacktestResult> sweepFrequency(@Valid @RequestBody BacktestRequest request) {
     List<BacktestResult> results = new ArrayList<>();
     for (String frequency : SWEEP_FREQUENCIES) {
@@ -72,7 +73,8 @@ public class BacktestController {
   }
 
   @PostMapping("/sweep")
-  @Operation(summary = "Run the same backtest for topN = 1 through 12 to find the optimal holding count")
+  @Operation(
+      summary = "Run the same backtest for topN = 1 through 12 to find the optimal holding count")
   public List<BacktestResult> sweepTopN(@Valid @RequestBody BacktestRequest request) {
     List<BacktestResult> results = new ArrayList<>();
     for (int n = 1; n <= SWEEP_MAX_TOP_N; n++) {

@@ -4,7 +4,6 @@ import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.alerts.repository.AlertRulesRepository;
 import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.api.service.TradeSignalDeriver;
-import com.ftm.app.themes.repository.ThemeRepository;
 import com.ftm.app.domain.Alert;
 import com.ftm.app.domain.AlertRule;
 import com.ftm.app.domain.AlertStatus;
@@ -18,6 +17,7 @@ import com.ftm.app.signals.domain.MacroRegime;
 import com.ftm.app.signals.event.SignalsUpdatedEvent;
 import com.ftm.app.signals.repository.RotationEventRepository;
 import com.ftm.app.signals.repository.SignalRepository;
+import com.ftm.app.themes.repository.ThemeRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -2160,8 +2160,7 @@ public class AlertRulesEngine {
    * This pattern warns that the top-level momentum may be driven by a minority of sub-sectors and
    * could be fragile.
    *
-   * <p>Resolves when sub-sector breadth recovers to ≥55% or the parent sector's BUY signal is
-   * gone.
+   * <p>Resolves when sub-sector breadth recovers to ≥55% or the parent sector's BUY signal is gone.
    */
   private int evaluateSubSectorBreadthDivergence(
       LocalDate signalDate, Set<String> equityCategoryIds) {
@@ -2245,10 +2244,8 @@ public class AlertRulesEngine {
     return count;
   }
 
-  private int evaluateSubSectorBullConfluence(
-      LocalDate signalDate, Set<String> equityCategoryIds) {
-    Optional<AlertRule> rule =
-        alertRulesRepository.findById(RULE_SUB_SECTOR_BULL_CONFLUENCE);
+  private int evaluateSubSectorBullConfluence(LocalDate signalDate, Set<String> equityCategoryIds) {
+    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_SUB_SECTOR_BULL_CONFLUENCE);
     if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
     Severity severity = rule.map(AlertRule::severity).orElse(Severity.INFO);
 
@@ -2300,10 +2297,7 @@ public class AlertRulesEngine {
         String message =
             String.format(
                 "%s has broad sub-sector confluence: %d%% of sub-sectors in Leading/Improving RRG (%d/%d) — internally confirmed sector rotation",
-                categoryId,
-                Math.round(breadth * 100),
-                (int) bullishCount,
-                subQuadrants.size());
+                categoryId, Math.round(breadth * 100), (int) bullishCount, subQuadrants.size());
         String snapshot =
             String.format(
                 "{\"subBreadth\":%.2f,\"bullishCount\":%d,\"totalSubSectors\":%d,\"signalDate\":\"%s\"}",
@@ -2322,8 +2316,7 @@ public class AlertRulesEngine {
             categoryId, Math.round(breadth * 100), (int) bullishCount, subQuadrants.size());
         count++;
       } else if (hasActive && breadth < SUB_SECTOR_BULL_CONFLUENCE_RESOLVE_FRACTION) {
-        alertRepository.resolveAlertsByRuleAndCategory(
-            RULE_SUB_SECTOR_BULL_CONFLUENCE, categoryId);
+        alertRepository.resolveAlertsByRuleAndCategory(RULE_SUB_SECTOR_BULL_CONFLUENCE, categoryId);
         log.info(
             "sub_sector_bull_confluence: resolved category={} breadth={}%",
             categoryId, Math.round(breadth * 100));
@@ -2333,8 +2326,8 @@ public class AlertRulesEngine {
   }
 
   /**
-   * Fires when a theme's majority signal transitions to BUY or REDUCE (≥50% of constituents).
-   * Uses null category_id + theme_id discriminator so each theme gets its own active alert slot.
+   * Fires when a theme's majority signal transitions to BUY or REDUCE (≥50% of constituents). Uses
+   * null category_id + theme_id discriminator so each theme gets its own active alert slot.
    * Resolves when the bullish or bearish fraction drops below the resolve threshold.
    */
   private int evaluateThemeSignalTransitions(LocalDate signalDate) {
@@ -2355,14 +2348,16 @@ public class AlertRulesEngine {
       List<String> ids = entry.getValue();
       if (ids.isEmpty()) continue;
 
-      long buyCount = ids.stream()
-          .map(compositeMap::get)
-          .filter(s -> s != null && s.compareTo(BUY_SCORE_THRESHOLD) >= 0)
-          .count();
-      long reduceCount = ids.stream()
-          .map(compositeMap::get)
-          .filter(s -> s != null && s.compareTo(REDUCE_SCORE_THRESHOLD) < 0)
-          .count();
+      long buyCount =
+          ids.stream()
+              .map(compositeMap::get)
+              .filter(s -> s != null && s.compareTo(BUY_SCORE_THRESHOLD) >= 0)
+              .count();
+      long reduceCount =
+          ids.stream()
+              .map(compositeMap::get)
+              .filter(s -> s != null && s.compareTo(REDUCE_SCORE_THRESHOLD) < 0)
+              .count();
       int total = ids.size();
 
       double buyFraction = (double) buyCount / total;
@@ -2370,36 +2365,53 @@ public class AlertRulesEngine {
       boolean isBuyMajority = buyFraction >= THEME_BUY_FIRE_FRACTION;
       boolean isReduceMajority = reduceFraction >= THEME_REDUCE_FIRE_FRACTION;
 
-      boolean hasActive = alertRepository.existsActiveAlertForTheme(RULE_THEME_SIGNAL_TRANSITION, themeId);
+      boolean hasActive =
+          alertRepository.existsActiveAlertForTheme(RULE_THEME_SIGNAL_TRANSITION, themeId);
 
       if (isBuyMajority && !isReduceMajority && !hasActive) {
-        alertRepository.insert(new Alert(
-            null, OffsetDateTime.now(), null, themeId,
-            RULE_THEME_SIGNAL_TRANSITION, severity,
-            String.format(
-                "%s theme entered BUY: %d/%d constituents above BUY threshold — cross-sector rotation confirmed",
-                themeId, buyCount, total),
-            String.format(
-                "{\"themeId\":\"%s\",\"buyFraction\":%.2f,\"buyCount\":%d,\"total\":%d,\"signalDate\":\"%s\"}",
-                themeId, buyFraction, buyCount, total, signalDate),
-            AlertStatus.ACTIVE, null, null));
+        alertRepository.insert(
+            new Alert(
+                null,
+                OffsetDateTime.now(),
+                null,
+                themeId,
+                RULE_THEME_SIGNAL_TRANSITION,
+                severity,
+                String.format(
+                    "%s theme entered BUY: %d/%d constituents above BUY threshold — cross-sector rotation confirmed",
+                    themeId, buyCount, total),
+                String.format(
+                    "{\"themeId\":\"%s\",\"buyFraction\":%.2f,\"buyCount\":%d,\"total\":%d,\"signalDate\":\"%s\"}",
+                    themeId, buyFraction, buyCount, total, signalDate),
+                AlertStatus.ACTIVE,
+                null,
+                null));
         count++;
-        log.info("theme_signal_transition BUY: theme={} buyFraction={}% ({}/{})",
+        log.info(
+            "theme_signal_transition BUY: theme={} buyFraction={}% ({}/{})",
             themeId, Math.round(buyFraction * 100), buyCount, total);
 
       } else if (isReduceMajority && !isBuyMajority && !hasActive) {
-        alertRepository.insert(new Alert(
-            null, OffsetDateTime.now(), null, themeId,
-            RULE_THEME_SIGNAL_TRANSITION, severity,
-            String.format(
-                "%s theme entered REDUCE: %d/%d constituents below REDUCE threshold — theme rotation reversing",
-                themeId, reduceCount, total),
-            String.format(
-                "{\"themeId\":\"%s\",\"reduceFraction\":%.2f,\"reduceCount\":%d,\"total\":%d,\"signalDate\":\"%s\"}",
-                themeId, reduceFraction, reduceCount, total, signalDate),
-            AlertStatus.ACTIVE, null, null));
+        alertRepository.insert(
+            new Alert(
+                null,
+                OffsetDateTime.now(),
+                null,
+                themeId,
+                RULE_THEME_SIGNAL_TRANSITION,
+                severity,
+                String.format(
+                    "%s theme entered REDUCE: %d/%d constituents below REDUCE threshold — theme rotation reversing",
+                    themeId, reduceCount, total),
+                String.format(
+                    "{\"themeId\":\"%s\",\"reduceFraction\":%.2f,\"reduceCount\":%d,\"total\":%d,\"signalDate\":\"%s\"}",
+                    themeId, reduceFraction, reduceCount, total, signalDate),
+                AlertStatus.ACTIVE,
+                null,
+                null));
         count++;
-        log.info("theme_signal_transition REDUCE: theme={} reduceFraction={}% ({}/{})",
+        log.info(
+            "theme_signal_transition REDUCE: theme={} reduceFraction={}% ({}/{})",
             themeId, Math.round(reduceFraction * 100), reduceCount, total);
 
       } else if (hasActive && !isBuyMajority && !isReduceMajority) {

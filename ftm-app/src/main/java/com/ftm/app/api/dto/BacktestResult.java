@@ -32,13 +32,28 @@ public record BacktestResult(
 
   public BacktestResult stripped() {
     return new BacktestResult(
-        null, null,
-        startDate, endDate, rebalanceFrequency, topN, signalThreshold,
-        totalReturnPct, annualizedReturnPct, maxDrawdownPct,
-        sharpeRatio, sortinoRatio, calmarRatio,
-        spyTotalReturnPct, spyAnnualizedReturnPct, spyMaxDrawdownPct,
-        spySharpeRatio, spySortinoRatio, spyCalmarRatio,
-        tradingDays, List.of(), List.of());
+        null,
+        null,
+        startDate,
+        endDate,
+        rebalanceFrequency,
+        topN,
+        signalThreshold,
+        totalReturnPct,
+        annualizedReturnPct,
+        maxDrawdownPct,
+        sharpeRatio,
+        sortinoRatio,
+        calmarRatio,
+        spyTotalReturnPct,
+        spyAnnualizedReturnPct,
+        spyMaxDrawdownPct,
+        spySharpeRatio,
+        spySortinoRatio,
+        spyCalmarRatio,
+        tradingDays,
+        List.of(),
+        List.of());
   }
 
   public record EquityCurvePoint(LocalDate date, double portfolioValue, double spyValue) {}

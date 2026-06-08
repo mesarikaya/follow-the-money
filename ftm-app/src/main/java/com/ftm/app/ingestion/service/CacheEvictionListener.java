@@ -51,6 +51,9 @@ public class CacheEvictionListener {
     evict("signal-history");
     evict("alerts-latest");
     evict("alerts-count");
+    evict("themes-latest");
+    evict("theme-detail");
+    evict("theme-history");
   }
 
   private void evict(String cacheName) {

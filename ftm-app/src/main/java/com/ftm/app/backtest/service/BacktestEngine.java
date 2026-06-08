@@ -374,7 +374,8 @@ public class BacktestEngine {
       if (previous > 0) dailyReturns.add((current - previous) / previous);
     }
     if (dailyReturns.isEmpty()) return 0.0;
-    double meanReturn = dailyReturns.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+    double meanReturn =
+        dailyReturns.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
     // Downside variance: sum(min(r,0)^2) / n  — matches frontend formula
     double downsideVariance =
         dailyReturns.stream().mapToDouble(r -> Math.pow(Math.min(r, 0.0), 2)).average().orElse(0.0);

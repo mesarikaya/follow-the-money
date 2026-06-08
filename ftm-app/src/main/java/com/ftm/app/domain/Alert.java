@@ -23,7 +23,17 @@ public record Alert(
       String message,
       String triggerSnapshot,
       AlertStatus status) {
-    this(null, createdAt, categoryId, null, ruleId, severity, message, triggerSnapshot, status, null, null);
+    this(
+        null,
+        createdAt,
+        categoryId,
+        null,
+        ruleId,
+        severity,
+        message,
+        triggerSnapshot,
+        status,
+        null,
+        null);
   }
-
 }

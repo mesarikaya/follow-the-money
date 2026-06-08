@@ -430,6 +430,32 @@ public class SignalRepository {
     return result;
   }
 
+  public List<DateScore> findAverageCompositeByDate(
+      Collection<String> categoryIds, int tradingDays) {
+    if (categoryIds.isEmpty()) return List.of();
+    var recentDates =
+        dsl.selectDistinct(SIGNALS.SIGNAL_DATE)
+            .from(SIGNALS)
+            .where(SIGNALS.SIGNAL_TYPE.eq(SignalType.COMPOSITE.name()))
+            .orderBy(SIGNALS.SIGNAL_DATE.desc())
+            .limit(tradingDays);
+    return dsl.select(SIGNALS.SIGNAL_DATE, avg(SIGNALS.VALUE).as("avg_composite"))
+        .from(SIGNALS)
+        .where(SIGNALS.SIGNAL_TYPE.eq(SignalType.COMPOSITE.name()))
+        .and(SIGNALS.SIGNAL_DATE.in(recentDates))
+        .and(SIGNALS.CATEGORY_ID.in(categoryIds))
+        .groupBy(SIGNALS.SIGNAL_DATE)
+        .orderBy(SIGNALS.SIGNAL_DATE.asc())
+        .fetch()
+        .map(
+            r ->
+                new DateScore(
+                    r.get(SIGNALS.SIGNAL_DATE),
+                    r.get("avg_composite", BigDecimal.class).doubleValue()));
+  }
+
+  public record DateScore(LocalDate date, double averageComposite) {}
+
   @Cacheable("score-percentile-252d")
   public Map<String, BigDecimal> findScorePercentile252d() {
     return dsl.resultQuery(

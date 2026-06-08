@@ -20,7 +20,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/portfolio/holdings")
-@Tag(name = "Holdings", description = "Individual portfolio holdings — CSV bulk upload and manual CRUD")
+@Tag(
+    name = "Holdings",
+    description = "Individual portfolio holdings — CSV bulk upload and manual CRUD")
 public class HoldingController {
 
   private final HoldingUploadService holdingUploadService;

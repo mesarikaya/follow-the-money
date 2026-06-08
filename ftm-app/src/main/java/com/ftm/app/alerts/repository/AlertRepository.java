@@ -58,7 +58,9 @@ public class AlertRepository {
   public boolean existsActiveAlertForTheme(String ruleId, String themeId) {
     return dsl.fetchExists(
         ALERTS,
-        ALERTS.RULE_ID.eq(ruleId)
+        ALERTS
+            .RULE_ID
+            .eq(ruleId)
             .and(ALERTS.STATUS.eq(AlertStatus.ACTIVE.name()))
             .and(ALERTS.THEME_ID.eq(themeId)));
   }
@@ -125,7 +127,9 @@ public class AlertRepository {
         .set(ALERTS.STATUS, AlertStatus.RESOLVED.name())
         .set(ALERTS.RESOLVED_AT, OffsetDateTime.now())
         .where(
-            ALERTS.RULE_ID.eq(ruleId)
+            ALERTS
+                .RULE_ID
+                .eq(ruleId)
                 .and(ALERTS.STATUS.eq(AlertStatus.ACTIVE.name()))
                 .and(ALERTS.THEME_ID.eq(themeId)))
         .execute();

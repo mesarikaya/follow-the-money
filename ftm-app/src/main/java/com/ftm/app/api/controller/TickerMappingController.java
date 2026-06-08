@@ -46,10 +46,7 @@ public class TickerMappingController {
   public ResponseEntity<TickerMappingDto> upsert(@Valid @RequestBody TickerMappingRequest request) {
     tickerMappingRepository.upsert(request.ticker(), request.categoryId(), request.notes());
     holdingClassificationService.refreshCache();
-    TickerMapping saved =
-        tickerMappingRepository
-            .findByTicker(request.ticker())
-            .orElseThrow();
+    TickerMapping saved = tickerMappingRepository.findByTicker(request.ticker()).orElseThrow();
     return ResponseEntity.ok(tickerMappingMapper.toDto(saved));
   }
 

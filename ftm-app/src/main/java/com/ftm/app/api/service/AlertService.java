@@ -77,26 +77,22 @@ public class AlertService {
     return alertRepository.countActive();
   }
 
-  @Caching(evict = {
-    @CacheEvict("alerts-latest"),
-    @CacheEvict("alerts-count")
-  })
+  @Caching(evict = {@CacheEvict("alerts-latest"), @CacheEvict("alerts-count")})
   public int acknowledgeAllActive() {
     int count = alertRepository.acknowledgeAllActive();
     log.info("Bulk-dismissed {} active alerts", count);
     return count;
   }
 
-  @Caching(evict = {
-    @CacheEvict("alerts-latest"),
-    @CacheEvict("alerts-count")
-  })
+  @Caching(evict = {@CacheEvict("alerts-latest"), @CacheEvict("alerts-count")})
   public AlertDto acknowledgeAlert(Long alertId) {
     Alert acknowledged =
         alertRepository
             .acknowledgeAlert(alertId)
             .orElseThrow(
-                () -> new NoSuchElementException("Alert not found or already acknowledged: " + alertId));
+                () ->
+                    new NoSuchElementException(
+                        "Alert not found or already acknowledged: " + alertId));
     log.info("Alert acknowledged: id={}", alertId);
     return alertMapper.toDto(acknowledged);
   }

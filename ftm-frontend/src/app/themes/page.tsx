@@ -393,6 +393,58 @@ function RotationMomentumStrip({ themes }: { themes: ThemeSummary[] }) {
   );
 }
 
+function ThemeNarrative({ themes }: { themes: ThemeSummary[] }) {
+  if (themes.length === 0) return null;
+
+  const buy = themes.filter(t => t.dominantSignal === "BUY");
+  const watch = themes.filter(t => t.dominantSignal === "WATCH");
+  const reduce = themes.filter(t => t.dominantSignal === "REDUCE");
+
+  const sorted = [...themes].sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
+  const topTheme = sorted[0];
+  const bottomTheme = sorted[sorted.length - 1];
+
+  const rising = themes
+    .filter(t => (t.compositeTrend20d ?? 0) > 0.005)
+    .sort((a, b) => (b.compositeTrend20d ?? 0) - (a.compositeTrend20d ?? 0));
+  const falling = themes
+    .filter(t => (t.compositeTrend20d ?? 0) < -0.005)
+    .sort((a, b) => (a.compositeTrend20d ?? 0) - (b.compositeTrend20d ?? 0));
+
+  const sentences: string[] = [];
+
+  if (buy.length > 0) {
+    const names = buy.map(t => t.name).join(", ");
+    sentences.push(`${buy.length === 1 ? buy[0].name : `${buy.length} themes (${names})`} ${buy.length === 1 ? "is" : "are"} in full BUY.`);
+  }
+  if (watch.length > 0) {
+    sentences.push(`${watch.map(t => t.name).join(", ")} ${watch.length === 1 ? "is" : "are"} building toward BUY.`);
+  }
+  if (reduce.length > 0) {
+    sentences.push(`${reduce.map(t => t.name).join(", ")} ${reduce.length === 1 ? "is" : "are"} in REDUCE.`);
+  }
+  if (rising.length > 0 && falling.length > 0) {
+    sentences.push(`${rising[0].name} is the fastest accelerating (+${Math.round((rising[0].compositeTrend20d ?? 0) * 1000)}‰/day); ${falling[0].name} is decelerating fastest.`);
+  } else if (rising.length > 0) {
+    sentences.push(`${rising[0].name} is the strongest momentum play right now.`);
+  }
+  if (topTheme && bottomTheme && topTheme.id !== bottomTheme.id) {
+    const spread = Math.round(((topTheme.compositeScore ?? 0) - (bottomTheme.compositeScore ?? 0)) * 100);
+    if (spread > 15) {
+      sentences.push(`${spread}pt spread between ${topTheme.name} and ${bottomTheme.name} — widest divergence in the current cohort.`);
+    }
+  }
+
+  if (sentences.length === 0) return null;
+
+  return (
+    <div className="bg-slate-800/30 border border-slate-700/40 rounded-lg px-4 py-3 mb-4">
+      <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1.5">Market Narrative</div>
+      <p className="text-slate-300 text-xs leading-relaxed">{sentences.join(" ")}</p>
+    </div>
+  );
+}
+
 function ThemeRelativeStrengthPlot({ themes }: { themes: ThemeSummary[] }) {
   const plotThemes = themes.filter(
     t => t.divergenceFromParentSectors != null && t.compositeTrend20d != null
@@ -624,6 +676,7 @@ export default async function ThemesPage() {
           )}
         </div>
 
+        {themes.length > 0 && <ThemeNarrative themes={themes} />}
         {themes.length > 0 && <ActiveRotationBanner themes={themes} historiesByThemeId={historyByThemeId} />}
         {themes.length > 0 && <RotationMomentumStrip themes={themes} />}
         {themes.length > 1 && <ThemeRelativeStrengthPlot themes={themes} />}

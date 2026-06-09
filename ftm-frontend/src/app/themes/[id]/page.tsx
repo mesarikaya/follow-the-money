@@ -357,6 +357,12 @@ export default async function ThemeDetailPage({
 
   const signal = SIGNAL_CONFIG[theme.dominantSignal] ?? SIGNAL_CONFIG.HOLD;
 
+  const isCrowded =
+    theme.dominantSignal === "BUY" &&
+    (theme.compositeScore ?? 0) >= 0.65 &&
+    (theme.flow20d ?? 0) >= 1.5 &&
+    (theme.divergenceFromParentSectors ?? 0) >= 0.08;
+
   return (
     <main className="flex-1 min-h-0 overflow-y-auto bg-slate-900 p-4 md:p-6">
       <div className="max-w-5xl mx-auto">
@@ -374,9 +380,19 @@ export default async function ThemeDetailPage({
               </h1>
               <p className="text-slate-400 text-sm leading-relaxed max-w-2xl">{theme.thesis}</p>
             </div>
-            <span className={`shrink-0 text-xs font-semibold px-2.5 py-1 rounded ${signal.bg} ${signal.color}`}>
-              {signal.label}
-            </span>
+            <div className="flex flex-col items-end gap-1.5 shrink-0">
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded ${signal.bg} ${signal.color}`}>
+                {signal.label}
+              </span>
+              {isCrowded && (
+                <span
+                  className="text-[9px] font-semibold px-2 py-0.5 rounded bg-orange-500/15 text-orange-400 border border-orange-500/30"
+                  title="Score ≥65, flow ≥1.5σ, divergence ≥+8pt — all signals agree: potentially crowded. Consider sizing conservatively."
+                >
+                  ⚠ Crowded Trade
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="flex gap-6 flex-wrap">

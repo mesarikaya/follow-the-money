@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { fetchTheme, fetchThemeHistory, fetchThemes, ThemeConstituent, ThemeHistoryPoint, ThemeSummary } from "@/lib/api";
+import { fetchTheme, fetchThemeHistory, fetchThemes, fetchAlerts, AlertDto, ThemeConstituent, ThemeHistoryPoint, ThemeSummary } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { SECTOR_DRILLDOWN_IDS, SECTOR_SHORT_NAMES, getParentSectorId } from "@/lib/sectors";
 
@@ -250,6 +250,55 @@ function SignalDistributionBar({ constituents }: { constituents: ThemeConstituen
   );
 }
 
+const RULE_LABELS: Record<string, string> = {
+  theme_5d_acceleration:            "5d Momentum Acceleration",
+  theme_dominant_signal_transition: "Signal Transition",
+  theme_momentum_surge:             "Momentum Surge",
+  theme_momentum_collapse:          "Momentum Collapse",
+  pre_buy_flow_surge:               "Pre-Buy Flow Surge",
+};
+
+const SEVERITY_CONFIG: Record<string, { badge: string }> = {
+  ACTION:  { badge: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25" },
+  WARNING: { badge: "bg-amber-500/15 text-amber-400 border border-amber-500/25" },
+  URGENT:  { badge: "bg-red-500/15 text-red-400 border border-red-500/25" },
+  INFO:    { badge: "bg-slate-700/60 text-slate-400 border border-slate-600/40" },
+};
+
+function ThemeDetailAlerts({ alerts }: { alerts: AlertDto[] }) {
+  if (alerts.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-amber-700/30 bg-amber-900/10 overflow-hidden mb-4">
+      <div className="px-3 py-2 border-b border-amber-800/20 flex items-center gap-2">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+        <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">
+          Active Alerts · {alerts.length}
+        </span>
+      </div>
+      <div className="divide-y divide-amber-900/20">
+        {alerts.map(alert => {
+          const sev = SEVERITY_CONFIG[alert.severity] ?? SEVERITY_CONFIG.INFO;
+          const ruleLabel = RULE_LABELS[alert.ruleId] ?? alert.ruleId;
+          return (
+            <div key={alert.id} className="px-3 py-2 flex items-start gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                  <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${sev.badge}`}>{alert.severity}</span>
+                  <span className="text-[9px] font-mono text-slate-600 px-1.5 py-0.5 rounded bg-slate-800/60">{ruleLabel}</span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">{alert.message}</p>
+              </div>
+              <span className="text-[9px] font-mono text-slate-700 shrink-0 mt-0.5">
+                {new Date(alert.createdAt).toLocaleDateString("en-GB", { month: "short", day: "numeric" })}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function RelatedThemesPanel({
   currentThemeId,
   currentConstituents,
@@ -350,10 +399,15 @@ export default async function ThemeDetailPage({
     notFound();
   }
 
-  const [history, allThemes]: [ThemeHistoryPoint[], ThemeSummary[]] = await Promise.all([
+  const [history, allThemes, alertsResponse] = await Promise.all([
     fetchThemeHistory(id.toUpperCase(), days).catch(() => []),
     fetchThemes().catch(() => []),
+    fetchAlerts().catch(() => ({ activeCount: 0, alerts: [] })),
   ]);
+
+  const themeAlerts = alertsResponse.alerts.filter(
+    a => a.themeId === id.toUpperCase() && a.status === "ACTIVE"
+  );
 
   const signal = SIGNAL_CONFIG[theme.dominantSignal] ?? SIGNAL_CONFIG.HOLD;
 
@@ -469,6 +523,8 @@ export default async function ThemeDetailPage({
           </div>
           <SignalDistributionBar constituents={theme.constituents} />
         </div>
+
+        {themeAlerts.length > 0 && <ThemeDetailAlerts alerts={themeAlerts} />}
 
         <HistoryChartSection history={history} days={days} themeId={id.toUpperCase()} />
 

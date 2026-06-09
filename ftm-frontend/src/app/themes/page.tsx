@@ -375,6 +375,105 @@ function RotationMomentumStrip({ themes }: { themes: ThemeSummary[] }) {
   );
 }
 
+const SIGNAL_STROKE: Record<string, string> = {
+  BUY:    "#34d399",
+  WATCH:  "#22d3ee",
+  HOLD:   "#64748b",
+  REDUCE: "#f87171",
+};
+
+function themeShortLabel(theme: ThemeSummary): string {
+  const words = theme.name.split(/[\s_]+/);
+  if (words.length === 1) return theme.name.slice(0, 5).toUpperCase();
+  return words.slice(0, 2).map(w => w.slice(0, 4)).join(" ");
+}
+
+function ThemeRaceChart({
+  themes,
+  historiesByThemeId,
+}: {
+  themes: ThemeSummary[];
+  historiesByThemeId: Record<string, ThemeHistoryPoint[]>;
+}) {
+  const validThemes = themes.filter(t => (historiesByThemeId[t.id]?.length ?? 0) >= 3);
+  if (validThemes.length < 2) return null;
+
+  const width = 600, height = 100;
+  const padLeft = 4, padRight = 90, padTop = 8, padBottom = 16;
+  const chartWidth = width - padLeft - padRight;
+  const chartHeight = height - padTop - padBottom;
+
+  const allPoints = validThemes.flatMap(t => historiesByThemeId[t.id].map(h => h.compositeScore));
+  const globalMin = Math.max(0, Math.min(...allPoints) - 0.05);
+  const globalMax = Math.min(1, Math.max(...allPoints) + 0.05);
+  const yRange = globalMax - globalMin;
+
+  const toY = (v: number) => padTop + chartHeight - ((v - globalMin) / yRange) * chartHeight;
+  const buyY = toY(0.65);
+  const reduceY = toY(0.35);
+
+  const sortedByLatestScore = [...validThemes].sort((a, b) => {
+    const aHist = historiesByThemeId[a.id];
+    const bHist = historiesByThemeId[b.id];
+    const aLast = aHist[aHist.length - 1]?.compositeScore ?? 0;
+    const bLast = bHist[bHist.length - 1]?.compositeScore ?? 0;
+    return bLast - aLast;
+  });
+
+  return (
+    <div className="bg-slate-800/40 border border-slate-700/40 rounded-lg p-3 mb-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] text-slate-500 uppercase tracking-wider">30-day theme race · composite score</span>
+        <span className="text-[10px] font-mono text-slate-600">all themes overlaid</span>
+      </div>
+      <svg width="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="overflow-visible">
+        {/* BUY threshold */}
+        <line x1={padLeft} y1={buyY} x2={width - padRight} y2={buyY} stroke="#34d39920" strokeWidth="1" strokeDasharray="3 3" />
+        <text x={padLeft} y={buyY - 2} fill="#34d39950" fontSize="6" fontFamily="monospace">BUY 65</text>
+        {/* REDUCE threshold */}
+        <line x1={padLeft} y1={reduceY} x2={width - padRight} y2={reduceY} stroke="#f8717120" strokeWidth="1" strokeDasharray="3 3" />
+        <text x={padLeft} y={reduceY - 2} fill="#f8717150" fontSize="6" fontFamily="monospace">REDUCE 35</text>
+
+        {validThemes.map(t => {
+          const hist = historiesByThemeId[t.id];
+          const stroke = SIGNAL_STROKE[t.dominantSignal] ?? "#64748b";
+          const points = hist.map((h, i) => {
+            const x = padLeft + (i / (hist.length - 1)) * chartWidth;
+            const y = toY(h.compositeScore);
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+          }).join(" ");
+          const lastX = (padLeft + chartWidth).toFixed(1);
+          const lastY = toY(hist[hist.length - 1].compositeScore).toFixed(1);
+          return (
+            <g key={t.id}>
+              <polyline points={points} fill="none" stroke={stroke} strokeWidth="1.2" strokeOpacity="0.7" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx={lastX} cy={lastY} r="2.5" fill={stroke} fillOpacity="0.9" />
+            </g>
+          );
+        })}
+
+        {/* End-point labels stacked on right, sorted by score */}
+        {sortedByLatestScore.map((t, rank) => {
+          const hist = historiesByThemeId[t.id];
+          const score = hist[hist.length - 1]?.compositeScore ?? 0;
+          const stroke = SIGNAL_STROKE[t.dominantSignal] ?? "#64748b";
+          const labelY = padTop + (rank * (chartHeight / (sortedByLatestScore.length - 1 || 1)));
+          const lastX = padLeft + chartWidth;
+          const lastY = toY(score);
+          return (
+            <g key={`label-${t.id}`}>
+              <line x1={lastX + 2} y1={lastY} x2={lastX + 8} y2={labelY + 3} stroke={stroke} strokeWidth="0.5" strokeOpacity="0.4" />
+              <text x={lastX + 10} y={labelY + 4} fill={stroke} fontSize="7" fontFamily="monospace" fontWeight="500">
+                {themeShortLabel(t)}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 export default async function ThemesPage() {
   const themes = await fetchThemes();
 
@@ -429,6 +528,7 @@ export default async function ThemesPage() {
 
         {themes.length > 0 && <ActiveRotationBanner themes={themes} historiesByThemeId={historyByThemeId} />}
         {themes.length > 0 && <RotationMomentumStrip themes={themes} />}
+        {themes.length > 1 && <ThemeRaceChart themes={themes} historiesByThemeId={historyByThemeId} />}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {sortedByScore.map(theme => (

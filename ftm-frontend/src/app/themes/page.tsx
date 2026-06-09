@@ -532,6 +532,111 @@ const SIGNAL_STROKE: Record<string, string> = {
   REDUCE: "#f87171",
 };
 
+function ThemeScreener({ themes }: { themes: ThemeSummary[] }) {
+  if (themes.length === 0) return null;
+  const sorted = [...themes].sort((a, b) => (b.compositeScore ?? -1) - (a.compositeScore ?? -1));
+  return (
+    <div className="bg-slate-800/40 border border-slate-700/60 rounded-lg overflow-hidden mb-4">
+      <div className="px-3 py-2 border-b border-slate-700/40 flex items-center justify-between">
+        <span className="text-[10px] text-slate-500 uppercase tracking-wider font-mono">Theme Screener · Live Rankings</span>
+        <span className="text-[10px] font-mono text-slate-600">{themes.length} rows</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left min-w-[700px]">
+          <thead>
+            <tr className="border-b border-slate-700/40">
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">#</th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Theme</th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Signal</th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Score</th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">RS-60</th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Flow</th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">vs Sectors</th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Bullish</th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Trend</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((t, i) => {
+              const signal = SIGNAL_CONFIG[t.dominantSignal] ?? SIGNAL_CONFIG.HOLD;
+              const pct = t.compositeScore != null ? Math.round(t.compositeScore * 100) : null;
+              const scoreClr = t.compositeScore == null ? "text-slate-500"
+                : t.compositeScore >= 0.65 ? "text-emerald-400"
+                : t.compositeScore >= 0.50 ? "text-cyan-400"
+                : t.compositeScore >= 0.35 ? "text-amber-400" : "text-red-400";
+              const barClr = t.compositeScore == null ? "bg-slate-700"
+                : t.compositeScore >= 0.65 ? "bg-emerald-500"
+                : t.compositeScore >= 0.50 ? "bg-cyan-500"
+                : t.compositeScore >= 0.35 ? "bg-amber-500" : "bg-red-500";
+              const rsClr = t.rs60 == null ? "text-slate-500"
+                : t.rs60 > 0.05 ? "text-emerald-400" : t.rs60 > 0 ? "text-green-400"
+                : t.rs60 < -0.05 ? "text-red-400" : "text-amber-400";
+              const flowClr = t.flow20d == null ? "text-slate-500"
+                : t.flow20d > 0.3 ? "text-emerald-400" : t.flow20d < -0.3 ? "text-red-400" : "text-slate-400";
+              const flowArrow = t.flow20d == null ? "—" : t.flow20d > 0.3 ? "↑" : t.flow20d < -0.3 ? "↓" : "→";
+              const trendClr = t.compositeTrend20d == null ? "text-slate-500"
+                : t.compositeTrend20d > 0.005 ? "text-emerald-400"
+                : t.compositeTrend20d < -0.005 ? "text-red-400" : "text-slate-500";
+              const trendArrow = t.compositeTrend20d == null ? "—"
+                : t.compositeTrend20d > 0.005 ? "↑" : t.compositeTrend20d < -0.005 ? "↓" : "→";
+              const divPts = t.divergenceFromParentSectors != null ? Math.round(t.divergenceFromParentSectors * 100) : null;
+              const bullishPct = t.constituentCount > 0 ? Math.round((t.bullishCount / t.constituentCount) * 100) : 0;
+              return (
+                <tr key={t.id} className="border-t border-slate-700/30 hover:bg-slate-800/50 transition-colors">
+                  <td className="py-2 px-3 text-[10px] text-slate-600 font-mono tabular-nums">{i + 1}</td>
+                  <td className="py-2 px-3">
+                    <Link href={`/themes/${t.id}`} className="text-[11px] font-semibold text-slate-200 hover:text-cyan-300 transition-colors">
+                      {t.name}
+                    </Link>
+                  </td>
+                  <td className="py-2 px-3">
+                    <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${signal.bg} ${signal.color}`}>{signal.label}</span>
+                  </td>
+                  <td className="py-2 px-3">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-10 h-1 bg-slate-700 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${barClr}`} style={{ width: `${pct ?? 0}%` }} />
+                      </div>
+                      <span className={`text-[10px] font-mono tabular-nums ${scoreClr}`}>{pct ?? "—"}</span>
+                    </div>
+                  </td>
+                  <td className="py-2 px-3">
+                    <span className={`text-[10px] font-mono tabular-nums ${rsClr}`}>
+                      {t.rs60 != null ? `${t.rs60 > 0 ? "+" : ""}${(t.rs60 * 100).toFixed(1)}%` : "—"}
+                    </span>
+                  </td>
+                  <td className="py-2 px-3">
+                    <span className={`text-[10px] font-mono tabular-nums ${flowClr}`}>
+                      {t.flow20d != null ? `${flowArrow} ${Math.abs(t.flow20d).toFixed(1)}σ` : "—"}
+                    </span>
+                  </td>
+                  <td className="py-2 px-3">
+                    {divPts != null ? (
+                      <span className={`text-[10px] font-mono tabular-nums ${divPts > 2 ? "text-emerald-400" : divPts < -2 ? "text-red-400" : "text-slate-400"}`}>
+                        {divPts > 0 ? "+" : ""}{divPts}pt
+                      </span>
+                    ) : <span className="text-slate-600 text-[10px]">—</span>}
+                  </td>
+                  <td className="py-2 px-3">
+                    <span className={`text-[10px] font-mono tabular-nums ${bullishPct >= 60 ? "text-emerald-400" : bullishPct >= 40 ? "text-amber-400" : "text-red-400"}`}>
+                      {bullishPct}%
+                    </span>
+                  </td>
+                  <td className="py-2 px-3">
+                    <span className={`text-[10px] font-mono ${trendClr}`}>
+                      {trendArrow}{t.compositeTrend20d != null ? ` ${t.compositeTrend20d > 0 ? "+" : ""}${(t.compositeTrend20d * 100).toFixed(1)}pt` : ""}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function themeShortLabel(theme: ThemeSummary): string {
   const words = theme.name.split(/[\s_]+/);
   if (words.length === 1) return theme.name.slice(0, 5).toUpperCase();
@@ -681,6 +786,7 @@ export default async function ThemesPage() {
         {themes.length > 0 && <RotationMomentumStrip themes={themes} />}
         {themes.length > 1 && <ThemeRelativeStrengthPlot themes={themes} />}
         {themes.length > 1 && <ThemeRaceChart themes={themes} historiesByThemeId={historyByThemeId} />}
+        {themes.length > 0 && <ThemeScreener themes={themes} />}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {sortedByScore.map(theme => (

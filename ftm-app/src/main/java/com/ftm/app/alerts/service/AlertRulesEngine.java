@@ -139,6 +139,10 @@ public class AlertRulesEngine {
   private static final double THEME_MOMENTUM_COLLAPSE_THRESHOLD = -0.010;
   private static final double THEME_MOMENTUM_SURGE_RESOLVE = 0.003;
   private static final double THEME_MOMENTUM_COLLAPSE_RESOLVE = -0.003;
+  private static final String RULE_THEME_5D_ACCELERATION = "theme_5d_acceleration";
+  // Fires when 5d trend exceeds 20d trend by >= 0.008 (momentum regime change signal)
+  private static final double THEME_5D_ACCEL_DELTA_THRESHOLD = 0.008;
+  private static final double THEME_5D_ACCEL_DELTA_RESOLVE = 0.003;
   // Fires when >=75% of sub-sectors are in Leading/Improving RRG (broad internal participation)
   private static final double SUB_SECTOR_BULL_CONFLUENCE_FIRE_FRACTION = 0.75;
   private static final double SUB_SECTOR_BULL_CONFLUENCE_RESOLVE_FRACTION = 0.55;
@@ -203,6 +207,7 @@ public class AlertRulesEngine {
     alertsCreated += evaluateSubSectorBullConfluence(signalDate, equityCategoryIds);
     alertsCreated += evaluateThemeSignalTransitions(signalDate);
     alertsCreated += evaluateThemeMomentum(signalDate);
+    alertsCreated += evaluateTheme5dAcceleration(signalDate);
     // Must run last: reads active alerts inserted by earlier evaluators in this cycle
     alertsCreated += evaluateMultiAlertBullConfluence(topLevelCategoryIds);
 
@@ -2525,6 +2530,71 @@ public class AlertRulesEngine {
           alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_MOMENTUM_COLLAPSE, themeId);
           log.info("theme_momentum_collapse: resolved theme={} (momentum stabilising)", themeId);
         }
+      }
+    }
+    return count;
+  }
+
+  private int evaluateTheme5dAcceleration(LocalDate signalDate) {
+    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_5D_ACCELERATION);
+    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+
+    Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
+    if (constituentsByTheme.isEmpty()) return 0;
+
+    Map<String, BigDecimal> trend5dMap =
+        signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, signalDate);
+    Map<String, BigDecimal> trend20dMap =
+        signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, signalDate);
+    if (trend5dMap.isEmpty() || trend20dMap.isEmpty()) return 0;
+
+    int count = 0;
+    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
+      String themeId = entry.getKey();
+      List<String> ids = entry.getValue();
+      if (ids.isEmpty()) continue;
+
+      OptionalDouble avg5d =
+          ids.stream()
+              .map(trend5dMap::get)
+              .filter(v -> v != null)
+              .mapToDouble(BigDecimal::doubleValue)
+              .average();
+      OptionalDouble avg20d =
+          ids.stream()
+              .map(trend20dMap::get)
+              .filter(v -> v != null)
+              .mapToDouble(BigDecimal::doubleValue)
+              .average();
+      if (avg5d.isEmpty() || avg20d.isEmpty()) continue;
+
+      double delta = avg5d.getAsDouble() - avg20d.getAsDouble();
+      boolean hasActive = alertRepository.existsActiveAlertForTheme(RULE_THEME_5D_ACCELERATION, themeId);
+
+      if (delta >= THEME_5D_ACCEL_DELTA_THRESHOLD && !hasActive) {
+        Severity severity = rule.map(AlertRule::severity).orElse(Severity.ACTION);
+        alertRepository.insert(
+            new Alert(
+                null,
+                OffsetDateTime.now(),
+                null,
+                themeId,
+                RULE_THEME_5D_ACCELERATION,
+                severity,
+                String.format(
+                    "%s theme momentum accelerating: 5d trend +%dpt/day ahead of 20d — regime shift in progress",
+                    themeId, (int) Math.round(delta * 100)),
+                String.format(
+                    "{\"themeId\":\"%s\",\"delta5d20d\":%.4f,\"avg5d\":%.4f,\"avg20d\":%.4f,\"signalDate\":\"%s\"}",
+                    themeId, delta, avg5d.getAsDouble(), avg20d.getAsDouble(), signalDate),
+                AlertStatus.ACTIVE,
+                null,
+                null));
+        count++;
+        log.info("theme_5d_acceleration: theme={} delta={}pt/day", themeId, (int) Math.round(delta * 100));
+      } else if (hasActive && delta < THEME_5D_ACCEL_DELTA_RESOLVE) {
+        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_5D_ACCELERATION, themeId);
+        log.info("theme_5d_acceleration: resolved theme={} (acceleration normalised)", themeId);
       }
     }
     return count;

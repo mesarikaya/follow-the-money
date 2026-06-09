@@ -1574,6 +1574,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("theme_momentum_surge")));
     when(alertRulesRepository.findById("theme_momentum_collapse"))
         .thenReturn(Optional.of(disabled("theme_momentum_collapse")));
+    when(alertRulesRepository.findById("theme_5d_acceleration"))
+        .thenReturn(Optional.of(disabled("theme_5d_acceleration")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {

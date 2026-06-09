@@ -171,6 +171,7 @@ public class ThemeService {
               Category cat = categoriesById.get(id);
               String name = cat != null ? cat.name() : id;
               String ticker = cat != null ? cat.etfTicker() : "";
+              String parentId = cat != null && cat.parentId() != null ? cat.parentId() : id;
               BigDecimal composite = compositeMap.get(id);
               BigDecimal rs60 = rs60Map.get(id);
               BigDecimal flow20d = flow20dMap.get(id);
@@ -191,6 +192,7 @@ public class ThemeService {
                       null);
               return new ThemeConstituentDto(
                   id,
+                  parentId,
                   name,
                   ticker,
                   composite,

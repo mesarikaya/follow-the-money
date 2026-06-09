@@ -564,6 +564,7 @@ export const fetchSeasonalReturns = () =>
 
 export type ThemeConstituent = {
   categoryId: string;
+  parentCategoryId: string | null;
   name: string;
   etfTicker: string;
   compositeScore: number | null;

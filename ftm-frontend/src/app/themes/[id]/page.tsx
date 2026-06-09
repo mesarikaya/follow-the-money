@@ -80,9 +80,9 @@ function ConvictionDots({ score }: { score: number | null }) {
   );
 }
 
-function SectorChip({ categoryId }: { categoryId: string }) {
-  const parentId = getParentSectorId(categoryId);
-  if (!parentId) return <span className="text-slate-600 text-xs">—</span>;
+function SectorChip({ categoryId, parentCategoryId }: { categoryId: string; parentCategoryId: string | null }) {
+  const parentId = parentCategoryId ?? getParentSectorId(categoryId);
+  if (!parentId || !SECTOR_DRILLDOWN_IDS.has(parentId)) return <span className="text-slate-600 text-xs">—</span>;
   const shortName = SECTOR_SHORT_NAMES[parentId] ?? parentId;
   const isSelf = SECTOR_DRILLDOWN_IDS.has(categoryId);
   return (
@@ -125,7 +125,7 @@ function ConstituentRow({ c, index }: { c: ThemeConstituent; index: number }) {
           </span>
         )}
       </td>
-      <td className="py-2.5 px-3"><SectorChip categoryId={c.categoryId} /></td>
+      <td className="py-2.5 px-3"><SectorChip categoryId={c.categoryId} parentCategoryId={c.parentCategoryId} /></td>
       <td className="py-2.5 px-3"><ScoreBar score={c.compositeScore} /></td>
       <td className="py-2.5 px-3"><RsCell value={c.rs60} /></td>
       <td className="py-2.5 px-3"><FlowCell value={c.flow20d} /></td>

@@ -60,6 +60,18 @@ type ThemeWithHistory = {
   history: ThemeHistoryPoint[];
 };
 
+function ScoreDelta({ history }: { history: ThemeHistoryPoint[] }) {
+  if (history.length < 5) return null;
+  const deltaPts = Math.round((history[history.length - 1].compositeScore - history[0].compositeScore) * 100);
+  if (Math.abs(deltaPts) < 2) return null;
+  const isUp = deltaPts > 0;
+  return (
+    <span className={`text-[9px] font-mono px-1 py-0.5 rounded ${isUp ? "text-emerald-400 bg-emerald-500/10" : "text-red-400 bg-red-500/10"}`}>
+      {isUp ? "↑+" : "↓"}{deltaPts}pt
+    </span>
+  );
+}
+
 function ActionableThemeRow({ theme, history }: ThemeWithHistory) {
   const signalClass = SIGNAL_COLOR[theme.dominantSignal] ?? SIGNAL_COLOR.HOLD;
   const scorePercent = theme.compositeScore != null ? Math.round(theme.compositeScore * 100) : null;
@@ -82,6 +94,7 @@ function ActionableThemeRow({ theme, history }: ThemeWithHistory) {
           {scorePercent != null && (
             <span className="text-[10px] font-mono text-slate-400">{scorePercent}/100</span>
           )}
+          <ScoreDelta history={history} />
           <span className="text-[10px] text-slate-500">{theme.bullishCount}/{theme.constituentCount} bullish</span>
           <DivergenceBadge divergence={theme.divergenceFromParentSectors} />
         </div>

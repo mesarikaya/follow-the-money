@@ -393,6 +393,86 @@ function RotationMomentumStrip({ themes }: { themes: ThemeSummary[] }) {
   );
 }
 
+function ThemeRelativeStrengthPlot({ themes }: { themes: ThemeSummary[] }) {
+  const plotThemes = themes.filter(
+    t => t.divergenceFromParentSectors != null && t.compositeTrend20d != null
+  );
+  if (plotThemes.length < 2) return null;
+
+  const W = 420, H = 140;
+  const padX = 40, padY = 20;
+  const chartW = W - padX * 2;
+  const chartH = H - padY * 2;
+
+  const divValues = plotThemes.map(t => t.divergenceFromParentSectors!);
+  const velValues = plotThemes.map(t => t.compositeTrend20d!);
+  const maxAbsDiv = Math.max(0.12, ...divValues.map(Math.abs)) * 1.15;
+  const maxAbsVel = Math.max(0.008, ...velValues.map(Math.abs)) * 1.15;
+
+  const toX = (div: number) => padX + ((div + maxAbsDiv) / (2 * maxAbsDiv)) * chartW;
+  const toY = (vel: number) => padY + ((maxAbsVel - vel) / (2 * maxAbsVel)) * chartH;
+  const midX = toX(0);
+  const midY = toY(0);
+
+  const FILL: Record<string, string> = {
+    BUY:    "#34d39990",
+    WATCH:  "#22d3ee90",
+    HOLD:   "#64748b80",
+    REDUCE: "#f8717190",
+  };
+
+  return (
+    <div className="bg-slate-800/40 border border-slate-700/40 rounded-lg p-3 mb-4">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] text-slate-500 uppercase tracking-wider">theme positioning · divergence vs velocity</span>
+        <div className="flex items-center gap-3 text-[9px] font-mono text-slate-600">
+          <span>← lagging sectors</span>
+          <span>leading sectors →</span>
+        </div>
+      </div>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" className="overflow-visible">
+        {/* Quadrant backgrounds */}
+        <rect x={midX} y={padY} width={padX + chartW - midX} height={midY - padY} fill="#34d39905" />
+        <rect x={padX} y={midY} width={midX - padX} height={padY + chartH - midY} fill="#f8717105" />
+        {/* Axes */}
+        <line x1={padX} y1={midY} x2={W - padX} y2={midY} stroke="#334155" strokeWidth="1" />
+        <line x1={midX} y1={padY} x2={midX} y2={H - padY} stroke="#334155" strokeWidth="1" />
+        {/* Axis labels */}
+        <text x={padX} y={midY - 3} fill="#475569" fontSize="7" fontFamily="monospace">velocity</text>
+        <text x={W - padX - 2} y={midY + 10} fill="#475569" fontSize="7" textAnchor="end" fontFamily="monospace">vs sectors</text>
+        {/* Dots */}
+        {plotThemes.map(t => {
+          const cx = toX(t.divergenceFromParentSectors!);
+          const cy = toY(t.compositeTrend20d!);
+          const fill = FILL[t.dominantSignal] ?? FILL.HOLD;
+          const scorePct = t.compositeScore != null ? t.compositeScore : 0.5;
+          const r = 4 + scorePct * 5;
+          const label = themeShortLabel(t);
+          const labelRight = cx > W * 0.7;
+          return (
+            <g key={t.id}>
+              <circle cx={cx} cy={cy} r={r} fill={fill} stroke={fill.slice(0, 7)} strokeWidth="1" strokeOpacity="0.8" />
+              <text
+                x={labelRight ? cx - r - 2 : cx + r + 2}
+                y={cy + 3}
+                fill="#94a3b8"
+                fontSize="7"
+                textAnchor={labelRight ? "end" : "start"}
+                fontFamily="monospace"
+              >
+                {label}
+              </text>
+            </g>
+          );
+        })}
+        {/* Quadrant corner labels */}
+        <text x={W - padX - 2} y={padY + 10} fill="#34d39930" fontSize="6" textAnchor="end" fontFamily="monospace">LEADING ↑</text>
+        <text x={padX + 2} y={H - padY - 3} fill="#f8717130" fontSize="6" fontFamily="monospace">LAGGING ↓</text>
+      </svg>
+    </div>
+  );
+}
+
 const SIGNAL_STROKE: Record<string, string> = {
   BUY:    "#34d399",
   WATCH:  "#22d3ee",
@@ -546,6 +626,7 @@ export default async function ThemesPage() {
 
         {themes.length > 0 && <ActiveRotationBanner themes={themes} historiesByThemeId={historyByThemeId} />}
         {themes.length > 0 && <RotationMomentumStrip themes={themes} />}
+        {themes.length > 1 && <ThemeRelativeStrengthPlot themes={themes} />}
         {themes.length > 1 && <ThemeRaceChart themes={themes} historiesByThemeId={historyByThemeId} />}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">

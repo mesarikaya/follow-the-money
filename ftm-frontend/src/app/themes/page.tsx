@@ -161,6 +161,53 @@ function ScoreDeltaBadge({ history }: { history: ThemeHistoryPoint[] }) {
   );
 }
 
+function scoreTier(score: number | null): string {
+  if (score == null) return "HOLD";
+  if (score >= 0.65) return "BUY";
+  if (score >= 0.50) return "WATCH";
+  if (score >= 0.35) return "HOLD";
+  return "REDUCE";
+}
+
+function signalAgeDays(history: ThemeHistoryPoint[], dominantSignal: string): number {
+  if (history.length === 0) return 0;
+  let count = 0;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (scoreTier(history[i].compositeScore) === dominantSignal) count++;
+    else break;
+  }
+  return count;
+}
+
+function SignalFreshnessBadge({
+  history,
+  signal,
+}: {
+  history: ThemeHistoryPoint[];
+  signal: string;
+}) {
+  const days = signalAgeDays(history, signal);
+  if (days === 0 || days > 10) return null;
+  if (days <= 3) {
+    return (
+      <span
+        className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 animate-pulse"
+        title={`Entered ${signal} ${days}d ago — fresh signal`}
+      >
+        NEW {days}d
+      </span>
+    );
+  }
+  return (
+    <span
+      className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-500 border border-slate-700/40"
+      title={`In ${signal} for ${days} days`}
+    >
+      {days}d
+    </span>
+  );
+}
+
 function BullishBar({ bullish, total }: { bullish: number; total: number }) {
   const pct = total > 0 ? bullish / total : 0;
   const color = pct >= 0.6 ? "bg-emerald-500" : pct >= 0.4 ? "bg-amber-500" : "bg-red-500";
@@ -197,6 +244,7 @@ function ThemeCard({ theme, history }: { theme: ThemeSummary; history: ThemeHist
           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${signal.bg} ${signal.color}`}>
             {signal.label}
           </span>
+          <SignalFreshnessBadge history={history} signal={theme.dominantSignal} />
           <ScoreDeltaBadge history={history} />
           <FlowChip flow={theme.flow20d} />
           <TrendChip trend={theme.compositeTrend20d} />
@@ -648,7 +696,13 @@ const SIGNAL_STROKE: Record<string, string> = {
   REDUCE: "#f87171",
 };
 
-function ThemeScreener({ themes }: { themes: ThemeSummary[] }) {
+function ThemeScreener({
+  themes,
+  historiesByThemeId,
+}: {
+  themes: ThemeSummary[];
+  historiesByThemeId: Record<string, ThemeHistoryPoint[]>;
+}) {
   if (themes.length === 0) return null;
   const sorted = [...themes].sort((a, b) => (b.compositeScore ?? -1) - (a.compositeScore ?? -1));
   return (
@@ -699,6 +753,8 @@ function ThemeScreener({ themes }: { themes: ThemeSummary[] }) {
                 ? t.compositeTrend5d - t.compositeTrend20d : null;
               const divPts = t.divergenceFromParentSectors != null ? Math.round(t.divergenceFromParentSectors * 100) : null;
               const bullishPct = t.constituentCount > 0 ? Math.round((t.bullishCount / t.constituentCount) * 100) : 0;
+              const themeHistory = historiesByThemeId[t.id] ?? [];
+              const ageDays = signalAgeDays(themeHistory, t.dominantSignal);
               return (
                 <tr key={t.id} className="border-t border-slate-700/30 hover:bg-slate-800/50 transition-colors">
                   <td className="py-2 px-3 text-[10px] text-slate-600 font-mono tabular-nums">{i + 1}</td>
@@ -708,7 +764,17 @@ function ThemeScreener({ themes }: { themes: ThemeSummary[] }) {
                     </Link>
                   </td>
                   <td className="py-2 px-3">
-                    <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${signal.bg} ${signal.color}`}>{signal.label}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${signal.bg} ${signal.color}`}>{signal.label}</span>
+                      {ageDays > 0 && ageDays <= 10 && (
+                        <span
+                          className={`text-[8px] font-mono px-1 py-0.5 rounded ${ageDays <= 3 ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25" : "bg-slate-800/60 text-slate-600"}`}
+                          title={`In ${t.dominantSignal} for ${ageDays} day${ageDays !== 1 ? "s" : ""}`}
+                        >
+                          {ageDays <= 3 ? "new " : ""}{ageDays}d
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-2 px-3">
                     <div className="flex items-center gap-1.5">
@@ -922,7 +988,7 @@ export default async function ThemesPage() {
         {themes.length > 0 && <RotationMomentumStrip themes={themes} />}
         {themes.length > 1 && <ThemeRelativeStrengthPlot themes={themes} />}
         {themes.length > 1 && <ThemeRaceChart themes={themes} historiesByThemeId={historyByThemeId} />}
-        {themes.length > 0 && <ThemeScreener themes={themes} />}
+        {themes.length > 0 && <ThemeScreener themes={themes} historiesByThemeId={historyByThemeId} />}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {sortedByScore.map(theme => (

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { fetchTheme, fetchThemeHistory, ThemeConstituent, ThemeHistoryPoint } from "@/lib/api";
 import { notFound } from "next/navigation";
-import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
+import { SECTOR_DRILLDOWN_IDS, SECTOR_SHORT_NAMES, getParentSectorId } from "@/lib/sectors";
 
 const SIGNAL_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   BUY:    { label: "BUY",    color: "text-emerald-400", bg: "bg-emerald-500/15 border border-emerald-500/30" },
@@ -80,6 +80,26 @@ function ConvictionDots({ score }: { score: number | null }) {
   );
 }
 
+function SectorChip({ categoryId }: { categoryId: string }) {
+  const parentId = getParentSectorId(categoryId);
+  if (!parentId) return <span className="text-slate-600 text-xs">—</span>;
+  const shortName = SECTOR_SHORT_NAMES[parentId] ?? parentId;
+  const isSelf = SECTOR_DRILLDOWN_IDS.has(categoryId);
+  return (
+    <Link
+      href={`/sectors/${parentId}`}
+      className={`text-[10px] font-mono px-1.5 py-0.5 rounded border transition-colors hover:border-cyan-500/50 hover:text-cyan-300 ${
+        isSelf
+          ? "text-blue-300 bg-blue-900/20 border-blue-700/40"
+          : "text-slate-400 bg-slate-800/60 border-slate-600/40"
+      }`}
+      title={`View ${parentId} sector drilldown`}
+    >
+      {shortName}
+    </Link>
+  );
+}
+
 function ConstituentRow({ c, index }: { c: ThemeConstituent; index: number }) {
   const hasDrilldown = SECTOR_DRILLDOWN_IDS.has(c.categoryId);
   return (
@@ -105,6 +125,7 @@ function ConstituentRow({ c, index }: { c: ThemeConstituent; index: number }) {
           </span>
         )}
       </td>
+      <td className="py-2.5 px-3"><SectorChip categoryId={c.categoryId} /></td>
       <td className="py-2.5 px-3"><ScoreBar score={c.compositeScore} /></td>
       <td className="py-2.5 px-3"><RsCell value={c.rs60} /></td>
       <td className="py-2.5 px-3"><FlowCell value={c.flow20d} /></td>
@@ -355,6 +376,7 @@ export default async function ThemeDetailPage({
                 <th className="py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">#</th>
                 <th className="py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Name</th>
                 <th className="py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">ETF</th>
+                <th className="py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Sector</th>
                 <th className="py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Score</th>
                 <th className="py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">RS-60</th>
                 <th className="py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Flow</th>

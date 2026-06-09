@@ -121,6 +121,7 @@ public class ThemeService {
         summary.bullishCount(),
         summary.dominantSignal(),
         summary.divergenceFromParentSectors(),
+        summary.themePhase(),
         sorted);
   }
 
@@ -280,19 +281,50 @@ public class ThemeService {
       }
     }
 
+    Double scoreVal = avgComposite.isPresent() ? avgComposite.getAsDouble() : null;
+    Double trend5dVal = avgTrend5d.isPresent() ? avgTrend5d.getAsDouble() : null;
+    Double trend20dVal = avgTrend.isPresent() ? avgTrend.getAsDouble() : null;
+    Double flowVal = avgFlow.isPresent() ? avgFlow.getAsDouble() : null;
+    String themePhase = computeThemePhase(scoreVal, trend5dVal, trend20dVal, flowVal);
+
     return new ThemeSummaryDto(
         theme.id(),
         theme.name(),
         theme.thesis(),
         total,
-        avgComposite.isPresent() ? avgComposite.getAsDouble() : null,
+        scoreVal,
         avgRs60.isPresent() ? avgRs60.getAsDouble() : null,
-        avgFlow.isPresent() ? avgFlow.getAsDouble() : null,
-        avgTrend5d.isPresent() ? avgTrend5d.getAsDouble() : null,
-        avgTrend.isPresent() ? avgTrend.getAsDouble() : null,
+        flowVal,
+        trend5dVal,
+        trend20dVal,
         bullishCount,
         dominantSignal,
         divergence,
+        themePhase,
         topConstituents);
+  }
+
+  private static String computeThemePhase(
+      Double score, Double trend5d, Double trend20d, Double flow) {
+    if (score == null) return "NEUTRAL";
+    boolean accelerating = trend5d != null && trend20d != null && (trend5d - trend20d) > 0.005;
+    boolean trending = trend20d != null && trend20d > 0.003;
+    boolean fading = trend20d != null && trend20d < -0.003;
+    boolean inflowing = flow != null && flow > 0.3;
+    boolean outflowing = flow != null && flow < -0.5;
+    if (score >= 0.65) {
+      if (outflowing && !accelerating) return "DISTRIBUTE";
+      if (accelerating) return "BREAKOUT";
+      if (trending) return "MOMENTUM";
+      return "HOLDING";
+    }
+    if (score >= 0.50) {
+      if (accelerating && inflowing) return "SETUP";
+      if (fading) return "FADING";
+      return "BUILDING";
+    }
+    if (fading) return "FADING";
+    if (score < 0.35) return "WEAK";
+    return "NEUTRAL";
   }
 }

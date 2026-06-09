@@ -161,6 +161,31 @@ function ScoreDeltaBadge({ history }: { history: ThemeHistoryPoint[] }) {
   );
 }
 
+const PHASE_CONFIG: Record<string, { label: string; className: string; priority: number }> = {
+  BREAKOUT: { label: "↗ BREAKOUT", className: "bg-emerald-500/20 text-emerald-300 border border-emerald-400/30", priority: 1 },
+  MOMENTUM: { label: "↑ MOMENTUM", className: "bg-cyan-500/15 text-cyan-400 border border-cyan-500/25",         priority: 2 },
+  SETUP:    { label: "⬆ SETUP",    className: "bg-sky-500/15 text-sky-400 border border-sky-500/25",             priority: 3 },
+  BUILDING: { label: "→ BUILDING", className: "bg-slate-700/60 text-slate-400 border border-slate-600/40",       priority: 4 },
+  HOLDING:  { label: "■ HOLDING",  className: "bg-slate-700/40 text-slate-500 border border-slate-700/40",       priority: 5 },
+  FADING:   { label: "↓ FADING",   className: "bg-amber-500/15 text-amber-400 border border-amber-500/25",       priority: 6 },
+  DISTRIBUTE: { label: "↘ DIST",   className: "bg-orange-500/15 text-orange-400 border border-orange-500/25",    priority: 7 },
+  WEAK:     { label: "↓ WEAK",     className: "bg-red-500/15 text-red-400 border border-red-500/25",             priority: 8 },
+};
+
+function ThemePhaseBadge({ phase }: { phase: string | null }) {
+  if (!phase) return null;
+  const cfg = PHASE_CONFIG[phase];
+  if (!cfg) return null;
+  return (
+    <span
+      className={`text-[8px] font-mono px-1.5 py-0.5 rounded ${cfg.className}`}
+      title={`Theme lifecycle phase: ${phase}`}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
 function scoreTier(score: number | null): string {
   if (score == null) return "HOLD";
   if (score >= 0.65) return "BUY";
@@ -244,6 +269,7 @@ function ThemeCard({ theme, history }: { theme: ThemeSummary; history: ThemeHist
           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${signal.bg} ${signal.color}`}>
             {signal.label}
           </span>
+          <ThemePhaseBadge phase={theme.themePhase} />
           <SignalFreshnessBadge history={history} signal={theme.dominantSignal} />
           <ScoreDeltaBadge history={history} />
           <FlowChip flow={theme.flow20d} />
@@ -810,6 +836,7 @@ function ThemeScreener({
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">RS-60</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Flow</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">vs Sectors</th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Phase</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Bullish</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Trend</th>
             </tr>
@@ -888,6 +915,9 @@ function ThemeScreener({
                         {divPts > 0 ? "+" : ""}{divPts}pt
                       </span>
                     ) : <span className="text-slate-600 text-[10px]">—</span>}
+                  </td>
+                  <td className="py-2 px-3">
+                    <ThemePhaseBadge phase={t.themePhase ?? null} />
                   </td>
                   <td className="py-2 px-3">
                     <span className={`text-[10px] font-mono tabular-nums ${bullishPct >= 60 ? "text-emerald-400" : bullishPct >= 40 ? "text-amber-400" : "text-red-400"}`}>

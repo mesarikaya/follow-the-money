@@ -588,6 +588,7 @@ export type ThemeSummary = {
   bullishCount: number;
   dominantSignal: string;
   divergenceFromParentSectors: number | null;
+  themePhase: string | null;
   topConstituents: ThemeConstituent[];
 };
 

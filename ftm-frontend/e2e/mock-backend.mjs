@@ -272,7 +272,7 @@ const HOLDINGS_RESPONSE = [
 ];
 
 const ALERTS_RESPONSE = {
-  activeCount: 4,
+  activeCount: 5,
   alerts: [
     {
       id: 1,
@@ -326,14 +326,31 @@ const ALERTS_RESPONSE = {
       resolvedAt: null,
       acknowledgedAt: null,
     },
+    {
+      id: 5,
+      createdAt: "2026-06-10T09:00:00Z",
+      categoryId: null,
+      themeId: "CHIP_COMPUTE",
+      ruleId: "theme_distribute_warning",
+      severity: "WARNING",
+      message: "Semiconductor Supercycle theme may be distributing: score 71 (BUY territory) but 20d flow -0.72σ — smart money exiting",
+      triggerSnapshot: "{\"themeId\":\"CHIP_COMPUTE\",\"avgScore\":0.7100,\"avgFlow\":-0.72}",
+      status: "ACTIVE",
+      resolvedAt: null,
+      acknowledgedAt: null,
+    },
   ],
 };
 
 const ALERT_RULES_RESPONSE = [
-  { ruleId: "rrg_transition",     enabled: true,  description: "Alert when a sector transitions RRG quadrant",         lookbackDays: 5,  threshold: 0.65, severity: "ACTION" },
-  { ruleId: "composite_breakout", enabled: true,  description: "Alert when composite score crosses 0.65 threshold",    lookbackDays: 3,  threshold: 0.65, severity: "INFO"   },
-  { ruleId: "rs_accel_crossover", enabled: false, description: "Alert when 20-day RS acceleration crosses zero",       lookbackDays: 10, threshold: 0.00, severity: "INFO"   },
-  { ruleId: "macro_regime_shift", enabled: true,  description: "Alert on macro regime change (rolling 4-week window)", lookbackDays: 28, threshold: 0.50, severity: "URGENT" },
+  { ruleId: "rrg_transition",          enabled: true,  description: "Alert when a sector transitions RRG quadrant",          lookbackDays: 5,  threshold: 0.65, severity: "ACTION"  },
+  { ruleId: "composite_breakout",      enabled: true,  description: "Alert when composite score crosses 0.65 threshold",     lookbackDays: 3,  threshold: 0.65, severity: "INFO"    },
+  { ruleId: "rs_accel_crossover",      enabled: false, description: "Alert when 20-day RS acceleration crosses zero",        lookbackDays: 10, threshold: 0.00, severity: "INFO"    },
+  { ruleId: "macro_regime_shift",      enabled: true,  description: "Alert on macro regime change (rolling 4-week window)",  lookbackDays: 28, threshold: 0.50, severity: "URGENT"  },
+  { ruleId: "theme_5d_acceleration",   enabled: true,  description: "Theme 5d momentum accelerating above 20d trend",       lookbackDays: 5,  threshold: null, severity: "ACTION"  },
+  { ruleId: "theme_momentum_surge",    enabled: true,  description: "Theme avg 20d trend exceeds +0.010",                    lookbackDays: 20, threshold: null, severity: "ACTION"  },
+  { ruleId: "theme_momentum_collapse", enabled: true,  description: "Theme avg 20d trend drops below -0.010",                lookbackDays: 20, threshold: null, severity: "WARNING" },
+  { ruleId: "theme_distribute_warning",enabled: true,  description: "Theme in BUY territory but flow turning negative",      lookbackDays: 20, threshold: 0.65, severity: "WARNING" },
 ];
 
 const INGEST_RESPONSE = {

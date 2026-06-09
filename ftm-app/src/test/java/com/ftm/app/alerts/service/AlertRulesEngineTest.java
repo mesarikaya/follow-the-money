@@ -1576,6 +1576,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("theme_momentum_collapse")));
     when(alertRulesRepository.findById("theme_5d_acceleration"))
         .thenReturn(Optional.of(disabled("theme_5d_acceleration")));
+    when(alertRulesRepository.findById("theme_distribute_warning"))
+        .thenReturn(Optional.of(disabled("theme_distribute_warning")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
@@ -3180,5 +3182,83 @@ class AlertRulesEngineTest {
 
     verify(alertRepository, never())
         .insert(argThat(a -> a.ruleId().equals("theme_momentum_collapse")));
+  }
+
+  // ===== Theme Distribute Warning Alert Tests =====
+
+  private void stubAllRulesDisabledExceptThemeDistribute() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bear")));
+    when(alertRulesRepository.findById("pre_buy_flow_surge"))
+        .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
+    when(alertRulesRepository.findById("rrg_rs_divergence"))
+        .thenReturn(Optional.of(disabled("rrg_rs_divergence")));
+    when(alertRulesRepository.findById("score_percentile_extreme"))
+        .thenReturn(Optional.of(disabled("score_percentile_extreme")));
+    when(alertRulesRepository.findById("score_velocity"))
+        .thenReturn(Optional.of(disabled("score_velocity")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+  }
+
+  @Test
+  @DisplayName("theme_distribute_warning: fires WARNING when score >=0.65 and flow <=-0.5")
+  void shouldCreateThemeDistributeWarningWhenHighScoreLowFlow() {
+    stubAllRulesDisabledExceptThemeDistribute();
+    when(alertRulesRepository.findById("theme_distribute_warning"))
+        .thenReturn(Optional.of(enabled("theme_distribute_warning", Severity.WARNING)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("CHIP_COMPUTE", List.of("SOXX", "SMH")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("SOXX", new BigDecimal("0.70"), "SMH", new BigDecimal("0.72")));
+    when(signalRepository.findByTypeAndDate(SignalType.FLOW_20D, DATE))
+        .thenReturn(Map.of("SOXX", new BigDecimal("-0.60"), "SMH", new BigDecimal("-0.75")));
+    when(alertRepository.existsActiveAlertForTheme("theme_distribute_warning", "CHIP_COMPUTE"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("theme_distribute_warning");
+    assertThat(inserted.themeId()).isEqualTo("CHIP_COMPUTE");
+    assertThat(inserted.severity()).isEqualTo(Severity.WARNING);
+  }
+
+  @Test
+  @DisplayName("theme_distribute_warning: no alert when score is below BUY threshold")
+  void shouldNotCreateThemeDistributeWarningWhenScoreBelowBuyThreshold() {
+    stubAllRulesDisabledExceptThemeDistribute();
+    when(alertRulesRepository.findById("theme_distribute_warning"))
+        .thenReturn(Optional.of(enabled("theme_distribute_warning", Severity.WARNING)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("SAAS_AT_RISK", List.of("WCLD", "IGV")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("WCLD", new BigDecimal("0.55"), "IGV", new BigDecimal("0.58")));
+    when(signalRepository.findByTypeAndDate(SignalType.FLOW_20D, DATE))
+        .thenReturn(Map.of("WCLD", new BigDecimal("-0.70"), "IGV", new BigDecimal("-0.80")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_distribute_warning")));
+  }
+
+  @Test
+  @DisplayName("theme_distribute_warning: no alert when rule is disabled")
+  void shouldNotCreateThemeDistributeWarningWhenRuleDisabled() {
+    stubAllRulesDisabledExceptThemeDistribute();
+    when(alertRulesRepository.findById("theme_distribute_warning"))
+        .thenReturn(Optional.of(disabled("theme_distribute_warning")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_distribute_warning")));
   }
 }

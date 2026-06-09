@@ -468,11 +468,12 @@ function RotationMomentumStrip({ themes }: { themes: ThemeSummary[] }) {
 }
 
 const RULE_LABELS: Record<string, string> = {
-  theme_5d_acceleration:           "5d Accel",
+  theme_5d_acceleration:            "5d Accel",
   theme_dominant_signal_transition: "Signal Shift",
-  theme_momentum_surge:            "Mom. Surge",
-  theme_momentum_collapse:         "Mom. Collapse",
-  pre_buy_flow_surge:              "Pre-Buy Flow",
+  theme_momentum_surge:             "Mom. Surge",
+  theme_momentum_collapse:          "Mom. Collapse",
+  theme_distribute_warning:         "Distribution",
+  pre_buy_flow_surge:               "Pre-Buy Flow",
 };
 
 const SEVERITY_CONFIG: Record<string, { badge: string; dot: string }> = {
@@ -578,6 +579,91 @@ function PreBuySetupPanel({ themes }: { themes: ThemeSummary[] }) {
             </Link>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+type OpportunityEntry = {
+  theme: ThemeSummary;
+  action: string;
+  reason: string;
+  priority: "HIGH" | "MED" | "LOW";
+  actionColor: string;
+};
+
+function TopOpportunitiesPanel({ themes }: { themes: ThemeSummary[] }) {
+  const opportunities: OpportunityEntry[] = [];
+
+  for (const t of themes) {
+    const score = t.compositeScore ?? 0;
+    const accel = (t.compositeTrend5d ?? 0) - (t.compositeTrend20d ?? 0);
+    const phase = t.themePhase;
+
+    if (phase === "BREAKOUT" && t.dominantSignal === "BUY") {
+      opportunities.push({
+        theme: t,
+        action: "ENTER / ADD",
+        reason: `BREAKOUT · score ${Math.round(score * 100)} · accel +${(accel * 100).toFixed(1)}pt`,
+        priority: "HIGH",
+        actionColor: "text-emerald-300 bg-emerald-500/15 border-emerald-500/30",
+      });
+    } else if (phase === "SETUP" && score >= 0.55 && accel > 0.003) {
+      const ptsNeeded = Math.round((0.65 - score) * 100);
+      opportunities.push({
+        theme: t,
+        action: "ACCUMULATE",
+        reason: `SETUP · ${ptsNeeded}pt from BUY · momentum accelerating`,
+        priority: "MED",
+        actionColor: "text-sky-300 bg-sky-500/15 border-sky-500/30",
+      });
+    } else if (phase === "DISTRIBUTE" && t.dominantSignal === "BUY") {
+      opportunities.push({
+        theme: t,
+        action: "TRIM / EXIT",
+        reason: `DISTRIBUTING · score ${Math.round(score * 100)} but flow ${(t.flow20d ?? 0).toFixed(1)}σ`,
+        priority: "HIGH",
+        actionColor: "text-orange-300 bg-orange-500/15 border-orange-500/30",
+      });
+    } else if (phase === "FADING" && t.dominantSignal !== "REDUCE") {
+      opportunities.push({
+        theme: t,
+        action: "REDUCE",
+        reason: `FADING · trend turning negative · avoid new entries`,
+        priority: "MED",
+        actionColor: "text-amber-300 bg-amber-500/15 border-amber-500/30",
+      });
+    }
+  }
+
+  if (opportunities.length === 0) return null;
+
+  const sorted = [
+    ...opportunities.filter(o => o.priority === "HIGH"),
+    ...opportunities.filter(o => o.priority === "MED"),
+  ].slice(0, 5);
+
+  return (
+    <div className="bg-slate-900/70 border border-slate-700/60 rounded-lg overflow-hidden mb-4">
+      <div className="px-3 py-2 border-b border-slate-700/40 flex items-center gap-2">
+        <span className="text-[10px] font-mono text-white uppercase tracking-wider">Trade Opportunities</span>
+        <span className="text-[10px] font-mono text-slate-600">· phase-based signals</span>
+        <span className="ml-auto text-[9px] font-mono text-slate-700">{sorted.length} active</span>
+      </div>
+      <div className="divide-y divide-slate-800/60">
+        {sorted.map(o => (
+          <div key={o.theme.id} className="px-3 py-2 flex items-center gap-3 hover:bg-slate-800/30 transition-colors">
+            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border shrink-0 ${o.actionColor}`}>
+              {o.action}
+            </span>
+            <Link href={`/themes/${o.theme.id}`} className="text-[11px] font-semibold text-slate-200 hover:text-cyan-300 transition-colors truncate">
+              {o.theme.name}
+            </Link>
+            <span className="text-[9px] font-mono text-slate-500 ml-auto shrink-0 hidden sm:block">
+              {o.reason}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1058,6 +1144,14 @@ export default async function ThemesPage() {
   const watchThemes = themes.filter(t => t.dominantSignal === "WATCH").length;
   const activeThemes = themes.filter(t => t.dominantSignal === "BUY" || t.dominantSignal === "WATCH").length;
 
+  const phaseGroups: { phase: string; count: number; cls: string }[] = [
+    { phase: "BREAKOUT", count: themes.filter(t => t.themePhase === "BREAKOUT").length,  cls: "text-emerald-400" },
+    { phase: "MOMENTUM", count: themes.filter(t => t.themePhase === "MOMENTUM").length,  cls: "text-cyan-400" },
+    { phase: "SETUP",    count: themes.filter(t => t.themePhase === "SETUP").length,     cls: "text-sky-400" },
+    { phase: "FADING",   count: themes.filter(t => t.themePhase === "FADING").length,    cls: "text-amber-400" },
+    { phase: "WEAK",     count: themes.filter(t => t.themePhase === "WEAK").length,      cls: "text-red-400" },
+  ].filter(g => g.count > 0);
+
   const sortedByScore = [...themes].sort(
     (a, b) => (b.compositeScore ?? -1) - (a.compositeScore ?? -1)
   );
@@ -1092,6 +1186,16 @@ export default async function ThemesPage() {
               {activeThemes === 0 && (
                 <span className="text-[11px] font-mono text-slate-500">No active signals</span>
               )}
+              {phaseGroups.length > 0 && (
+                <span className="text-[11px] font-mono text-slate-400">
+                  {phaseGroups.map((g, i) => (
+                    <span key={g.phase}>
+                      {i > 0 && <span className="text-slate-600"> · </span>}
+                      <span className={g.cls}>{g.count} {g.phase}</span>
+                    </span>
+                  ))}
+                </span>
+              )}
               <span className="text-[11px] font-mono text-slate-600">
                 {themes.length} themes · {themes.reduce((a, t) => a + t.constituentCount, 0)} ETFs tracked
               </span>
@@ -1099,6 +1203,7 @@ export default async function ThemesPage() {
           )}
         </div>
 
+        {themes.length > 0 && <TopOpportunitiesPanel themes={themes} />}
         {themeAlerts.length > 0 && <ThemeAlertFeed alerts={themeAlerts} themes={themes} />}
         {themes.length > 0 && <PreBuySetupPanel themes={themes} />}
         {themes.length > 0 && <ThemeNarrative themes={themes} />}

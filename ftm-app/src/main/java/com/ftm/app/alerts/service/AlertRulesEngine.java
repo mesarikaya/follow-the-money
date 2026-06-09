@@ -143,6 +143,11 @@ public class AlertRulesEngine {
   // Fires when 5d trend exceeds 20d trend by >= 0.008 (momentum regime change signal)
   private static final double THEME_5D_ACCEL_DELTA_THRESHOLD = 0.008;
   private static final double THEME_5D_ACCEL_DELTA_RESOLVE = 0.003;
+  private static final String RULE_THEME_DISTRIBUTE_WARNING = "theme_distribute_warning";
+  // Fires when score >= 0.65 (BUY) but flow is significantly negative — potential distribution top
+  private static final double THEME_DISTRIBUTE_SCORE_THRESHOLD = 0.65;
+  private static final double THEME_DISTRIBUTE_FLOW_THRESHOLD = -0.5;
+  private static final double THEME_DISTRIBUTE_FLOW_RESOLVE = 0.0;
   // Fires when >=75% of sub-sectors are in Leading/Improving RRG (broad internal participation)
   private static final double SUB_SECTOR_BULL_CONFLUENCE_FIRE_FRACTION = 0.75;
   private static final double SUB_SECTOR_BULL_CONFLUENCE_RESOLVE_FRACTION = 0.55;
@@ -208,6 +213,7 @@ public class AlertRulesEngine {
     alertsCreated += evaluateThemeSignalTransitions(signalDate);
     alertsCreated += evaluateThemeMomentum(signalDate);
     alertsCreated += evaluateTheme5dAcceleration(signalDate);
+    alertsCreated += evaluateThemeDistributeWarning(signalDate);
     // Must run last: reads active alerts inserted by earlier evaluators in this cycle
     alertsCreated += evaluateMultiAlertBullConfluence(topLevelCategoryIds);
 
@@ -2595,6 +2601,74 @@ public class AlertRulesEngine {
       } else if (hasActive && delta < THEME_5D_ACCEL_DELTA_RESOLVE) {
         alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_5D_ACCELERATION, themeId);
         log.info("theme_5d_acceleration: resolved theme={} (acceleration normalised)", themeId);
+      }
+    }
+    return count;
+  }
+
+  private int evaluateThemeDistributeWarning(LocalDate signalDate) {
+    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_DISTRIBUTE_WARNING);
+    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+
+    Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
+    if (constituentsByTheme.isEmpty()) return 0;
+
+    Map<String, BigDecimal> compositeMap =
+        signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
+    Map<String, BigDecimal> flowMap =
+        signalRepository.findByTypeAndDate(SignalType.FLOW_20D, signalDate);
+    if (compositeMap.isEmpty() || flowMap.isEmpty()) return 0;
+
+    int count = 0;
+    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
+      String themeId = entry.getKey();
+      List<String> ids = entry.getValue();
+      if (ids.isEmpty()) continue;
+
+      OptionalDouble avgComposite =
+          ids.stream()
+              .map(compositeMap::get)
+              .filter(v -> v != null)
+              .mapToDouble(BigDecimal::doubleValue)
+              .average();
+      OptionalDouble avgFlow =
+          ids.stream()
+              .map(flowMap::get)
+              .filter(v -> v != null)
+              .mapToDouble(BigDecimal::doubleValue)
+              .average();
+      if (avgComposite.isEmpty() || avgFlow.isEmpty()) continue;
+
+      double score = avgComposite.getAsDouble();
+      double flow = avgFlow.getAsDouble();
+      boolean hasActive = alertRepository.existsActiveAlertForTheme(RULE_THEME_DISTRIBUTE_WARNING, themeId);
+
+      if (score >= THEME_DISTRIBUTE_SCORE_THRESHOLD && flow <= THEME_DISTRIBUTE_FLOW_THRESHOLD && !hasActive) {
+        Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
+        alertRepository.insert(
+            new Alert(
+                null,
+                OffsetDateTime.now(),
+                null,
+                themeId,
+                RULE_THEME_DISTRIBUTE_WARNING,
+                severity,
+                String.format(
+                    "%s theme may be distributing: score %d (BUY territory) but 20d flow %.2fσ — smart money exiting",
+                    themeId, (int) Math.round(score * 100), flow),
+                String.format(
+                    "{\"themeId\":\"%s\",\"avgScore\":%.4f,\"avgFlow\":%.4f,\"signalDate\":\"%s\"}",
+                    themeId, score, flow, signalDate),
+                AlertStatus.ACTIVE,
+                null,
+                null));
+        count++;
+        log.info(
+            "theme_distribute_warning: theme={} score={} flow={}",
+            themeId, (int) Math.round(score * 100), flow);
+      } else if (hasActive && flow > THEME_DISTRIBUTE_FLOW_RESOLVE) {
+        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_DISTRIBUTE_WARNING, themeId);
+        log.info("theme_distribute_warning: resolved theme={} (flow normalising)", themeId);
       }
     }
     return count;

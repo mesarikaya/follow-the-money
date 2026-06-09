@@ -255,6 +255,7 @@ const RULE_LABELS: Record<string, string> = {
   theme_dominant_signal_transition: "Signal Transition",
   theme_momentum_surge:             "Momentum Surge",
   theme_momentum_collapse:          "Momentum Collapse",
+  theme_distribute_warning:         "Distribution Warning",
   pre_buy_flow_surge:               "Pre-Buy Flow Surge",
 };
 
@@ -434,6 +435,106 @@ function computeWatchGuidance(theme: ThemeData): string | null {
 
 const HISTORY_PERIODS = [30, 60, 90] as const;
 
+const PHASE_COLORS: Record<string, string> = {
+  BREAKOUT:  "#34d399",
+  MOMENTUM:  "#22d3ee",
+  SETUP:     "#38bdf8",
+  BUILDING:  "#64748b",
+  HOLDING:   "#475569",
+  FADING:    "#fbbf24",
+  DISTRIBUTE:"#fb923c",
+  WEAK:      "#f87171",
+  NEUTRAL:   "#334155",
+};
+
+function phaseFromHistory(score: number, trend5d: number, trend20d: number): string {
+  const accelerating = (trend5d - trend20d) > 0.005;
+  const trending = trend20d > 0.003;
+  const fading = trend20d < -0.003;
+  if (score >= 0.65) {
+    if (accelerating) return "BREAKOUT";
+    if (trending) return "MOMENTUM";
+    return "HOLDING";
+  }
+  if (score >= 0.50) {
+    if (accelerating) return "SETUP";
+    if (fading) return "FADING";
+    return "BUILDING";
+  }
+  if (fading) return "FADING";
+  if (score < 0.35) return "WEAK";
+  return "NEUTRAL";
+}
+
+function PhaseTimelineStrip({ history }: { history: ThemeHistoryPoint[] }) {
+  if (history.length < 22) return null;
+  const scores = history.map(h => h.compositeScore);
+  const phases: string[] = [];
+  for (let i = 0; i < scores.length; i++) {
+    if (i < 20) { phases.push("NEUTRAL"); continue; }
+    const trend5d = (scores[i] - scores[i - 5]) / 5;
+    const trend20d = (scores[i] - scores[i - 20]) / 20;
+    phases.push(phaseFromHistory(scores[i], trend5d, trend20d));
+  }
+
+  // Build contiguous segments from the valid range (index 20+)
+  const segments: { phase: string; start: number; end: number; date: string }[] = [];
+  let seg = { phase: phases[20], start: 20, end: 20, date: history[20].date };
+  for (let i = 21; i < phases.length; i++) {
+    if (phases[i] === seg.phase) {
+      seg.end = i;
+    } else {
+      segments.push({ ...seg });
+      seg = { phase: phases[i], start: i, end: i, date: history[i].date };
+    }
+  }
+  segments.push({ ...seg });
+
+  const totalDays = phases.length - 20;
+  const lastThreeSegments = segments.slice(-4);
+
+  return (
+    <div className="bg-slate-800/40 border border-slate-700/40 rounded-lg p-3 mb-4">
+      <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Phase Timeline</div>
+      <div className="flex h-4 rounded overflow-hidden gap-px mb-2">
+        {segments.map((s, i) => (
+          <div
+            key={i}
+            style={{
+              width: `${((s.end - s.start + 1) / totalDays) * 100}%`,
+              backgroundColor: (PHASE_COLORS[s.phase] ?? "#334155") + "99",
+            }}
+            title={`${s.phase}: ${s.date} (${s.end - s.start + 1} days)`}
+          />
+        ))}
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        {lastThreeSegments.map((s, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            {i > 0 && <span className="text-slate-700 text-[9px]">→</span>}
+            <span
+              className="text-[9px] font-mono px-1.5 py-0.5 rounded"
+              style={{
+                color: PHASE_COLORS[s.phase] ?? "#64748b",
+                backgroundColor: (PHASE_COLORS[s.phase] ?? "#334155") + "22",
+                border: `1px solid ${(PHASE_COLORS[s.phase] ?? "#334155")}44`,
+              }}
+            >
+              {s.phase}
+            </span>
+            <span className="text-[9px] text-slate-600 font-mono">{s.end - s.start + 1}d</span>
+          </div>
+        ))}
+        {segments.length > 4 && (
+          <span className="text-[9px] text-slate-600 font-mono">
+            (+ {segments.length - 4} earlier)
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default async function ThemeDetailPage({
   params,
   searchParams,
@@ -595,6 +696,7 @@ export default async function ThemeDetailPage({
         {themeAlerts.length > 0 && <ThemeDetailAlerts alerts={themeAlerts} />}
 
         <HistoryChartSection history={history} days={days} themeId={id.toUpperCase()} />
+        <PhaseTimelineStrip history={history} />
 
         {allThemes.length > 1 && (
           <RelatedThemesPanel

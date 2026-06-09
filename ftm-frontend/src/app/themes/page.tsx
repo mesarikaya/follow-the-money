@@ -696,6 +696,94 @@ const SIGNAL_STROKE: Record<string, string> = {
   REDUCE: "#f87171",
 };
 
+function ThemePositioningMatrix({ themes }: { themes: ThemeSummary[] }) {
+  const plotThemes = themes.filter(
+    t => t.compositeScore != null && t.flow20d != null
+  );
+  if (plotThemes.length < 2) return null;
+
+  const W = 420, H = 160;
+  const padX = 36, padY = 18;
+  const chartW = W - padX * 2;
+  const chartH = H - padY * 2;
+
+  const maxAbsFlow = Math.max(2.0, ...plotThemes.map(t => Math.abs(t.flow20d!))) * 1.1;
+  const minScore = Math.max(0, Math.min(...plotThemes.map(t => t.compositeScore!)) - 0.08);
+  const maxScore = Math.min(1, Math.max(...plotThemes.map(t => t.compositeScore!)) + 0.08);
+  const scoreRange = maxScore - minScore || 0.5;
+
+  const toX = (score: number) => padX + ((score - minScore) / scoreRange) * chartW;
+  const toY = (flow: number) => padY + ((maxAbsFlow - flow) / (2 * maxAbsFlow)) * chartH;
+
+  const midY = toY(0);
+  const buyX = toX(0.65);
+
+  const FILL: Record<string, string> = {
+    BUY:    "#34d39990",
+    WATCH:  "#22d3ee90",
+    HOLD:   "#64748b80",
+    REDUCE: "#f8717190",
+  };
+
+  return (
+    <div className="bg-slate-800/40 border border-slate-700/40 rounded-lg p-3 mb-4">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] text-slate-500 uppercase tracking-wider">positioning matrix · score vs flow</span>
+        <div className="flex items-center gap-3 text-[9px] font-mono text-slate-600">
+          <span>score →</span>
+          <span>flow ↕</span>
+        </div>
+      </div>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" className="overflow-visible">
+        {/* Quadrant fills */}
+        <rect x={buyX} y={padY} width={W - padX - buyX} height={midY - padY} fill="#34d39904" />
+        <rect x={buyX} y={midY} width={W - padX - buyX} height={padY + chartH - midY} fill="#f8717103" />
+        {/* BUY threshold line */}
+        <line x1={buyX} y1={padY} x2={buyX} y2={H - padY} stroke="#34d39930" strokeWidth="1" strokeDasharray="3 2" />
+        <text x={buyX + 2} y={padY + 8} fill="#34d39940" fontSize="6" fontFamily="monospace">BUY 65</text>
+        {/* Zero flow axis */}
+        <line x1={padX} y1={midY} x2={W - padX} y2={midY} stroke="#334155" strokeWidth="1" />
+        {/* Left axis */}
+        <line x1={padX} y1={padY} x2={padX} y2={H - padY} stroke="#1e293b" strokeWidth="1" />
+        {/* Quadrant corner labels */}
+        <text x={buyX + 4} y={padY + 8} fill="#34d39928" fontSize="6" fontFamily="monospace"> </text>
+        <text x={W - padX - 2} y={padY + 10} fill="#34d39935" fontSize="6" textAnchor="end" fontFamily="monospace">LEADERS</text>
+        <text x={W - padX - 2} y={H - padY - 3} fill="#f8717125" fontSize="6" textAnchor="end" fontFamily="monospace">DISTRIBUTION</text>
+        <text x={padX + 2} y={padY + 10} fill="#22d3ee25" fontSize="6" fontFamily="monospace">ACCUMULATORS</text>
+        <text x={padX + 2} y={H - padY - 3} fill="#64748b40" fontSize="6" fontFamily="monospace">AVOID</text>
+        {/* Flow axis labels */}
+        <text x={padX - 2} y={padY + 8} fill="#475569" fontSize="6" textAnchor="end" fontFamily="monospace">+{maxAbsFlow.toFixed(1)}σ</text>
+        <text x={padX - 2} y={H - padY + 1} fill="#475569" fontSize="6" textAnchor="end" fontFamily="monospace">-{maxAbsFlow.toFixed(1)}σ</text>
+        {/* Dots */}
+        {plotThemes.map(t => {
+          const cx = toX(t.compositeScore!);
+          const cy = toY(t.flow20d!);
+          const fill = FILL[t.dominantSignal] ?? FILL.HOLD;
+          const bullishRatio = t.constituentCount > 0 ? t.bullishCount / t.constituentCount : 0.5;
+          const r = 3.5 + bullishRatio * 4.5;
+          const label = themeShortLabel(t);
+          const labelRight = cx > W * 0.75;
+          return (
+            <g key={t.id}>
+              <circle cx={cx} cy={cy} r={r} fill={fill} stroke={fill.slice(0, 7)} strokeWidth="1" strokeOpacity="0.8" />
+              <text
+                x={labelRight ? cx - r - 2 : cx + r + 2}
+                y={cy + 3}
+                fill="#94a3b8"
+                fontSize="7"
+                textAnchor={labelRight ? "end" : "start"}
+                fontFamily="monospace"
+              >
+                {label}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 function ThemeScreener({
   themes,
   historiesByThemeId,
@@ -987,6 +1075,7 @@ export default async function ThemesPage() {
         {themes.length > 0 && <ActiveRotationBanner themes={themes} historiesByThemeId={historyByThemeId} />}
         {themes.length > 0 && <RotationMomentumStrip themes={themes} />}
         {themes.length > 1 && <ThemeRelativeStrengthPlot themes={themes} />}
+        {themes.length > 1 && <ThemePositioningMatrix themes={themes} />}
         {themes.length > 1 && <ThemeRaceChart themes={themes} historiesByThemeId={historyByThemeId} />}
         {themes.length > 0 && <ThemeScreener themes={themes} historiesByThemeId={historyByThemeId} />}
 

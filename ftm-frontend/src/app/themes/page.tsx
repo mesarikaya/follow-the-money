@@ -245,19 +245,36 @@ function ActiveRotationBanner({
   themes: ThemeSummary[];
   historiesByThemeId: Record<string, ThemeHistoryPoint[]>;
 }) {
-  const scored = themes.filter(t => t.compositeScore != null && t.compositeTrend20d != null);
+  const scored = themes.filter(t => t.compositeScore != null);
   if (scored.length < 2) return null;
 
-  const byScore = [...scored].sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
-  const leader = byScore[0];
-  const lagger = byScore[byScore.length - 1];
+  // Prefer a pair where one is rising and the other falling (confirmed rotation)
+  const rising = scored.filter(t => (t.compositeTrend20d ?? 0) > 0.002);
+  const falling = scored.filter(t => (t.compositeTrend20d ?? 0) < -0.002);
+
+  let leader = scored[0];
+  let lagger = scored[scored.length - 1];
+  let isRotating = false;
+
+  if (rising.length > 0 && falling.length > 0) {
+    // Find the rising+falling pair with the largest composite divergence
+    let maxDiv = -1;
+    for (const r of rising) {
+      for (const f of falling) {
+        const div = (r.compositeScore ?? 0) - (f.compositeScore ?? 0);
+        if (div > maxDiv) { maxDiv = div; leader = r; lagger = f; }
+      }
+    }
+    isRotating = true;
+  } else {
+    // No confirmed rotation — just show the widest absolute gap
+    const byScore = [...scored].sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
+    leader = byScore[0];
+    lagger = byScore[byScore.length - 1];
+  }
+
   const divergence = (leader.compositeScore ?? 0) - (lagger.compositeScore ?? 0);
-
   if (divergence < 0.12) return null;
-
-  const leaderUp = (leader.compositeTrend20d ?? 0) > 0;
-  const laggerDown = (lagger.compositeTrend20d ?? 0) < 0;
-  const isRotating = leaderUp && laggerDown;
 
   return (
     <div className={`rounded-lg px-4 py-2.5 mb-4 flex items-center justify-between gap-4 ${

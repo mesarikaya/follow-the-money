@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { fetchTheme, fetchThemeHistory, ThemeConstituent, ThemeHistoryPoint } from "@/lib/api";
 import { notFound } from "next/navigation";
+import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 
 const SIGNAL_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   BUY:    { label: "BUY",    color: "text-emerald-400", bg: "bg-emerald-500/15 border border-emerald-500/30" },
@@ -80,16 +81,29 @@ function ConvictionDots({ score }: { score: number | null }) {
 }
 
 function ConstituentRow({ c, index }: { c: ThemeConstituent; index: number }) {
+  const hasDrilldown = SECTOR_DRILLDOWN_IDS.has(c.categoryId);
   return (
     <tr className="border-t border-slate-700/50 hover:bg-slate-800/40 transition-colors">
       <td className="py-2.5 px-3 text-xs text-slate-500 font-mono tabular-nums">{index + 1}</td>
       <td className="py-2.5 px-3">
-        <div className="text-xs font-semibold text-slate-200">{c.name}</div>
+        {hasDrilldown ? (
+          <Link href={`/sectors/${c.categoryId}`} className="text-xs font-semibold text-slate-200 hover:text-cyan-300 transition-colors">
+            {c.name}
+          </Link>
+        ) : (
+          <div className="text-xs font-semibold text-slate-200">{c.name}</div>
+        )}
       </td>
       <td className="py-2.5 px-3">
-        <span className="text-[11px] font-mono text-slate-400 bg-slate-700/60 px-1.5 py-0.5 rounded">
-          {c.etfTicker}
-        </span>
+        {hasDrilldown ? (
+          <Link href={`/sectors/${c.categoryId}`} className="text-[11px] font-mono text-blue-300 bg-blue-900/20 px-1.5 py-0.5 rounded hover:text-cyan-300 transition-colors">
+            {c.etfTicker}
+          </Link>
+        ) : (
+          <span className="text-[11px] font-mono text-slate-400 bg-slate-700/60 px-1.5 py-0.5 rounded">
+            {c.etfTicker}
+          </span>
+        )}
       </td>
       <td className="py-2.5 px-3"><ScoreBar score={c.compositeScore} /></td>
       <td className="py-2.5 px-3"><RsCell value={c.rs60} /></td>

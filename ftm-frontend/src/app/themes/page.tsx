@@ -144,6 +144,23 @@ function ThemeSparkline({ history }: { history: ThemeHistoryPoint[] }) {
   );
 }
 
+function ScoreDeltaBadge({ history }: { history: ThemeHistoryPoint[] }) {
+  if (history.length < 5) return null;
+  const first = history[0].compositeScore;
+  const last = history[history.length - 1].compositeScore;
+  const deltaPts = Math.round((last - first) * 100);
+  if (Math.abs(deltaPts) < 2) return null;
+  const isUp = deltaPts > 0;
+  return (
+    <span
+      className={`text-[9px] font-mono px-1 py-0.5 rounded ${isUp ? "text-emerald-400 bg-emerald-500/10" : "text-red-400 bg-red-500/10"}`}
+      title={`30-day score change: ${isUp ? "+" : ""}${deltaPts}pt`}
+    >
+      {isUp ? "↑" : "↓"}{isUp ? "+" : ""}{deltaPts}pt
+    </span>
+  );
+}
+
 function BullishBar({ bullish, total }: { bullish: number; total: number }) {
   const pct = total > 0 ? bullish / total : 0;
   const color = pct >= 0.6 ? "bg-emerald-500" : pct >= 0.4 ? "bg-amber-500" : "bg-red-500";
@@ -180,6 +197,7 @@ function ThemeCard({ theme, history }: { theme: ThemeSummary; history: ThemeHist
           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${signal.bg} ${signal.color}`}>
             {signal.label}
           </span>
+          <ScoreDeltaBadge history={history} />
           <FlowChip flow={theme.flow20d} />
           <TrendChip trend={theme.compositeTrend20d} />
           <DivergenceChip divergence={theme.divergenceFromParentSectors} />

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { fetchThemes, fetchThemeHistory, ThemeSummary, ThemeConstituent, ThemeHistoryPoint } from "@/lib/api";
+import { fetchThemes, fetchThemeHistory, fetchAlerts, AlertDto, ThemeSummary, ThemeConstituent, ThemeHistoryPoint } from "@/lib/api";
 
 const SIGNAL_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   BUY:    { label: "BUY",    color: "text-emerald-400", bg: "bg-emerald-500/15 border border-emerald-500/30" },
@@ -393,6 +393,122 @@ function RotationMomentumStrip({ themes }: { themes: ThemeSummary[] }) {
   );
 }
 
+const RULE_LABELS: Record<string, string> = {
+  theme_5d_acceleration:           "5d Accel",
+  theme_dominant_signal_transition: "Signal Shift",
+  theme_momentum_surge:            "Mom. Surge",
+  theme_momentum_collapse:         "Mom. Collapse",
+  pre_buy_flow_surge:              "Pre-Buy Flow",
+};
+
+const SEVERITY_CONFIG: Record<string, { badge: string; dot: string }> = {
+  ACTION:  { badge: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25", dot: "bg-emerald-400" },
+  WARNING: { badge: "bg-amber-500/15 text-amber-400 border border-amber-500/25",      dot: "bg-amber-400"   },
+  URGENT:  { badge: "bg-red-500/15 text-red-400 border border-red-500/25",            dot: "bg-red-400"     },
+  INFO:    { badge: "bg-slate-700/60 text-slate-400 border border-slate-600/40",      dot: "bg-slate-500"   },
+};
+
+function ThemeAlertFeed({
+  alerts,
+  themes,
+}: {
+  alerts: AlertDto[];
+  themes: ThemeSummary[];
+}) {
+  const themeAlerts = alerts
+    .filter(a => a.themeId != null && a.status === "ACTIVE")
+    .slice(0, 5);
+  if (themeAlerts.length === 0) return null;
+
+  const themeNameById = Object.fromEntries(themes.map(t => [t.id, t.name]));
+
+  return (
+    <div className="bg-slate-900/60 border border-slate-700/60 rounded-lg overflow-hidden mb-4">
+      <div className="px-3 py-2 border-b border-slate-700/40 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Active Theme Alerts</span>
+        </div>
+        <Link href="/alerts" className="text-[9px] font-mono text-slate-600 hover:text-slate-400 transition-colors">
+          all alerts →
+        </Link>
+      </div>
+      <div className="divide-y divide-slate-800/60">
+        {themeAlerts.map(alert => {
+          const sev = SEVERITY_CONFIG[alert.severity] ?? SEVERITY_CONFIG.INFO;
+          const ruleLabel = RULE_LABELS[alert.ruleId] ?? alert.ruleId;
+          const themeName = alert.themeId ? (themeNameById[alert.themeId] ?? alert.themeId) : null;
+          return (
+            <div key={alert.id} className="px-3 py-2 flex items-start gap-3 hover:bg-slate-800/30 transition-colors">
+              <span className={`mt-0.5 w-1 h-1 rounded-full shrink-0 ${sev.dot}`} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                  <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${sev.badge}`}>{alert.severity}</span>
+                  <span className="text-[9px] font-mono text-slate-600 px-1.5 py-0.5 rounded bg-slate-800/60">{ruleLabel}</span>
+                  {themeName && alert.themeId && (
+                    <Link
+                      href={`/themes/${alert.themeId}`}
+                      className="text-[10px] font-semibold text-cyan-400 hover:text-cyan-300 transition-colors truncate"
+                    >
+                      {themeName}
+                    </Link>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400 leading-relaxed line-clamp-1">{alert.message}</p>
+              </div>
+              <span className="text-[9px] font-mono text-slate-700 shrink-0 mt-0.5">
+                {new Date(alert.createdAt).toLocaleDateString("en-GB", { month: "short", day: "numeric" })}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PreBuySetupPanel({ themes }: { themes: ThemeSummary[] }) {
+  const setups = themes.filter(
+    t =>
+      t.compositeScore != null &&
+      t.compositeScore >= 0.50 &&
+      t.compositeScore < 0.65 &&
+      t.dominantSignal !== "BUY" &&
+      t.compositeTrend5d != null &&
+      t.compositeTrend20d != null &&
+      t.compositeTrend5d > t.compositeTrend20d
+  );
+  if (setups.length === 0) return null;
+
+  return (
+    <div className="bg-cyan-900/10 border border-cyan-700/30 rounded-lg px-4 py-3 mb-4">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-[10px] font-mono text-cyan-400 uppercase tracking-wider">Pre-Buy Setups</span>
+        <span className="text-[10px] font-mono text-cyan-600">— approaching BUY, momentum accelerating</span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {setups.map(t => {
+          const score = Math.round((t.compositeScore ?? 0) * 100);
+          const delta = ((t.compositeTrend5d ?? 0) - (t.compositeTrend20d ?? 0)) * 100;
+          return (
+            <Link
+              key={t.id}
+              href={`/themes/${t.id}`}
+              className="flex items-center gap-1.5 bg-slate-800/60 border border-cyan-700/30 rounded px-2 py-1 hover:border-cyan-500/50 hover:bg-slate-800 transition-all"
+            >
+              <span className="text-[10px] font-semibold text-slate-200">{t.name}</span>
+              <span className="text-[10px] font-mono text-cyan-400">{score}</span>
+              <span className="text-[9px] font-mono text-emerald-400" title={`5d accelerating +${delta.toFixed(1)}pt vs 20d`}>
+                ⬆+{delta.toFixed(1)}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function ThemeNarrative({ themes }: { themes: ThemeSummary[] }) {
   if (themes.length === 0) return null;
 
@@ -739,7 +855,10 @@ function ThemeRaceChart({
 }
 
 export default async function ThemesPage() {
-  const themes = await fetchThemes();
+  const [themes, alertsResponse] = await Promise.all([
+    fetchThemes(),
+    fetchAlerts().catch(() => ({ activeCount: 0, alerts: [] })),
+  ]);
 
   const historyResults = await Promise.allSettled(
     themes.map(t => fetchThemeHistory(t.id, 30))
@@ -750,6 +869,7 @@ export default async function ThemesPage() {
     historyByThemeId[t.id] = result.status === "fulfilled" ? result.value : [];
   });
 
+  const themeAlerts = alertsResponse.alerts.filter(a => a.themeId != null && a.status === "ACTIVE");
   const buyThemes = themes.filter(t => t.dominantSignal === "BUY").length;
   const watchThemes = themes.filter(t => t.dominantSignal === "WATCH").length;
   const activeThemes = themes.filter(t => t.dominantSignal === "BUY" || t.dominantSignal === "WATCH").length;
@@ -769,7 +889,7 @@ export default async function ThemesPage() {
             Cross-sector capital flow narratives — each theme aggregates signals across constituent ETFs to surface conviction before the mainstream narrative. Sparklines show 30-day composite trend.
           </p>
           {themes.length > 0 && (
-            <div className="flex gap-3 mt-2">
+            <div className="flex gap-3 mt-2 flex-wrap">
               {buyThemes > 0 && (
                 <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
                   {buyThemes} BUY
@@ -778,6 +898,11 @@ export default async function ThemesPage() {
               {watchThemes > 0 && (
                 <span className="text-[11px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
                   {watchThemes} WATCH
+                </span>
+              )}
+              {themeAlerts.length > 0 && (
+                <span className="text-[11px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">
+                  {themeAlerts.length} alert{themeAlerts.length !== 1 ? "s" : ""}
                 </span>
               )}
               {activeThemes === 0 && (
@@ -790,6 +915,8 @@ export default async function ThemesPage() {
           )}
         </div>
 
+        {themeAlerts.length > 0 && <ThemeAlertFeed alerts={themeAlerts} themes={themes} />}
+        {themes.length > 0 && <PreBuySetupPanel themes={themes} />}
         {themes.length > 0 && <ThemeNarrative themes={themes} />}
         {themes.length > 0 && <ActiveRotationBanner themes={themes} historiesByThemeId={historyByThemeId} />}
         {themes.length > 0 && <RotationMomentumStrip themes={themes} />}

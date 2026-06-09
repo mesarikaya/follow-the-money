@@ -8,7 +8,6 @@ import com.ftm.app.api.dto.AlertsResponse;
 import com.ftm.app.api.mapper.AlertMapper;
 import com.ftm.app.domain.Alert;
 import com.ftm.app.domain.AlertRule;
-import com.ftm.app.domain.AlertStatus;
 import java.util.List;
 import java.util.NoSuchElementException;
 import org.slf4j.Logger;

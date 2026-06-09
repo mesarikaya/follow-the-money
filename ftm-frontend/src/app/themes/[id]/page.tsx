@@ -115,7 +115,7 @@ function ConstituentRow({ c, index }: { c: ThemeConstituent; index: number }) {
   );
 }
 
-function ThemeHistoryChart({ history }: { history: ThemeHistoryPoint[] }) {
+function ThemeHistoryChart({ history, days }: { history: ThemeHistoryPoint[]; days: number }) {
   if (history.length < 3) return null;
   const width = 600, height = 72;
   const padLeft = 28, padRight = 8, padTop = 6, padBottom = 18;
@@ -144,25 +144,51 @@ function ThemeHistoryChart({ history }: { history: ThemeHistoryPoint[] }) {
   const lastDate = history[history.length - 1].date;
 
   return (
+    <svg width="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="overflow-visible">
+      <line x1={padLeft} y1={buyY} x2={width - padRight} y2={buyY} stroke="#34d39930" strokeWidth="1" strokeDasharray="3 3" />
+      <text x={padLeft - 2} y={buyY + 3} fill="#34d39960" fontSize="7" textAnchor="end" fontFamily="monospace">65</text>
+      <line x1={padLeft} y1={reduceY} x2={width - padRight} y2={reduceY} stroke="#f8717130" strokeWidth="1" strokeDasharray="3 3" />
+      <text x={padLeft - 2} y={reduceY + 3} fill="#f8717160" fontSize="7" textAnchor="end" fontFamily="monospace">35</text>
+      <path d={areaPath} fill={fill} />
+      <path d={linePath} fill="none" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={toX(values.length - 1)} cy={toY(latest)} r="3" fill={stroke} />
+      <text x={padLeft} y={height} fill="#64748b" fontSize="7" fontFamily="monospace">{firstDate}</text>
+      <text x={width - padRight} y={height} fill="#64748b" fontSize="7" textAnchor="end" fontFamily="monospace">{lastDate}</text>
+    </svg>
+  );
+}
+
+function HistoryChartSection({
+  history,
+  days,
+  themeId,
+}: {
+  history: ThemeHistoryPoint[];
+  days: number;
+  themeId: string;
+}) {
+  const periods = HISTORY_PERIODS;
+  return (
     <div className="bg-slate-800/40 border border-slate-700/40 rounded-lg p-3 mb-4">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] text-slate-500 uppercase tracking-wider">30-day composite trend</span>
-        <span className="text-[10px] font-mono text-slate-500">{firstDate} → {lastDate}</span>
+        <span className="text-[10px] text-slate-500 uppercase tracking-wider">composite trend</span>
+        <div className="flex items-center gap-1">
+          {periods.map(p => (
+            <Link
+              key={p}
+              href={`/themes/${themeId}?days=${p}`}
+              className={`text-[10px] px-1.5 py-0.5 rounded font-mono transition-colors ${
+                p === days
+                  ? "bg-slate-600 text-slate-200"
+                  : "text-slate-500 hover:text-slate-300 hover:bg-slate-700/60"
+              }`}
+            >
+              {p}d
+            </Link>
+          ))}
+        </div>
       </div>
-      <svg width="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="overflow-visible">
-        {/* BUY threshold line */}
-        <line x1={padLeft} y1={buyY} x2={width - padRight} y2={buyY} stroke="#34d39930" strokeWidth="1" strokeDasharray="3 3" />
-        <text x={padLeft - 2} y={buyY + 3} fill="#34d39960" fontSize="7" textAnchor="end" fontFamily="monospace">65</text>
-        {/* REDUCE threshold line */}
-        <line x1={padLeft} y1={reduceY} x2={width - padRight} y2={reduceY} stroke="#f8717130" strokeWidth="1" strokeDasharray="3 3" />
-        <text x={padLeft - 2} y={reduceY + 3} fill="#f8717160" fontSize="7" textAnchor="end" fontFamily="monospace">35</text>
-        {/* Area fill */}
-        <path d={areaPath} fill={fill} />
-        {/* Line */}
-        <path d={linePath} fill="none" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        {/* Latest value dot */}
-        <circle cx={toX(values.length - 1)} cy={toY(latest)} r="3" fill={stroke} />
-      </svg>
+      <ThemeHistoryChart history={history} days={days} />
     </div>
   );
 }
@@ -178,8 +204,21 @@ function AggMetric({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-export default async function ThemeDetailPage({ params }: { params: Promise<{ id: string }> }) {
+const HISTORY_PERIODS = [30, 60, 90] as const;
+
+export default async function ThemeDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ days?: string }>;
+}) {
   const { id } = await params;
+  const { days: daysParam } = await searchParams;
+  const days = HISTORY_PERIODS.includes(Number(daysParam) as typeof HISTORY_PERIODS[number])
+    ? Number(daysParam)
+    : 30;
+
   let theme;
   try {
     theme = await fetchTheme(id.toUpperCase());
@@ -187,7 +226,7 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
     notFound();
   }
 
-  const history: ThemeHistoryPoint[] = await fetchThemeHistory(id.toUpperCase(), 30).catch(() => []);
+  const history: ThemeHistoryPoint[] = await fetchThemeHistory(id.toUpperCase(), days).catch(() => []);
 
   const signal = SIGNAL_CONFIG[theme.dominantSignal] ?? SIGNAL_CONFIG.HOLD;
 
@@ -270,7 +309,7 @@ export default async function ThemeDetailPage({ params }: { params: Promise<{ id
           </div>
         </div>
 
-        <ThemeHistoryChart history={history} />
+        <HistoryChartSection history={history} days={days} themeId={id.toUpperCase()} />
 
         <div className="bg-slate-800/40 border border-slate-700/60 rounded-lg overflow-hidden">
           <table className="w-full text-left">

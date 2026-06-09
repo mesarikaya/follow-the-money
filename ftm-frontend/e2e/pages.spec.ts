@@ -243,9 +243,9 @@ test.describe("Dashboard — Sector Rotation Wheel", () => {
 
   test("renders quadrant labels and sector tickers in the wheel SVG", async ({ page }) => {
     await page.goto("/");
-    // SVG text elements for quadrant labels (full label string rendered inside SVG)
-    await expect(page.getByText("↗ Leading")).toBeVisible();
-    await expect(page.getByText("↙ Lagging")).toBeVisible();
+    // Use .first() — "↗ Leading" now appears in multiple places (SVG, RRG table, rotation strip)
+    await expect(page.getByText("↗ Leading").first()).toBeVisible();
+    await expect(page.getByText("↙ Lagging").first()).toBeVisible();
     // SVG text for sector ETF tickers (TECH=XLK, ENRG=XLE have non-null rs60+compositeTrend5d)
     await expect(page.getByText("XLK").first()).toBeVisible();
     await expect(page.getByText("XLE").first()).toBeVisible();
@@ -404,19 +404,20 @@ test.describe("Investment Themes page (/themes)", () => {
 
   test("renders original five theme cards from mock data", async ({ page }) => {
     await page.goto("/themes");
-    await expect(page.getByText("AI Infrastructure")).toBeVisible();
-    await expect(page.getByText("Semiconductor Supercycle")).toBeVisible();
-    await expect(page.getByText("SaaS at Risk")).toBeVisible();
-    await expect(page.getByText("Defense Rearmament")).toBeVisible();
-    await expect(page.getByText("Clean Power Renaissance")).toBeVisible();
+    // Theme names appear in multiple places (ThemeNarrative, RotationMomentumStrip, ThemeCard)
+    await expect(page.getByText("AI Infrastructure").first()).toBeVisible();
+    await expect(page.getByText("Semiconductor Supercycle").first()).toBeVisible();
+    await expect(page.getByText("SaaS at Risk").first()).toBeVisible();
+    await expect(page.getByText("Defense Rearmament").first()).toBeVisible();
+    await expect(page.getByText("Clean Power Renaissance").first()).toBeVisible();
   });
 
   test("renders four additional market-narrative themes", async ({ page }) => {
     await page.goto("/themes");
-    await expect(page.getByText("Rate Pivot & Duration Trade")).toBeVisible();
-    await expect(page.getByText("Commodity Supercycle & Electrification")).toBeVisible();
-    await expect(page.getByText("Physical AI & Robotics")).toBeVisible();
-    await expect(page.getByText("Hard Assets & Precious Metals")).toBeVisible();
+    await expect(page.getByText("Rate Pivot & Duration Trade").first()).toBeVisible();
+    await expect(page.getByText("Commodity Supercycle & Electrification").first()).toBeVisible();
+    await expect(page.getByText("Physical AI & Robotics").first()).toBeVisible();
+    await expect(page.getByText("Hard Assets & Precious Metals").first()).toBeVisible();
   });
 
   test("shows dominant signal badges on theme cards", async ({ page }) => {

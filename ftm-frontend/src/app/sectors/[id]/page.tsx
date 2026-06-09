@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { fetchSubSectors, fetchCategoryScoreHistory, fetchSignalHistory, SignalHistoryEntry, SubSectorSummary } from "@/lib/api";
+import { fetchSubSectors, fetchCategoryScoreHistory, fetchSignalHistory, fetchThemes, SignalHistoryEntry, SubSectorSummary, ThemeSummary } from "@/lib/api";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 import SubSectorTable from "@/components/SubSectorTable";
 import RefreshButton from "@/components/RefreshButton";
@@ -151,6 +151,79 @@ function SignalComponentChart({ entries }: { entries: SignalHistoryEntry[] }) {
   );
 }
 
+const SIGNAL_BADGE: Record<string, string> = {
+  BUY:    "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  WATCH:  "bg-cyan-500/15 text-cyan-400 border-cyan-500/30",
+  HOLD:   "bg-slate-700/60 text-slate-400 border-slate-600/40",
+  REDUCE: "bg-red-500/15 text-red-400 border-red-500/30",
+};
+
+function ThemeOverlapPanel({
+  themes,
+  sectorCategoryIds,
+}: {
+  themes: ThemeSummary[];
+  sectorCategoryIds: Set<string>;
+}) {
+  const overlapping = themes.filter(theme =>
+    theme.topConstituents.some(c => sectorCategoryIds.has(c.categoryId))
+  );
+  if (overlapping.length === 0) return null;
+
+  return (
+    <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-slate-700/40 flex items-center gap-2">
+        <span className="text-sm font-semibold text-slate-200">Investment Themes</span>
+        <span className="text-xs text-slate-500">— cross-sector narratives drawing from this sector</span>
+      </div>
+      <div className="divide-y divide-slate-800/60">
+        {overlapping.map(theme => {
+          const overlappingConstituents = theme.topConstituents.filter(c => sectorCategoryIds.has(c.categoryId));
+          const signalClass = SIGNAL_BADGE[theme.dominantSignal] ?? SIGNAL_BADGE.HOLD;
+          const scorePct = theme.compositeScore != null ? Math.round(theme.compositeScore * 100) : null;
+          const divPts = theme.divergenceFromParentSectors != null
+            ? Math.round(theme.divergenceFromParentSectors * 100)
+            : null;
+          return (
+            <div key={theme.id} className="px-4 py-3 flex items-start gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <Link href={`/themes/${theme.id}`} className="text-sm font-semibold text-white hover:text-cyan-300 transition-colors">
+                    {theme.name}
+                  </Link>
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${signalClass}`}>
+                    {theme.dominantSignal}
+                  </span>
+                  {scorePct != null && (
+                    <span className="text-[10px] font-mono text-slate-500">{scorePct}/100</span>
+                  )}
+                  {divPts != null && Math.abs(divPts) >= 2 && (
+                    <span className={`text-[10px] font-mono px-1 py-0.5 rounded ${divPts > 0 ? "text-emerald-400 bg-emerald-500/10" : "text-red-400 bg-red-500/10"}`}>
+                      {divPts > 0 ? "▲+" : "▼"}{divPts}pt vs sectors
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed line-clamp-1 mb-1.5">{theme.thesis}</p>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] text-slate-600 uppercase tracking-wider">from this sector:</span>
+                  {overlappingConstituents.map(c => (
+                    <span key={c.categoryId} className="text-[10px] font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-1.5 py-0.5 rounded">
+                      {c.etfTicker}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <Link href={`/themes/${theme.id}`} className="shrink-0 text-[10px] text-slate-500 hover:text-slate-300 border border-slate-700 hover:border-slate-500 px-2 py-1 rounded transition-colors">
+                Details →
+              </Link>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function buildConfluenceNarrative(
   bullishCount: number,
   bearishCount: number,
@@ -218,14 +291,16 @@ export default async function SectorDrilldownPage({ params }: Props) {
   const meta = SECTOR_META[sectorId];
 
   let subSectors: SubSectorSummary[] = [];
+  let themes: ThemeSummary[] = [];
   let error: string | null = null;
   let scoreHistory: number[] = [];
   let signalHistory: SignalHistoryEntry[] = [];
 
-  const [subSectorsResult, scoreHistoryResult, signalHistoryResult] = await Promise.allSettled([
+  const [subSectorsResult, scoreHistoryResult, signalHistoryResult, themesResult] = await Promise.allSettled([
     fetchSubSectors(sectorId),
     fetchCategoryScoreHistory(60),
     fetchSignalHistory(sectorId),
+    fetchThemes(),
   ]);
 
   if (subSectorsResult.status === "fulfilled") {
@@ -241,6 +316,12 @@ export default async function SectorDrilldownPage({ params }: Props) {
   if (signalHistoryResult.status === "fulfilled") {
     signalHistory = signalHistoryResult.value;
   }
+  if (themesResult.status === "fulfilled") {
+    themes = themesResult.value;
+  }
+
+  // Category IDs that belong to this sector (parent + all sub-sectors)
+  const sectorCategoryIds = new Set<string>([sectorId, ...subSectors.map(s => s.id)]);
 
   const quadrantCounts: Record<string, SubSectorSummary[]> = { "4": [], "3": [], "2": [], "1": [] };
   const signalCounts: Record<string, SubSectorSummary[]> = { BUY: [], WATCH: [], HOLD: [], REDUCE: [] };
@@ -436,6 +517,11 @@ export default async function SectorDrilldownPage({ params }: Props) {
             {/* Signal component history chart */}
             {signalHistory.length > 0 && (
               <SignalComponentChart entries={signalHistory} />
+            )}
+
+            {/* Investment themes overlapping with this sector */}
+            {themes.length > 0 && (
+              <ThemeOverlapPanel themes={themes} sectorCategoryIds={sectorCategoryIds} />
             )}
 
             {/* Sortable sub-sector table */}

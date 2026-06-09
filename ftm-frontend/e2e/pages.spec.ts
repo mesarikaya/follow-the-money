@@ -152,10 +152,11 @@ test.describe("Sector drilldown page", () => {
 
   test("renders sub-sector names in the drilldown table", async ({ page }) => {
     await page.goto("/sectors/TECH");
-    await expect(page.getByText("Semiconductors")).toBeVisible();
-    await expect(page.getByText("AI & Robotics")).toBeVisible();
-    await expect(page.getByText("Cloud Computing")).toBeVisible();
-    await expect(page.getByText("Software").first()).toBeVisible();
+    // Scope to table cells — sub-sector names now also appear in the theme overlap panel
+    await expect(page.getByRole("cell", { name: "Semiconductors" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "AI & Robotics" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Cloud Computing" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Software" })).toBeVisible();
   });
 
   test("shows rotation signal quadrant labels", async ({ page }) => {

@@ -73,8 +73,14 @@ public class ThemeService {
   public List<ThemeHistoryPointDto> getThemeHistory(String themeId, int tradingDays) {
     assertThemeExists(themeId);
     List<String> constituentIds = themeRepository.findConstituentIds(themeId);
-    return signalRepository.findAverageCompositeByDate(constituentIds, tradingDays).stream()
-        .map(point -> new ThemeHistoryPointDto(point.date().toString(), point.averageComposite()))
+    return signalRepository.findAverageHistoryByDate(constituentIds, tradingDays).stream()
+        .map(
+            point ->
+                new ThemeHistoryPointDto(
+                    point.date().toString(),
+                    point.averageComposite(),
+                    point.averageTrend5d(),
+                    point.averageTrend20d()))
         .toList();
   }
 

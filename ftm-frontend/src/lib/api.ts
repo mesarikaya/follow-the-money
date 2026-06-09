@@ -599,6 +599,8 @@ export type ThemeDetail = ThemeSummary & {
 export type ThemeHistoryPoint = {
   date: string;
   compositeScore: number;
+  trend5d: number | null;
+  trend20d: number | null;
 };
 
 export const fetchThemes = () => get<ThemeSummary[]>("/api/v1/themes");

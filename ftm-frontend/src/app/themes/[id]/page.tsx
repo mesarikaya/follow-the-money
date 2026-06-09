@@ -472,8 +472,9 @@ function PhaseTimelineStrip({ history }: { history: ThemeHistoryPoint[] }) {
   const phases: string[] = [];
   for (let i = 0; i < scores.length; i++) {
     if (i < 20) { phases.push("NEUTRAL"); continue; }
-    const trend5d = (scores[i] - scores[i - 5]) / 5;
-    const trend20d = (scores[i] - scores[i - 20]) / 20;
+    // Prefer actual backend trends; fall back to derived slopes if absent
+    const trend5d = history[i].trend5d ?? (scores[i] - scores[i - 5]) / 5;
+    const trend20d = history[i].trend20d ?? (scores[i] - scores[i - 20]) / 20;
     phases.push(phaseFromHistory(scores[i], trend5d, trend20d));
   }
 

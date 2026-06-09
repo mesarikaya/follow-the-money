@@ -139,7 +139,7 @@ class ThemeServiceTest {
   void shouldReturnEmptyHistoryWhenNoSignalsExist() {
     when(themeRepository.existsById("AI_INFRA")).thenReturn(true);
     when(themeRepository.findConstituentIds("AI_INFRA")).thenReturn(List.of("SEMI", "AIRO"));
-    when(signalRepository.findAverageCompositeByDate(List.of("SEMI", "AIRO"), 30))
+    when(signalRepository.findAverageHistoryByDate(List.of("SEMI", "AIRO"), 30))
         .thenReturn(List.of());
 
     List<ThemeHistoryPointDto> result = themeService.getThemeHistory("AI_INFRA", 30);
@@ -148,25 +148,27 @@ class ThemeServiceTest {
   }
 
   @Test
-  @DisplayName("getThemeHistory returns daily composite averages in chronological order")
+  @DisplayName("getThemeHistory returns daily composite averages with trend data in chronological order")
   void shouldReturnChronologicalDailyAverages() {
     LocalDate day1 = LocalDate.of(2025, 1, 2);
     LocalDate day2 = LocalDate.of(2025, 1, 3);
     when(themeRepository.existsById("AI_INFRA")).thenReturn(true);
     when(themeRepository.findConstituentIds("AI_INFRA")).thenReturn(List.of("SEMI", "AIRO"));
-    when(signalRepository.findAverageCompositeByDate(List.of("SEMI", "AIRO"), 30))
+    when(signalRepository.findAverageHistoryByDate(List.of("SEMI", "AIRO"), 30))
         .thenReturn(
             List.of(
-                new SignalRepository.DateScore(day1, 0.60),
-                new SignalRepository.DateScore(day2, 0.70)));
+                new SignalRepository.DateHistory(day1, 0.60, 0.005, 0.003),
+                new SignalRepository.DateHistory(day2, 0.70, 0.012, 0.006)));
 
     List<ThemeHistoryPointDto> result = themeService.getThemeHistory("AI_INFRA", 30);
 
     assertThat(result).hasSize(2);
     assertThat(result.get(0).date()).isEqualTo("2025-01-02");
     assertThat(result.get(0).compositeScore()).isEqualTo(0.60);
+    assertThat(result.get(0).trend5d()).isEqualTo(0.005);
     assertThat(result.get(1).date()).isEqualTo("2025-01-03");
     assertThat(result.get(1).compositeScore()).isEqualTo(0.70);
+    assertThat(result.get(1).trend20d()).isEqualTo(0.006);
   }
 
   @Test

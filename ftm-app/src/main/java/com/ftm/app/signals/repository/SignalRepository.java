@@ -456,6 +456,54 @@ public class SignalRepository {
 
   public record DateScore(LocalDate date, double averageComposite) {}
 
+  public List<DateHistory> findAverageHistoryByDate(
+      Collection<String> categoryIds, int tradingDays) {
+    if (categoryIds.isEmpty()) return List.of();
+    String[] idArray = categoryIds.toArray(new String[0]);
+    return dsl
+        .resultQuery(
+            """
+            SELECT
+              signal_date,
+              AVG(CASE WHEN signal_type = 'COMPOSITE' THEN value END)           AS avg_composite,
+              AVG(CASE WHEN signal_type = 'COMPOSITE_TREND_5D' THEN value END)  AS avg_trend5d,
+              AVG(CASE WHEN signal_type = 'COMPOSITE_TREND_20D' THEN value END) AS avg_trend20d
+            FROM signals
+            WHERE signal_date IN (
+              SELECT DISTINCT signal_date FROM signals
+              WHERE signal_type = 'COMPOSITE'
+                AND category_id = ANY({0})
+              ORDER BY signal_date DESC
+              LIMIT {1}
+            )
+            AND category_id = ANY({0})
+            AND signal_type IN ('COMPOSITE', 'COMPOSITE_TREND_5D', 'COMPOSITE_TREND_20D')
+            GROUP BY signal_date
+            HAVING AVG(CASE WHEN signal_type = 'COMPOSITE' THEN value END) IS NOT NULL
+            ORDER BY signal_date ASC
+            """,
+            val(idArray),
+            val(tradingDays))
+        .fetch()
+        .map(
+            r -> {
+              BigDecimal composite = r.get("avg_composite", BigDecimal.class);
+              BigDecimal trend5d = r.get("avg_trend5d", BigDecimal.class);
+              BigDecimal trend20d = r.get("avg_trend20d", BigDecimal.class);
+              return new DateHistory(
+                  r.get("signal_date", LocalDate.class),
+                  composite.doubleValue(),
+                  trend5d != null ? trend5d.doubleValue() : null,
+                  trend20d != null ? trend20d.doubleValue() : null);
+            });
+  }
+
+  public record DateHistory(
+      LocalDate date,
+      double averageComposite,
+      Double averageTrend5d,
+      Double averageTrend20d) {}
+
   @Cacheable("score-percentile-252d")
   public Map<String, BigDecimal> findScorePercentile252d() {
     return dsl.resultQuery(

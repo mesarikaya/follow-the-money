@@ -475,16 +475,24 @@ const THEMES_RESPONSE = [
 ];
 
 function generateThemeHistory(baseScore, days) {
-  const history = [];
+  const scores = [];
   for (let i = days - 1; i >= 0; i--) {
-    const date = new Date("2026-05-15");
-    date.setDate(date.getDate() - i);
     const trend = (days - i) / days * 0.08 - 0.04;
     const noise = Math.sin(i * 0.5) * 0.03;
-    const score = Math.max(0.1, Math.min(0.99, baseScore + trend + noise));
-    history.push({ date: date.toISOString().split("T")[0], compositeScore: Math.round(score * 1000) / 1000 });
+    scores.push(Math.max(0.1, Math.min(0.99, baseScore + trend + noise)));
   }
-  return history;
+  return scores.map((score, idx) => {
+    const date = new Date("2026-05-15");
+    date.setDate(date.getDate() - (days - 1 - idx));
+    const trend5d = idx >= 5 ? (scores[idx] - scores[idx - 5]) / 5 : null;
+    const trend20d = idx >= 20 ? (scores[idx] - scores[idx - 20]) / 20 : null;
+    return {
+      date: date.toISOString().split("T")[0],
+      compositeScore: Math.round(score * 1000) / 1000,
+      trend5d: trend5d != null ? Math.round(trend5d * 10000) / 10000 : null,
+      trend20d: trend20d != null ? Math.round(trend20d * 10000) / 10000 : null,
+    };
+  });
 }
 
 function generateMacroHistory(days) {

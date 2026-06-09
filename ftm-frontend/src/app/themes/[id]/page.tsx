@@ -377,6 +377,61 @@ function AggMetric({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
+const PHASE_CONFIG_DETAIL: Record<string, { label: string; className: string }> = {
+  BREAKOUT:  { label: "↗ BREAKOUT",  className: "bg-emerald-500/20 text-emerald-300 border border-emerald-400/30" },
+  MOMENTUM:  { label: "↑ MOMENTUM",  className: "bg-cyan-500/15 text-cyan-400 border border-cyan-500/25" },
+  SETUP:     { label: "⬆ SETUP",     className: "bg-sky-500/15 text-sky-400 border border-sky-500/25" },
+  BUILDING:  { label: "→ BUILDING",  className: "bg-slate-700/60 text-slate-400 border border-slate-600/40" },
+  HOLDING:   { label: "■ HOLDING",   className: "bg-slate-700/40 text-slate-500 border border-slate-700/40" },
+  FADING:    { label: "↓ FADING",    className: "bg-amber-500/15 text-amber-400 border border-amber-500/25" },
+  DISTRIBUTE: { label: "↘ DISTRIBUTING", className: "bg-orange-500/15 text-orange-400 border border-orange-500/25" },
+  WEAK:      { label: "↓ WEAK",      className: "bg-red-500/15 text-red-400 border border-red-500/25" },
+};
+
+interface ThemeData {
+  compositeScore: number | null;
+  flow20d: number | null;
+  compositeTrend5d: number | null;
+  compositeTrend20d: number | null;
+  divergenceFromParentSectors: number | null;
+  dominantSignal: string;
+  themePhase: string | null;
+}
+
+function computeWatchGuidance(theme: ThemeData): string | null {
+  const score = theme.compositeScore;
+  const phase = theme.themePhase;
+  if (!score || !phase) return null;
+
+  const buyDistance = score < 0.65 ? Math.round((0.65 - score) * 100) : null;
+  const accel = theme.compositeTrend5d != null && theme.compositeTrend20d != null
+    ? ((theme.compositeTrend5d - theme.compositeTrend20d) * 100).toFixed(1)
+    : null;
+
+  switch (phase) {
+    case "BREAKOUT":
+      return `In BREAKOUT — accelerating above BUY threshold. Watch for score to hold above 65 on any pullback. Flow of ${theme.flow20d != null ? theme.flow20d.toFixed(1) + "σ" : "—"} must stay positive to confirm regime.`;
+    case "MOMENTUM":
+      return `In sustained MOMENTUM. Watch divergence from sectors (currently ${theme.divergenceFromParentSectors != null ? (theme.divergenceFromParentSectors * 100).toFixed(0) + "pt" : "—"}) — a drop below 0 may signal rotation out.`;
+    case "SETUP":
+      return `SETUP phase — ${buyDistance}pt from BUY trigger at 65. 5d is accelerating vs 20d (${accel ? "+" + accel + "pt/day" : "—"}). Watch for score to break through 65 with sustained flow.`;
+    case "BUILDING":
+      return buyDistance != null
+        ? `Building conviction — ${buyDistance}pt from BUY trigger. Needs flow surge or catalyst to break through.`
+        : `Building toward next level. Monitor for flow and trend direction change.`;
+    case "HOLDING":
+      return `Holding BUY territory but momentum is flat. Watch for re-acceleration (5d > 20d) or a flow increase before adding exposure.`;
+    case "DISTRIBUTE":
+      return `Potentially topping — score in BUY but flow is turning negative. Consider trimming or tightening stops. Distribution phase often precedes a pullback to 50-60.`;
+    case "FADING":
+      return `Momentum is fading. Watch the 50 level — if score breaks below, signal may downgrade to HOLD or REDUCE. Avoid new entries until trend stabilizes.`;
+    case "WEAK":
+      return `Weak conviction zone (below 35). Avoid new exposure. Watch for a score base above 35 before reconsidering.`;
+    default:
+      return null;
+  }
+}
+
 const HISTORY_PERIODS = [30, 60, 90] as const;
 
 export default async function ThemeDetailPage({
@@ -417,6 +472,8 @@ export default async function ThemeDetailPage({
     (theme.flow20d ?? 0) >= 1.5 &&
     (theme.divergenceFromParentSectors ?? 0) >= 0.08;
 
+  const watchGuidance = computeWatchGuidance(theme);
+
   return (
     <main className="flex-1 min-h-0 overflow-y-auto bg-slate-900 p-4 md:p-6">
       <div className="max-w-5xl mx-auto">
@@ -438,6 +495,11 @@ export default async function ThemeDetailPage({
               <span className={`text-xs font-semibold px-2.5 py-1 rounded ${signal.bg} ${signal.color}`}>
                 {signal.label}
               </span>
+              {theme.themePhase && PHASE_CONFIG_DETAIL[theme.themePhase] && (
+                <span className={`text-[9px] font-semibold px-2 py-0.5 rounded ${PHASE_CONFIG_DETAIL[theme.themePhase].className}`}>
+                  {PHASE_CONFIG_DETAIL[theme.themePhase].label}
+                </span>
+              )}
               {isCrowded && (
                 <span
                   className="text-[9px] font-semibold px-2 py-0.5 rounded bg-orange-500/15 text-orange-400 border border-orange-500/30"
@@ -522,6 +584,12 @@ export default async function ThemeDetailPage({
             )}
           </div>
           <SignalDistributionBar constituents={theme.constituents} />
+          {watchGuidance && (
+            <div className="mt-3 pt-3 border-t border-slate-700/40">
+              <span className="text-[9px] font-mono text-slate-600 uppercase tracking-wider mr-2">What to watch</span>
+              <span className="text-[11px] text-slate-400 leading-relaxed">{watchGuidance}</span>
+            </div>
+          )}
         </div>
 
         {themeAlerts.length > 0 && <ThemeDetailAlerts alerts={themeAlerts} />}

@@ -80,6 +80,8 @@ const RULE_LABELS: Record<string, string> = {
   sub_sector_breadth_divergence:  "Sub-Sector Breadth Divergence",
   sub_sector_bull_confluence:          "Sub-Sector Bull Confluence",
   theme_dominant_signal_transition:    "Theme Signal",
+  theme_momentum_surge:               "Theme Surge",
+  theme_momentum_collapse:            "Theme Collapse",
   flow_inflow_5d:         "Flow Inflow (5d)",
   flow_inflow_10d:        "Flow Inflow (10d)",
   flow_inflow_20d:        "Flow Inflow (20d)",
@@ -120,6 +122,8 @@ const BUILTIN_RULES = [
   { id: "persistence_low",        label: "Persistence Low",       condition: "persistence_20d < threshold",     severity: "WARNING", note: "Sector beats its benchmark on fewer than 7 of the last 20 trading days" },
   { id: "flow_inflow_20d",        label: "Flow Inflow (20d)",     condition: "flow_20d > threshold",            severity: "INFO",    note: "Sustained 20-day inflow above baseline (not yet implemented — ETF flow data pending)" },
   { id: "flow_outflow_20d",       label: "Flow Outflow (20d)",    condition: "flow_20d < threshold",            severity: "WARNING", note: "Sustained 20-day outflow below baseline (not yet implemented — ETF flow data pending)" },
+  { id: "theme_momentum_surge",    label: "Theme Surge",           condition: "avg 20d trend > +0.01 across theme constituents", severity: "ACTION",  note: "Theme acceleration alert: fires when the average 20-day composite trend velocity across a theme's ETF constituents exceeds +0.010 (≈ +1pt/day). This indicates rapid momentum acceleration within a theme — the ETFs that define the theme are collectively gaining score faster than the background market. Fires before the formal BUY signal transition (which requires ≥50% of constituents above 0.65) — a 1-3 day early warning. Resolves when avg trend drops below +0.003." },
+  { id: "theme_momentum_collapse", label: "Theme Collapse",        condition: "avg 20d trend < -0.01 across theme constituents", severity: "WARNING", note: "Theme deceleration alert: fires when the average 20-day composite trend velocity across a theme's ETF constituents drops below -0.010. This signals rapid momentum collapse — the theme's ETFs are collectively losing score faster than background. Early warning to reduce exposure before the formal REDUCE signal. Resolves when avg trend recovers above -0.003." },
 ];
 
 function formatAlertDate(isoString: string): string {

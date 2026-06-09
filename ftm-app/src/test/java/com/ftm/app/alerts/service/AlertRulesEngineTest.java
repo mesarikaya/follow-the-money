@@ -1570,6 +1570,10 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("sub_sector_bull_confluence")));
     when(alertRulesRepository.findById("theme_dominant_signal_transition"))
         .thenReturn(Optional.of(disabled("theme_dominant_signal_transition")));
+    when(alertRulesRepository.findById("theme_momentum_surge"))
+        .thenReturn(Optional.of(disabled("theme_momentum_surge")));
+    when(alertRulesRepository.findById("theme_momentum_collapse"))
+        .thenReturn(Optional.of(disabled("theme_momentum_collapse")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
@@ -3069,5 +3073,110 @@ class AlertRulesEngineTest {
     verify(alertRepository).resolveAlertsByRuleAndCategory("sub_sector_bull_confluence", "TECH");
     verify(alertRepository, never())
         .insert(argThat(a -> a.ruleId().equals("sub_sector_bull_confluence")));
+  }
+
+  // ===== Theme Momentum Alert Tests =====
+
+  private void stubAllRulesDisabledExceptThemeMomentum() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bear")));
+    when(alertRulesRepository.findById("pre_buy_flow_surge"))
+        .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
+    when(alertRulesRepository.findById("rrg_rs_divergence"))
+        .thenReturn(Optional.of(disabled("rrg_rs_divergence")));
+    when(alertRulesRepository.findById("score_percentile_extreme"))
+        .thenReturn(Optional.of(disabled("score_percentile_extreme")));
+    when(alertRulesRepository.findById("score_velocity"))
+        .thenReturn(Optional.of(disabled("score_velocity")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+  }
+
+  @Test
+  @DisplayName("theme_momentum_surge: fires ACTION alert when avg 20d trend exceeds +0.010")
+  void shouldCreateThemeMomentumSurgeAlertWhenAvgTrendExceedsThreshold() {
+    stubAllRulesDisabledExceptThemeMomentum();
+    when(alertRulesRepository.findById("theme_momentum_surge"))
+        .thenReturn(Optional.of(enabled("theme_momentum_surge", Severity.ACTION)));
+    when(alertRulesRepository.findById("theme_momentum_collapse"))
+        .thenReturn(Optional.of(disabled("theme_momentum_collapse")));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("TECH", "SEMI")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.015"), "SEMI", new BigDecimal("0.012")));
+    when(alertRepository.existsActiveAlertForTheme("theme_momentum_surge", "AI_INFRA"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("theme_momentum_surge");
+    assertThat(inserted.themeId()).isEqualTo("AI_INFRA");
+    assertThat(inserted.severity()).isEqualTo(Severity.ACTION);
+    assertThat(inserted.status()).isEqualTo(AlertStatus.ACTIVE);
+    assertThat(inserted.message()).contains("AI_INFRA").containsIgnoringCase("surging");
+  }
+
+  @Test
+  @DisplayName("theme_momentum_surge: no alert when rule is disabled")
+  void shouldNotCreateThemeMomentumSurgeAlertWhenRuleDisabled() {
+    stubAllRulesDisabledExceptThemeMomentum();
+    when(alertRulesRepository.findById("theme_momentum_surge"))
+        .thenReturn(Optional.of(disabled("theme_momentum_surge")));
+    when(alertRulesRepository.findById("theme_momentum_collapse"))
+        .thenReturn(Optional.of(disabled("theme_momentum_collapse")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_momentum_surge")));
+  }
+
+  @Test
+  @DisplayName("theme_momentum_collapse: fires WARNING alert when avg 20d trend drops below -0.010")
+  void shouldCreateThemeMomentumCollapseAlertWhenAvgTrendDropsBelowThreshold() {
+    stubAllRulesDisabledExceptThemeMomentum();
+    when(alertRulesRepository.findById("theme_momentum_surge"))
+        .thenReturn(Optional.of(disabled("theme_momentum_surge")));
+    when(alertRulesRepository.findById("theme_momentum_collapse"))
+        .thenReturn(Optional.of(enabled("theme_momentum_collapse", Severity.WARNING)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("SAAS_AT_RISK", List.of("WCLD", "IGV")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, DATE))
+        .thenReturn(Map.of("WCLD", new BigDecimal("-0.015"), "IGV", new BigDecimal("-0.012")));
+    when(alertRepository.existsActiveAlertForTheme("theme_momentum_collapse", "SAAS_AT_RISK"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("theme_momentum_collapse");
+    assertThat(inserted.themeId()).isEqualTo("SAAS_AT_RISK");
+    assertThat(inserted.severity()).isEqualTo(Severity.WARNING);
+    assertThat(inserted.status()).isEqualTo(AlertStatus.ACTIVE);
+    assertThat(inserted.message()).contains("SAAS_AT_RISK").containsIgnoringCase("collaps");
+  }
+
+  @Test
+  @DisplayName("theme_momentum_collapse: no alert when rule is disabled")
+  void shouldNotCreateThemeMomentumCollapseAlertWhenRuleDisabled() {
+    stubAllRulesDisabledExceptThemeMomentum();
+    when(alertRulesRepository.findById("theme_momentum_surge"))
+        .thenReturn(Optional.of(disabled("theme_momentum_surge")));
+    when(alertRulesRepository.findById("theme_momentum_collapse"))
+        .thenReturn(Optional.of(disabled("theme_momentum_collapse")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_momentum_collapse")));
   }
 }

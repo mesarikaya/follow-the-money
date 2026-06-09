@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -131,6 +132,13 @@ public class AlertRulesEngine {
   private static final double THEME_REDUCE_FIRE_FRACTION = 0.50;
   private static final double THEME_BUY_RESOLVE_FRACTION = 0.35;
   private static final double THEME_REDUCE_RESOLVE_FRACTION = 0.35;
+  private static final String RULE_THEME_MOMENTUM_SURGE = "theme_momentum_surge";
+  private static final String RULE_THEME_MOMENTUM_COLLAPSE = "theme_momentum_collapse";
+  // Threshold for 20d composite trend (positive = accelerating, negative = decelerating)
+  private static final double THEME_MOMENTUM_SURGE_THRESHOLD = 0.010;
+  private static final double THEME_MOMENTUM_COLLAPSE_THRESHOLD = -0.010;
+  private static final double THEME_MOMENTUM_SURGE_RESOLVE = 0.003;
+  private static final double THEME_MOMENTUM_COLLAPSE_RESOLVE = -0.003;
   // Fires when >=75% of sub-sectors are in Leading/Improving RRG (broad internal participation)
   private static final double SUB_SECTOR_BULL_CONFLUENCE_FIRE_FRACTION = 0.75;
   private static final double SUB_SECTOR_BULL_CONFLUENCE_RESOLVE_FRACTION = 0.55;
@@ -194,6 +202,7 @@ public class AlertRulesEngine {
     alertsCreated += evaluateSubSectorBreadthDivergence(signalDate, equityCategoryIds);
     alertsCreated += evaluateSubSectorBullConfluence(signalDate, equityCategoryIds);
     alertsCreated += evaluateThemeSignalTransitions(signalDate);
+    alertsCreated += evaluateThemeMomentum(signalDate);
     // Must run last: reads active alerts inserted by earlier evaluators in this cycle
     alertsCreated += evaluateMultiAlertBullConfluence(topLevelCategoryIds);
 
@@ -2417,6 +2426,105 @@ public class AlertRulesEngine {
       } else if (hasActive && !isBuyMajority && !isReduceMajority) {
         alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_SIGNAL_TRANSITION, themeId);
         log.info("theme_signal_transition: resolved theme={} (signal neutralised)", themeId);
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Fires when a theme's average COMPOSITE_TREND_20D across constituents surges above +0.010 or
+   * collapses below -0.010. Captures rapid theme rotation momentum before the signal transitions.
+   * Each theme gets its own active alert slot via theme_id discriminator.
+   */
+  private int evaluateThemeMomentum(LocalDate signalDate) {
+    Optional<AlertRule> surgeRule = alertRulesRepository.findById(RULE_THEME_MOMENTUM_SURGE);
+    Optional<AlertRule> collapseRule = alertRulesRepository.findById(RULE_THEME_MOMENTUM_COLLAPSE);
+    boolean surgeEnabled = surgeRule.map(AlertRule::enabled).orElse(false);
+    boolean collapseEnabled = collapseRule.map(AlertRule::enabled).orElse(false);
+    if (!surgeEnabled && !collapseEnabled) return 0;
+
+    Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
+    if (constituentsByTheme.isEmpty()) return 0;
+
+    Map<String, BigDecimal> trendMap =
+        signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, signalDate);
+    if (trendMap.isEmpty()) return 0;
+
+    int count = 0;
+    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
+      String themeId = entry.getKey();
+      List<String> ids = entry.getValue();
+      if (ids.isEmpty()) continue;
+
+      OptionalDouble avgTrend =
+          ids.stream()
+              .map(trendMap::get)
+              .filter(v -> v != null)
+              .mapToDouble(BigDecimal::doubleValue)
+              .average();
+      if (avgTrend.isEmpty()) continue;
+
+      double trend = avgTrend.getAsDouble();
+      int trendPt = (int) Math.round(trend * 100);
+
+      if (surgeEnabled) {
+        boolean hasSurgeActive =
+            alertRepository.existsActiveAlertForTheme(RULE_THEME_MOMENTUM_SURGE, themeId);
+        if (trend >= THEME_MOMENTUM_SURGE_THRESHOLD && !hasSurgeActive) {
+          Severity severity = surgeRule.map(AlertRule::severity).orElse(Severity.ACTION);
+          alertRepository.insert(
+              new Alert(
+                  null,
+                  OffsetDateTime.now(),
+                  null,
+                  themeId,
+                  RULE_THEME_MOMENTUM_SURGE,
+                  severity,
+                  String.format(
+                      "%s theme momentum surging: avg 20d velocity +%dpt/day across %d constituents",
+                      themeId, trendPt, ids.size()),
+                  String.format(
+                      "{\"themeId\":\"%s\",\"avgTrend20d\":%.4f,\"signalDate\":\"%s\"}",
+                      themeId, trend, signalDate),
+                  AlertStatus.ACTIVE,
+                  null,
+                  null));
+          count++;
+          log.info("theme_momentum_surge: theme={} avgTrend20d={}pt/day", themeId, trendPt);
+        } else if (hasSurgeActive && trend < THEME_MOMENTUM_SURGE_RESOLVE) {
+          alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_MOMENTUM_SURGE, themeId);
+          log.info("theme_momentum_surge: resolved theme={} (momentum normalised)", themeId);
+        }
+      }
+
+      if (collapseEnabled) {
+        boolean hasCollapseActive =
+            alertRepository.existsActiveAlertForTheme(RULE_THEME_MOMENTUM_COLLAPSE, themeId);
+        if (trend <= THEME_MOMENTUM_COLLAPSE_THRESHOLD && !hasCollapseActive) {
+          Severity severity = collapseRule.map(AlertRule::severity).orElse(Severity.WARNING);
+          alertRepository.insert(
+              new Alert(
+                  null,
+                  OffsetDateTime.now(),
+                  null,
+                  themeId,
+                  RULE_THEME_MOMENTUM_COLLAPSE,
+                  severity,
+                  String.format(
+                      "%s theme collapsing: avg 20d velocity %dpt/day — consider reducing exposure",
+                      themeId, trendPt),
+                  String.format(
+                      "{\"themeId\":\"%s\",\"avgTrend20d\":%.4f,\"signalDate\":\"%s\"}",
+                      themeId, trend, signalDate),
+                  AlertStatus.ACTIVE,
+                  null,
+                  null));
+          count++;
+          log.info("theme_momentum_collapse: theme={} avgTrend20d={}pt/day", themeId, trendPt);
+        } else if (hasCollapseActive && trend > THEME_MOMENTUM_COLLAPSE_RESOLVE) {
+          alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_MOMENTUM_COLLAPSE, themeId);
+          log.info("theme_momentum_collapse: resolved theme={} (momentum stabilising)", themeId);
+        }
       }
     }
     return count;

@@ -209,4 +209,63 @@ class ThemeServiceTest {
     assertThat(detail.constituents().get(0).categoryId()).isEqualTo("AIRO");
     assertThat(detail.constituents().get(1).categoryId()).isEqualTo("SEMI");
   }
+
+  @Test
+  @DisplayName("getThemes computes compositeTrend5d as average of constituent 5d trend signals")
+  void shouldAggregateCompositeTrend5d() {
+    when(themeRepository.findAll()).thenReturn(List.of(theme("AI_INFRA", "AI Infrastructure")));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("SEMI", "AIRO")));
+    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
+        .thenReturn(
+            List.of(
+                category(CategoryId.SEMI, "Semiconductors", "SMH"),
+                category(CategoryId.AIRO, "AI & Robotics", "BOTZ")));
+    when(signalRepository.findLatestByTypes(org.mockito.ArgumentMatchers.anyList()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE,
+                    Map.of("SEMI", new BigDecimal("0.80"), "AIRO", new BigDecimal("0.60")),
+                SignalType.RS_60, Collections.emptyMap(),
+                SignalType.FLOW_20D, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_20D, Collections.emptyMap(),
+                SignalType.RRG_QUADRANT, Collections.emptyMap(),
+                SignalType.MACRO_FIT, Collections.emptyMap(),
+                SignalType.RS_120, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_5D,
+                    Map.of("SEMI", new BigDecimal("0.030"), "AIRO", new BigDecimal("0.010"))));
+
+    List<ThemeSummaryDto> result = themeService.getThemes();
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).compositeTrend5d())
+        .isNotNull()
+        .isCloseTo(0.020, org.assertj.core.data.Offset.offset(0.001));
+  }
+
+  @Test
+  @DisplayName("getThemes sets parentCategoryId from category.parentId on each constituent")
+  void shouldSetParentCategoryIdOnConstituents() {
+    when(themeRepository.findAll()).thenReturn(List.of(theme("AI_INFRA", "AI Infrastructure")));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("SEMI")));
+    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
+        .thenReturn(List.of(category(CategoryId.SEMI, "Semiconductors", "SMH")));
+    when(signalRepository.findLatestByTypes(org.mockito.ArgumentMatchers.anyList()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE, Map.of("SEMI", new BigDecimal("0.80")),
+                SignalType.RS_60, Collections.emptyMap(),
+                SignalType.FLOW_20D, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_20D, Collections.emptyMap(),
+                SignalType.RRG_QUADRANT, Collections.emptyMap(),
+                SignalType.MACRO_FIT, Collections.emptyMap(),
+                SignalType.RS_120, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+
+    List<ThemeSummaryDto> result = themeService.getThemes();
+
+    assertThat(result.get(0).topConstituents()).hasSize(1);
+    assertThat(result.get(0).topConstituents().get(0).parentCategoryId()).isEqualTo("TECH");
+  }
 }

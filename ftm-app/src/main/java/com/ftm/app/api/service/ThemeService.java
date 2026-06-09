@@ -47,6 +47,8 @@ public class ThemeService {
 
     Map<String, BigDecimal> compositeMap =
         signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap());
+    Map<String, BigDecimal> trend5dMap =
+        signals.getOrDefault(SignalType.COMPOSITE_TREND_5D, Collections.emptyMap());
 
     return themes.stream()
         .map(
@@ -62,7 +64,7 @@ public class ThemeService {
                               ThemeConstituentDto::compositeScore, Comparator.reverseOrder()))
                       .limit(3)
                       .toList();
-              return toSummary(theme, allConstituents, top3, categoriesById, compositeMap);
+              return toSummary(theme, allConstituents, top3, categoriesById, compositeMap, trend5dMap);
             })
         .toList();
   }
@@ -101,9 +103,11 @@ public class ThemeService {
 
     Map<String, BigDecimal> compositeMap =
         signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap());
+    Map<String, BigDecimal> trend5dMap =
+        signals.getOrDefault(SignalType.COMPOSITE_TREND_5D, Collections.emptyMap());
     ThemeSummaryDto summary =
         toSummary(
-            theme, constituents, sorted.stream().limit(3).toList(), categoriesById, compositeMap);
+            theme, constituents, sorted.stream().limit(3).toList(), categoriesById, compositeMap, trend5dMap);
     return new ThemeDetailDto(
         summary.id(),
         summary.name(),
@@ -112,6 +116,7 @@ public class ThemeService {
         summary.compositeScore(),
         summary.rs60(),
         summary.flow20d(),
+        summary.compositeTrend5d(),
         summary.compositeTrend20d(),
         summary.bullishCount(),
         summary.dominantSignal(),
@@ -210,7 +215,8 @@ public class ThemeService {
       List<ThemeConstituentDto> allConstituents,
       List<ThemeConstituentDto> topConstituents,
       Map<String, Category> categoriesById,
-      Map<String, BigDecimal> compositeByCategory) {
+      Map<String, BigDecimal> compositeByCategory,
+      Map<String, BigDecimal> trend5dByCategory) {
 
     OptionalDouble avgComposite =
         allConstituents.stream()
@@ -226,6 +232,11 @@ public class ThemeService {
         allConstituents.stream()
             .filter(c -> c.flow20d() != null)
             .mapToDouble(c -> c.flow20d().doubleValue())
+            .average();
+    OptionalDouble avgTrend5d =
+        allConstituents.stream()
+            .filter(c -> trend5dByCategory.containsKey(c.categoryId()))
+            .mapToDouble(c -> trend5dByCategory.get(c.categoryId()).doubleValue())
             .average();
     OptionalDouble avgTrend =
         allConstituents.stream()
@@ -277,6 +288,7 @@ public class ThemeService {
         avgComposite.isPresent() ? avgComposite.getAsDouble() : null,
         avgRs60.isPresent() ? avgRs60.getAsDouble() : null,
         avgFlow.isPresent() ? avgFlow.getAsDouble() : null,
+        avgTrend5d.isPresent() ? avgTrend5d.getAsDouble() : null,
         avgTrend.isPresent() ? avgTrend.getAsDouble() : null,
         bullishCount,
         dominantSignal,

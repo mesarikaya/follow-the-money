@@ -10,6 +10,7 @@ public record ThemeSummaryDto(
     Double compositeScore,
     Double rs60,
     Double flow20d,
+    Double compositeTrend5d,
     Double compositeTrend20d,
     int bullishCount,
     String dominantSignal,

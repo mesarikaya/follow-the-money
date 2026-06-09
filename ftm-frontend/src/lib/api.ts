@@ -583,6 +583,7 @@ export type ThemeSummary = {
   compositeScore: number | null;
   rs60: number | null;
   flow20d: number | null;
+  compositeTrend5d: number | null;
   compositeTrend20d: number | null;
   bullishCount: number;
   dominantSignal: string;

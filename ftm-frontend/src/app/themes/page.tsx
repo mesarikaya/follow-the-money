@@ -579,6 +579,8 @@ function ThemeScreener({ themes }: { themes: ThemeSummary[] }) {
                 : t.compositeTrend20d < -0.005 ? "text-red-400" : "text-slate-500";
               const trendArrow = t.compositeTrend20d == null ? "—"
                 : t.compositeTrend20d > 0.005 ? "↑" : t.compositeTrend20d < -0.005 ? "↓" : "→";
+              const accel = t.compositeTrend5d != null && t.compositeTrend20d != null
+                ? t.compositeTrend5d - t.compositeTrend20d : null;
               const divPts = t.divergenceFromParentSectors != null ? Math.round(t.divergenceFromParentSectors * 100) : null;
               const bullishPct = t.constituentCount > 0 ? Math.round((t.bullishCount / t.constituentCount) * 100) : 0;
               return (
@@ -625,6 +627,13 @@ function ThemeScreener({ themes }: { themes: ThemeSummary[] }) {
                   <td className="py-2 px-3">
                     <span className={`text-[10px] font-mono ${trendClr}`}>
                       {trendArrow}{t.compositeTrend20d != null ? ` ${t.compositeTrend20d > 0 ? "+" : ""}${(t.compositeTrend20d * 100).toFixed(1)}pt` : ""}
+                      {accel != null && Math.abs(accel) > 0.002 && (
+                        <span className={`ml-1 text-[9px] ${accel > 0 ? "text-emerald-300" : "text-red-300"}`}
+                          title={`5d vs 20d: ${accel > 0 ? "accelerating" : "decelerating"} ${accel > 0 ? "+" : ""}${(accel * 100).toFixed(1)}pt`}
+                        >
+                          {accel > 0 ? "⬆" : "⬇"}
+                        </span>
+                      )}
                     </span>
                   </td>
                 </tr>

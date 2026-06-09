@@ -340,9 +340,26 @@ export default async function ThemeDetailPage({
               {theme.compositeTrend20d != null ? (
                 <span className={`text-base font-bold font-mono ${theme.compositeTrend20d > 0.005 ? "text-emerald-400" : theme.compositeTrend20d < -0.005 ? "text-red-400" : "text-slate-400"}`}>
                   {theme.compositeTrend20d > 0 ? "↑" : theme.compositeTrend20d < 0 ? "↓" : "→"}
+                  {" "}<span className="text-[11px]">{Math.round(Math.abs(theme.compositeTrend20d) * 1000)}‰</span>
                 </span>
               ) : <span className="text-slate-600">—</span>}
             </AggMetric>
+            {theme.compositeTrend5d != null && theme.compositeTrend20d != null && (
+              <AggMetric label="Velocity">
+                {(() => {
+                  const delta = theme.compositeTrend5d - theme.compositeTrend20d;
+                  const isAccel = delta > 0.002;
+                  const isDecel = delta < -0.002;
+                  return (
+                    <span className={`text-base font-bold font-mono ${isAccel ? "text-emerald-400" : isDecel ? "text-red-400" : "text-slate-400"}`}
+                      title={`5d trend ${theme.compositeTrend5d > 0 ? "+" : ""}${(theme.compositeTrend5d * 100).toFixed(1)}pt vs 20d ${theme.compositeTrend20d > 0 ? "+" : ""}${(theme.compositeTrend20d * 100).toFixed(1)}pt`}
+                    >
+                      {isAccel ? "⬆" : isDecel ? "⬇" : "◆"}
+                    </span>
+                  );
+                })()}
+              </AggMetric>
+            )}
             <AggMetric label="Bullish">
               <span className="text-base font-bold font-mono text-slate-300">
                 {theme.bullishCount}/{theme.constituentCount}

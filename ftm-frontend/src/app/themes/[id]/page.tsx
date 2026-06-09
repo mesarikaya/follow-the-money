@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { fetchTheme, fetchThemeHistory, ThemeConstituent, ThemeHistoryPoint } from "@/lib/api";
+import { fetchTheme, fetchThemeHistory, fetchThemes, ThemeConstituent, ThemeHistoryPoint, ThemeSummary } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { SECTOR_DRILLDOWN_IDS, SECTOR_SHORT_NAMES, getParentSectorId } from "@/lib/sectors";
 
@@ -250,6 +250,73 @@ function SignalDistributionBar({ constituents }: { constituents: ThemeConstituen
   );
 }
 
+function RelatedThemesPanel({
+  currentThemeId,
+  currentConstituents,
+  allThemes,
+}: {
+  currentThemeId: string;
+  currentConstituents: ThemeConstituent[];
+  allThemes: ThemeSummary[];
+}) {
+  const currentTickers = new Set(currentConstituents.map(c => c.etfTicker));
+  const related = allThemes
+    .filter(t => t.id !== currentThemeId)
+    .map(t => {
+      const shared = t.topConstituents.filter(c => currentTickers.has(c.etfTicker));
+      return { theme: t, sharedTickers: shared.map(c => c.etfTicker) };
+    })
+    .filter(r => r.sharedTickers.length > 0)
+    .sort((a, b) => b.sharedTickers.length - a.sharedTickers.length);
+
+  if (related.length === 0) return null;
+
+  const SIGNAL_CONFIG_LOCAL: Record<string, string> = {
+    BUY:    "text-emerald-400 bg-emerald-500/15 border-emerald-500/30",
+    WATCH:  "text-cyan-400 bg-cyan-500/15 border-cyan-500/30",
+    HOLD:   "text-slate-400 bg-slate-700/60 border-slate-600/40",
+    REDUCE: "text-red-400 bg-red-500/15 border-red-500/30",
+  };
+
+  return (
+    <div className="bg-slate-800/40 border border-slate-700/60 rounded-lg p-3 mb-4">
+      <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Related Themes · Shared ETF Exposure</div>
+      <div className="space-y-2">
+        {related.map(r => {
+          const sigCls = SIGNAL_CONFIG_LOCAL[r.theme.dominantSignal] ?? SIGNAL_CONFIG_LOCAL.HOLD;
+          const score = r.theme.compositeScore != null ? Math.round(r.theme.compositeScore * 100) : null;
+          const scoreClr = r.theme.compositeScore == null ? "text-slate-500"
+            : r.theme.compositeScore >= 0.65 ? "text-emerald-400"
+            : r.theme.compositeScore >= 0.50 ? "text-cyan-400"
+            : r.theme.compositeScore >= 0.35 ? "text-amber-400" : "text-red-400";
+          return (
+            <div key={r.theme.id} className="flex items-center gap-3 flex-wrap">
+              <Link href={`/themes/${r.theme.id}`} className="text-xs font-semibold text-slate-200 hover:text-cyan-300 transition-colors min-w-0 shrink-0 max-w-[200px] truncate">
+                {r.theme.name}
+              </Link>
+              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border shrink-0 ${sigCls}`}>{r.theme.dominantSignal}</span>
+              {score != null && <span className={`text-[10px] font-mono shrink-0 ${scoreClr}`}>{score}</span>}
+              <div className="flex gap-1 flex-wrap">
+                {r.sharedTickers.map(ticker => (
+                  <span key={ticker} className="text-[9px] font-mono px-1.5 py-0.5 bg-blue-900/30 text-blue-300 border border-blue-700/40 rounded">
+                    {ticker}
+                  </span>
+                ))}
+              </div>
+              <span className="text-[9px] text-slate-600">
+                {r.sharedTickers.length} shared ETF{r.sharedTickers.length > 1 ? "s" : ""}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-[9px] text-slate-600 mt-2">
+        Themes sharing ETF exposure move together — factor in correlation when sizing positions.
+      </p>
+    </div>
+  );
+}
+
 function AggMetric({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="text-center">
@@ -283,7 +350,10 @@ export default async function ThemeDetailPage({
     notFound();
   }
 
-  const history: ThemeHistoryPoint[] = await fetchThemeHistory(id.toUpperCase(), days).catch(() => []);
+  const [history, allThemes]: [ThemeHistoryPoint[], ThemeSummary[]] = await Promise.all([
+    fetchThemeHistory(id.toUpperCase(), days).catch(() => []),
+    fetchThemes().catch(() => []),
+  ]);
 
   const signal = SIGNAL_CONFIG[theme.dominantSignal] ?? SIGNAL_CONFIG.HOLD;
 
@@ -385,6 +455,14 @@ export default async function ThemeDetailPage({
         </div>
 
         <HistoryChartSection history={history} days={days} themeId={id.toUpperCase()} />
+
+        {allThemes.length > 1 && (
+          <RelatedThemesPanel
+            currentThemeId={id.toUpperCase()}
+            currentConstituents={theme.constituents}
+            allThemes={allThemes}
+          />
+        )}
 
         <div className="bg-slate-800/40 border border-slate-700/60 rounded-lg overflow-hidden">
           <table className="w-full text-left">

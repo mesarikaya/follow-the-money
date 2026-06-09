@@ -193,6 +193,42 @@ function HistoryChartSection({
   );
 }
 
+function SignalDistributionBar({ constituents }: { constituents: ThemeConstituent[] }) {
+  const total = constituents.length;
+  if (total === 0) return null;
+  const buy = constituents.filter(c => c.tradeSignal === "BUY").length;
+  const watch = constituents.filter(c => c.tradeSignal === "WATCH").length;
+  const reduce = constituents.filter(c => c.tradeSignal === "REDUCE").length;
+  const hold = total - buy - watch - reduce;
+  const segments: { count: number; color: string; label: string }[] = [
+    { count: buy,    color: "#34d399", label: "BUY" },
+    { count: watch,  color: "#22d3ee", label: "WATCH" },
+    { count: hold,   color: "#475569", label: "HOLD" },
+    { count: reduce, color: "#f87171", label: "REDUCE" },
+  ].filter(s => s.count > 0);
+  return (
+    <div className="mt-3">
+      <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Signal Distribution</div>
+      <div className="flex h-2 rounded-full overflow-hidden gap-px">
+        {segments.map(s => (
+          <div
+            key={s.label}
+            style={{ width: `${(s.count / total) * 100}%`, backgroundColor: s.color + "cc" }}
+            title={`${s.label}: ${s.count}/${total}`}
+          />
+        ))}
+      </div>
+      <div className="flex gap-3 mt-1">
+        {segments.map(s => (
+          <span key={s.label} className="text-[9px] font-mono" style={{ color: s.color }}>
+            {s.count} {s.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AggMetric({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="text-center">
@@ -307,6 +343,7 @@ export default async function ThemeDetailPage({
               </AggMetric>
             )}
           </div>
+          <SignalDistributionBar constituents={theme.constituents} />
         </div>
 
         <HistoryChartSection history={history} days={days} themeId={id.toUpperCase()} />
@@ -327,9 +364,11 @@ export default async function ThemeDetailPage({
               </tr>
             </thead>
             <tbody>
-              {theme.constituents.map((c, i) => (
-                <ConstituentRow key={c.categoryId} c={c} index={i} />
-              ))}
+              {[...theme.constituents]
+                .sort((a, b) => (b.compositeScore ?? -1) - (a.compositeScore ?? -1))
+                .map((c, i) => (
+                  <ConstituentRow key={c.categoryId} c={c} index={i} />
+                ))}
             </tbody>
           </table>
         </div>

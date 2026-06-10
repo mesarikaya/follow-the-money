@@ -14,6 +14,19 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 
 ---
 
+## 2026-06-10 (session 23 — V57-V61 alert history, phase age, score delta, setup acceleration)
+
+- `NEW` V57: GET /alerts/theme/{themeId} endpoint + ThemeAlertHistory component on detail page
+- `NEW` V58: Phase age indicator in ThemeScreener (days in current phase, freshness-colored)
+- `NEW` V59: E2E tests for alert history + fix stale theme/ETF count test
+- `NEW` V60: 5d score delta column in ThemeScreener — absolute pts change over 5 trading days
+- `NEW` V61: theme_setup_acceleration alert rule (V56 migration) — pre-breakout early entry signal
+  - Fires when: avg score 0.52-0.64 (SETUP) AND 5d trend >= 0.008 pt/day
+  - Resolves when: score >= 0.65 (breakout confirmed) or score < 0.48 or trend stalls
+  - 515 backend + 74 E2E tests pass
+
+---
+
 ## 2026-06-10 (session 23 — alert history + phase age + E2E V57-V59)
 
 - `NEW` V57: Theme alert history endpoint + detail page section (see V57 entry below)

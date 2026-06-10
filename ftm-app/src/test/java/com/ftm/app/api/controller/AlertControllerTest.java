@@ -174,4 +174,41 @@ class AlertControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.active").value(3));
   }
+
+  @Test
+  @DisplayName("GET /alerts/theme/{themeId} returns all alert statuses for theme")
+  void shouldReturnThemeAlertHistory() throws Exception {
+    AlertDto active =
+        Instancio.of(AlertDto.class)
+            .set(field(AlertDto::id), 1L)
+            .set(field(AlertDto::themeId), "AI_INFRA")
+            .set(field(AlertDto::status), "ACTIVE")
+            .create();
+    AlertDto resolved =
+        Instancio.of(AlertDto.class)
+            .set(field(AlertDto::id), 2L)
+            .set(field(AlertDto::themeId), "AI_INFRA")
+            .set(field(AlertDto::status), "RESOLVED")
+            .create();
+    when(alertService.getThemeAlertHistory("AI_INFRA")).thenReturn(List.of(active, resolved));
+
+    mockMvc
+        .perform(get("/alerts/theme/AI_INFRA"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(2))
+        .andExpect(jsonPath("$[0].themeId").value("AI_INFRA"))
+        .andExpect(jsonPath("$[0].status").value("ACTIVE"))
+        .andExpect(jsonPath("$[1].status").value("RESOLVED"));
+  }
+
+  @Test
+  @DisplayName("GET /alerts/theme/{themeId} returns empty list when no history")
+  void shouldReturnEmptyThemeAlertHistory() throws Exception {
+    when(alertService.getThemeAlertHistory("UNKNOWN_THEME")).thenReturn(List.of());
+
+    mockMvc
+        .perform(get("/alerts/theme/UNKNOWN_THEME"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(0));
+  }
 }

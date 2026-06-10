@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { fetchTheme, fetchThemeHistory, fetchThemes, fetchAlerts, AlertDto, ThemeConstituent, ThemeHistoryPoint, ThemeSummary } from "@/lib/api";
+import { fetchTheme, fetchThemeHistory, fetchThemes, fetchAlerts, fetchThemeAlertHistory, AlertDto, ThemeConstituent, ThemeHistoryPoint, ThemeSummary } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { SECTOR_DRILLDOWN_IDS, SECTOR_SHORT_NAMES, getParentSectorId } from "@/lib/sectors";
 
@@ -301,6 +301,57 @@ function ThemeDetailAlerts({ alerts }: { alerts: AlertDto[] }) {
   );
 }
 
+const STATUS_CONFIG: Record<string, { label: string; dot: string; row: string }> = {
+  ACTIVE:       { label: "ACTIVE",       dot: "bg-amber-400 animate-pulse", row: "" },
+  RESOLVED:     { label: "RESOLVED",     dot: "bg-slate-500",               row: "opacity-60" },
+  ACKNOWLEDGED: { label: "ACK",          dot: "bg-slate-600",               row: "opacity-50" },
+};
+
+function ThemeAlertHistory({ alerts }: { alerts: AlertDto[] }) {
+  const resolved = alerts.filter(a => a.status !== "ACTIVE");
+  if (resolved.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-slate-700/40 bg-slate-800/30 overflow-hidden mb-4">
+      <div className="px-3 py-2 border-b border-slate-700/30 flex items-center gap-2">
+        <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">
+          Alert History · {resolved.length}
+        </span>
+      </div>
+      <div className="divide-y divide-slate-700/20">
+        {resolved.map(alert => {
+          const sev = SEVERITY_CONFIG[alert.severity] ?? SEVERITY_CONFIG.INFO;
+          const status = STATUS_CONFIG[alert.status] ?? STATUS_CONFIG.RESOLVED;
+          const ruleLabel = RULE_LABELS[alert.ruleId] ?? alert.ruleId;
+          const closedAt = alert.resolvedAt ?? alert.acknowledgedAt;
+          return (
+            <div key={alert.id} className={`px-3 py-2 flex items-start gap-3 ${status.row}`}>
+              <span className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${status.dot}`} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                  <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${sev.badge}`}>{alert.severity}</span>
+                  <span className="text-[9px] font-mono text-slate-600 px-1.5 py-0.5 rounded bg-slate-800/60">{ruleLabel}</span>
+                  <span className="text-[9px] font-mono text-slate-700 px-1.5 py-0.5 rounded bg-slate-800/40">{status.label}</span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">{alert.message}</p>
+              </div>
+              <div className="text-right shrink-0 mt-0.5">
+                <div className="text-[9px] font-mono text-slate-700">
+                  {new Date(alert.createdAt).toLocaleDateString("en-GB", { month: "short", day: "numeric" })}
+                </div>
+                {closedAt && (
+                  <div className="text-[9px] font-mono text-slate-800">
+                    → {new Date(closedAt).toLocaleDateString("en-GB", { month: "short", day: "numeric" })}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function RelatedThemesPanel({
   currentThemeId,
   currentConstituents,
@@ -557,10 +608,11 @@ export default async function ThemeDetailPage({
     notFound();
   }
 
-  const [history, allThemes, alertsResponse] = await Promise.all([
+  const [history, allThemes, alertsResponse, alertHistory] = await Promise.all([
     fetchThemeHistory(id.toUpperCase(), days).catch(() => []),
     fetchThemes().catch(() => []),
     fetchAlerts().catch(() => ({ activeCount: 0, alerts: [] })),
+    fetchThemeAlertHistory(id.toUpperCase()).catch(() => []),
   ]);
 
   const themeAlerts = alertsResponse.alerts.filter(
@@ -696,6 +748,7 @@ export default async function ThemeDetailPage({
         </div>
 
         {themeAlerts.length > 0 && <ThemeDetailAlerts alerts={themeAlerts} />}
+        <ThemeAlertHistory alerts={alertHistory} />
 
         <HistoryChartSection history={history} days={days} themeId={id.toUpperCase()} />
         <PhaseTimelineStrip history={history} />

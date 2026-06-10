@@ -85,6 +85,15 @@ public class AlertRepository {
         .map(this::mapRecord);
   }
 
+  public List<Alert> findRecentByThemeId(String themeId, int limitCount) {
+    return dsl.selectFrom(ALERTS)
+        .where(ALERTS.THEME_ID.eq(themeId))
+        .orderBy(ALERTS.CREATED_AT.desc())
+        .limit(limitCount)
+        .fetch()
+        .map(this::mapRecord);
+  }
+
   public Optional<Alert> acknowledgeAlert(Long alertId) {
     return dsl.update(ALERTS)
         .set(ALERTS.STATUS, AlertStatus.ACKNOWLEDGED.name())

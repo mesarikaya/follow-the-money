@@ -297,6 +297,8 @@ export const runBacktestFrequencySweep = (request: Omit<BacktestRequest, "rebala
   });
 
 export const fetchAlerts = () => get<AlertsResponse>("/api/v1/alerts");
+export const fetchThemeAlertHistory = (themeId: string) =>
+  get<AlertDto[]>(`/api/v1/alerts/theme/${themeId}`);
 
 export type AlertRuleDto = {
   ruleId: string;

@@ -75,6 +75,12 @@ public class AlertService {
     return alertRepository.countActive();
   }
 
+  public List<AlertDto> getThemeAlertHistory(String themeId) {
+    return alertRepository.findRecentByThemeId(themeId.toUpperCase(), RECENT_ALERTS_LIMIT).stream()
+        .map(alertMapper::toDto)
+        .toList();
+  }
+
   @Caching(evict = {@CacheEvict("alerts-latest"), @CacheEvict("alerts-count")})
   public int acknowledgeAllActive() {
     int count = alertRepository.acknowledgeAllActive();

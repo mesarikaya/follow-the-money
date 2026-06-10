@@ -701,6 +701,39 @@ const server = http.createServer(async (req, res) => {
   } else if (/^\/api\/v1\/alerts\/\d+\/acknowledge$/.test(path) && req.method === "POST") {
     res.writeHead(200);
     res.end(JSON.stringify({ ...ALERTS_RESPONSE.alerts[0], status: "ACKNOWLEDGED", acknowledgedAt: "2026-05-15T11:00:00Z" }));
+  } else if (/^\/api\/v1\/alerts\/theme\/[^/]+$/.test(path) && req.method === "GET") {
+    const themeId = path.split("/").at(-1).toUpperCase();
+    const themeHistory = [
+      ...ALERTS_RESPONSE.alerts.filter(a => a.themeId === themeId),
+      {
+        id: 90,
+        createdAt: "2026-06-01T09:00:00Z",
+        categoryId: null,
+        themeId: themeId,
+        ruleId: "theme_composite_breakout",
+        severity: "ACTION",
+        message: `${themeId} composite crossed 65 threshold — breakout confirmed`,
+        triggerSnapshot: null,
+        status: "RESOLVED",
+        resolvedAt: "2026-06-05T14:30:00Z",
+        acknowledgedAt: null,
+      },
+      {
+        id: 91,
+        createdAt: "2026-05-28T11:15:00Z",
+        categoryId: null,
+        themeId: themeId,
+        ruleId: "theme_5d_acceleration",
+        severity: "WARNING",
+        message: `${themeId} 5-day momentum decelerated`,
+        triggerSnapshot: null,
+        status: "ACKNOWLEDGED",
+        resolvedAt: null,
+        acknowledgedAt: "2026-05-28T12:00:00Z",
+      },
+    ];
+    res.writeHead(200);
+    res.end(JSON.stringify(themeHistory));
   } else if (path === "/api/v1/ingest/trigger" && req.method === "POST") {
     res.writeHead(202);
     res.end(JSON.stringify(INGEST_RESPONSE));

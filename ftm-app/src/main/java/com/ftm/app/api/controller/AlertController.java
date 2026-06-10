@@ -65,4 +65,10 @@ public class AlertController {
     int dismissed = alertService.acknowledgeAllActive();
     return ResponseEntity.ok(Map.of("dismissed", dismissed));
   }
+
+  @GetMapping("/theme/{themeId}")
+  @Operation(summary = "Alert history for a theme (all statuses, most recent first, limit 100)")
+  public List<AlertDto> getThemeAlertHistory(@PathVariable String themeId) {
+    return alertService.getThemeAlertHistory(themeId);
+  }
 }

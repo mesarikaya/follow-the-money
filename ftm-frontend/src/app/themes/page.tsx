@@ -961,7 +961,7 @@ function ThemeScreener({
         <span className="text-[10px] font-mono text-slate-600">{themes.length} rows</span>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-left min-w-[760px]">
+        <table className="w-full text-left min-w-[800px]">
           <thead>
             <tr className="border-b border-slate-700/40">
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">#</th>
@@ -969,6 +969,7 @@ function ThemeScreener({
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Theme</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Signal</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Score</th>
+              <th className="py-1.5 px-2 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Absolute composite score change over 5 trading days">5d Δ</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">RS-60</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Flow</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">vs Sectors</th>
@@ -1011,6 +1012,9 @@ function ThemeScreener({
               const themeHistory = historiesByThemeId[t.id] ?? [];
               const ageDays = signalAgeDays(themeHistory, t.dominantSignal);
               const phaseAge = phaseAgeDays(themeHistory, t.themePhase ?? null);
+              const scoreDelta5d = themeHistory.length >= 6
+                ? Math.round((themeHistory[themeHistory.length - 1].compositeScore - themeHistory[themeHistory.length - 1 - 5].compositeScore) * 100)
+                : null;
               const alertCount = alertsByThemeId[t.id] ?? 0;
               return (
                 <tr key={t.id} className={`border-t border-slate-700/30 hover:bg-slate-800/50 transition-colors ${alertCount > 0 ? "border-l-2 border-l-amber-500/40" : ""}`}>
@@ -1067,6 +1071,17 @@ function ThemeScreener({
                         );
                       })()}
                     </div>
+                  </td>
+                  <td className="py-2 px-2 text-[9px] font-mono tabular-nums w-10">
+                    {scoreDelta5d == null ? (
+                      <span className="text-slate-700">—</span>
+                    ) : scoreDelta5d > 0 ? (
+                      <span className={scoreDelta5d >= 5 ? "text-emerald-400" : "text-emerald-700"} title={`Score gained +${scoreDelta5d}pt over 5 trading days`}>+{scoreDelta5d}</span>
+                    ) : scoreDelta5d < 0 ? (
+                      <span className={Math.abs(scoreDelta5d) >= 5 ? "text-red-400" : "text-red-700"} title={`Score lost ${scoreDelta5d}pt over 5 trading days`}>{scoreDelta5d}</span>
+                    ) : (
+                      <span className="text-slate-700">0</span>
+                    )}
                   </td>
                   <td className="py-2 px-3">
                     <span className={`text-[10px] font-mono tabular-nums ${rsClr}`}>

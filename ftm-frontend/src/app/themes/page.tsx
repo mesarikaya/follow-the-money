@@ -204,6 +204,37 @@ function signalAgeDays(history: ThemeHistoryPoint[], dominantSignal: string): nu
   return count;
 }
 
+function phaseFromHistory(score: number, trend5d: number | null, trend20d: number | null): string {
+  if (trend5d == null || trend20d == null) return "NEUTRAL";
+  const accelerating = (trend5d - trend20d) > 0.005;
+  const trending = trend20d > 0.003;
+  const fading = trend20d < -0.003;
+  if (score >= 0.65) {
+    if (accelerating) return "BREAKOUT";
+    if (trending) return "MOMENTUM";
+    return "HOLDING";
+  }
+  if (score >= 0.50) {
+    if (accelerating) return "SETUP";
+    if (fading) return "FADING";
+    return "BUILDING";
+  }
+  if (fading) return "FADING";
+  if (score < 0.35) return "WEAK";
+  return "NEUTRAL";
+}
+
+function phaseAgeDays(history: ThemeHistoryPoint[], currentPhase: string | null): number {
+  if (!currentPhase || history.length === 0) return 0;
+  let count = 0;
+  for (let i = history.length - 1; i >= 0; i--) {
+    const h = history[i];
+    if (phaseFromHistory(h.compositeScore, h.trend5d, h.trend20d) === currentPhase) count++;
+    else break;
+  }
+  return count;
+}
+
 function SignalFreshnessBadge({
   history,
   signal,
@@ -979,6 +1010,7 @@ function ThemeScreener({
               const bullishPct = t.constituentCount > 0 ? Math.round((t.bullishCount / t.constituentCount) * 100) : 0;
               const themeHistory = historiesByThemeId[t.id] ?? [];
               const ageDays = signalAgeDays(themeHistory, t.dominantSignal);
+              const phaseAge = phaseAgeDays(themeHistory, t.themePhase ?? null);
               const alertCount = alertsByThemeId[t.id] ?? 0;
               return (
                 <tr key={t.id} className={`border-t border-slate-700/30 hover:bg-slate-800/50 transition-colors ${alertCount > 0 ? "border-l-2 border-l-amber-500/40" : ""}`}>
@@ -1054,7 +1086,21 @@ function ThemeScreener({
                     ) : <span className="text-slate-600 text-[10px]">—</span>}
                   </td>
                   <td className="py-2 px-3">
-                    <ThemePhaseBadge phase={t.themePhase ?? null} />
+                    <div className="flex items-center gap-1">
+                      <ThemePhaseBadge phase={t.themePhase ?? null} />
+                      {phaseAge > 0 && (
+                        <span
+                          className={`text-[8px] font-mono tabular-nums shrink-0 ${
+                            phaseAge <= 2 ? "text-emerald-400 font-semibold"
+                            : phaseAge <= 5 ? "text-slate-400"
+                            : "text-slate-700"
+                          }`}
+                          title={`In ${t.themePhase} phase for ${phaseAge} day${phaseAge !== 1 ? "s" : ""}`}
+                        >
+                          {phaseAge}d
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-2 px-3">
                     <span className={`text-[10px] font-mono tabular-nums ${bullishPct >= 60 ? "text-emerald-400" : bullishPct >= 40 ? "text-amber-400" : "text-red-400"}`}>

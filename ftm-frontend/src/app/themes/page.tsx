@@ -505,6 +505,7 @@ const RULE_LABELS: Record<string, string> = {
   theme_momentum_collapse:          "Mom. Collapse",
   theme_distribute_warning:         "Distribution",
   theme_phase_breakout_entry:       "Breakout Entry",
+  theme_setup_acceleration:         "Pre-Breakout",
   pre_buy_flow_surge:               "Pre-Buy Flow",
 };
 

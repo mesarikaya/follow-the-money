@@ -1580,6 +1580,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("theme_distribute_warning")));
     when(alertRulesRepository.findById("theme_phase_breakout_entry"))
         .thenReturn(Optional.of(disabled("theme_phase_breakout_entry")));
+    when(alertRulesRepository.findById("theme_setup_acceleration"))
+        .thenReturn(Optional.of(disabled("theme_setup_acceleration")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
@@ -3369,5 +3371,111 @@ class AlertRulesEngineTest {
 
     verify(alertRepository, never())
         .insert(argThat(a -> a.ruleId().equals("theme_phase_breakout_entry")));
+  }
+
+  // ===== Theme Setup Acceleration Alert Tests =====
+
+  private void stubAllRulesDisabledExceptThemeSetupAcceleration() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bear")));
+    when(alertRulesRepository.findById("pre_buy_flow_surge"))
+        .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
+    when(alertRulesRepository.findById("rrg_rs_divergence"))
+        .thenReturn(Optional.of(disabled("rrg_rs_divergence")));
+    when(alertRulesRepository.findById("score_percentile_extreme"))
+        .thenReturn(Optional.of(disabled("score_percentile_extreme")));
+    when(alertRulesRepository.findById("score_velocity"))
+        .thenReturn(Optional.of(disabled("score_velocity")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+  }
+
+  @Test
+  @DisplayName("theme_setup_acceleration: fires ACTION when SETUP-phase theme has strong 5d momentum")
+  void shouldCreateThemeSetupAccelerationAlertWhenSetupWithStrongMomentum() {
+    stubAllRulesDisabledExceptThemeSetupAcceleration();
+    when(alertRulesRepository.findById("theme_setup_acceleration"))
+        .thenReturn(Optional.of(enabled("theme_setup_acceleration", Severity.ACTION)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("TECH", "HLTH")));
+    // avg score 0.58 (in 0.52-0.64 SETUP range), 5d trend 0.012 (>= 0.008 threshold)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.57"), "HLTH", new BigDecimal("0.59")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.012"), "HLTH", new BigDecimal("0.012")));
+    when(alertRepository.existsActiveAlertForTheme("theme_setup_acceleration", "AI_INFRA"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("theme_setup_acceleration");
+    assertThat(inserted.themeId()).isEqualTo("AI_INFRA");
+    assertThat(inserted.severity()).isEqualTo(Severity.ACTION);
+    assertThat(inserted.status()).isEqualTo(AlertStatus.ACTIVE);
+    assertThat(inserted.message()).contains("AI_INFRA").contains("SETUP").contains("BUY");
+  }
+
+  @Test
+  @DisplayName("theme_setup_acceleration: no alert when score above SETUP max (in BUY territory)")
+  void shouldNotCreateThemeSetupAccelerationWhenScoreAboveSetupMax() {
+    stubAllRulesDisabledExceptThemeSetupAcceleration();
+    when(alertRulesRepository.findById("theme_setup_acceleration"))
+        .thenReturn(Optional.of(enabled("theme_setup_acceleration", Severity.ACTION)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("TECH")));
+    // score 0.70 is already BUY territory — not SETUP
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.70")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.015")));
+    when(alertRepository.existsActiveAlertForTheme("theme_setup_acceleration", "AI_INFRA"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_setup_acceleration")));
+  }
+
+  @Test
+  @DisplayName("theme_setup_acceleration: no alert when 5d trend below acceleration threshold")
+  void shouldNotCreateThemeSetupAccelerationWhenTrendBelowThreshold() {
+    stubAllRulesDisabledExceptThemeSetupAcceleration();
+    when(alertRulesRepository.findById("theme_setup_acceleration"))
+        .thenReturn(Optional.of(enabled("theme_setup_acceleration", Severity.ACTION)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("TECH")));
+    // score 0.58 (SETUP) but trend only 0.004 (below 0.008 threshold)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.58")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.004")));
+    when(alertRepository.existsActiveAlertForTheme("theme_setup_acceleration", "AI_INFRA"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_setup_acceleration")));
+  }
+
+  @Test
+  @DisplayName("theme_setup_acceleration: no alert when rule is disabled")
+  void shouldNotCreateThemeSetupAccelerationWhenRuleDisabled() {
+    stubAllRulesDisabledExceptThemeSetupAcceleration();
+    when(alertRulesRepository.findById("theme_setup_acceleration"))
+        .thenReturn(Optional.of(disabled("theme_setup_acceleration")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_setup_acceleration")));
   }
 }

@@ -14,6 +14,67 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 
 ---
 
+## 2026-06-10 (session 23 — alert history + phase age + E2E V57-V59)
+
+- `NEW` V57: Theme alert history endpoint + detail page section (see V57 entry below)
+- `NEW` V58: Phase age indicator in ThemeScreener Phase cell — shows days in current phase (bright for fresh ≤2d, dimming as phase matures); computed from historiesByThemeId via phaseFromHistory helper
+- `NEW` V59: E2E coverage — alert history section test; fix stale "9 themes/45 ETFs" test to 12/58
+  - 511 backend + 74 E2E tests pass
+
+---
+
+## 2026-06-10 (session 23 — theme alert history V57)
+
+- `NEW` Theme alert history endpoint: `GET /alerts/theme/{themeId}` returns all statuses (ACTIVE/RESOLVED/ACKNOWLEDGED), last 100, newest-first
+  - AlertRepository.findRecentByThemeId: jOOQ query, no status filter
+  - AlertService.getThemeAlertHistory: uppercase-normalises themeId
+  - ThemeAlertHistory UI component: shows resolved/acknowledged alerts with status dot + severity badge + date range (created→closed), dimmed styling; renders below active panel on detail page
+  - mock-backend: /api/v1/alerts/theme/{id} returns active + synthetic resolved/acknowledged history entries
+  - 511 backend tests (+2) + 73 E2E tests pass
+  - ✅ `ftm-app/.../AlertRepository.java`, `AlertService.java`, `AlertController.java`, `AlertControllerTest.java`
+  - ✅ `ftm-frontend/.../api.ts`, `themes/[id]/page.tsx`, `e2e/mock-backend.mjs`
+
+---
+
+## 2026-06-10 (session 22 — theme screener upgrades V56)
+
+- `UPDATED` ThemeScreener: rank-change column, alert badge column, mini sparklines in Score cell
+  - Rank Δ column: compares each theme's current rank vs its rank 5 trading days ago (using historiesByThemeId). Green ↑N = moved up, red ↓N = moved down.
+  - Alerts column: active alert count badge per theme (amber pill); rows with active alerts get a left amber border accent. Data comes from alertsByThemeId computed in the page server component from existing alertsResponse — no new API call.
+  - Score cell: embedded 40×12 SVG sparkline (last 14 history points) gives at-a-glance momentum shape.
+  - 509 backend tests + 73 E2E tests pass.
+  - ✅ `ftm-frontend/src/app/themes/page.tsx`
+
+---
+
+## 2026-06-09 (sessions 19-21 — cross-sector themes + alert engine expansion V49-V55)
+
+- `NEW` V49-V53: theme alert engine expanded — theme_dominant_signal_transition, theme_momentum_surge, theme_momentum_collapse, theme_distribute_warning alert rules; theme lifecycle phases (BREAKOUT/MOMENTUM/SETUP/BUILDING/HOLDING/FADING/DISTRIBUTE/WEAK/NEUTRAL); ThemeScreener table
+  - Theme lifecycle phases computed from compositeScore + trend5d + trend20d; shown as badges on screener + detail pages
+  - PhaseTimelineStrip on detail page: 30-day phase history as colored band chart
+  - 'What to Watch' guidance on detail page based on current phase
+  - ThemeRaceChart: animated 30d score history chart for up to 10 themes
+  - ThemeRelativeStrengthPlot, ThemePositioningMatrix for cross-theme comparison
+  - ActiveRotationBanner, RotationMomentumStrip for momentum context
+  - TopOpportunitiesPanel, PreBuySetupPanel for actionable signals
+  - ThemeAlertFeed on hub page; ThemeDetailAlerts on detail page
+  - ✅ AlertRulesEngine.java (4 new evaluate* methods)
+  - ✅ ftm-frontend/src/app/themes/page.tsx
+  - ✅ ftm-frontend/src/app/themes/[id]/page.tsx
+
+- `NEW` V54: 3 new investment themes seeded — BIOTECH_WAVE, FINANCIAL_ROTATION, RESHORING_CYCLE
+  - Total themes: 10 (was 7); constituent IDs use V9 sub-sector prefixed IDs
+  - ✅ `ftm-app/src/main/resources/db/migration/V54__new_themes_biotech_financial_reshoring.sql`
+
+- `NEW` V55: theme_phase_breakout_entry alert rule
+  - Fires when a theme transitions INTO BREAKOUT from any lower phase; uses 5-day lookback via chained findPreviousSignalDate to avoid false positives on noise
+  - Resolves automatically when theme exits BREAKOUT or MOMENTUM
+  - ✅ `ftm-app/src/main/resources/db/migration/V55__theme_phase_breakout_entry_alert_rule.sql`
+  - ✅ `AlertRulesEngine.java` (evaluateThemePhaseBreakoutEntry, findNthPreviousSignalDate, computeThemePhaseForAlert)
+  - ✅ `ftm-frontend/e2e/mock-backend.mjs` (new rule + 3 new themes)
+
+---
+
 ## 2026-05-17 (session 14 — EP-020: sector visual polish; EP-021: /sub-sectors redirect cleanup)
 
 - `UPDATED` EP-020: Sector pages visual upgrade to match redesigned mockups

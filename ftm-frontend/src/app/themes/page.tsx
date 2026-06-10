@@ -473,6 +473,7 @@ const RULE_LABELS: Record<string, string> = {
   theme_momentum_surge:             "Mom. Surge",
   theme_momentum_collapse:          "Mom. Collapse",
   theme_distribute_warning:         "Distribution",
+  theme_phase_breakout_entry:       "Breakout Entry",
   pre_buy_flow_surge:               "Pre-Buy Flow",
 };
 

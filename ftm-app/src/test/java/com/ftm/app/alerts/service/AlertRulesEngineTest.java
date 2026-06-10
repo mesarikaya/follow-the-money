@@ -1578,6 +1578,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("theme_5d_acceleration")));
     when(alertRulesRepository.findById("theme_distribute_warning"))
         .thenReturn(Optional.of(disabled("theme_distribute_warning")));
+    when(alertRulesRepository.findById("theme_phase_breakout_entry"))
+        .thenReturn(Optional.of(disabled("theme_phase_breakout_entry")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
@@ -3260,5 +3262,112 @@ class AlertRulesEngineTest {
 
     verify(alertRepository, never())
         .insert(argThat(a -> a.ruleId().equals("theme_distribute_warning")));
+  }
+
+  // ===== Theme Phase Breakout Entry Alert Tests =====
+
+  private static final LocalDate PRIOR_DATE_1 = DATE.minusDays(1);
+  private static final LocalDate PRIOR_DATE_2 = DATE.minusDays(2);
+  private static final LocalDate PRIOR_DATE_3 = DATE.minusDays(3);
+  private static final LocalDate PRIOR_DATE_4 = DATE.minusDays(4);
+  private static final LocalDate PRIOR_DATE_5 = DATE.minusDays(5);
+
+  private void stubAllRulesDisabledExceptThemePhaseBreakout() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("rs_aligned_bear"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bear")));
+    when(alertRulesRepository.findById("pre_buy_flow_surge"))
+        .thenReturn(Optional.of(disabled("pre_buy_flow_surge")));
+    when(alertRulesRepository.findById("rrg_rs_divergence"))
+        .thenReturn(Optional.of(disabled("rrg_rs_divergence")));
+    when(alertRulesRepository.findById("score_percentile_extreme"))
+        .thenReturn(Optional.of(disabled("score_percentile_extreme")));
+    when(alertRulesRepository.findById("score_velocity"))
+        .thenReturn(Optional.of(disabled("score_velocity")));
+    when(rotationEventRepository.findRecentEvents(DATE)).thenReturn(List.of());
+  }
+
+  @Test
+  @DisplayName("theme_phase_breakout_entry: fires ACTION when theme enters BREAKOUT from SETUP")
+  void shouldCreateThemePhaseBreakoutEntryAlertWhenTransitionFromSetup() {
+    stubAllRulesDisabledExceptThemePhaseBreakout();
+    when(alertRulesRepository.findById("theme_phase_breakout_entry"))
+        .thenReturn(Optional.of(enabled("theme_phase_breakout_entry", Severity.ACTION)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("TECH", "SEMI")));
+    // Current signals: score 0.70 avg, trend5d 0.015, trend20d 0.004 → BREAKOUT (accel = 0.011)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.68"), "SEMI", new BigDecimal("0.72")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.015"), "SEMI", new BigDecimal("0.015")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.004"), "SEMI", new BigDecimal("0.004")));
+    when(alertRepository.existsActiveAlertForTheme("theme_phase_breakout_entry", "AI_INFRA"))
+        .thenReturn(false);
+    // 5-step prior date chain
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, DATE)).thenReturn(PRIOR_DATE_1);
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_1)).thenReturn(PRIOR_DATE_2);
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_2)).thenReturn(PRIOR_DATE_3);
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_3)).thenReturn(PRIOR_DATE_4);
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_4)).thenReturn(PRIOR_DATE_5);
+    // Prior signals: score 0.60, trend5d 0.006, trend20d 0.008 → SETUP (accel = -0.002 < 0.005)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, PRIOR_DATE_5))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.60"), "SEMI", new BigDecimal("0.60")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, PRIOR_DATE_5))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.006"), "SEMI", new BigDecimal("0.006")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, PRIOR_DATE_5))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.008"), "SEMI", new BigDecimal("0.008")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("theme_phase_breakout_entry");
+    assertThat(inserted.themeId()).isEqualTo("AI_INFRA");
+    assertThat(inserted.severity()).isEqualTo(Severity.ACTION);
+    assertThat(inserted.status()).isEqualTo(AlertStatus.ACTIVE);
+    assertThat(inserted.message()).contains("AI_INFRA").containsIgnoringCase("BREAKOUT");
+  }
+
+  @Test
+  @DisplayName("theme_phase_breakout_entry: no alert when score below BREAKOUT threshold")
+  void shouldNotCreateThemePhaseBreakoutEntryWhenScoreBelowBreakoutThreshold() {
+    stubAllRulesDisabledExceptThemePhaseBreakout();
+    when(alertRulesRepository.findById("theme_phase_breakout_entry"))
+        .thenReturn(Optional.of(enabled("theme_phase_breakout_entry", Severity.ACTION)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("TECH", "SEMI")));
+    // Score 0.60 < 0.65 → phase is SETUP not BREAKOUT, so no prior date query needed
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.60"), "SEMI", new BigDecimal("0.60")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.015"), "SEMI", new BigDecimal("0.015")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.004"), "SEMI", new BigDecimal("0.004")));
+    when(alertRepository.existsActiveAlertForTheme("theme_phase_breakout_entry", "AI_INFRA"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_phase_breakout_entry")));
+  }
+
+  @Test
+  @DisplayName("theme_phase_breakout_entry: no alert when rule is disabled")
+  void shouldNotCreateThemePhaseBreakoutEntryWhenRuleDisabled() {
+    stubAllRulesDisabledExceptThemePhaseBreakout();
+    when(alertRulesRepository.findById("theme_phase_breakout_entry"))
+        .thenReturn(Optional.of(disabled("theme_phase_breakout_entry")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_phase_breakout_entry")));
   }
 }

@@ -350,7 +350,8 @@ const ALERT_RULES_RESPONSE = [
   { ruleId: "theme_5d_acceleration",   enabled: true,  description: "Theme 5d momentum accelerating above 20d trend",       lookbackDays: 5,  threshold: null, severity: "ACTION"  },
   { ruleId: "theme_momentum_surge",    enabled: true,  description: "Theme avg 20d trend exceeds +0.010",                    lookbackDays: 20, threshold: null, severity: "ACTION"  },
   { ruleId: "theme_momentum_collapse", enabled: true,  description: "Theme avg 20d trend drops below -0.010",                lookbackDays: 20, threshold: null, severity: "WARNING" },
-  { ruleId: "theme_distribute_warning",enabled: true,  description: "Theme in BUY territory but flow turning negative",      lookbackDays: 20, threshold: 0.65, severity: "WARNING" },
+  { ruleId: "theme_distribute_warning",   enabled: true,  description: "Theme in BUY territory but flow turning negative",      lookbackDays: 20, threshold: 0.65, severity: "WARNING" },
+  { ruleId: "theme_phase_breakout_entry", enabled: true,  description: "Theme transitioned into BREAKOUT phase from a lower phase", lookbackDays: 5, threshold: 0.65, severity: "ACTION"  },
 ];
 
 const INGEST_RESPONSE = {

@@ -900,12 +900,29 @@ function ThemePositioningMatrix({ themes }: { themes: ThemeSummary[] }) {
 function ThemeScreener({
   themes,
   historiesByThemeId,
+  alertsByThemeId,
 }: {
   themes: ThemeSummary[];
   historiesByThemeId: Record<string, ThemeHistoryPoint[]>;
+  alertsByThemeId: Record<string, number>;
 }) {
   if (themes.length === 0) return null;
   const sorted = [...themes].sort((a, b) => (b.compositeScore ?? -1) - (a.compositeScore ?? -1));
+
+  // Rank from 5 days ago: sort by score at history[length - 6] (index 0 = oldest when 30 fetched)
+  const LOOKBACK = 5;
+  const priorRankById: Record<string, number> = {};
+  const priorSorted = [...themes]
+    .map(t => {
+      const hist = historiesByThemeId[t.id] ?? [];
+      const idx = hist.length - 1 - LOOKBACK;
+      const score = idx >= 0 ? hist[idx].compositeScore : null;
+      return { id: t.id, score };
+    })
+    .filter(x => x.score != null)
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  priorSorted.forEach((x, rank) => { priorRankById[x.id] = rank + 1; });
+
   return (
     <div className="bg-slate-800/40 border border-slate-700/60 rounded-lg overflow-hidden mb-4">
       <div className="px-3 py-2 border-b border-slate-700/40 flex items-center justify-between">
@@ -913,10 +930,11 @@ function ThemeScreener({
         <span className="text-[10px] font-mono text-slate-600">{themes.length} rows</span>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-left min-w-[700px]">
+        <table className="w-full text-left min-w-[760px]">
           <thead>
             <tr className="border-b border-slate-700/40">
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">#</th>
+              <th className="py-1.5 px-2 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Δ</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Theme</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Signal</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Score</th>
@@ -926,10 +944,14 @@ function ThemeScreener({
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Phase</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Bullish</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Trend</th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Alerts</th>
             </tr>
           </thead>
           <tbody>
             {sorted.map((t, i) => {
+              const rank = i + 1;
+              const priorRank = priorRankById[t.id];
+              const rankDelta = priorRank != null ? priorRank - rank : null;
               const signal = SIGNAL_CONFIG[t.dominantSignal] ?? SIGNAL_CONFIG.HOLD;
               const pct = t.compositeScore != null ? Math.round(t.compositeScore * 100) : null;
               const scoreClr = t.compositeScore == null ? "text-slate-500"
@@ -957,9 +979,19 @@ function ThemeScreener({
               const bullishPct = t.constituentCount > 0 ? Math.round((t.bullishCount / t.constituentCount) * 100) : 0;
               const themeHistory = historiesByThemeId[t.id] ?? [];
               const ageDays = signalAgeDays(themeHistory, t.dominantSignal);
+              const alertCount = alertsByThemeId[t.id] ?? 0;
               return (
-                <tr key={t.id} className="border-t border-slate-700/30 hover:bg-slate-800/50 transition-colors">
-                  <td className="py-2 px-3 text-[10px] text-slate-600 font-mono tabular-nums">{i + 1}</td>
+                <tr key={t.id} className={`border-t border-slate-700/30 hover:bg-slate-800/50 transition-colors ${alertCount > 0 ? "border-l-2 border-l-amber-500/40" : ""}`}>
+                  <td className="py-2 px-3 text-[10px] text-slate-600 font-mono tabular-nums">{rank}</td>
+                  <td className="py-2 px-2 text-[9px] font-mono tabular-nums w-8">
+                    {rankDelta == null || rankDelta === 0 ? (
+                      <span className="text-slate-700">—</span>
+                    ) : rankDelta > 0 ? (
+                      <span className="text-emerald-400" title={`Moved up ${rankDelta} place${rankDelta !== 1 ? "s" : ""} in 5 days`}>↑{rankDelta}</span>
+                    ) : (
+                      <span className="text-red-400" title={`Moved down ${Math.abs(rankDelta)} place${Math.abs(rankDelta) !== 1 ? "s" : ""} in 5 days`}>↓{Math.abs(rankDelta)}</span>
+                    )}
+                  </td>
                   <td className="py-2 px-3">
                     <Link href={`/themes/${t.id}`} className="text-[11px] font-semibold text-slate-200 hover:text-cyan-300 transition-colors">
                       {t.name}
@@ -984,6 +1016,24 @@ function ThemeScreener({
                         <div className={`h-full rounded-full ${barClr}`} style={{ width: `${pct ?? 0}%` }} />
                       </div>
                       <span className={`text-[10px] font-mono tabular-nums ${scoreClr}`}>{pct ?? "—"}</span>
+                      {themeHistory.length >= 5 && (() => {
+                        const vals = themeHistory.slice(-14).map(h => h.compositeScore);
+                        const lo = Math.min(...vals), hi = Math.max(...vals);
+                        const rng = hi - lo;
+                        const w = 40, h = 12;
+                        const pts = vals.map((v, i) => {
+                          const x = (i / (vals.length - 1)) * w;
+                          const y = rng > 0 ? h - ((v - lo) / rng) * (h - 2) - 1 : h / 2;
+                          return `${x.toFixed(1)},${y.toFixed(1)}`;
+                        }).join(" ");
+                        const latest = vals[vals.length - 1];
+                        const clr = latest >= 0.65 ? "#34d399" : latest >= 0.50 ? "#22d3ee" : latest >= 0.35 ? "#fbbf24" : "#f87171";
+                        return (
+                          <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="opacity-60 shrink-0">
+                            <polyline points={pts} fill="none" stroke={clr} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        );
+                      })()}
                     </div>
                   </td>
                   <td className="py-2 px-3">
@@ -1022,6 +1072,18 @@ function ThemeScreener({
                         </span>
                       )}
                     </span>
+                  </td>
+                  <td className="py-2 px-3">
+                    {alertCount > 0 ? (
+                      <span
+                        className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25"
+                        title={`${alertCount} active alert${alertCount !== 1 ? "s" : ""}`}
+                      >
+                        {alertCount}!
+                      </span>
+                    ) : (
+                      <span className="text-slate-700 text-[10px]">—</span>
+                    )}
                   </td>
                 </tr>
               );
@@ -1141,6 +1203,10 @@ export default async function ThemesPage() {
   });
 
   const themeAlerts = alertsResponse.alerts.filter(a => a.themeId != null && a.status === "ACTIVE");
+  const alertsByThemeId: Record<string, number> = {};
+  for (const alert of themeAlerts) {
+    if (alert.themeId) alertsByThemeId[alert.themeId] = (alertsByThemeId[alert.themeId] ?? 0) + 1;
+  }
   const buyThemes = themes.filter(t => t.dominantSignal === "BUY").length;
   const watchThemes = themes.filter(t => t.dominantSignal === "WATCH").length;
   const activeThemes = themes.filter(t => t.dominantSignal === "BUY" || t.dominantSignal === "WATCH").length;
@@ -1213,7 +1279,7 @@ export default async function ThemesPage() {
         {themes.length > 1 && <ThemeRelativeStrengthPlot themes={themes} />}
         {themes.length > 1 && <ThemePositioningMatrix themes={themes} />}
         {themes.length > 1 && <ThemeRaceChart themes={themes} historiesByThemeId={historyByThemeId} />}
-        {themes.length > 0 && <ThemeScreener themes={themes} historiesByThemeId={historyByThemeId} />}
+        {themes.length > 0 && <ThemeScreener themes={themes} historiesByThemeId={historyByThemeId} alertsByThemeId={alertsByThemeId} />}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {sortedByScore.map(theme => (

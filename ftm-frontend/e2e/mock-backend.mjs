@@ -472,6 +472,36 @@ const THEMES_RESPONSE = [
       { categoryId: "MATL_GOLD", parentCategoryId: "MATL", name: "Gold Miners Senior", etfTicker: "GDX", compositeScore: 0.73, rs60: 0.050, flow20d: 1.0, compositeTrend20d: 0.010, tradeSignal: "BUY", convictionScore: 65 },
     ],
   },
+  {
+    id: "BIOTECH_WAVE", name: "Biotech Catalyst Cycle", thesis: "Rate normalization unlocks biotech funding. GLP-1 drug dominance, genomic medicine, and an FDA pipeline backlog are converging on a multi-year biotech upcycle. Capital flows back into speculative biopharma as the cost-of-capital tailwind returns.",
+    constituentCount: 5, compositeScore: 0.58, rs60: 0.022, flow20d: 0.6, compositeTrend5d: 0.014, compositeTrend20d: 0.008,
+    bullishCount: 3, dominantSignal: "WATCH", divergenceFromParentSectors: 0.06, themePhase: "SETUP",
+    topConstituents: [
+      { categoryId: "HLTH_BIOT", parentCategoryId: "HLTH", name: "Biotech SPDR", etfTicker: "XBI", compositeScore: 0.66, rs60: 0.035, flow20d: 0.9, compositeTrend20d: 0.012, tradeSignal: "BUY", convictionScore: 60 },
+      { categoryId: "HLTH_BIOI", parentCategoryId: "HLTH", name: "Biotech iShares", etfTicker: "IBB", compositeScore: 0.62, rs60: 0.028, flow20d: 0.7, compositeTrend20d: 0.009, tradeSignal: "WATCH", convictionScore: 52 },
+      { categoryId: "HLTH_GNOM", parentCategoryId: "HLTH", name: "Genomic Revolution", etfTicker: "ARKG", compositeScore: 0.55, rs60: 0.018, flow20d: 0.5, compositeTrend20d: 0.007, tradeSignal: "WATCH", convictionScore: 44 },
+    ],
+  },
+  {
+    id: "FINANCIAL_ROTATION", name: "Financial Services Rotation", thesis: "Rate normalization expands bank net interest margins while fintech platforms capture fee revenue. The question is who benefits as yield curves normalize — traditional banks rebuilding NIM or fintechs absorbing displaced deposits.",
+    constituentCount: 4, compositeScore: 0.62, rs60: 0.028, flow20d: 0.4, compositeTrend5d: 0.006, compositeTrend20d: 0.004,
+    bullishCount: 3, dominantSignal: "WATCH", divergenceFromParentSectors: 0.04, themePhase: "BUILDING",
+    topConstituents: [
+      { categoryId: "FINL_BANK", parentCategoryId: "FINL", name: "Banks SPDR", etfTicker: "KBE", compositeScore: 0.68, rs60: 0.038, flow20d: 0.6, compositeTrend20d: 0.007, tradeSignal: "BUY", convictionScore: 58 },
+      { categoryId: "FINL_KBWB", parentCategoryId: "FINL", name: "KBW Banking ETF", etfTicker: "KBWB", compositeScore: 0.64, rs60: 0.032, flow20d: 0.5, compositeTrend20d: 0.005, tradeSignal: "BUY", convictionScore: 54 },
+      { categoryId: "FINL_FINT", parentCategoryId: "FINL", name: "Fintech & Payments", etfTicker: "FINX", compositeScore: 0.58, rs60: 0.020, flow20d: 0.2, compositeTrend20d: 0.003, tradeSignal: "WATCH", convictionScore: 42 },
+    ],
+  },
+  {
+    id: "RESHORING_CYCLE", name: "US Manufacturing Renaissance", thesis: "IRA, CHIPS Act, and elevated defense budgets are funding the biggest domestic capital expenditure cycle in a generation. Industrial, infrastructure, and construction firms are the picks-and-shovels of American re-industrialization.",
+    constituentCount: 4, compositeScore: 0.71, rs60: 0.040, flow20d: 0.8, compositeTrend5d: 0.010, compositeTrend20d: 0.007,
+    bullishCount: 4, dominantSignal: "BUY", divergenceFromParentSectors: 0.09, themePhase: "MOMENTUM",
+    topConstituents: [
+      { categoryId: "INDU_AIRR", parentCategoryId: "INDU", name: "American Industrial Renaissance", etfTicker: "AIRR", compositeScore: 0.78, rs60: 0.055, flow20d: 1.1, compositeTrend20d: 0.011, tradeSignal: "BUY", convictionScore: 72 },
+      { categoryId: "INDU_PAVE", parentCategoryId: "INDU", name: "US Infrastructure", etfTicker: "PAVE", compositeScore: 0.74, rs60: 0.046, flow20d: 0.9, compositeTrend20d: 0.008, tradeSignal: "BUY", convictionScore: 66 },
+      { categoryId: "INDU_ROAD", parentCategoryId: "INDU", name: "Construction & Engineering", etfTicker: "ROAD", compositeScore: 0.68, rs60: 0.036, flow20d: 0.7, compositeTrend20d: 0.006, tradeSignal: "BUY", convictionScore: 58 },
+    ],
+  },
 ];
 
 function generateThemeHistory(baseScore, days) {

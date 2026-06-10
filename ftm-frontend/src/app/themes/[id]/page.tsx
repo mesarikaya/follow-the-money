@@ -433,7 +433,7 @@ function computeWatchGuidance(theme: ThemeData): string | null {
   }
 }
 
-const HISTORY_PERIODS = [30, 60, 90] as const;
+const HISTORY_PERIODS = [30, 60, 90, 120, 180] as const;
 
 const PHASE_COLORS: Record<string, string> = {
   BREAKOUT:  "#34d399",

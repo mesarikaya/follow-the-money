@@ -438,10 +438,10 @@ test.describe("Investment Themes page (/themes)", () => {
 
   test("shows summary stats bar with theme and ETF count", async ({ page }) => {
     await page.goto("/themes");
-    // Mock now has 9 themes
-    await expect(page.getByText(/9 themes/)).toBeVisible();
-    // constituentCount sum: 7+5+3+4+5+5+6+5+5=45
-    await expect(page.getByText(/45 ETFs tracked/)).toBeVisible();
+    // Mock now has 12 themes
+    await expect(page.getByText(/12 themes/)).toBeVisible();
+    // constituentCount sum: 7+5+3+4+5+5+6+5+5+5+4+4=58
+    await expect(page.getByText(/58 ETFs tracked/)).toBeVisible();
   });
 
   test("shows sparkline SVGs for themes with history data", async ({ page }) => {
@@ -498,5 +498,12 @@ test.describe("Theme detail page (/themes/[id])", () => {
     const response = await page.goto("/themes/DOES_NOT_EXIST");
     // Next.js notFound() returns 404
     expect(response?.status()).toBe(404);
+  });
+
+  test("shows alert history section with resolved alerts", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    // Header span uses CSS text-transform:uppercase so innerText is "ALERT HISTORY · N"
+    await expect(page.getByText("ALERT HISTORY", { exact: false }).first()).toBeVisible();
+    await expect(page.getByText("RESOLVED").first()).toBeVisible();
   });
 });

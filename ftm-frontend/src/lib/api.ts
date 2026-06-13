@@ -29,6 +29,7 @@ export type CategorySummary = {
   realizedVol20d: number | null;
   scorePercentile252d: number | null;
   convictionScore: number | null;
+  parentId: string | null;
 };
 
 export type CategoriesResponse = {

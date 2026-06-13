@@ -783,8 +783,8 @@ const server = http.createServer(async (req, res) => {
         severity: "WARNING",
         message: "SAAS_AT_RISK entered FADING phase (score dropped to 41, 5d trend -3.1pt/day)",
         triggerSnapshot: null,
-        status: "ACTIVE",
-        resolvedAt: null,
+        status: "RESOLVED",
+        resolvedAt: "2026-06-10T09:00:00Z",
         acknowledgedAt: null,
       },
       {
@@ -796,8 +796,8 @@ const server = http.createServer(async (req, res) => {
         severity: "INFO",
         message: "SAAS_AT_RISK showing recovery: score 45, 5d trend +0.5pt/day (20d was negative 5 days ago) — early turn signal, watch for follow-through",
         triggerSnapshot: null,
-        status: "ACTIVE",
-        resolvedAt: null,
+        status: "RESOLVED",
+        resolvedAt: "2026-06-13T08:00:00Z",
         acknowledgedAt: null,
       },
     ] : [];

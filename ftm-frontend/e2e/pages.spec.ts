@@ -567,3 +567,23 @@ test.describe("Dashboard — ThemeSignalWidget Near Entry section", () => {
     await expect(page.getByText(/pt to BUY/).first()).toBeVisible();
   });
 });
+
+test.describe("Alerts page — Strong Breakout Confirmation rule", () => {
+  test("shows Strong Breakout Confirmation rule in Alert Rules panel", async ({ page }) => {
+    await page.goto("/alerts");
+    // BUILTIN_RULES label for theme_strong_breakout_confirmation
+    await expect(page.getByText("Strong Breakout Confirmed")).toBeVisible();
+  });
+
+  test("shows strong breakout active alert for AI_INFRA", async ({ page }) => {
+    await page.goto("/alerts");
+    // Alert id=7 in ALERTS_RESPONSE: AI_INFRA strong breakout confirmed, severity ACTION
+    await expect(page.getByText(/institutional follow-through/).first()).toBeVisible();
+  });
+
+  test("shows Strong Breakout active alert with score details", async ({ page }) => {
+    await page.goto("/alerts");
+    // Alert id=7: AI_INFRA strong breakout message includes "score 78"
+    await expect(page.getByText(/score 78/).first()).toBeVisible();
+  });
+});

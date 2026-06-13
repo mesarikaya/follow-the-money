@@ -1031,11 +1031,27 @@ export default function PortfolioPage() {
                         </td>
                         <td className="px-4 py-2 text-slate-400 text-xs">{h.name ?? "—"}</td>
                         <td className="px-4 py-2 text-xs">
-                          {h.categoryId ? (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-900/50 text-blue-300 border border-blue-800/40">
-                              {h.categoryId}
-                            </span>
-                          ) : (
+                          {h.categoryId ? (() => {
+                            const cat = categoryById[h.categoryId];
+                            const parentId = cat?.parentId ?? null;
+                            const parentCat = parentId ? categoryById[parentId] : null;
+                            return (
+                              <div className="flex items-center gap-1">
+                                {parentId && (
+                                  <>
+                                    <span className="text-[9px] font-mono text-slate-600">{parentId}</span>
+                                    <span className="text-[9px] text-slate-700">›</span>
+                                  </>
+                                )}
+                                <span
+                                  className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-900/50 text-blue-300 border border-blue-800/40"
+                                  title={cat ? `${cat.name}${parentCat ? ` (${parentCat.name} sub-sector)` : ""}` : h.categoryId}
+                                >
+                                  {h.categoryId}
+                                </span>
+                              </div>
+                            );
+                          })() : (
                             <span className="text-amber-400 text-[10px]">Unclassified</span>
                           )}
                         </td>

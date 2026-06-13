@@ -86,6 +86,7 @@ public interface CategoryMapper {
               + "rs120ByCategoryId.get(row.category().id().name()), "
               + "flow20dByCategoryId.get(row.category().id().name()), "
               + "rs20ByCategoryId.get(row.category().id().name())))")
+  @Mapping(target = "parentId", source = "row.category.parentId")
   CategorySummaryDto toDto(
       CategoryRepository.CategoryPriceRow row,
       int rank,

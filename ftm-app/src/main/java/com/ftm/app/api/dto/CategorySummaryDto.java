@@ -65,4 +65,8 @@ public record CategorySummaryDto(
             description =
                 "Conviction score 0–100: multi-factor quality rating combining signal clarity, macro alignment, "
                     + "252d percentile standing, and 5d/20d momentum acceleration. 0 for HOLD or missing data.")
-        Integer convictionScore) {}
+        Integer convictionScore,
+    @Schema(
+            description =
+                "Parent category ID for sub-sectors (e.g. 'TECH' for 'SOFT'); null for top-level categories")
+        String parentId) {}

@@ -64,6 +64,7 @@ public class AlignmentService {
 
   private static final BigDecimal VOL_FLOOR = new BigDecimal("0.05");
   private static final BigDecimal VOL_DEFAULT = new BigDecimal("0.10");
+  private static final int MAX_CONCENTRATED_POSITIONS = 5;
 
   /**
    * Volatility-adjusted optimal allocation: weight_i = compositeScore_i / effectiveVol_i.
@@ -71,6 +72,9 @@ public class AlignmentService {
    * <p>Sectors with identical scores but higher volatility get smaller allocations, reflecting that
    * the same expected return at higher risk is less attractive. Vol is floored at 5% to prevent
    * extreme concentration in very-low-vol assets. Missing vol data defaults to 10%.
+   *
+   * <p>Only the top {@value #MAX_CONCENTRATED_POSITIONS} sectors by adjusted weight receive a
+   * non-zero allocation, keeping rebalance suggestions actionable for a concentrated portfolio.
    */
   public Map<String, BigDecimal> computeVolatilityAdjustedOptimalAllocation(
       Map<String, BigDecimal> compositeScoreByCategoryId,
@@ -88,11 +92,16 @@ public class AlignmentService {
 
     if (adjustedWeights.isEmpty()) return Map.of();
 
+    List<Map.Entry<String, BigDecimal>> topEntries = adjustedWeights.entrySet().stream()
+        .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
+        .limit(MAX_CONCENTRATED_POSITIONS)
+        .toList();
+
     BigDecimal totalWeight =
-        adjustedWeights.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        topEntries.stream().map(Map.Entry::getValue).reduce(BigDecimal.ZERO, BigDecimal::add);
 
     Map<String, BigDecimal> result = new LinkedHashMap<>();
-    for (Map.Entry<String, BigDecimal> entry : adjustedWeights.entrySet()) {
+    for (Map.Entry<String, BigDecimal> entry : topEntries) {
       result.put(
           entry.getKey(),
           entry

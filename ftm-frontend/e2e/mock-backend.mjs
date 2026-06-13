@@ -272,7 +272,7 @@ const HOLDINGS_RESPONSE = [
 ];
 
 const ALERTS_RESPONSE = {
-  activeCount: 6,
+  activeCount: 7,
   alerts: [
     {
       id: 1,
@@ -340,6 +340,19 @@ const ALERTS_RESPONSE = {
       acknowledgedAt: null,
     },
     {
+      id: 7,
+      createdAt: "2026-06-13T08:00:00Z",
+      categoryId: null,
+      themeId: "AI_INFRA",
+      ruleId: "theme_strong_breakout_confirmation",
+      severity: "ACTION",
+      message: "AI_INFRA strong breakout confirmed: score 78 (was 61 20 days ago) — institutional follow-through above BUY threshold",
+      triggerSnapshot: "{\"themeId\":\"AI_INFRA\",\"score\":0.7800,\"priorScore\":0.6100,\"signalDate\":\"2026-06-13\"}",
+      status: "ACTIVE",
+      resolvedAt: null,
+      acknowledgedAt: null,
+    },
+    {
       id: 6,
       createdAt: "2026-06-10T09:30:00Z",
       categoryId: null,
@@ -369,7 +382,8 @@ const ALERT_RULES_RESPONSE = [
   { ruleId: "theme_failed_breakout",       enabled: true,  description: "Theme score dropped from BUY zone (>=0.65) to below 0.57 within 5 days",  lookbackDays: 5,  threshold: 0.57, severity: "WARNING" },
   { ruleId: "theme_phase_fading",          enabled: true,  description: "Theme transitioned into FADING phase from a higher phase",                 lookbackDays: 5,  threshold: null, severity: "WARNING" },
   { ruleId: "theme_momentum_exhaustion",   enabled: true,  description: "BUY-zone theme showing negative 5d AND 20d trends simultaneously",         lookbackDays: 5,  threshold: 0.65, severity: "WARNING" },
-  { ruleId: "theme_recovery_signal",       enabled: true,  description: "FADING/WEAK theme: score 35–55, 5d trend positive, 20d was negative 5d ago", lookbackDays: 5, threshold: null, severity: "INFO"  },
+  { ruleId: "theme_recovery_signal",           enabled: true,  description: "FADING/WEAK theme: score 35–55, 5d trend positive, 20d was negative 5d ago",        lookbackDays: 5,  threshold: null, severity: "INFO"   },
+  { ruleId: "theme_strong_breakout_confirmation", enabled: true, description: "Theme score ≥ 0.70 AND was < 0.65 twenty trading days ago — institutional follow-through", lookbackDays: 20, threshold: 0.70, severity: "ACTION" },
 ];
 
 const INGEST_RESPONSE = {

@@ -21,7 +21,7 @@ A local-first investment dashboard that tracks capital flows across 19 investabl
 
 ## Current phase
 
-**All 12 milestones delivered.** 530 backend tests + 74 E2E tests pass.
+**All 12 milestones delivered.** 534 backend tests + 74 E2E tests pass.
 
 | Area | Status |
 |------|--------|

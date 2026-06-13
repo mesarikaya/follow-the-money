@@ -90,6 +90,7 @@ const RULE_LABELS: Record<string, string> = {
   theme_phase_fading:                 "Phase Fading",
   theme_momentum_exhaustion:          "Momentum Exhaustion",
   theme_recovery_signal:              "Recovery Signal",
+  theme_strong_breakout_confirmation: "Strong Breakout",
   flow_inflow_5d:         "Flow Inflow (5d)",
   flow_inflow_10d:        "Flow Inflow (10d)",
   flow_inflow_20d:        "Flow Inflow (20d)",
@@ -140,6 +141,7 @@ const BUILTIN_RULES = [
   { id: "theme_phase_fading",          label: "Phase Fading",         condition: "theme enters FADING phase (was higher-phase 5d ago)", severity: "WARNING", note: "Phase degradation alert: fires when a theme transitions into the FADING phase (score declining, 5d trend < -0.003, 20d trend negative) from a higher phase 5 trading days ago. Confirms genuine phase deterioration rather than a one-day dip. Suggests reducing or exiting positions — the theme's internal momentum is structurally breaking down. Resolves when score recovers above 0.55 or 5d trend turns positive." },
   { id: "theme_momentum_exhaustion",   label: "Momentum Exhaustion",  condition: "score ≥ 0.65 + 5d trend < -0.005 + 20d trend < 0", severity: "WARNING", note: "Early exit signal: fires when a BUY-zone theme (composite score ≥ 0.65) shows negative 5-day AND 20-day composite trend simultaneously. Score hasn't broken down yet but both momentum windows are already deteriorating — an early warning before the score actually drops. Similar to distribution warning but based on internal momentum rather than flow. Resolves when score drops below 0.60 (risk managed) or 5d trend recovers above +0.002." },
   { id: "theme_recovery_signal",       label: "Recovery Signal",      condition: "score 35–55, 5d trend > 0, 20d trend was negative 5d ago", severity: "INFO", note: "Early recovery detector: fires when a FADING or WEAK theme shows nascent recovery — composite score in the 35–55 range, 5-day trend turning positive (>0.003/day), while the 20-day trend was still negative 5 trading days ago. Captures the first measurable positive momentum after a downtrend, before a full phase upgrade. Watch for follow-through: if score advances above 0.60, the recovery is confirmed; below 0.30, the downtrend resumed. Resolves when score rises above 0.60 (confirmed recovery) or falls below 0.30 (failed)." },
+  { id: "theme_strong_breakout_confirmation", label: "Strong Breakout", condition: "score ≥ 0.70 AND prior-20d score < 0.65",               severity: "ACTION", note: "Follow-through confirmation: fires when a theme's composite score reaches ≥0.70 (well into BUY territory) while it was below 0.65 (outside BUY zone) 20 trading days ago. This is not just a breakout — it's a breakout with institutional follow-through. A theme that reaches 70 from below 65 in 20 days has demonstrated sustained momentum, not just a spike. Most reliable when paired with an active Breakout Entry or Theme 5d Accel alert. Resolves when score drops back below 0.65." },
 ];
 
 function formatAlertDate(isoString: string): string {

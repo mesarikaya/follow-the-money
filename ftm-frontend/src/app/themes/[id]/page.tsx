@@ -263,6 +263,7 @@ const RULE_LABELS: Record<string, string> = {
   theme_phase_fading:               "Phase Fading",
   theme_momentum_exhaustion:        "Momentum Exhaustion",
   theme_recovery_signal:            "Recovery Signal",
+  theme_strong_breakout_confirmation: "Strong Breakout Confirmed",
   pre_buy_flow_surge:               "Pre-Buy Flow Surge",
 };
 

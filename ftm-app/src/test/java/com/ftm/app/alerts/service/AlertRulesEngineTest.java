@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.instancio.Select.field;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -1590,6 +1591,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("theme_momentum_exhaustion")));
     when(alertRulesRepository.findById("theme_recovery_signal"))
         .thenReturn(Optional.of(disabled("theme_recovery_signal")));
+    when(alertRulesRepository.findById("theme_strong_breakout_confirmation"))
+        .thenReturn(Optional.of(disabled("theme_strong_breakout_confirmation")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
@@ -3843,6 +3846,28 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("theme_phase_fading")));
     when(alertRulesRepository.findById("theme_momentum_exhaustion"))
         .thenReturn(Optional.of(disabled("theme_momentum_exhaustion")));
+    when(alertRulesRepository.findById("theme_strong_breakout_confirmation"))
+        .thenReturn(Optional.of(disabled("theme_strong_breakout_confirmation")));
+  }
+
+  private void stubAllRulesDisabledExceptThemeStrongBreakout() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("theme_phase_breakout_entry"))
+        .thenReturn(Optional.of(disabled("theme_phase_breakout_entry")));
+    when(alertRulesRepository.findById("theme_failed_breakout"))
+        .thenReturn(Optional.of(disabled("theme_failed_breakout")));
+    when(alertRulesRepository.findById("theme_setup_acceleration"))
+        .thenReturn(Optional.of(disabled("theme_setup_acceleration")));
+    when(alertRulesRepository.findById("theme_phase_fading"))
+        .thenReturn(Optional.of(disabled("theme_phase_fading")));
+    when(alertRulesRepository.findById("theme_momentum_exhaustion"))
+        .thenReturn(Optional.of(disabled("theme_momentum_exhaustion")));
+    when(alertRulesRepository.findById("theme_recovery_signal"))
+        .thenReturn(Optional.of(disabled("theme_recovery_signal")));
   }
 
   @Test
@@ -3942,5 +3967,101 @@ class AlertRulesEngineTest {
 
     verify(alertRepository, never())
         .insert(argThat(a -> a.ruleId().equals("theme_recovery_signal")));
+  }
+
+  // ── theme_strong_breakout_confirmation ────────────────────────────────────
+
+  @Test
+  @DisplayName(
+      "theme_strong_breakout_confirmation: fires ACTION when score >=0.70 and was <0.65 20d ago")
+  void shouldCreateThemeStrongBreakoutWhenScoreAbove70AndPriorBelowBuy() {
+    stubAllRulesDisabledExceptThemeStrongBreakout();
+    when(alertRulesRepository.findById("theme_strong_breakout_confirmation"))
+        .thenReturn(Optional.of(enabled("theme_strong_breakout_confirmation", Severity.ACTION)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_COMPUTE", List.of("TECH", "SEMI")));
+    // current: score 0.75 (above 0.70 fire threshold)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.75"), "SEMI", new BigDecimal("0.75")));
+    when(alertRepository.existsActiveAlertForTheme("theme_strong_breakout_confirmation", "AI_COMPUTE"))
+        .thenReturn(false);
+    // prior (20 trading days ago): score was 0.60 (below 0.65 BUY threshold)
+    LocalDate prior20 = DATE.minusDays(20);
+    when(signalRepository.findPreviousSignalDate(eq(SignalType.COMPOSITE), any(LocalDate.class)))
+        .thenAnswer(inv -> ((LocalDate) inv.getArgument(1)).minusDays(1));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, prior20))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.60"), "SEMI", new BigDecimal("0.60")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("theme_strong_breakout_confirmation");
+    assertThat(inserted.themeId()).isEqualTo("AI_COMPUTE");
+    assertThat(inserted.severity()).isEqualTo(Severity.ACTION);
+    assertThat(inserted.status()).isEqualTo(AlertStatus.ACTIVE);
+    assertThat(inserted.message()).contains("strong breakout confirmed");
+  }
+
+  @Test
+  @DisplayName(
+      "theme_strong_breakout_confirmation: no alert when current score is below 0.70 fire threshold")
+  void shouldNotCreateThemeStrongBreakoutWhenCurrentScoreBelow70() {
+    stubAllRulesDisabledExceptThemeStrongBreakout();
+    when(alertRulesRepository.findById("theme_strong_breakout_confirmation"))
+        .thenReturn(Optional.of(enabled("theme_strong_breakout_confirmation", Severity.ACTION)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_COMPUTE", List.of("TECH")));
+    // score 0.68 — in BUY zone but below the 0.70 strong-breakout fire threshold
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.68")));
+    when(alertRepository.existsActiveAlertForTheme("theme_strong_breakout_confirmation", "AI_COMPUTE"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_strong_breakout_confirmation")));
+  }
+
+  @Test
+  @DisplayName(
+      "theme_strong_breakout_confirmation: no alert when prior score was already in BUY zone")
+  void shouldNotCreateThemeStrongBreakoutWhenPriorScoreAlreadyInBuyZone() {
+    stubAllRulesDisabledExceptThemeStrongBreakout();
+    when(alertRulesRepository.findById("theme_strong_breakout_confirmation"))
+        .thenReturn(Optional.of(enabled("theme_strong_breakout_confirmation", Severity.ACTION)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_COMPUTE", List.of("TECH")));
+    // current: score 0.75 (above fire threshold)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.75")));
+    when(alertRepository.existsActiveAlertForTheme("theme_strong_breakout_confirmation", "AI_COMPUTE"))
+        .thenReturn(false);
+    // prior (20 trading days ago): score was 0.72 (already above BUY threshold — no new breakout)
+    LocalDate prior20 = DATE.minusDays(20);
+    when(signalRepository.findPreviousSignalDate(eq(SignalType.COMPOSITE), any(LocalDate.class)))
+        .thenAnswer(inv -> ((LocalDate) inv.getArgument(1)).minusDays(1));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, prior20))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.72")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_strong_breakout_confirmation")));
+  }
+
+  @Test
+  @DisplayName("theme_strong_breakout_confirmation: no alert when rule is disabled")
+  void shouldNotCreateThemeStrongBreakoutWhenRuleDisabled() {
+    stubAllRulesDisabledExceptThemeStrongBreakout();
+    when(alertRulesRepository.findById("theme_strong_breakout_confirmation"))
+        .thenReturn(Optional.of(disabled("theme_strong_breakout_confirmation")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_strong_breakout_confirmation")));
   }
 }

@@ -14,6 +14,22 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 
 ---
 
+## 2026-06-13 (session 27 — V78 theme_strong_breakout_confirmation alert rule)
+
+- `NEW` V78: `theme_strong_breakout_confirmation` alert rule
+  - Fires ACTION when avg theme score >= 0.70 AND prior-20d score < 0.65
+  - Confirms sustained institutional follow-through: score broke above BUY threshold AND kept climbing
+  - Distinct from `theme_phase_breakout_entry` (phase-based) — this is score-level confirmation
+  - Uses `findNthPreviousSignalDate(COMPOSITE, signalDate, 20)` for 20 trading day lookback
+  - Resolves when score drops below 0.65 (BUY threshold lost)
+  - V61 Flyway migration seeds as enabled/ACTION
+  - 4 tests using `any(LocalDate.class)` thenAnswer chain for 20-day prior date lookup
+  - 534 backend tests pass
+  - Full BUILTIN_RULES note + RULE_LABELS added in alerts page and both theme pages
+  - Mock backend: rule added to ALERT_RULES_RESPONSE; AI_INFRA strong breakout alert (id=7) in ALERTS_RESPONSE
+
+---
+
 ## 2026-06-13 (session 27 — V77 NearEntryRow in ThemeSignalWidget + V76 E2E coverage)
 
 - `NEW` V77: `NearEntryRow` component and "NEAR ENTRY" section in `ThemeSignalWidget`

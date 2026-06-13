@@ -299,6 +299,7 @@ export const runBacktestFrequencySweep = (request: Omit<BacktestRequest, "rebala
 export const fetchAlerts = () => get<AlertsResponse>("/api/v1/alerts");
 export const fetchThemeAlertHistory = (themeId: string) =>
   get<AlertDto[]>(`/api/v1/alerts/theme/${themeId}`);
+export const fetchRecentAlerts = () => get<AlertDto[]>("/api/v1/alerts/recent");
 
 export type AlertRuleDto = {
   ruleId: string;
@@ -572,6 +573,7 @@ export type ThemeConstituent = {
   compositeScore: number | null;
   rs60: number | null;
   flow20d: number | null;
+  compositeTrend5d: number | null;
   compositeTrend20d: number | null;
   tradeSignal: string | null;
   convictionScore: number | null;

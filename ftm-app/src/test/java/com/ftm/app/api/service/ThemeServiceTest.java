@@ -148,7 +148,8 @@ class ThemeServiceTest {
   }
 
   @Test
-  @DisplayName("getThemeHistory returns daily composite averages with trend data in chronological order")
+  @DisplayName(
+      "getThemeHistory returns daily composite averages with trend data in chronological order")
   void shouldReturnChronologicalDailyAverages() {
     LocalDate day1 = LocalDate.of(2025, 1, 2);
     LocalDate day2 = LocalDate.of(2025, 1, 3);

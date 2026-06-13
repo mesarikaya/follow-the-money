@@ -507,3 +507,63 @@ test.describe("Theme detail page (/themes/[id])", () => {
     await expect(page.getByText("RESOLVED").first()).toBeVisible();
   });
 });
+
+test.describe("Alerts page — new theme alert rules", () => {
+  test("shows Setup Acceleration rule in Alert Rules panel", async ({ page }) => {
+    await page.goto("/alerts");
+    await expect(page.getByText("Setup Acceleration")).toBeVisible();
+  });
+
+  test("shows Phase Fading and Momentum Exhaustion rules", async ({ page }) => {
+    await page.goto("/alerts");
+    await expect(page.getByText("Phase Fading")).toBeVisible();
+    await expect(page.getByText("Momentum Exhaustion")).toBeVisible();
+  });
+
+  test("shows Failed Breakout and Recovery Signal rules", async ({ page }) => {
+    await page.goto("/alerts");
+    await expect(page.getByText("Failed Breakout")).toBeVisible();
+    await expect(page.getByText("Recovery Signal")).toBeVisible();
+  });
+
+  test("shows recovery signal active alert in recent alerts feed", async ({ page }) => {
+    await page.goto("/alerts");
+    // Recovery signal alert for SAAS_AT_RISK is in ALERTS_RESPONSE.alerts
+    await expect(page.getByText(/early turn signal/).first()).toBeVisible();
+  });
+});
+
+test.describe("Theme detail page — phase fading and recovery alerts", () => {
+  test("shows phase fading alert in SAAS_AT_RISK history", async ({ page }) => {
+    await page.goto("/themes/SAAS_AT_RISK");
+    await expect(page.getByText(/FADING phase/).first()).toBeVisible();
+  });
+
+  test("shows recovery signal alert in SAAS_AT_RISK history", async ({ page }) => {
+    await page.goto("/themes/SAAS_AT_RISK");
+    // Recovery signal message appears in alert history panel
+    await expect(page.getByText(/early turn signal/).first()).toBeVisible();
+  });
+});
+
+test.describe("Dashboard — ThemeSignalWidget Near Entry section", () => {
+  test("shows NEAR ENTRY section when approaching-BUY themes exist", async ({ page }) => {
+    await page.goto("/");
+    // CLEAN_POWER (score 0.58) and COMMODITY_ELECTRIFICATION (score 0.61) qualify for Near Entry
+    await expect(page.getByText("NEAR ENTRY")).toBeVisible();
+    await expect(page.getByText(/approaching BUY/)).toBeVisible();
+  });
+
+  test("shows approaching BUY theme names in Near Entry section", async ({ page }) => {
+    await page.goto("/");
+    // CLEAN_POWER and COMMODITY_ELECTRIFICATION are in 55-65 range with positive 5d trend
+    await expect(page.getByText("Clean Power Renaissance").first()).toBeVisible();
+    await expect(page.getByText("Commodity Supercycle & Electrification").first()).toBeVisible();
+  });
+
+  test("shows pt-to-BUY distance in Near Entry rows", async ({ page }) => {
+    await page.goto("/");
+    // CLEAN_POWER: score 0.58 → 7pt to BUY; COMMODITY: score 0.61 → 4pt to BUY
+    await expect(page.getByText(/pt to BUY/).first()).toBeVisible();
+  });
+});

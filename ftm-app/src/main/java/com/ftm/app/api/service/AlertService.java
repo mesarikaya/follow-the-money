@@ -22,6 +22,7 @@ public class AlertService {
 
   private static final Logger log = LoggerFactory.getLogger(AlertService.class);
   private static final int RECENT_ALERTS_LIMIT = 100;
+  private static final int EVENTS_FEED_LIMIT = 30;
 
   private final AlertRepository alertRepository;
   private final AlertRulesRepository alertRulesRepository;
@@ -77,6 +78,12 @@ public class AlertService {
 
   public List<AlertDto> getThemeAlertHistory(String themeId) {
     return alertRepository.findRecentByThemeId(themeId.toUpperCase(), RECENT_ALERTS_LIMIT).stream()
+        .map(alertMapper::toDto)
+        .toList();
+  }
+
+  public List<AlertDto> getRecentAlerts() {
+    return alertRepository.findRecentAlerts(EVENTS_FEED_LIMIT).stream()
         .map(alertMapper::toDto)
         .toList();
   }

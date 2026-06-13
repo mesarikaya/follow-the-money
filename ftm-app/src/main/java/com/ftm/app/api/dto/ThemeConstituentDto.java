@@ -10,6 +10,7 @@ public record ThemeConstituentDto(
     BigDecimal compositeScore,
     BigDecimal rs60,
     BigDecimal flow20d,
+    BigDecimal compositeTrend5d,
     BigDecimal compositeTrend20d,
     String tradeSignal,
     Integer convictionScore) {}

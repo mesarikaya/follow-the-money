@@ -1580,8 +1580,16 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("theme_distribute_warning")));
     when(alertRulesRepository.findById("theme_phase_breakout_entry"))
         .thenReturn(Optional.of(disabled("theme_phase_breakout_entry")));
+    when(alertRulesRepository.findById("theme_failed_breakout"))
+        .thenReturn(Optional.of(disabled("theme_failed_breakout")));
     when(alertRulesRepository.findById("theme_setup_acceleration"))
         .thenReturn(Optional.of(disabled("theme_setup_acceleration")));
+    when(alertRulesRepository.findById("theme_phase_fading"))
+        .thenReturn(Optional.of(disabled("theme_phase_fading")));
+    when(alertRulesRepository.findById("theme_momentum_exhaustion"))
+        .thenReturn(Optional.of(disabled("theme_momentum_exhaustion")));
+    when(alertRulesRepository.findById("theme_recovery_signal"))
+        .thenReturn(Optional.of(disabled("theme_recovery_signal")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
@@ -3311,11 +3319,16 @@ class AlertRulesEngineTest {
     when(alertRepository.existsActiveAlertForTheme("theme_phase_breakout_entry", "AI_INFRA"))
         .thenReturn(false);
     // 5-step prior date chain
-    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, DATE)).thenReturn(PRIOR_DATE_1);
-    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_1)).thenReturn(PRIOR_DATE_2);
-    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_2)).thenReturn(PRIOR_DATE_3);
-    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_3)).thenReturn(PRIOR_DATE_4);
-    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_4)).thenReturn(PRIOR_DATE_5);
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(PRIOR_DATE_1);
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_1))
+        .thenReturn(PRIOR_DATE_2);
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_2))
+        .thenReturn(PRIOR_DATE_3);
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_3))
+        .thenReturn(PRIOR_DATE_4);
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_4))
+        .thenReturn(PRIOR_DATE_5);
     // Prior signals: score 0.60, trend5d 0.006, trend20d 0.008 → SETUP (accel = -0.002 < 0.005)
     when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, PRIOR_DATE_5))
         .thenReturn(Map.of("TECH", new BigDecimal("0.60"), "SEMI", new BigDecimal("0.60")));
@@ -3395,7 +3408,8 @@ class AlertRulesEngineTest {
   }
 
   @Test
-  @DisplayName("theme_setup_acceleration: fires ACTION when SETUP-phase theme has strong 5d momentum")
+  @DisplayName(
+      "theme_setup_acceleration: fires ACTION when SETUP-phase theme has strong 5d momentum")
   void shouldCreateThemeSetupAccelerationAlertWhenSetupWithStrongMomentum() {
     stubAllRulesDisabledExceptThemeSetupAcceleration();
     when(alertRulesRepository.findById("theme_setup_acceleration"))
@@ -3477,5 +3491,456 @@ class AlertRulesEngineTest {
 
     verify(alertRepository, never())
         .insert(argThat(a -> a.ruleId().equals("theme_setup_acceleration")));
+  }
+
+  // ===== Theme Failed Breakout Alert Tests =====
+
+  private static final LocalDate PRIOR_DATE_FAILED =
+      LocalDate.of(2024, 5, 27); // DATE minus 5 trading days (approx)
+
+  private void stubAllRulesDisabledExceptThemeFailedBreakout() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("theme_phase_breakout_entry"))
+        .thenReturn(Optional.of(disabled("theme_phase_breakout_entry")));
+    when(alertRulesRepository.findById("theme_setup_acceleration"))
+        .thenReturn(Optional.of(disabled("theme_setup_acceleration")));
+  }
+
+  @Test
+  @DisplayName("theme_failed_breakout: fires WARNING when score drops from BUY zone to below 0.57")
+  void shouldCreateThemeFailedBreakoutAlertWhenScoreDropsFromBuyZone() {
+    stubAllRulesDisabledExceptThemeFailedBreakout();
+    when(alertRulesRepository.findById("theme_failed_breakout"))
+        .thenReturn(Optional.of(enabled("theme_failed_breakout", Severity.WARNING)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("TECH", "HLTH")));
+    // current avg 0.54 (< 0.57 threshold)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.54"), "HLTH", new BigDecimal("0.54")));
+    when(alertRepository.existsActiveAlertForTheme("theme_failed_breakout", "AI_INFRA"))
+        .thenReturn(false);
+    // prior (5 days ago) avg 0.68 (>= 0.65 BUY zone)
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(PRIOR_DATE_5);
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_5))
+        .thenReturn(PRIOR_DATE_5.minusDays(1));
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_5.minusDays(1)))
+        .thenReturn(PRIOR_DATE_5.minusDays(2));
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_5.minusDays(2)))
+        .thenReturn(PRIOR_DATE_5.minusDays(3));
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_5.minusDays(3)))
+        .thenReturn(PRIOR_DATE_FAILED);
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, PRIOR_DATE_FAILED))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.68"), "HLTH", new BigDecimal("0.68")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("theme_failed_breakout");
+    assertThat(inserted.themeId()).isEqualTo("AI_INFRA");
+    assertThat(inserted.severity()).isEqualTo(Severity.WARNING);
+    assertThat(inserted.status()).isEqualTo(AlertStatus.ACTIVE);
+    assertThat(inserted.message()).contains("failed breakout");
+  }
+
+  @Test
+  @DisplayName("theme_failed_breakout: no alert when prior score was already below BUY zone")
+  void shouldNotCreateThemeFailedBreakoutWhenPriorScoreBelowThreshold() {
+    stubAllRulesDisabledExceptThemeFailedBreakout();
+    when(alertRulesRepository.findById("theme_failed_breakout"))
+        .thenReturn(Optional.of(enabled("theme_failed_breakout", Severity.WARNING)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("TECH")));
+    // current score 0.54 (below threshold) but prior was also 0.58 (not BUY zone)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.54")));
+    when(alertRepository.existsActiveAlertForTheme("theme_failed_breakout", "AI_INFRA"))
+        .thenReturn(false);
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(PRIOR_DATE_5);
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_5))
+        .thenReturn(PRIOR_DATE_5.minusDays(1));
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_5.minusDays(1)))
+        .thenReturn(PRIOR_DATE_5.minusDays(2));
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_5.minusDays(2)))
+        .thenReturn(PRIOR_DATE_5.minusDays(3));
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_5.minusDays(3)))
+        .thenReturn(PRIOR_DATE_FAILED);
+    // prior score 0.58 — NOT in BUY zone (< 0.65)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, PRIOR_DATE_FAILED))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.58")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_failed_breakout")));
+  }
+
+  @Test
+  @DisplayName("theme_failed_breakout: no alert when current score is still at or above 0.57")
+  void shouldNotCreateThemeFailedBreakoutWhenCurrentScoreAboveThreshold() {
+    stubAllRulesDisabledExceptThemeFailedBreakout();
+    when(alertRulesRepository.findById("theme_failed_breakout"))
+        .thenReturn(Optional.of(enabled("theme_failed_breakout", Severity.WARNING)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("TECH")));
+    // current score 0.61 — still in SETUP zone, NOT below 0.57
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.61")));
+    when(alertRepository.existsActiveAlertForTheme("theme_failed_breakout", "AI_INFRA"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_failed_breakout")));
+  }
+
+  @Test
+  @DisplayName("theme_failed_breakout: no alert when rule is disabled")
+  void shouldNotCreateThemeFailedBreakoutWhenRuleDisabled() {
+    stubAllRulesDisabledExceptThemeFailedBreakout();
+    when(alertRulesRepository.findById("theme_failed_breakout"))
+        .thenReturn(Optional.of(disabled("theme_failed_breakout")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_failed_breakout")));
+  }
+
+  // ── theme_phase_fading ─────────────────────────────────────────────────────
+
+  private void stubAllRulesDisabledExceptThemePhaseFading() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("theme_phase_breakout_entry"))
+        .thenReturn(Optional.of(disabled("theme_phase_breakout_entry")));
+    when(alertRulesRepository.findById("theme_failed_breakout"))
+        .thenReturn(Optional.of(disabled("theme_failed_breakout")));
+    when(alertRulesRepository.findById("theme_setup_acceleration"))
+        .thenReturn(Optional.of(disabled("theme_setup_acceleration")));
+  }
+
+  @Test
+  @DisplayName(
+      "theme_phase_fading: fires WARNING when theme enters FADING (was BUILDING, now FADING)")
+  void shouldCreateThemePhaseFadingAlertWhenThemeEntersFadingPhase() {
+    stubAllRulesDisabledExceptThemePhaseFading();
+    when(alertRulesRepository.findById("theme_phase_fading"))
+        .thenReturn(Optional.of(enabled("theme_phase_fading", Severity.WARNING)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("DEFENSE", List.of("TECH", "INDU")));
+    // current: score 0.52 (FADING = 0.35-0.65 with negative 20d trend)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.52"), "INDU", new BigDecimal("0.52")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.008"), "INDU", new BigDecimal("-0.008")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.006"), "INDU", new BigDecimal("-0.006")));
+    when(alertRepository.existsActiveAlertForTheme("theme_phase_fading", "DEFENSE"))
+        .thenReturn(false);
+    // prior (5 days ago): score 0.57 with positive 20d trend → BUILDING phase
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(PRIOR_DATE_5);
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_5))
+        .thenReturn(PRIOR_DATE_5.minusDays(1));
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_5.minusDays(1)))
+        .thenReturn(PRIOR_DATE_5.minusDays(2));
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_5.minusDays(2)))
+        .thenReturn(PRIOR_DATE_5.minusDays(3));
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_5.minusDays(3)))
+        .thenReturn(PRIOR_DATE_FAILED);
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, PRIOR_DATE_FAILED))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.57"), "INDU", new BigDecimal("0.57")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, PRIOR_DATE_FAILED))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.002"), "INDU", new BigDecimal("0.002")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, PRIOR_DATE_FAILED))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.001"), "INDU", new BigDecimal("0.001")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("theme_phase_fading");
+    assertThat(inserted.themeId()).isEqualTo("DEFENSE");
+    assertThat(inserted.severity()).isEqualTo(Severity.WARNING);
+    assertThat(inserted.status()).isEqualTo(AlertStatus.ACTIVE);
+    assertThat(inserted.message()).contains("FADING");
+  }
+
+  @Test
+  @DisplayName("theme_phase_fading: no alert when theme was already FADING")
+  void shouldNotCreateThemePhaseFadingWhenAlreadyFading() {
+    stubAllRulesDisabledExceptThemePhaseFading();
+    when(alertRulesRepository.findById("theme_phase_fading"))
+        .thenReturn(Optional.of(enabled("theme_phase_fading", Severity.WARNING)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("DEFENSE", List.of("TECH")));
+    // current: FADING
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.52")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.008")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.006")));
+    // active alert already exists
+    when(alertRepository.existsActiveAlertForTheme("theme_phase_fading", "DEFENSE"))
+        .thenReturn(true);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("theme_phase_fading")));
+  }
+
+  @Test
+  @DisplayName("theme_phase_fading: no alert when rule is disabled")
+  void shouldNotCreateThemePhaseFadingWhenRuleDisabled() {
+    stubAllRulesDisabledExceptThemePhaseFading();
+    when(alertRulesRepository.findById("theme_phase_fading"))
+        .thenReturn(Optional.of(disabled("theme_phase_fading")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("theme_phase_fading")));
+  }
+
+  // ── theme_momentum_exhaustion ─────────────────────────────────────────────
+
+  private void stubAllRulesDisabledExceptThemeMomentumExhaustion() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("theme_phase_breakout_entry"))
+        .thenReturn(Optional.of(disabled("theme_phase_breakout_entry")));
+    when(alertRulesRepository.findById("theme_failed_breakout"))
+        .thenReturn(Optional.of(disabled("theme_failed_breakout")));
+    when(alertRulesRepository.findById("theme_setup_acceleration"))
+        .thenReturn(Optional.of(disabled("theme_setup_acceleration")));
+    when(alertRulesRepository.findById("theme_phase_fading"))
+        .thenReturn(Optional.of(disabled("theme_phase_fading")));
+  }
+
+  @Test
+  @DisplayName(
+      "theme_momentum_exhaustion: fires WARNING when BUY-zone theme has both trends negative")
+  void shouldCreateThemeMomentumExhaustionWhenBuyZoneThemeTrendsNegative() {
+    stubAllRulesDisabledExceptThemeMomentumExhaustion();
+    when(alertRulesRepository.findById("theme_momentum_exhaustion"))
+        .thenReturn(Optional.of(enabled("theme_momentum_exhaustion", Severity.WARNING)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("TECH", "INDU")));
+    // score 0.72 (BUY zone), 5d = -0.007 (< -0.005 threshold), 20d = -0.003 (< 0 threshold)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.72"), "INDU", new BigDecimal("0.72")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.007"), "INDU", new BigDecimal("-0.007")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.003"), "INDU", new BigDecimal("-0.003")));
+    when(alertRepository.existsActiveAlertForTheme("theme_momentum_exhaustion", "AI_INFRA"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("theme_momentum_exhaustion");
+    assertThat(inserted.themeId()).isEqualTo("AI_INFRA");
+    assertThat(inserted.severity()).isEqualTo(Severity.WARNING);
+    assertThat(inserted.status()).isEqualTo(AlertStatus.ACTIVE);
+    assertThat(inserted.message()).contains("exhaustion");
+  }
+
+  @Test
+  @DisplayName("theme_momentum_exhaustion: no alert when score below BUY zone")
+  void shouldNotCreateThemeMomentumExhaustionWhenScoreBelowBuyZone() {
+    stubAllRulesDisabledExceptThemeMomentumExhaustion();
+    when(alertRulesRepository.findById("theme_momentum_exhaustion"))
+        .thenReturn(Optional.of(enabled("theme_momentum_exhaustion", Severity.WARNING)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("TECH")));
+    // score 0.62 (NOT in BUY zone)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.62")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.007")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.003")));
+    when(alertRepository.existsActiveAlertForTheme("theme_momentum_exhaustion", "AI_INFRA"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_momentum_exhaustion")));
+  }
+
+  @Test
+  @DisplayName("theme_momentum_exhaustion: no alert when 5d trend above threshold")
+  void shouldNotCreateThemeMomentumExhaustionWhen5dTrendNotNegativeEnough() {
+    stubAllRulesDisabledExceptThemeMomentumExhaustion();
+    when(alertRulesRepository.findById("theme_momentum_exhaustion"))
+        .thenReturn(Optional.of(enabled("theme_momentum_exhaustion", Severity.WARNING)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("TECH")));
+    // score 0.72 (BUY zone), but 5d trend only -0.003 (above -0.005 threshold)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.72")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.003")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.003")));
+    when(alertRepository.existsActiveAlertForTheme("theme_momentum_exhaustion", "AI_INFRA"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_momentum_exhaustion")));
+  }
+
+  @Test
+  @DisplayName("theme_momentum_exhaustion: no alert when rule is disabled")
+  void shouldNotCreateThemeMomentumExhaustionWhenRuleDisabled() {
+    stubAllRulesDisabledExceptThemeMomentumExhaustion();
+    when(alertRulesRepository.findById("theme_momentum_exhaustion"))
+        .thenReturn(Optional.of(disabled("theme_momentum_exhaustion")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_momentum_exhaustion")));
+  }
+
+  // ── theme_recovery_signal ─────────────────────────────────────────────────
+
+  private void stubAllRulesDisabledExceptThemeRecoverySignal() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("theme_phase_breakout_entry"))
+        .thenReturn(Optional.of(disabled("theme_phase_breakout_entry")));
+    when(alertRulesRepository.findById("theme_failed_breakout"))
+        .thenReturn(Optional.of(disabled("theme_failed_breakout")));
+    when(alertRulesRepository.findById("theme_setup_acceleration"))
+        .thenReturn(Optional.of(disabled("theme_setup_acceleration")));
+    when(alertRulesRepository.findById("theme_phase_fading"))
+        .thenReturn(Optional.of(disabled("theme_phase_fading")));
+    when(alertRulesRepository.findById("theme_momentum_exhaustion"))
+        .thenReturn(Optional.of(disabled("theme_momentum_exhaustion")));
+  }
+
+  @Test
+  @DisplayName("theme_recovery_signal: fires INFO when FADING theme shows nascent recovery")
+  void shouldCreateThemeRecoverySignalWhenFadingThemeStartsRecovering() {
+    stubAllRulesDisabledExceptThemeRecoverySignal();
+    when(alertRulesRepository.findById("theme_recovery_signal"))
+        .thenReturn(Optional.of(enabled("theme_recovery_signal", Severity.INFO)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("CLEAN_ENERGY", List.of("TECH", "UTIL")));
+    // current: score 0.45 (recovery zone), 5d = +0.005 (positive, above 0.003 threshold)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.45"), "UTIL", new BigDecimal("0.45")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.005"), "UTIL", new BigDecimal("0.005")));
+    when(alertRepository.existsActiveAlertForTheme("theme_recovery_signal", "CLEAN_ENERGY"))
+        .thenReturn(false);
+    // prior (5 trading days ago): 20d trend was -0.004 (negative — confirms prior downtrend)
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(PRIOR_DATE_5);
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_5))
+        .thenReturn(PRIOR_DATE_5.minusDays(1));
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_5.minusDays(1)))
+        .thenReturn(PRIOR_DATE_5.minusDays(2));
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_5.minusDays(2)))
+        .thenReturn(PRIOR_DATE_5.minusDays(3));
+    when(signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, PRIOR_DATE_5.minusDays(3)))
+        .thenReturn(PRIOR_DATE_FAILED);
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, PRIOR_DATE_FAILED))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.004"), "UTIL", new BigDecimal("-0.004")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("theme_recovery_signal");
+    assertThat(inserted.themeId()).isEqualTo("CLEAN_ENERGY");
+    assertThat(inserted.severity()).isEqualTo(Severity.INFO);
+    assertThat(inserted.status()).isEqualTo(AlertStatus.ACTIVE);
+    assertThat(inserted.message()).contains("recovery");
+  }
+
+  @Test
+  @DisplayName("theme_recovery_signal: no alert when 5d trend is not positive enough")
+  void shouldNotCreateThemeRecoverySignalWhenTrendTooWeak() {
+    stubAllRulesDisabledExceptThemeRecoverySignal();
+    when(alertRulesRepository.findById("theme_recovery_signal"))
+        .thenReturn(Optional.of(enabled("theme_recovery_signal", Severity.INFO)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("CLEAN_ENERGY", List.of("TECH")));
+    // score in recovery zone but 5d trend only 0.001 (below 0.003 threshold)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.45")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.001")));
+    when(alertRepository.existsActiveAlertForTheme("theme_recovery_signal", "CLEAN_ENERGY"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_recovery_signal")));
+  }
+
+  @Test
+  @DisplayName(
+      "theme_recovery_signal: no alert when score is in BUY zone (not a recovery scenario)")
+  void shouldNotCreateThemeRecoverySignalWhenScoreAboveMax() {
+    stubAllRulesDisabledExceptThemeRecoverySignal();
+    when(alertRulesRepository.findById("theme_recovery_signal"))
+        .thenReturn(Optional.of(enabled("theme_recovery_signal", Severity.INFO)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("CLEAN_ENERGY", List.of("TECH")));
+    // score 0.68 (above 0.55 ceiling — theme is already in BUY zone, not recovering)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.68")));
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.006")));
+    when(alertRepository.existsActiveAlertForTheme("theme_recovery_signal", "CLEAN_ENERGY"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_recovery_signal")));
+  }
+
+  @Test
+  @DisplayName("theme_recovery_signal: no alert when rule is disabled")
+  void shouldNotCreateThemeRecoverySignalWhenRuleDisabled() {
+    stubAllRulesDisabledExceptThemeRecoverySignal();
+    when(alertRulesRepository.findById("theme_recovery_signal"))
+        .thenReturn(Optional.of(disabled("theme_recovery_signal")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_recovery_signal")));
   }
 }

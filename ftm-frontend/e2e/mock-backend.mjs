@@ -272,7 +272,7 @@ const HOLDINGS_RESPONSE = [
 ];
 
 const ALERTS_RESPONSE = {
-  activeCount: 5,
+  activeCount: 6,
   alerts: [
     {
       id: 1,
@@ -339,19 +339,37 @@ const ALERTS_RESPONSE = {
       resolvedAt: null,
       acknowledgedAt: null,
     },
+    {
+      id: 6,
+      createdAt: "2026-06-10T09:30:00Z",
+      categoryId: null,
+      themeId: "SAAS_AT_RISK",
+      ruleId: "theme_recovery_signal",
+      severity: "INFO",
+      message: "SAAS_AT_RISK showing recovery: score 45, 5d trend +0.5pt/day (20d was negative 5 days ago) — early turn signal, watch for follow-through",
+      triggerSnapshot: "{\"themeId\":\"SAAS_AT_RISK\",\"score\":0.4500,\"trend5d\":0.0050,\"priorTrend20d\":-0.0035,\"signalDate\":\"2026-06-10\"}",
+      status: "ACTIVE",
+      resolvedAt: null,
+      acknowledgedAt: null,
+    },
   ],
 };
 
 const ALERT_RULES_RESPONSE = [
-  { ruleId: "rrg_transition",          enabled: true,  description: "Alert when a sector transitions RRG quadrant",          lookbackDays: 5,  threshold: 0.65, severity: "ACTION"  },
-  { ruleId: "composite_breakout",      enabled: true,  description: "Alert when composite score crosses 0.65 threshold",     lookbackDays: 3,  threshold: 0.65, severity: "INFO"    },
-  { ruleId: "rs_accel_crossover",      enabled: false, description: "Alert when 20-day RS acceleration crosses zero",        lookbackDays: 10, threshold: 0.00, severity: "INFO"    },
-  { ruleId: "macro_regime_shift",      enabled: true,  description: "Alert on macro regime change (rolling 4-week window)",  lookbackDays: 28, threshold: 0.50, severity: "URGENT"  },
-  { ruleId: "theme_5d_acceleration",   enabled: true,  description: "Theme 5d momentum accelerating above 20d trend",       lookbackDays: 5,  threshold: null, severity: "ACTION"  },
-  { ruleId: "theme_momentum_surge",    enabled: true,  description: "Theme avg 20d trend exceeds +0.010",                    lookbackDays: 20, threshold: null, severity: "ACTION"  },
-  { ruleId: "theme_momentum_collapse", enabled: true,  description: "Theme avg 20d trend drops below -0.010",                lookbackDays: 20, threshold: null, severity: "WARNING" },
-  { ruleId: "theme_distribute_warning",   enabled: true,  description: "Theme in BUY territory but flow turning negative",      lookbackDays: 20, threshold: 0.65, severity: "WARNING" },
-  { ruleId: "theme_phase_breakout_entry", enabled: true,  description: "Theme transitioned into BREAKOUT phase from a lower phase", lookbackDays: 5, threshold: 0.65, severity: "ACTION"  },
+  { ruleId: "rrg_transition",              enabled: true,  description: "Alert when a sector transitions RRG quadrant",                              lookbackDays: 5,  threshold: 0.65, severity: "ACTION"  },
+  { ruleId: "composite_breakout",          enabled: true,  description: "Alert when composite score crosses 0.65 threshold",                        lookbackDays: 3,  threshold: 0.65, severity: "INFO"    },
+  { ruleId: "rs_accel_crossover",          enabled: false, description: "Alert when 20-day RS acceleration crosses zero",                           lookbackDays: 10, threshold: 0.00, severity: "INFO"    },
+  { ruleId: "macro_regime_shift",          enabled: true,  description: "Alert on macro regime change (rolling 4-week window)",                     lookbackDays: 28, threshold: 0.50, severity: "URGENT"  },
+  { ruleId: "theme_5d_acceleration",       enabled: true,  description: "Theme 5d momentum accelerating above 20d trend",                          lookbackDays: 5,  threshold: null, severity: "ACTION"  },
+  { ruleId: "theme_momentum_surge",        enabled: true,  description: "Theme avg 20d trend exceeds +0.010",                                       lookbackDays: 20, threshold: null, severity: "ACTION"  },
+  { ruleId: "theme_momentum_collapse",     enabled: true,  description: "Theme avg 20d trend drops below -0.010",                                   lookbackDays: 20, threshold: null, severity: "WARNING" },
+  { ruleId: "theme_distribute_warning",    enabled: true,  description: "Theme in BUY territory but flow turning negative",                         lookbackDays: 20, threshold: 0.65, severity: "WARNING" },
+  { ruleId: "theme_phase_breakout_entry",  enabled: true,  description: "Theme transitioned into BREAKOUT phase from a lower phase",                lookbackDays: 5,  threshold: 0.65, severity: "ACTION"  },
+  { ruleId: "theme_setup_acceleration",    enabled: true,  description: "Theme in SETUP phase with 5d momentum accelerating above 0.008/day",       lookbackDays: 5,  threshold: 0.65, severity: "ACTION"  },
+  { ruleId: "theme_failed_breakout",       enabled: true,  description: "Theme score dropped from BUY zone (>=0.65) to below 0.57 within 5 days",  lookbackDays: 5,  threshold: 0.57, severity: "WARNING" },
+  { ruleId: "theme_phase_fading",          enabled: true,  description: "Theme transitioned into FADING phase from a higher phase",                 lookbackDays: 5,  threshold: null, severity: "WARNING" },
+  { ruleId: "theme_momentum_exhaustion",   enabled: true,  description: "BUY-zone theme showing negative 5d AND 20d trends simultaneously",         lookbackDays: 5,  threshold: 0.65, severity: "WARNING" },
+  { ruleId: "theme_recovery_signal",       enabled: true,  description: "FADING/WEAK theme: score 35–55, 5d trend positive, 20d was negative 5d ago", lookbackDays: 5, threshold: null, severity: "INFO"  },
 ];
 
 const INGEST_RESPONSE = {
@@ -686,6 +704,16 @@ const server = http.createServer(async (req, res) => {
     res.setHeader("Content-Type", "text/csv");
     res.writeHead(200);
     res.end("ticker,name,currency,quantity,avg_cost_local\nAAPL,Apple Inc.,USD,10,175.00\n");
+  } else if (path === "/api/v1/alerts/recent" && req.method === "GET") {
+    const recentEvents = [
+      ...ALERTS_RESPONSE.alerts,
+      { id: 85, createdAt: "2026-06-03T08:00:00Z", categoryId: null, themeId: "AI_INFRA", ruleId: "theme_phase_breakout_entry", severity: "ACTION", message: "AI_INFRA theme entered BREAKOUT phase (was SETUP): score 68", triggerSnapshot: null, status: "RESOLVED", resolvedAt: "2026-06-08T10:00:00Z", acknowledgedAt: null },
+      { id: 86, createdAt: "2026-06-02T12:00:00Z", categoryId: null, themeId: "CHIP_COMPUTE", ruleId: "theme_momentum_surge", severity: "WARNING", message: "CHIP_COMPUTE momentum surge: 20d trend +1.2pt/day", triggerSnapshot: null, status: "ACKNOWLEDGED", resolvedAt: null, acknowledgedAt: "2026-06-02T14:00:00Z" },
+      { id: 87, createdAt: "2026-06-05T10:00:00Z", categoryId: null, themeId: "SAAS_AT_RISK", ruleId: "theme_setup_acceleration", severity: "ACTION", message: "SAAS_AT_RISK setup acceleration: 5d trend +0.9pt/day while in SETUP zone (score 58)", triggerSnapshot: null, status: "RESOLVED", resolvedAt: "2026-06-09T08:00:00Z", acknowledgedAt: null },
+      { id: 88, createdAt: "2026-06-07T09:00:00Z", categoryId: null, themeId: "SAAS_AT_RISK", ruleId: "theme_phase_fading", severity: "WARNING", message: "SAAS_AT_RISK entered FADING phase (score dropped to 41, 5d trend -3.1pt/day)", triggerSnapshot: null, status: "ACTIVE", resolvedAt: null, acknowledgedAt: null },
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 30);
+    res.writeHead(200);
+    res.end(JSON.stringify(recentEvents));
   } else if (path === "/api/v1/alerts" && req.method === "GET") {
     res.writeHead(200);
     res.end(JSON.stringify(ALERTS_RESPONSE));
@@ -703,8 +731,7 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({ ...ALERTS_RESPONSE.alerts[0], status: "ACKNOWLEDGED", acknowledgedAt: "2026-05-15T11:00:00Z" }));
   } else if (/^\/api\/v1\/alerts\/theme\/[^/]+$/.test(path) && req.method === "GET") {
     const themeId = path.split("/").at(-1).toUpperCase();
-    const themeHistory = [
-      ...ALERTS_RESPONSE.alerts.filter(a => a.themeId === themeId),
+    const sharedHistory = [
       {
         id: 90,
         createdAt: "2026-06-01T09:00:00Z",
@@ -731,6 +758,39 @@ const server = http.createServer(async (req, res) => {
         resolvedAt: null,
         acknowledgedAt: "2026-05-28T12:00:00Z",
       },
+    ];
+    const saasHistory = themeId === "SAAS_AT_RISK" ? [
+      {
+        id: 92,
+        createdAt: "2026-06-07T09:00:00Z",
+        categoryId: null,
+        themeId: "SAAS_AT_RISK",
+        ruleId: "theme_phase_fading",
+        severity: "WARNING",
+        message: "SAAS_AT_RISK entered FADING phase (score dropped to 41, 5d trend -3.1pt/day)",
+        triggerSnapshot: null,
+        status: "ACTIVE",
+        resolvedAt: null,
+        acknowledgedAt: null,
+      },
+      {
+        id: 93,
+        createdAt: "2026-06-10T09:30:00Z",
+        categoryId: null,
+        themeId: "SAAS_AT_RISK",
+        ruleId: "theme_recovery_signal",
+        severity: "INFO",
+        message: "SAAS_AT_RISK showing recovery: score 45, 5d trend +0.5pt/day (20d was negative 5 days ago) — early turn signal, watch for follow-through",
+        triggerSnapshot: null,
+        status: "ACTIVE",
+        resolvedAt: null,
+        acknowledgedAt: null,
+      },
+    ] : [];
+    const themeHistory = [
+      ...ALERTS_RESPONSE.alerts.filter(a => a.themeId === themeId),
+      ...sharedHistory,
+      ...saasHistory,
     ];
     res.writeHead(200);
     res.end(JSON.stringify(themeHistory));

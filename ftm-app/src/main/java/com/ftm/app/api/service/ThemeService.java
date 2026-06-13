@@ -64,7 +64,8 @@ public class ThemeService {
                               ThemeConstituentDto::compositeScore, Comparator.reverseOrder()))
                       .limit(3)
                       .toList();
-              return toSummary(theme, allConstituents, top3, categoriesById, compositeMap, trend5dMap);
+              return toSummary(
+                  theme, allConstituents, top3, categoriesById, compositeMap, trend5dMap);
             })
         .toList();
   }
@@ -113,7 +114,12 @@ public class ThemeService {
         signals.getOrDefault(SignalType.COMPOSITE_TREND_5D, Collections.emptyMap());
     ThemeSummaryDto summary =
         toSummary(
-            theme, constituents, sorted.stream().limit(3).toList(), categoriesById, compositeMap, trend5dMap);
+            theme,
+            constituents,
+            sorted.stream().limit(3).toList(),
+            categoriesById,
+            compositeMap,
+            trend5dMap);
     return new ThemeDetailDto(
         summary.id(),
         summary.name(),
@@ -210,6 +216,7 @@ public class ThemeService {
                   composite,
                   rs60,
                   flow20d,
+                  trend5dMap.get(id),
                   trend20d,
                   TradeSignalDeriver.derive(composite, rrg, trend20d),
                   conviction > 0 ? conviction : null);

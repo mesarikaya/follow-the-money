@@ -460,8 +460,7 @@ public class SignalRepository {
       Collection<String> categoryIds, int tradingDays) {
     if (categoryIds.isEmpty()) return List.of();
     String[] idArray = categoryIds.toArray(new String[0]);
-    return dsl
-        .resultQuery(
+    return dsl.resultQuery(
             """
             SELECT
               signal_date,
@@ -482,8 +481,7 @@ public class SignalRepository {
             HAVING AVG(CASE WHEN signal_type = 'COMPOSITE' THEN value END) IS NOT NULL
             ORDER BY signal_date ASC
             """,
-            val(idArray),
-            val(tradingDays))
+            val(idArray), val(tradingDays))
         .fetch()
         .map(
             r -> {
@@ -499,10 +497,7 @@ public class SignalRepository {
   }
 
   public record DateHistory(
-      LocalDate date,
-      double averageComposite,
-      Double averageTrend5d,
-      Double averageTrend20d) {}
+      LocalDate date, double averageComposite, Double averageTrend5d, Double averageTrend20d) {}
 
   @Cacheable("score-percentile-252d")
   public Map<String, BigDecimal> findScorePercentile252d() {

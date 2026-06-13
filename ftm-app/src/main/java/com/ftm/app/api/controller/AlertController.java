@@ -71,4 +71,12 @@ public class AlertController {
   public List<AlertDto> getThemeAlertHistory(@PathVariable String themeId) {
     return alertService.getThemeAlertHistory(themeId);
   }
+
+  @GetMapping("/recent")
+  @Operation(
+      summary =
+          "Recent alert events across all categories and themes (all statuses, most recent first, limit 30)")
+  public List<AlertDto> getRecentAlerts() {
+    return alertService.getRecentAlerts();
+  }
 }

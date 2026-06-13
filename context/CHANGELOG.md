@@ -14,6 +14,179 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 
 ---
 
+## 2026-06-13 (session 27 — V77 NearEntryRow in ThemeSignalWidget + V76 E2E coverage)
+
+- `NEW` V77: `NearEntryRow` component and "NEAR ENTRY" section in `ThemeSignalWidget`
+  - Shows themes approaching BUY territory: score 0.55–0.65, 5d trend > 0.003, not already BUY
+  - Mini progress bar (sky→emerald gradient) showing distance through entry zone
+  - Displays 5d momentum rate ("+N.Npt/d"), score, and "Xpt to BUY" gap
+  - Top 3 near-entry themes sorted by score; section only renders when qualifying themes exist
+  - Phase badge from PHASE_MINI rendered inline if themePhase is set
+  - 3 new E2E tests: "NEAR ENTRY" label, theme names, "pt to BUY" text
+
+- `NEW` V76: E2E mock coverage for all 5 new theme alert rules (V57–V60 era)
+  - Added to `ALERT_RULES_RESPONSE` in `mock-backend.mjs`: `theme_setup_acceleration`,
+    `theme_failed_breakout`, `theme_phase_fading`, `theme_momentum_exhaustion`, `theme_recovery_signal`
+  - Added `theme_recovery_signal` active alert for SAAS_AT_RISK (id=6) to ALERTS_RESPONSE; activeCount → 6
+  - Added SAAS_AT_RISK per-theme alert history entries for phase_fading (id=92) and recovery_signal (id=93)
+  - Added phase_fading and setup_acceleration events to recent alerts feed
+  - Added all 5 rules to `BUILTIN_RULES` in `alerts/page.tsx` with full description notes
+  - Added all 5 rules to `RULE_LABELS` in `alerts/page.tsx`
+  - 9 new E2E tests: 4 alert-rules-panel label tests, 2 active-alert tests, 3 theme-detail-history tests
+
+---
+
+## 2026-06-10 (session 26 — V75 theme_recovery_signal alert rule)
+
+- `NEW` V75: `theme_recovery_signal` alert rule — closes the loop after fading/exhaustion rules
+  - Fires INFO when: score in [0.35, 0.55], 5d trend > 0.003, AND 20d was negative 5 days ago
+  - Confirms nascent recovery before phase fully resolves — "early turn signal"
+  - Resolves when score > 0.60 (confirmed) or < 0.30 (failed)
+  - V60 Flyway migration seeds as enabled/INFO
+  - 4 tests: fires on recovery, no fire when 5d too weak, no fire when score above zone, no fire disabled
+  - 119 AlertRulesEngine tests pass; frontend RULE_LABELS updated
+
+---
+
+## 2026-06-10 (session 26 — V74 ThemeSignalWidget conviction footer)
+
+- `NEW` V74: ThemeConvictionBar footer added to ThemeSignalWidget
+  - Shows BUY/WATCH signal counts, bullish/bearish phase counts, BULLISH/MIXED/BEARISH label
+  - Zero API calls — derives from existing ThemeSummary.themePhase and dominantSignal
+
+---
+
+## 2026-06-10 (session 26 — V73 ThemeSignalWidget phase badges)
+
+- `NEW` V73: Phase badges in ThemeSignalWidget on main dashboard
+  - `PHASE_MINI` config adds arrow-prefixed label (e.g. "↗ BREAKOUT") with per-phase color scheme
+  - Phase badge renders inline next to signal badge for each theme row
+  - Zero new API calls — `themePhase` already in ThemeSummary
+
+---
+
+## 2026-06-10 (session 26 — V72 ThemeScoreHeatmap component)
+
+- `NEW` V72: ThemeScoreHeatmap component on `/themes` page
+  - 20-day daily dot grid, each cell colored by score bucket (red → emerald)
+  - Color thresholds: emerald ≥0.70, emerald-600 ≥0.65, cyan ≥0.55, amber ≥0.40, red below
+  - Date column headers (rotated) every 5 days; rightmost column shows current score text
+  - Theme name column links to detail page; graceful handling when history gap exists
+  - Inserted after ThemeScreener, before theme card grid
+
+---
+
+## 2026-06-10 (session 25 — V71 theme_momentum_exhaustion alert rule)
+
+- `NEW` V71: `theme_momentum_exhaustion` alert rule — early exit signal for BUY-zone themes
+  - Fires when score >= 0.65 AND 5d trend < -0.005 AND 20d trend < 0 (both trends negative simultaneously)
+  - Resolves when 5d trend recovers > 0.002 or score drops below 0.60
+  - Earlier warning than theme_failed_breakout (which requires score to already drop below 0.57)
+  - V59 Flyway migration seeds the rule as enabled/WARNING
+  - 4 tests added; 526 total backend tests pass
+
+---
+
+## 2026-06-10 (session 25 — V70 velocity sort in ThemeScreener)
+
+- `NEW` V70: Added `velocity` sort key to ThemeScreener
+  - Sorts themes by momentum acceleration (compositeTrend5d − compositeTrend20d)
+  - "Trend" column header now a clickable SortLink (sort=velocity)
+  - Fastest-accelerating themes bubble to the top
+  - Zero new API calls — uses existing ThemeSummary trend fields
+
+---
+
+## 2026-06-10 (session 25 — V69 Theme Playbook component)
+
+- `NEW` V69: ThemePlaybook component on `/themes` page
+  - Per-theme action-oriented guidance: ENTER (BUY+BREAKOUT), HOLD (BUY+MOMENTUM), WATCH (BUY+FADING), PREPARE (WATCH+SETUP), REDUCE
+  - Shows score, 5d delta, and specific note per theme
+  - Sorted by priority: ENTER first, REDUCE last
+  - Zero new API calls — uses existing ThemeSummary + history data
+
+---
+
+## 2026-06-10 (session 24 — V68 theme_phase_fading alert rule)
+
+- `NEW` V68: `theme_phase_fading` alert rule — fires when a theme enters the FADING phase
+  - Lazy prior-data loading (same pattern as theme_phase_breakout_entry)
+  - Resolves when phase exits FADING (score recovers or trend turns non-negative)
+  - V58 Flyway migration seeds the rule as enabled/WARNING
+  - 3 tests added (fires on entry, no fire on already-FADING, no fire when disabled)
+  - 111 AlertRulesEngine tests pass
+
+---
+
+## 2026-06-10 (session 24 — V67 Theme Tipping Points panel)
+
+- `NEW` V67: ThemeTippingPoints component on `/themes` page
+  - Surfaces themes nearest key signal thresholds: ENTRY (approaching BUY), AT RISK (BUY zone but momentum fading), RECOVERY (rising from HOLD zone)
+  - Uses existing history data — no new API calls
+  - Shows score bar, 5d delta, distance to threshold, and context note for each theme
+
+---
+
+## 2026-06-10 (session 24 — V66 Theme Events Feed)
+
+- `NEW` V66: Theme Events Feed — cross-theme chronological activity log on `/themes`
+  - New `GET /api/v1/alerts/recent` backend endpoint (limit 30, all statuses, newest first)
+  - `AlertRepository.findRecentAlerts(limit)` — queries across all categories and themes
+  - `AlertService.getRecentAlerts()` + `AlertController` `/recent` endpoint
+  - `fetchRecentAlerts()` in `api.ts`; `ThemeEventsFeed` component on themes page
+  - Renders event log: timestamp · severity dot · subject link · rule label · status badge
+  - Active alerts shown at full opacity; resolved/acknowledged dimmed to 50%
+
+---
+
+## 2026-06-10 (session 23 — V65 constituent 5d trend + screener bullish bar)
+
+- `NEW` V65: Constituent 5-day trend in theme detail page
+  - Added `compositeTrend5d` field to `ThemeConstituentDto` (backend) and `ThemeConstituent` (frontend type)
+  - Detail page constituent table now shows separate "5d" and "20d" trend columns
+  - Lets traders spot which ETFs in a theme are currently accelerating vs decelerating
+- `UPDATED` V65: Bullish column in ThemeScreener upgraded from % text to segmented dot bar
+  - Renders one dot per constituent, green=bullish (BUY/WATCH), slate=non-bullish
+  - Shows count as `N/total` text alongside bar
+  - 519 backend + 64 E2E tests pass
+
+---
+
+## 2026-06-10 (session 23 — V64 sector badges in ThemeScreener)
+
+- `NEW` V64: Sector badges in ThemeScreener
+  - New "Sector" column between Theme and Signal
+  - Color-coded badge per GICS sector (Tech=blue, Health=emerald, Finl=amber, etc.)
+  - Each badge links to `/sectors/{sectorId}` drilldown page
+  - Derived from `topConstituents` via `getParentSectorId` — zero new API calls
+  - Lets traders instantly spot "all TECH themes in BREAKOUT = sector confirmation"
+  - 519 backend + 64 E2E tests pass
+
+---
+
+## 2026-06-10 (session 23 — V63 failed breakout alert rule)
+
+- `NEW` V63: `theme_failed_breakout` alert rule (V57 migration)
+  - Fires when theme avg composite drops from ≥0.65 (BUY zone) to <0.57 within 5 trading days
+  - Severity: WARNING — exit signal, not entry
+  - Resolves when score recovers to ≥0.62
+  - Completes alert lifecycle: setup_acceleration → phase_breakout_entry → [distribute_warning] → failed_breakout
+  - 519 backend tests pass (4 new AlertRulesEngineTest tests)
+  - Frontend label mapping added in both themes/ and themes/[id]/ pages
+
+---
+
+## 2026-06-10 (session 23 — V62 sortable ThemeScreener columns)
+
+- `NEW` V62: URL-param sortable columns in ThemeScreener
+  - Sort keys: `score` (default), `delta5d` (5-day momentum), `alerts` (active alert count), `rs60` (relative strength)
+  - Active sort column highlighted cyan with ↓ indicator; inactive columns shown in slate-600
+  - `ThemesPage` accepts `searchParams: Promise<{ sort? }>` (Next.js 16 RSC async searchParams)
+  - `SortLink` component renders `<Link href="/themes?sort=X">` — pure server-side, zero client JS
+  - 515 backend + 74 E2E tests pass
+
+---
+
 ## 2026-06-10 (session 23 — V57-V61 alert history, phase age, score delta, setup acceleration)
 
 - `NEW` V57: GET /alerts/theme/{themeId} endpoint + ThemeAlertHistory component on detail page

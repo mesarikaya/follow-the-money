@@ -129,6 +129,7 @@ function ConstituentRow({ c, index }: { c: ThemeConstituent; index: number }) {
       <td className="py-2.5 px-3"><ScoreBar score={c.compositeScore} /></td>
       <td className="py-2.5 px-3"><RsCell value={c.rs60} /></td>
       <td className="py-2.5 px-3"><FlowCell value={c.flow20d} /></td>
+      <td className="py-2.5 px-3"><TrendCell value={c.compositeTrend5d} /></td>
       <td className="py-2.5 px-3"><TrendCell value={c.compositeTrend20d} /></td>
       <td className="py-2.5 px-3"><SignalBadge signal={c.tradeSignal} /></td>
       <td className="py-2.5 px-3"><ConvictionDots score={c.convictionScore} /></td>
@@ -258,6 +259,10 @@ const RULE_LABELS: Record<string, string> = {
   theme_distribute_warning:         "Distribution Warning",
   theme_phase_breakout_entry:       "Breakout Phase Entry",
   theme_setup_acceleration:         "Pre-Breakout Setup",
+  theme_failed_breakout:            "Failed Breakout",
+  theme_phase_fading:               "Phase Fading",
+  theme_momentum_exhaustion:        "Momentum Exhaustion",
+  theme_recovery_signal:            "Recovery Signal",
   pre_buy_flow_surge:               "Pre-Buy Flow Surge",
 };
 
@@ -773,7 +778,8 @@ export default async function ThemeDetailPage({
                 <th className="py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Score</th>
                 <th className="py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">RS-60</th>
                 <th className="py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Flow</th>
-                <th className="py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Trend</th>
+                <th className="py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500" title="5-day composite trend">5d</th>
+                <th className="py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500" title="20-day composite trend">20d</th>
                 <th className="py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Signal</th>
                 <th className="py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Conv</th>
               </tr>

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { fetchThemes, fetchThemeHistory, fetchAlerts, AlertDto, ThemeSummary, ThemeConstituent, ThemeHistoryPoint } from "@/lib/api";
+import { fetchThemes, fetchThemeHistory, fetchAlerts, fetchRecentAlerts, AlertDto, ThemeSummary, ThemeConstituent, ThemeHistoryPoint } from "@/lib/api";
+import { SECTOR_SHORT_NAMES, getParentSectorId } from "@/lib/sectors";
 
 const SIGNAL_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   BUY:    { label: "BUY",    color: "text-emerald-400", bg: "bg-emerald-500/15 border border-emerald-500/30" },
@@ -506,6 +507,10 @@ const RULE_LABELS: Record<string, string> = {
   theme_distribute_warning:         "Distribution",
   theme_phase_breakout_entry:       "Breakout Entry",
   theme_setup_acceleration:         "Pre-Breakout",
+  theme_failed_breakout:            "Failed Breakout",
+  theme_phase_fading:               "Phase Fading",
+  theme_momentum_exhaustion:        "Momentum Exhaustion",
+  theme_recovery_signal:            "Recovery Signal",
   pre_buy_flow_surge:               "Pre-Buy Flow",
 };
 
@@ -515,6 +520,52 @@ const SEVERITY_CONFIG: Record<string, { badge: string; dot: string }> = {
   URGENT:  { badge: "bg-red-500/15 text-red-400 border border-red-500/25",            dot: "bg-red-400"     },
   INFO:    { badge: "bg-slate-700/60 text-slate-400 border border-slate-600/40",      dot: "bg-slate-500"   },
 };
+
+function ThemeEventsFeed({ events }: { events: AlertDto[] }) {
+  if (events.length === 0) return null;
+
+  const STATUS_STYLE = {
+    ACTIVE:       "text-amber-400 bg-amber-500/10 border-amber-500/20",
+    RESOLVED:     "text-slate-500 bg-slate-800/40 border-slate-700/30",
+    ACKNOWLEDGED: "text-slate-600 bg-slate-800/30 border-slate-700/20",
+  };
+  const STATUS_LABEL = { ACTIVE: "active", RESOLVED: "resolved", ACKNOWLEDGED: "ack" };
+
+  return (
+    <div className="mb-5 bg-slate-800/40 border border-slate-700/40 rounded-lg overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-slate-700/30 flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Event Log</span>
+        <span className="text-[10px] font-mono text-slate-600">{events.length} recent</span>
+      </div>
+      <div className="divide-y divide-slate-700/20 max-h-64 overflow-y-auto">
+        {events.map(e => {
+          const subject = e.themeId ?? e.categoryId ?? "—";
+          const ruleLabel = RULE_LABELS[e.ruleId] ?? e.ruleId;
+          const ts = new Date(e.createdAt);
+          const timeStr = ts.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+            + " " + ts.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+          const severityStyle = SEVERITY_CONFIG[e.severity] ?? SEVERITY_CONFIG.INFO;
+          const statusStyle = STATUS_STYLE[e.status] ?? STATUS_STYLE.ACKNOWLEDGED;
+          return (
+            <div key={e.id} className={`flex items-start gap-2 px-4 py-2 text-[11px] ${e.status !== "ACTIVE" ? "opacity-50" : ""}`}>
+              <span className="font-mono text-slate-600 shrink-0 w-24 pt-0.5">{timeStr}</span>
+              <span className={`shrink-0 w-1.5 h-1.5 rounded-full mt-1 ${severityStyle.dot}`} />
+              <span className="font-mono font-semibold text-slate-300 shrink-0 w-28 truncate pt-0.5">
+                {e.themeId ? (
+                  <Link href={`/themes/${e.themeId}`} className="hover:text-cyan-400 transition-colors">{subject}</Link>
+                ) : subject}
+              </span>
+              <span className="text-slate-500 shrink-0 pt-0.5">{ruleLabel}</span>
+              <span className={`ml-auto shrink-0 px-1.5 py-0.5 rounded border text-[9px] font-mono ${statusStyle}`}>
+                {STATUS_LABEL[e.status]}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function ThemeAlertFeed({
   alerts,
@@ -575,6 +626,99 @@ function ThemeAlertFeed({
   );
 }
 
+function ThemePlaybook({
+  themes,
+  historiesByThemeId,
+}: {
+  themes: ThemeSummary[];
+  historiesByThemeId: Record<string, ThemeHistoryPoint[]>;
+}) {
+  type PlaybookEntry = {
+    theme: ThemeSummary;
+    action: string;
+    note: string;
+    actionCls: string;
+    priority: number;
+  };
+
+  const entries: PlaybookEntry[] = [];
+
+  for (const t of themes) {
+    if (t.compositeScore == null) continue;
+    const score = t.compositeScore;
+    const hist = historiesByThemeId[t.id] ?? [];
+    const accel = t.compositeTrend5d != null && t.compositeTrend20d != null
+      ? t.compositeTrend5d - t.compositeTrend20d : null;
+    const delta5d = hist.length >= 6
+      ? Math.round((hist[hist.length - 1].compositeScore - hist[hist.length - 6].compositeScore) * 100)
+      : null;
+    const phase = t.themePhase ?? "";
+    const signal = t.dominantSignal;
+
+    if (signal === "BUY" && phase === "BREAKOUT") {
+      entries.push({
+        theme: t, priority: 1,
+        action: "ENTER",
+        actionCls: "text-emerald-300 bg-emerald-500/15 border-emerald-500/25",
+        note: `Breakout phase: score ${Math.round(score * 100)}, momentum accelerating${accel != null && accel > 0 ? ` (+${Math.round(accel * 100)}pt acceleration)` : ""}. Primary entry zone — add on pullbacks to mid-60s.`,
+      });
+    } else if (signal === "BUY" && phase === "MOMENTUM") {
+      entries.push({
+        theme: t, priority: 2,
+        action: "HOLD",
+        actionCls: "text-cyan-300 bg-cyan-500/15 border-cyan-500/25",
+        note: `Momentum phase: score ${Math.round(score * 100)}, trend sustained. Hold existing positions — add only on confirmed dips.`,
+      });
+    } else if (signal === "BUY" && (phase === "HOLDING" || phase === "FADING")) {
+      entries.push({
+        theme: t, priority: 3,
+        action: "WATCH",
+        actionCls: "text-amber-300 bg-amber-500/15 border-amber-500/25",
+        note: `${phase} phase: score ${Math.round(score * 100)}${delta5d != null && delta5d < 0 ? `, -${Math.abs(delta5d)}pt in 5d` : ""}. Monitor closely — momentum waning, tighten stops.`,
+      });
+    } else if (signal === "WATCH" && (phase === "SETUP" || phase === "BUILDING")) {
+      entries.push({
+        theme: t, priority: 4,
+        action: "PREPARE",
+        actionCls: "text-sky-300 bg-sky-500/15 border-sky-500/25",
+        note: `${phase} phase: score ${Math.round(score * 100)}${delta5d != null && delta5d > 0 ? `, +${delta5d}pt in 5d` : ""}. Approaching BUY zone — build watchlist, set ${Math.round((0.65 - score) * 100)}pt alert.`,
+      });
+    } else if (signal === "REDUCE" || (signal === "HOLD" && phase === "WEAK")) {
+      entries.push({
+        theme: t, priority: 5,
+        action: "REDUCE",
+        actionCls: "text-red-300 bg-red-500/15 border-red-500/25",
+        note: `Score ${Math.round(score * 100)} in ${phase || "WEAK"} territory. Exit remaining positions, avoid new entries.`,
+      });
+    }
+  }
+
+  if (entries.length === 0) return null;
+  entries.sort((a, b) => a.priority - b.priority);
+
+  return (
+    <div className="mb-4 bg-slate-800/40 border border-slate-700/40 rounded-lg overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-slate-700/30 flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Theme Playbook</span>
+        <span className="text-[10px] text-slate-600 font-mono">action-oriented guidance per theme</span>
+      </div>
+      <div className="divide-y divide-slate-700/20">
+        {entries.map(({ theme: t, action, note, actionCls }) => (
+          <div key={t.id} className="flex items-start gap-3 px-4 py-2.5">
+            <span className={`shrink-0 mt-0.5 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border w-14 text-center ${actionCls}`}>
+              {action}
+            </span>
+            <Link href={`/themes/${t.id}`} className="text-[11px] font-semibold text-slate-200 hover:text-cyan-300 transition-colors shrink-0 w-36 pt-0.5 truncate">
+              {t.name}
+            </Link>
+            <span className="text-[10px] text-slate-400 leading-relaxed">{note}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PreBuySetupPanel({ themes }: { themes: ThemeSummary[] }) {
   const setups = themes.filter(
     t =>
@@ -624,6 +768,99 @@ type OpportunityEntry = {
   priority: "HIGH" | "MED" | "LOW";
   actionColor: string;
 };
+
+function ThemeTippingPoints({
+  themes,
+  historiesByThemeId,
+}: {
+  themes: ThemeSummary[];
+  historiesByThemeId: Record<string, ThemeHistoryPoint[]>;
+}) {
+  const BUY_ZONE = 0.65;
+  const HOLD_ZONE = 0.50;
+
+  const approaching: { theme: ThemeSummary; score: number; delta5d: number | null; gap: number }[] = [];
+  const atRisk: { theme: ThemeSummary; score: number; delta5d: number | null; margin: number }[] = [];
+  const recovering: { theme: ThemeSummary; score: number; delta5d: number | null; gap: number }[] = [];
+
+  for (const t of themes) {
+    if (t.compositeScore == null) continue;
+    const hist = historiesByThemeId[t.id] ?? [];
+    const delta5d = hist.length >= 6
+      ? (hist[hist.length - 1].compositeScore - hist[hist.length - 6].compositeScore)
+      : null;
+
+    const score = t.compositeScore;
+    if (score >= 0.58 && score < BUY_ZONE && (delta5d == null || delta5d >= -0.02)) {
+      approaching.push({ theme: t, score, delta5d, gap: BUY_ZONE - score });
+    } else if (score >= BUY_ZONE && score <= 0.72 && delta5d != null && delta5d < -0.02) {
+      atRisk.push({ theme: t, score, delta5d, margin: score - BUY_ZONE });
+    } else if (score >= 0.38 && score < HOLD_ZONE && delta5d != null && delta5d > 0.01) {
+      recovering.push({ theme: t, score, delta5d, gap: HOLD_ZONE - score });
+    }
+  }
+
+  approaching.sort((a, b) => a.gap - b.gap);
+  atRisk.sort((a, b) => a.margin - b.margin);
+  recovering.sort((a, b) => b.delta5d! - a.delta5d!);
+
+  if (approaching.length === 0 && atRisk.length === 0 && recovering.length === 0) return null;
+
+  const renderRow = (
+    t: ThemeSummary,
+    score: number,
+    delta5d: number | null,
+    tag: string,
+    tagCls: string,
+    note: string,
+  ) => {
+    const pct = Math.round(score * 100);
+    const barClr = score >= BUY_ZONE ? "bg-emerald-500" : score >= HOLD_ZONE ? "bg-cyan-500" : "bg-amber-500";
+    return (
+      <div key={t.id} className="flex items-center gap-3 px-4 py-2 border-t border-slate-700/20 first:border-t-0">
+        <span className={`shrink-0 text-[9px] font-mono px-1.5 py-0.5 rounded border ${tagCls}`}>{tag}</span>
+        <Link href={`/themes/${t.id}`} className="text-[11px] font-semibold text-slate-200 hover:text-cyan-300 transition-colors w-40 truncate shrink-0">
+          {t.name}
+        </Link>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="w-12 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full ${barClr}`} style={{ width: `${pct}%` }} />
+          </div>
+          <span className="text-[10px] font-mono tabular-nums text-slate-300">{pct}</span>
+        </div>
+        {delta5d != null && (
+          <span className={`text-[10px] font-mono tabular-nums shrink-0 ${delta5d > 0 ? "text-emerald-400" : delta5d < 0 ? "text-red-400" : "text-slate-500"}`}>
+            {delta5d > 0 ? "+" : ""}{Math.round(delta5d * 100)}pt
+          </span>
+        )}
+        <span className="text-[10px] text-slate-500 truncate">{note}</span>
+      </div>
+    );
+  };
+
+  return (
+    <div className="mb-4 bg-slate-800/40 border border-slate-700/40 rounded-lg overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-slate-700/30 flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Tipping Points</span>
+        <span className="text-[10px] text-slate-600 font-mono">themes at key signal thresholds</span>
+      </div>
+      <div className="divide-y divide-slate-700/10">
+        {approaching.slice(0, 3).map(({ theme: t, score, delta5d, gap }) =>
+          renderRow(t, score, delta5d, "ENTRY", "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+            `${Math.round(gap * 100)}pt below BUY — ${delta5d != null && delta5d > 0 ? "rising" : "watch for breakout"}`)
+        )}
+        {atRisk.slice(0, 3).map(({ theme: t, score, delta5d, margin }) =>
+          renderRow(t, score, delta5d, "AT RISK", "text-amber-400 bg-amber-500/10 border-amber-500/20",
+            `${Math.round(margin * 100)}pt above BUY floor — momentum fading`)
+        )}
+        {recovering.slice(0, 2).map(({ theme: t, score, delta5d, gap }) =>
+          renderRow(t, score, delta5d, "RECOVERY", "text-sky-400 bg-sky-500/10 border-sky-500/20",
+            `${Math.round(gap * 100)}pt below HOLD — momentum turning`)
+        )}
+      </div>
+    </div>
+  );
+}
 
 function TopOpportunitiesPanel({ themes }: { themes: ThemeSummary[] }) {
   const opportunities: OpportunityEntry[] = [];
@@ -929,17 +1166,83 @@ function ThemePositioningMatrix({ themes }: { themes: ThemeSummary[] }) {
   );
 }
 
+const SECTOR_COLORS: Record<string, string> = {
+  TECH: "text-blue-400 bg-blue-900/20 border-blue-700/30",
+  HLTH: "text-emerald-400 bg-emerald-900/20 border-emerald-700/30",
+  FINL: "text-amber-400 bg-amber-900/20 border-amber-700/30",
+  DISR: "text-orange-400 bg-orange-900/20 border-orange-700/30",
+  INDU: "text-slate-400 bg-slate-700/30 border-slate-600/30",
+  ENRG: "text-yellow-400 bg-yellow-900/20 border-yellow-700/30",
+  MATL: "text-lime-400 bg-lime-900/20 border-lime-700/30",
+  UTIL: "text-cyan-400 bg-cyan-900/20 border-cyan-700/30",
+  REIT: "text-purple-400 bg-purple-900/20 border-purple-700/30",
+  STPL: "text-teal-400 bg-teal-900/20 border-teal-700/30",
+  COMM: "text-pink-400 bg-pink-900/20 border-pink-700/30",
+};
+
+function getThemeUniqueSectors(theme: ThemeSummary): string[] {
+  const seen = new Set<string>();
+  for (const c of theme.topConstituents) {
+    const sectorId = getParentSectorId(c.categoryId) ?? (c.parentCategoryId ? getParentSectorId(c.parentCategoryId) : null);
+    if (sectorId) seen.add(sectorId);
+  }
+  return [...seen].slice(0, 3);
+}
+
+function SortLink({ label, sortKey, currentSort, title }: { label: string; sortKey: string; currentSort: string; title?: string }) {
+  const isActive = currentSort === sortKey;
+  return (
+    <Link
+      href={`/themes?sort=${sortKey}`}
+      className={`hover:text-slate-300 transition-colors ${isActive ? "text-cyan-400" : "text-slate-600"}`}
+      title={title}
+    >
+      {label}{isActive ? " ↓" : ""}
+    </Link>
+  );
+}
+
 function ThemeScreener({
   themes,
   historiesByThemeId,
   alertsByThemeId,
+  sort,
 }: {
   themes: ThemeSummary[];
   historiesByThemeId: Record<string, ThemeHistoryPoint[]>;
   alertsByThemeId: Record<string, number>;
+  sort: string;
 }) {
   if (themes.length === 0) return null;
-  const sorted = [...themes].sort((a, b) => (b.compositeScore ?? -1) - (a.compositeScore ?? -1));
+
+  const sortedByScore = [...themes].sort((a, b) => (b.compositeScore ?? -1) - (a.compositeScore ?? -1));
+  const scoreRankById: Record<string, number> = {};
+  sortedByScore.forEach((t, i) => { scoreRankById[t.id] = i + 1; });
+
+  const sorted: ThemeSummary[] = (() => {
+    if (sort === "delta5d") {
+      return [...themes].sort((a, b) => {
+        const histA = historiesByThemeId[a.id] ?? [];
+        const histB = historiesByThemeId[b.id] ?? [];
+        const dA = histA.length >= 6 ? histA[histA.length - 1].compositeScore - histA[histA.length - 6].compositeScore : -Infinity;
+        const dB = histB.length >= 6 ? histB[histB.length - 1].compositeScore - histB[histB.length - 6].compositeScore : -Infinity;
+        return dB - dA;
+      });
+    }
+    if (sort === "alerts") {
+      return [...themes].sort((a, b) => (alertsByThemeId[b.id] ?? 0) - (alertsByThemeId[a.id] ?? 0) || (b.compositeScore ?? -1) - (a.compositeScore ?? -1));
+    }
+    if (sort === "rs60") {
+      return [...themes].sort((a, b) => (b.rs60 ?? -Infinity) - (a.rs60 ?? -Infinity));
+    }
+    if (sort === "velocity") {
+      const accel = (t: ThemeSummary) =>
+        t.compositeTrend5d != null && t.compositeTrend20d != null
+          ? t.compositeTrend5d - t.compositeTrend20d : -Infinity;
+      return [...themes].sort((a, b) => accel(b) - accel(a));
+    }
+    return sortedByScore;
+  })();
 
   // Rank from 5 days ago: sort by score at history[length - 6] (index 0 = oldest when 30 fetched)
   const LOOKBACK = 5;
@@ -968,16 +1271,17 @@ function ThemeScreener({
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">#</th>
               <th className="py-1.5 px-2 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Δ</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Theme</th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Sector</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Signal</th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Score</th>
-              <th className="py-1.5 px-2 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Absolute composite score change over 5 trading days">5d Δ</th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">RS-60</th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Score" sortKey="score" currentSort={sort} title="Sort by composite score" /></th>
+              <th className="py-1.5 px-2 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="5d Δ" sortKey="delta5d" currentSort={sort} title="Sort by 5-day score momentum" /></th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="RS-60" sortKey="rs60" currentSort={sort} title="Sort by 60-day relative strength vs SPY" /></th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Flow</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">vs Sectors</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Phase</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Bullish</th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Trend</th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Alerts</th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Trend" sortKey="velocity" currentSort={sort} title="Sort by momentum acceleration (5d trend vs 20d)" /></th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Alerts" sortKey="alerts" currentSort={sort} title="Sort by active alert count" /></th>
             </tr>
           </thead>
           <tbody>
@@ -1033,6 +1337,20 @@ function ThemeScreener({
                     <Link href={`/themes/${t.id}`} className="text-[11px] font-semibold text-slate-200 hover:text-cyan-300 transition-colors">
                       {t.name}
                     </Link>
+                  </td>
+                  <td className="py-2 px-3">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {getThemeUniqueSectors(t).map(sectorId => (
+                        <Link
+                          key={sectorId}
+                          href={`/sectors/${sectorId}`}
+                          className={`text-[8px] font-mono px-1 py-0.5 rounded border transition-colors hover:brightness-125 ${SECTOR_COLORS[sectorId] ?? "text-slate-500 bg-slate-800/40 border-slate-700/30"}`}
+                          title={`${SECTOR_SHORT_NAMES[sectorId] ?? sectorId} sector`}
+                        >
+                          {SECTOR_SHORT_NAMES[sectorId]?.slice(0, 5) ?? sectorId.slice(0, 4)}
+                        </Link>
+                      ))}
+                    </div>
                   </td>
                   <td className="py-2 px-3">
                     <div className="flex items-center gap-1.5">
@@ -1119,9 +1437,19 @@ function ThemeScreener({
                     </div>
                   </td>
                   <td className="py-2 px-3">
-                    <span className={`text-[10px] font-mono tabular-nums ${bullishPct >= 60 ? "text-emerald-400" : bullishPct >= 40 ? "text-amber-400" : "text-red-400"}`}>
-                      {bullishPct}%
-                    </span>
+                    <div className="flex items-center gap-1.5" title={`${t.bullishCount}/${t.constituentCount} ETFs bullish (BUY or WATCH)`}>
+                      <div className="flex h-2 w-10 rounded-full overflow-hidden bg-slate-700 gap-px">
+                        {t.constituentCount > 0 && Array.from({ length: t.constituentCount }, (_, j) => (
+                          <div
+                            key={j}
+                            className={`flex-1 ${j < t.bullishCount ? (bullishPct >= 80 ? "bg-emerald-400" : "bg-cyan-500") : "bg-slate-600/40"}`}
+                          />
+                        ))}
+                      </div>
+                      <span className={`text-[9px] font-mono tabular-nums ${bullishPct >= 60 ? "text-emerald-400" : bullishPct >= 40 ? "text-amber-400" : "text-slate-600"}`}>
+                        {t.bullishCount}/{t.constituentCount}
+                      </span>
+                    </div>
                   </td>
                   <td className="py-2 px-3">
                     <span className={`text-[10px] font-mono ${trendClr}`}>
@@ -1161,6 +1489,116 @@ function themeShortLabel(theme: ThemeSummary): string {
   const words = theme.name.split(/[\s_]+/);
   if (words.length === 1) return theme.name.slice(0, 5).toUpperCase();
   return words.slice(0, 2).map(w => w.slice(0, 4)).join(" ");
+}
+
+function ThemeScoreHeatmap({
+  themes,
+  historiesByThemeId,
+}: {
+  themes: ThemeSummary[];
+  historiesByThemeId: Record<string, ThemeHistoryPoint[]>;
+}) {
+  const DAYS = 20;
+
+  // Collect all unique dates across all themes, take latest DAYS
+  const allDates = Array.from(
+    new Set(
+      Object.values(historiesByThemeId)
+        .flat()
+        .map(h => h.date)
+    )
+  ).sort().slice(-DAYS);
+
+  if (allDates.length < 5) return null;
+
+  const sortedThemes = [...themes]
+    .filter(t => (historiesByThemeId[t.id]?.length ?? 0) >= 3)
+    .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
+
+  if (sortedThemes.length === 0) return null;
+
+  const scoreByThemeDate: Record<string, Record<string, number>> = {};
+  for (const t of sortedThemes) {
+    scoreByThemeDate[t.id] = {};
+    for (const h of historiesByThemeId[t.id] ?? []) {
+      scoreByThemeDate[t.id][h.date] = h.compositeScore;
+    }
+  }
+
+  const cellColor = (score: number | undefined): string => {
+    if (score == null) return "bg-slate-800/40";
+    if (score >= 0.70) return "bg-emerald-500";
+    if (score >= 0.65) return "bg-emerald-600/80";
+    if (score >= 0.55) return "bg-cyan-600/70";
+    if (score >= 0.50) return "bg-cyan-700/60";
+    if (score >= 0.40) return "bg-amber-700/60";
+    if (score >= 0.35) return "bg-red-700/60";
+    return "bg-red-800/50";
+  };
+
+  // Show column labels every 5 days
+  const dateLabels = allDates.map((d, i) => {
+    const showLabel = i === 0 || i === allDates.length - 1 || (allDates.length - 1 - i) % 5 === 0;
+    if (!showLabel) return null;
+    const date = new Date(d);
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  });
+
+  return (
+    <div className="mb-4 bg-slate-800/40 border border-slate-700/40 rounded-lg overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-slate-700/30 flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Score Heatmap</span>
+        <span className="text-[10px] text-slate-600 font-mono">last {allDates.length} trading days · red→amber→green = 0→100</span>
+      </div>
+      <div className="overflow-x-auto p-3">
+        <table className="text-[9px] font-mono w-full" style={{ minWidth: `${allDates.length * 14 + 120}px` }}>
+          <thead>
+            <tr>
+              <th className="text-left text-slate-600 font-normal pb-1 pr-2 w-28">Theme</th>
+              {allDates.map((d, i) => (
+                <th key={d} className="text-center text-slate-600 font-normal pb-1 w-3" style={{ minWidth: "12px" }}>
+                  {dateLabels[i] ? (
+                    <span className="block" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", lineHeight: 1 }}>
+                      {dateLabels[i]}
+                    </span>
+                  ) : null}
+                </th>
+              ))}
+              <th className="text-center text-slate-600 font-normal pb-1 pl-2">Now</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedThemes.map(t => {
+              const scores = scoreByThemeDate[t.id];
+              const currentPct = t.compositeScore != null ? Math.round(t.compositeScore * 100) : null;
+              const currentClr = t.compositeScore == null ? "text-slate-600"
+                : t.compositeScore >= 0.65 ? "text-emerald-400"
+                : t.compositeScore >= 0.50 ? "text-cyan-400"
+                : t.compositeScore >= 0.35 ? "text-amber-400" : "text-red-400";
+              return (
+                <tr key={t.id}>
+                  <td className="py-0.5 pr-2 text-slate-400 truncate max-w-[112px]" style={{ maxWidth: "112px" }}>
+                    <a href={`/themes/${t.id}`} className="hover:text-cyan-300 transition-colors truncate block">
+                      {t.name.length > 16 ? t.name.slice(0, 15) + "…" : t.name}
+                    </a>
+                  </td>
+                  {allDates.map(d => {
+                    const score = scores[d];
+                    return (
+                      <td key={d} className="py-0.5 px-px" title={score != null ? `${t.name}: ${Math.round(score * 100)} (${d})` : `${t.name}: no data (${d})`}>
+                        <div className={`w-2.5 h-2.5 rounded-sm ${cellColor(score)}`} />
+                      </td>
+                    );
+                  })}
+                  <td className={`py-0.5 pl-2 font-semibold ${currentClr} text-center`}>{currentPct ?? "—"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 function ThemeRaceChart({
@@ -1249,10 +1687,18 @@ function ThemeRaceChart({
   );
 }
 
-export default async function ThemesPage() {
-  const [themes, alertsResponse] = await Promise.all([
+export default async function ThemesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string }>;
+}) {
+  const { sort: sortParam } = await searchParams;
+  const screenerSort = ["score", "delta5d", "alerts", "rs60", "velocity"].includes(sortParam ?? "") ? sortParam as string : "score";
+
+  const [themes, alertsResponse, recentAlerts] = await Promise.all([
     fetchThemes(),
     fetchAlerts().catch(() => ({ activeCount: 0, alerts: [] })),
+    fetchRecentAlerts().catch(() => [] as AlertDto[]),
   ]);
 
   const historyResults = await Promise.allSettled(
@@ -1334,6 +1780,9 @@ export default async function ThemesPage() {
 
         {themes.length > 0 && <TopOpportunitiesPanel themes={themes} />}
         {themeAlerts.length > 0 && <ThemeAlertFeed alerts={themeAlerts} themes={themes} />}
+        {recentAlerts.length > 0 && <ThemeEventsFeed events={recentAlerts} />}
+        {themes.length > 0 && <ThemeTippingPoints themes={themes} historiesByThemeId={historyByThemeId} />}
+        {themes.length > 0 && <ThemePlaybook themes={themes} historiesByThemeId={historyByThemeId} />}
         {themes.length > 0 && <PreBuySetupPanel themes={themes} />}
         {themes.length > 0 && <ThemeNarrative themes={themes} />}
         {themes.length > 0 && <ActiveRotationBanner themes={themes} historiesByThemeId={historyByThemeId} />}
@@ -1341,7 +1790,8 @@ export default async function ThemesPage() {
         {themes.length > 1 && <ThemeRelativeStrengthPlot themes={themes} />}
         {themes.length > 1 && <ThemePositioningMatrix themes={themes} />}
         {themes.length > 1 && <ThemeRaceChart themes={themes} historiesByThemeId={historyByThemeId} />}
-        {themes.length > 0 && <ThemeScreener themes={themes} historiesByThemeId={historyByThemeId} alertsByThemeId={alertsByThemeId} />}
+        {themes.length > 0 && <ThemeScreener themes={themes} historiesByThemeId={historyByThemeId} alertsByThemeId={alertsByThemeId} sort={screenerSort} />}
+        {themes.length > 1 && <ThemeScoreHeatmap themes={themes} historiesByThemeId={historyByThemeId} />}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {sortedByScore.map(theme => (

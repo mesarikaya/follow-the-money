@@ -14,6 +14,45 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 
 ---
 
+## 2026-06-14 (session 31 — GBX/SEK currency support, ticker seeds, portfolio history)
+
+- `NEW` V64: `rotation_events_event_type_check` constraint fix — added `COMPOSITE_BREAKDOWN`
+  - Backend crashed when CASH category fired COMPOSITE_BREAKDOWN rotation event
+  - Drops & recreates constraint to include all 7 current RotationEventType enum values
+
+- `NEW` V65: ticker-category seed mappings for user's real portfolio holdings
+  - 50+ mappings: BA.L→INDU_ADEF, SAAB-B.ST→INDU_ADEF, BNTX→HLTH_BIOT, ASML→SEMI,
+    RHM.DE→INDU_ADEF, MO→STPL, PYPL→FINL_FINT, FISV→FINL_FINT, QS→ENRG_DRIV,
+    SPCE→TECH, WKL.AS→SOFT, DFEU.AS→INDU_ADEF, DIS→COMM, GD/LMT/BA/AIR→INDU_ADEF, CASH→CASH
+  - Restores classifications wiped when test suite ran against production DB in session 30
+
+- `NEW` GBX (British pence) currency support in HoldingUploadService
+  - Yahoo Finance returns LSE tickers (BA.L) in pence (GBX), not GBP
+  - Now detects GBX, divides by 100 to normalize to GBP, then applies GBP/USD FX rate
+  - BA.L EUR market value now computed correctly
+
+- `NEW` SEK (Swedish krona) currency support
+  - HoldingPriceService.fetchSekUsdRate() fetches SEKUSD=X from Yahoo Finance
+  - fx-rate-sek-usd Caffeine cache (max 1, 1h TTL) registered in CacheConfig
+  - HoldingUploadService routes SEK holdings through sekUsdRate for EUR conversion
+  - SAAB-B.ST EUR market value now computed correctly
+
+- `NEW` brief/page.tsx — Daily Brief RSC command-center page
+  - 3-column Buy/Watch/Reduce signal grid, 5d movers, themes grid, active alert log
+  - Sidebar updated: Daily Brief is first nav item under Analysis
+
+- `NEW` V66: portfolio_value_snapshots + fx_rates_history tables
+  - Stores daily EUR portfolio value snapshot on every "Refresh Prices" click
+  - Also stores USD/EUR, GBP/USD, SEK/USD rates as of that day
+  - PortfolioSnapshotRepository: raw jOOQ DSL, upsert on conflict by date
+  - GET /api/v1/portfolio/holdings/snapshots?days=N endpoint
+  - PortfolioValueChart: SVG line chart on portfolio page showing 90d value history
+
+- `RESOLVED` HoldingUploadServiceTest + HoldingControllerTest updated for new constructor params
+  - 540 backend tests pass
+
+---
+
 ## 2026-06-14 (session 30 — CI E2E fix + test isolation + FRED data restore)
 
 - `RESOLVED` E2E CI test failures: 11 tests failing on CI because `BACKEND_URL` is server-side only

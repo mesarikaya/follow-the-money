@@ -5,6 +5,7 @@ import com.ftm.app.ingestion.client.FredClient;
 import com.ftm.app.ingestion.client.YahooFinanceClient;
 import com.ftm.app.ingestion.client.dto.YahooChartResponse;
 import com.ftm.app.portfolio.repository.HoldingRepository;
+import com.ftm.app.portfolio.repository.PortfolioSnapshotRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -20,23 +21,28 @@ public class HoldingPriceService {
   private static final Logger log = LoggerFactory.getLogger(HoldingPriceService.class);
   private static final String DEXUSEU = "DEXUSEU";
   private static final String PRICE_SOURCE_YAHOO = "yahoo_finance";
-  private static final BigDecimal FALLBACK_USD_PER_EUR = new BigDecimal("1.08");
-  private static final BigDecimal FALLBACK_GBP_USD = new BigDecimal("1.27");
-  private static final BigDecimal FALLBACK_SEK_USD = new BigDecimal("0.092");
+  // System-default rates used only on the very first startup before any rate has been recorded.
+  // Once the DB has a recorded rate (via fx_rates_history), those are used as the fallback instead.
+  private static final BigDecimal SYSTEM_DEFAULT_USD_PER_EUR = new BigDecimal("1.08");
+  private static final BigDecimal SYSTEM_DEFAULT_GBP_USD = new BigDecimal("1.27");
+  private static final BigDecimal SYSTEM_DEFAULT_SEK_USD = new BigDecimal("0.092");
   private static final String GBPUSD_TICKER = "GBPUSD=X";
   private static final String SEKUSD_TICKER = "SEKUSD=X";
 
   private final HoldingRepository holdingRepository;
   private final YahooFinanceClient yahooFinanceClient;
   private final FredClient fredClient;
+  private final PortfolioSnapshotRepository snapshotRepository;
 
   public HoldingPriceService(
       HoldingRepository holdingRepository,
       YahooFinanceClient yahooFinanceClient,
-      FredClient fredClient) {
+      FredClient fredClient,
+      PortfolioSnapshotRepository snapshotRepository) {
     this.holdingRepository = holdingRepository;
     this.yahooFinanceClient = yahooFinanceClient;
     this.fredClient = fredClient;
+    this.snapshotRepository = snapshotRepository;
   }
 
   @Cacheable("fx-rate-usd-per-eur")
@@ -51,12 +57,9 @@ public class HoldingPriceService {
         return rate;
       }
     } catch (Exception e) {
-      log.warn(
-          "Could not fetch USD/EUR rate from FRED, using fallback {}: {}",
-          FALLBACK_USD_PER_EUR,
-          e.getMessage());
+      log.warn("Could not fetch USD/EUR rate from FRED, will try DB history: {}", e.getMessage());
     }
-    return FALLBACK_USD_PER_EUR;
+    return lastRecordedOrDefault("USD_PER_EUR", SYSTEM_DEFAULT_USD_PER_EUR);
   }
 
   @Cacheable("fx-rate-gbp-usd")
@@ -64,12 +67,12 @@ public class HoldingPriceService {
     try {
       LocalDate today = LocalDate.now();
       LocalDate from = today.minusDays(7);
-      return fetchLatestClose(GBPUSD_TICKER, from, today).orElse(FALLBACK_GBP_USD);
+      Optional<BigDecimal> live = fetchLatestClose(GBPUSD_TICKER, from, today);
+      if (live.isPresent()) return live.get();
     } catch (Exception e) {
-      log.warn(
-          "Could not fetch GBP/USD rate, using fallback {}: {}", FALLBACK_GBP_USD, e.getMessage());
-      return FALLBACK_GBP_USD;
+      log.warn("Could not fetch GBP/USD rate, will try DB history: {}", e.getMessage());
     }
+    return lastRecordedOrDefault("GBP_USD", SYSTEM_DEFAULT_GBP_USD);
   }
 
   @Cacheable("fx-rate-sek-usd")
@@ -77,11 +80,39 @@ public class HoldingPriceService {
     try {
       LocalDate today = LocalDate.now();
       LocalDate from = today.minusDays(7);
-      return fetchLatestClose(SEKUSD_TICKER, from, today).orElse(FALLBACK_SEK_USD);
+      Optional<BigDecimal> live = fetchLatestClose(SEKUSD_TICKER, from, today);
+      if (live.isPresent()) return live.get();
+    } catch (Exception e) {
+      log.warn("Could not fetch SEK/USD rate, will try DB history: {}", e.getMessage());
+    }
+    return lastRecordedOrDefault("SEK_USD", SYSTEM_DEFAULT_SEK_USD);
+  }
+
+  private BigDecimal lastRecordedOrDefault(String currencyPair, BigDecimal systemDefault) {
+    try {
+      return snapshotRepository
+          .findLastFxRate(currencyPair)
+          .map(
+              rate -> {
+                log.info("Using last recorded DB rate for {}: {}", currencyPair, rate);
+                return rate;
+              })
+          .orElseGet(
+              () -> {
+                log.warn(
+                    "No recorded rate for {} in DB — using system default {}. "
+                        + "Run price refresh to populate fx_rates_history.",
+                    currencyPair,
+                    systemDefault);
+                return systemDefault;
+              });
     } catch (Exception e) {
       log.warn(
-          "Could not fetch SEK/USD rate, using fallback {}: {}", FALLBACK_SEK_USD, e.getMessage());
-      return FALLBACK_SEK_USD;
+          "Could not query fx_rates_history for {} (table may not exist yet) — using system default {}: {}",
+          currencyPair,
+          systemDefault,
+          e.getMessage());
+      return systemDefault;
     }
   }
 

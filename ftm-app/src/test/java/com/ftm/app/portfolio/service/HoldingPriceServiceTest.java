@@ -13,6 +13,7 @@ import com.ftm.app.ingestion.client.FredClient;
 import com.ftm.app.ingestion.client.YahooFinanceClient;
 import com.ftm.app.ingestion.client.dto.YahooChartResponse;
 import com.ftm.app.portfolio.repository.HoldingRepository;
+import com.ftm.app.portfolio.repository.PortfolioSnapshotRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -32,10 +33,11 @@ class HoldingPriceServiceTest {
   @Mock HoldingRepository holdingRepository;
   @Mock YahooFinanceClient yahooFinanceClient;
   @Mock FredClient fredClient;
+  @Mock PortfolioSnapshotRepository snapshotRepository;
   @InjectMocks HoldingPriceService holdingPriceService;
 
-  private static final BigDecimal FALLBACK_GBP_USD = new BigDecimal("1.27");
-  private static final BigDecimal FALLBACK_USD_PER_EUR = new BigDecimal("1.08");
+  private static final BigDecimal SYSTEM_DEFAULT_GBP_USD = new BigDecimal("1.27");
+  private static final BigDecimal SYSTEM_DEFAULT_USD_PER_EUR = new BigDecimal("1.08");
 
   private YahooChartResponse chartWithAdjClose(BigDecimal... values) {
     List<BigDecimal> adjCloseList = Arrays.asList(values);
@@ -69,25 +71,41 @@ class HoldingPriceServiceTest {
   }
 
   @Test
-  @DisplayName("fetchGbpUsdRate returns fallback 1.27 when Yahoo returns empty")
-  void shouldReturnFallbackGbpUsdRateWhenYahooFails() {
+  @DisplayName("fetchGbpUsdRate falls back to last DB rate when Yahoo returns empty")
+  void shouldReturnDbRateWhenYahooFails() {
     when(yahooFinanceClient.fetchChart(eq("GBPUSD=X"), any(LocalDate.class), any(LocalDate.class)))
         .thenReturn(Optional.empty());
+    when(snapshotRepository.findLastFxRate("GBP_USD"))
+        .thenReturn(Optional.of(new BigDecimal("1.2850")));
 
     BigDecimal rate = holdingPriceService.fetchGbpUsdRate();
 
-    assertThat(rate).isEqualByComparingTo(FALLBACK_GBP_USD);
+    assertThat(rate).isEqualByComparingTo("1.2850");
   }
 
   @Test
-  @DisplayName("fetchGbpUsdRate returns fallback when Yahoo throws exception")
-  void shouldReturnFallbackGbpUsdRateOnException() {
+  @DisplayName("fetchGbpUsdRate falls back to last DB rate when Yahoo throws exception")
+  void shouldReturnDbRateOnYahooException() {
     when(yahooFinanceClient.fetchChart(eq("GBPUSD=X"), any(LocalDate.class), any(LocalDate.class)))
         .thenThrow(new RuntimeException("network error"));
+    when(snapshotRepository.findLastFxRate("GBP_USD"))
+        .thenReturn(Optional.of(new BigDecimal("1.2780")));
 
     BigDecimal rate = holdingPriceService.fetchGbpUsdRate();
 
-    assertThat(rate).isEqualByComparingTo(FALLBACK_GBP_USD);
+    assertThat(rate).isEqualByComparingTo("1.2780");
+  }
+
+  @Test
+  @DisplayName("fetchGbpUsdRate uses system default when Yahoo fails and DB has no history")
+  void shouldReturnSystemDefaultWhenYahooAndDbBothFail() {
+    when(yahooFinanceClient.fetchChart(eq("GBPUSD=X"), any(LocalDate.class), any(LocalDate.class)))
+        .thenReturn(Optional.empty());
+    when(snapshotRepository.findLastFxRate("GBP_USD")).thenReturn(Optional.empty());
+
+    BigDecimal rate = holdingPriceService.fetchGbpUsdRate();
+
+    assertThat(rate).isEqualByComparingTo(SYSTEM_DEFAULT_GBP_USD);
   }
 
   // ===== adj_close extraction logic =====
@@ -105,15 +123,17 @@ class HoldingPriceServiceTest {
   }
 
   @Test
-  @DisplayName("fetchGbpUsdRate returns fallback when all adj_close entries are null")
-  void shouldReturnFallbackWhenAllAdjCloseNull() {
+  @DisplayName("fetchGbpUsdRate falls back to DB rate when all adj_close entries are null")
+  void shouldReturnDbRateWhenAllAdjCloseNull() {
     var chart = chartWithAdjClose((BigDecimal) null, null, null);
     when(yahooFinanceClient.fetchChart(eq("GBPUSD=X"), any(LocalDate.class), any(LocalDate.class)))
         .thenReturn(Optional.of(chart));
+    when(snapshotRepository.findLastFxRate("GBP_USD"))
+        .thenReturn(Optional.of(new BigDecimal("1.2720")));
 
     BigDecimal rate = holdingPriceService.fetchGbpUsdRate();
 
-    assertThat(rate).isEqualByComparingTo(FALLBACK_GBP_USD);
+    assertThat(rate).isEqualByComparingTo("1.2720");
   }
 
   // ===== refreshPricesForAllHoldings skip logic =====

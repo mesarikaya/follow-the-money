@@ -56,6 +56,16 @@ public class PortfolioSnapshotRepository {
         .execute();
   }
 
+  public java.util.Optional<BigDecimal> findLastFxRate(String currencyPair) {
+    return dsl.select(field(name("rate")))
+        .from(FX_HISTORY)
+        .where(field(name("currency_pair")).eq(currencyPair))
+        .orderBy(field(name("snapshot_date")).desc(), field(name("captured_at")).desc())
+        .limit(1)
+        .fetchOptional()
+        .map(r -> r.get(field(name("rate")), BigDecimal.class));
+  }
+
   public List<PortfolioValueSnapshot> findRecentSnapshots(int days) {
     return dsl.select(
             field(name("snapshot_date")),

@@ -14,6 +14,22 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 
 ---
 
+## 2026-06-14 (session 29 — V63 theme_peer_divergence alert rule + Docker fix)
+
+- `NEW` V63: `theme_peer_divergence` alert rule
+  - Fires INFO when ≥3 theme constituents have composite signals, max−min spread > 30 pts, avg > 0.40
+  - Indicates internal rotation: leader/laggard within theme, suggesting catch-up opportunity
+  - Resolves when spread drops below 20 pts (convergence)
+  - 4 backend tests; mock backend updated (alert id=8, rule in ALERT_RULES_RESPONSE)
+  - 127 AlertRulesEngineTest tests pass
+
+- `NEW` `local-pg` Maven profile (added session 28)
+  - Docker Desktop 4.77.0 broke docker-java 3.3.x (API 1.32 vs required 1.40)
+  - Profile bypasses Testcontainers for codegen + tests: `./mvnw <goal> -Plocal-pg`
+  - Required for ALL Maven goals: `test`, `spring-boot:run`, `clean install`, `generate-sources`
+
+---
+
 ## 2026-06-13 (session 27 — V78 theme_strong_breakout_confirmation alert rule)
 
 - `NEW` V78: `theme_strong_breakout_confirmation` alert rule

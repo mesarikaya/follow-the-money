@@ -4146,7 +4146,8 @@ class AlertRulesEngineTest {
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("theme_peer_divergence")));
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_peer_divergence")));
   }
 
   @Test
@@ -4169,7 +4170,8 @@ class AlertRulesEngineTest {
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("theme_peer_divergence")));
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_peer_divergence")));
   }
 
   @Test
@@ -4181,6 +4183,7 @@ class AlertRulesEngineTest {
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("theme_peer_divergence")));
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_peer_divergence")));
   }
 }

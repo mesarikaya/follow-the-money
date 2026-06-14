@@ -3573,9 +3573,9 @@ public class AlertRulesEngine {
 
   /**
    * Fires when a theme has ≥3 constituents with signals, the max−min composite spread exceeds 30
-   * pts, and the theme average score is above 0.40 (theme is active). Indicates internal rotation
-   * — one or more sub-sectors leading while others lag, signalling a potential catch-up or
-   * narrowing opportunity. Resolves when spread falls below 20 pts.
+   * pts, and the theme average score is above 0.40 (theme is active). Indicates internal rotation —
+   * one or more sub-sectors leading while others lag, signalling a potential catch-up or narrowing
+   * opportunity. Resolves when spread falls below 20 pts.
    */
   private int evaluateThemePeerDivergence(LocalDate signalDate) {
     Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_PEER_DIVERGENCE);

@@ -99,6 +99,9 @@ public class CacheConfig {
     manager.registerCustomCache(
         "fx-rate-gbp-usd",
         Caffeine.newBuilder().maximumSize(1).expireAfterWrite(1, TimeUnit.HOURS).build());
+    manager.registerCustomCache(
+        "fx-rate-sek-usd",
+        Caffeine.newBuilder().maximumSize(1).expireAfterWrite(1, TimeUnit.HOURS).build());
     return manager;
   }
 }

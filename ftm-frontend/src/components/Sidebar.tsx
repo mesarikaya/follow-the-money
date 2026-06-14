@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const ANALYSIS_ITEMS = [
+  { href: "/brief",        label: "Daily Brief",     icon: "📋" },
   { href: "/",             label: "Sector Rotation", icon: "🔄" },
   { href: "/rrg",          label: "RRG Chart",       icon: "🎯" },
   { href: "/themes",       label: "Themes",          icon: "🧩" },

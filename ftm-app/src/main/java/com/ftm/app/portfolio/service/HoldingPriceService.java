@@ -22,7 +22,9 @@ public class HoldingPriceService {
   private static final String PRICE_SOURCE_YAHOO = "yahoo_finance";
   private static final BigDecimal FALLBACK_USD_PER_EUR = new BigDecimal("1.08");
   private static final BigDecimal FALLBACK_GBP_USD = new BigDecimal("1.27");
+  private static final BigDecimal FALLBACK_SEK_USD = new BigDecimal("0.092");
   private static final String GBPUSD_TICKER = "GBPUSD=X";
+  private static final String SEKUSD_TICKER = "SEKUSD=X";
 
   private final HoldingRepository holdingRepository;
   private final YahooFinanceClient yahooFinanceClient;
@@ -67,6 +69,19 @@ public class HoldingPriceService {
       log.warn(
           "Could not fetch GBP/USD rate, using fallback {}: {}", FALLBACK_GBP_USD, e.getMessage());
       return FALLBACK_GBP_USD;
+    }
+  }
+
+  @Cacheable("fx-rate-sek-usd")
+  public BigDecimal fetchSekUsdRate() {
+    try {
+      LocalDate today = LocalDate.now();
+      LocalDate from = today.minusDays(7);
+      return fetchLatestClose(SEKUSD_TICKER, from, today).orElse(FALLBACK_SEK_USD);
+    } catch (Exception e) {
+      log.warn(
+          "Could not fetch SEK/USD rate, using fallback {}: {}", FALLBACK_SEK_USD, e.getMessage());
+      return FALLBACK_SEK_USD;
     }
   }
 

@@ -56,7 +56,9 @@ public class HoldingUploadService {
       String ticker = row.ticker().toUpperCase();
       if (ticker.isBlank()) continue;
 
-      String currency = row.currency().toUpperCase();
+      // Normalize GBX (pence) → GBP so the DB stores a consistent currency code.
+      // Prices remain in pence; the pence→GBP division is applied during value computation.
+      String currency = "GBX".equalsIgnoreCase(row.currency()) ? "GBX" : row.currency().toUpperCase();
       String categoryId = classificationService.classifyOrUnknown(ticker);
 
       if (categoryId == null) {
@@ -90,9 +92,10 @@ public class HoldingUploadService {
 
     BigDecimal usdPerEurRate = holdingPriceService.fetchUsdPerEurRate();
     BigDecimal gbpUsdRate = holdingPriceService.fetchGbpUsdRate();
+    BigDecimal sekUsdRate = holdingPriceService.fetchSekUsdRate();
     List<Holding> enrichedHoldings = holdingRepository.findAll();
     List<HoldingDto> holdingDtos =
-        enrichedHoldings.stream().map(h -> toDto(h, usdPerEurRate, gbpUsdRate)).toList();
+        enrichedHoldings.stream().map(h -> toDto(h, usdPerEurRate, gbpUsdRate, sekUsdRate)).toList();
 
     syncPortfolioAllocations(holdingDtos);
 
@@ -111,8 +114,9 @@ public class HoldingUploadService {
   public List<HoldingDto> getHoldings() {
     BigDecimal usdPerEurRate = holdingPriceService.fetchUsdPerEurRate();
     BigDecimal gbpUsdRate = holdingPriceService.fetchGbpUsdRate();
+    BigDecimal sekUsdRate = holdingPriceService.fetchSekUsdRate();
     return holdingRepository.findAll().stream()
-        .map(h -> toDto(h, usdPerEurRate, gbpUsdRate))
+        .map(h -> toDto(h, usdPerEurRate, gbpUsdRate, sekUsdRate))
         .toList();
   }
 
@@ -141,9 +145,10 @@ public class HoldingUploadService {
 
     BigDecimal usdPerEurRate = holdingPriceService.fetchUsdPerEurRate();
     BigDecimal gbpUsdRate = holdingPriceService.fetchGbpUsdRate();
+    BigDecimal sekUsdRate = holdingPriceService.fetchSekUsdRate();
     List<Holding> allHoldings = holdingRepository.findAll();
     List<HoldingDto> allDtos =
-        allHoldings.stream().map(h -> toDto(h, usdPerEurRate, gbpUsdRate)).toList();
+        allHoldings.stream().map(h -> toDto(h, usdPerEurRate, gbpUsdRate, sekUsdRate)).toList();
     syncPortfolioAllocations(allDtos);
     return allDtos.stream().filter(h -> h.ticker().equals(upperTicker)).findFirst().orElseThrow();
   }
@@ -156,8 +161,9 @@ public class HoldingUploadService {
     }
     BigDecimal usdPerEurRate = holdingPriceService.fetchUsdPerEurRate();
     BigDecimal gbpUsdRate = holdingPriceService.fetchGbpUsdRate();
+    BigDecimal sekUsdRate = holdingPriceService.fetchSekUsdRate();
     List<HoldingDto> remainingDtos =
-        holdingRepository.findAll().stream().map(h -> toDto(h, usdPerEurRate, gbpUsdRate)).toList();
+        holdingRepository.findAll().stream().map(h -> toDto(h, usdPerEurRate, gbpUsdRate, sekUsdRate)).toList();
     syncPortfolioAllocations(remainingDtos);
   }
 
@@ -199,8 +205,9 @@ public class HoldingUploadService {
 
     BigDecimal usdPerEurRate = holdingPriceService.fetchUsdPerEurRate();
     BigDecimal gbpUsdRate = holdingPriceService.fetchGbpUsdRate();
+    BigDecimal sekUsdRate = holdingPriceService.fetchSekUsdRate();
     List<HoldingDto> allDtos =
-        holdingRepository.findAll().stream().map(h -> toDto(h, usdPerEurRate, gbpUsdRate)).toList();
+        holdingRepository.findAll().stream().map(h -> toDto(h, usdPerEurRate, gbpUsdRate, sekUsdRate)).toList();
     syncPortfolioAllocations(allDtos);
 
     return allDtos.stream().filter(h -> h.ticker().equals(ticker)).findFirst().orElseThrow();
@@ -211,8 +218,9 @@ public class HoldingUploadService {
     syncMissingCategoryIds();
     BigDecimal usdPerEurRate = holdingPriceService.fetchUsdPerEurRate();
     BigDecimal gbpUsdRate = holdingPriceService.fetchGbpUsdRate();
+    BigDecimal sekUsdRate = holdingPriceService.fetchSekUsdRate();
     List<HoldingDto> holdingDtos =
-        holdingRepository.findAll().stream().map(h -> toDto(h, usdPerEurRate, gbpUsdRate)).toList();
+        holdingRepository.findAll().stream().map(h -> toDto(h, usdPerEurRate, gbpUsdRate, sekUsdRate)).toList();
     syncPortfolioAllocations(holdingDtos);
     return holdingDtos;
   }
@@ -248,22 +256,38 @@ public class HoldingUploadService {
                 """;
   }
 
-  private HoldingDto toDto(Holding holding, BigDecimal usdPerEurRate, BigDecimal gbpUsdRate) {
+  private HoldingDto toDto(
+      Holding holding, BigDecimal usdPerEurRate, BigDecimal gbpUsdRate, BigDecimal sekUsdRate) {
+    String currency = holding.currency() == null ? "" : holding.currency().toUpperCase();
+
+    BigDecimal rawPrice =
+        holding.currentPriceLocal() != null ? holding.currentPriceLocal() : holding.avgCostLocal();
+
+    // GBX = British pence. Yahoo Finance prices for .L tickers are in pence.
+    // Divide by 100 to normalize to GBP, then treat as GBP for FX conversion.
+    boolean isGbx = "GBX".equals(currency);
+    BigDecimal normalizedPrice =
+        (isGbx && rawPrice != null)
+            ? rawPrice.divide(BigDecimal.valueOf(100), 6, java.math.RoundingMode.HALF_UP)
+            : rawPrice;
+    String normalizedCurrency = isGbx ? "GBP" : currency;
+
     BigDecimal effectiveFxRate;
     if (holding.usdFxRate() != null) {
       effectiveFxRate = holding.usdFxRate();
-    } else if ("GBP".equalsIgnoreCase(holding.currency())) {
+    } else if ("GBP".equals(normalizedCurrency)) {
       effectiveFxRate = gbpUsdRate;
+    } else if ("SEK".equals(normalizedCurrency)) {
+      effectiveFxRate = sekUsdRate;
     } else {
       effectiveFxRate = usdPerEurRate;
     }
 
-    BigDecimal priceForValue =
-        holding.currentPriceLocal() != null ? holding.currentPriceLocal() : holding.avgCostLocal();
-
-    BigDecimal marketValueUsd = computeMarketValueUsd(holding, priceForValue, effectiveFxRate);
+    BigDecimal marketValueUsd =
+        computeMarketValueUsd(holding, normalizedPrice, normalizedCurrency, effectiveFxRate);
     BigDecimal marketValueEur =
-        computeMarketValueEur(holding, priceForValue, usdPerEurRate, gbpUsdRate);
+        computeMarketValueEur(
+            holding, normalizedPrice, normalizedCurrency, usdPerEurRate, gbpUsdRate, sekUsdRate);
 
     return new HoldingDto(
         holding.ticker(),
@@ -281,14 +305,13 @@ public class HoldingUploadService {
   }
 
   private BigDecimal computeMarketValueUsd(
-      Holding holding, BigDecimal priceForValue, BigDecimal fxRate) {
+      Holding holding, BigDecimal priceForValue, String normalizedCurrency, BigDecimal fxRate) {
     if (priceForValue == null || holding.quantity() == null) return null;
-    String currency = holding.currency() == null ? "" : holding.currency().toUpperCase();
-    if ("USD".equals(currency)) {
+    if ("USD".equals(normalizedCurrency)) {
       return holding.quantity().multiply(priceForValue).setScale(2, RoundingMode.HALF_UP);
     }
     if (fxRate != null) {
-      // EUR, GBP, or any currency with a resolved USD rate
+      // EUR, GBP (already normalized from GBX), SEK — multiply by the resolved USD rate
       return holding
           .quantity()
           .multiply(priceForValue)
@@ -299,23 +322,35 @@ public class HoldingUploadService {
   }
 
   private BigDecimal computeMarketValueEur(
-      Holding holding, BigDecimal priceForValue, BigDecimal usdPerEurRate, BigDecimal gbpUsdRate) {
+      Holding holding,
+      BigDecimal priceForValue,
+      String normalizedCurrency,
+      BigDecimal usdPerEurRate,
+      BigDecimal gbpUsdRate,
+      BigDecimal sekUsdRate) {
     if (priceForValue == null || holding.quantity() == null) return null;
-    String currency = holding.currency() == null ? "" : holding.currency().toUpperCase();
-    if ("EUR".equals(currency)) {
+    if ("EUR".equals(normalizedCurrency)) {
       return holding.quantity().multiply(priceForValue).setScale(2, RoundingMode.HALF_UP);
     }
-    if ("USD".equals(currency) && usdPerEurRate != null) {
+    if ("USD".equals(normalizedCurrency) && usdPerEurRate != null) {
       return holding
           .quantity()
           .multiply(priceForValue)
           .divide(usdPerEurRate, 2, RoundingMode.HALF_UP);
     }
-    if ("GBP".equals(currency) && gbpUsdRate != null && usdPerEurRate != null) {
+    if ("GBP".equals(normalizedCurrency) && gbpUsdRate != null && usdPerEurRate != null) {
+      // Price already normalized from GBX pence → GBP before this method is called
       return holding
           .quantity()
           .multiply(priceForValue)
           .multiply(gbpUsdRate)
+          .divide(usdPerEurRate, 2, RoundingMode.HALF_UP);
+    }
+    if ("SEK".equals(normalizedCurrency) && sekUsdRate != null && usdPerEurRate != null) {
+      return holding
+          .quantity()
+          .multiply(priceForValue)
+          .multiply(sekUsdRate)
           .divide(usdPerEurRate, 2, RoundingMode.HALF_UP);
     }
     return null;

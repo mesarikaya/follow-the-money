@@ -127,6 +127,13 @@ public class HoldingRepository {
         .execute();
   }
 
+  public int updateCategoryId(String ticker, String categoryId) {
+    return dsl.update(HOLDINGS)
+        .set(HOLDINGS.CATEGORY_ID, categoryId)
+        .where(HOLDINGS.TICKER.eq(ticker).and(HOLDINGS.CATEGORY_ID.isNull()))
+        .execute();
+  }
+
   public int deleteByTicker(String ticker) {
     return dsl.deleteFrom(HOLDINGS).where(HOLDINGS.TICKER.eq(ticker)).execute();
   }

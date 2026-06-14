@@ -208,12 +208,33 @@ public class HoldingUploadService {
 
   public List<HoldingDto> refreshPricesAndSyncAllocations() {
     holdingPriceService.refreshPricesForAllHoldings();
+    syncMissingCategoryIds();
     BigDecimal usdPerEurRate = holdingPriceService.fetchUsdPerEurRate();
     BigDecimal gbpUsdRate = holdingPriceService.fetchGbpUsdRate();
     List<HoldingDto> holdingDtos =
         holdingRepository.findAll().stream().map(h -> toDto(h, usdPerEurRate, gbpUsdRate)).toList();
     syncPortfolioAllocations(holdingDtos);
     return holdingDtos;
+  }
+
+  private void syncMissingCategoryIds() {
+    holdingRepository.findAll().stream()
+        .filter(h -> h.categoryId() == null)
+        .forEach(
+            h -> {
+              classificationService
+                  .classify(h.ticker())
+                  .ifPresent(
+                      categoryId -> {
+                        int updated = holdingRepository.updateCategoryId(h.ticker(), categoryId);
+                        if (updated > 0) {
+                          log.info(
+                              "category re-synced for holding ticker={} → {}",
+                              h.ticker(),
+                              categoryId);
+                        }
+                      });
+            });
   }
 
   public String generateCsvTemplate() {

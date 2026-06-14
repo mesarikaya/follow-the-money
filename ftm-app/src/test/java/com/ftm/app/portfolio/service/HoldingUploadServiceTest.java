@@ -13,6 +13,7 @@ import com.ftm.app.api.dto.HoldingsUploadResponse;
 import com.ftm.app.domain.Holding;
 import com.ftm.app.portfolio.repository.HoldingRepository;
 import com.ftm.app.portfolio.repository.PortfolioRepository;
+import com.ftm.app.portfolio.service.PortfolioSnapshotService;
 import java.math.BigDecimal;
 import java.util.List;
 import org.instancio.Instancio;
@@ -32,6 +33,7 @@ class HoldingUploadServiceTest {
   @Mock HoldingClassificationService classificationService;
   @Spy HoldingCsvParser csvParser = new HoldingCsvParser();
   @Mock HoldingPriceService holdingPriceService;
+  @Mock PortfolioSnapshotService portfolioSnapshotService;
   @InjectMocks HoldingUploadService holdingUploadService;
 
   private static final BigDecimal USD_PER_EUR = new BigDecimal("1.085");

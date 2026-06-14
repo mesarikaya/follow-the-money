@@ -437,6 +437,21 @@ export const deleteHolding = (ticker: string): Promise<void> => {
   });
 };
 
+export type PortfolioSnapshot = {
+  snapshotDate: string;
+  totalValueEur: number;
+  totalCostEur: number | null;
+  holdingCount: number;
+};
+
+export const fetchPortfolioSnapshots = (days = 90): Promise<PortfolioSnapshot[]> =>
+  fetch(`${BACKEND}/api/v1/portfolio/holdings/snapshots?days=${days}`, {
+    cache: "no-store",
+  }).then(async (res) => {
+    if (!res.ok) throw new Error(`GET /portfolio/holdings/snapshots → ${res.status}`);
+    return res.json() as Promise<PortfolioSnapshot[]>;
+  });
+
 export const acknowledgeAlert = (alertId: number) =>
   fetch(`${BACKEND}/api/v1/alerts/${alertId}/acknowledge`, {
     method: "POST",

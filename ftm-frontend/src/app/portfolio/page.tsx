@@ -6,8 +6,9 @@ import {
   fetchHoldings, uploadHoldings, downloadHoldingsTemplate, refreshHoldingPrices,
   HoldingDto, HoldingsUploadResponse, updateHolding, deleteHolding, createHolding,
   fetchPriceLevels, PriceLevelDto, fetchWinRates, SignalWinRateDto,
-  fetchCategories, CategorySummary,
+  fetchCategories, CategorySummary, fetchPortfolioSnapshots, PortfolioSnapshot,
 } from "@/lib/api";
+import PortfolioValueChart from "@/components/PortfolioValueChart";
 import AllocationDonutChart from "@/components/AllocationDonutChart";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 
@@ -95,6 +96,7 @@ export default function PortfolioPage() {
   const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
   const [sortField, setSortField] = useState<SortField>("marketValueEur");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [portfolioSnapshots, setPortfolioSnapshots] = useState<PortfolioSnapshot[] | null>(null);
   const [editingTicker, setEditingTicker] = useState<string | null>(null);
   const [editQty, setEditQty] = useState("");
   const [editPrice, setEditPrice] = useState("");
@@ -145,6 +147,7 @@ export default function PortfolioPage() {
       r.categories.forEach(c => { map[c.id] = c; });
       setCategoryById(map);
     }).catch(() => {});
+    fetchPortfolioSnapshots(90).then(setPortfolioSnapshots).catch(() => {});
   }, [loadPortfolio]);
 
   const handleAllocationChange = (categoryId: string, value: string) => {
@@ -687,6 +690,24 @@ export default function PortfolioPage() {
           <div className="text-slate-500 text-sm text-center py-16">
             Loading portfolio…
           </div>
+        )}
+
+        {/* Portfolio Value History */}
+        {portfolioSnapshots !== null && portfolioSnapshots.length > 0 && (
+          <section className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
+            <PortfolioValueChart snapshots={portfolioSnapshots} />
+          </section>
+        )}
+        {portfolioSnapshots !== null && portfolioSnapshots.length === 0 && (
+          <section className="bg-slate-800/30 border border-slate-700/30 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-slate-400">Portfolio Value History</span>
+              <span className="text-[10px] text-slate-600">No snapshots yet</span>
+            </div>
+            <p className="text-[11px] text-slate-600">
+              Click <strong className="text-slate-500">Refresh Prices</strong> to capture today&apos;s portfolio value. History builds daily — come back tomorrow to see your first chart.
+            </p>
+          </section>
         )}
 
         {/* Sector Exposure Rollup */}

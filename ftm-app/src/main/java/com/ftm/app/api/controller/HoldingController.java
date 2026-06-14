@@ -4,7 +4,9 @@ import com.ftm.app.api.dto.CreateHoldingRequest;
 import com.ftm.app.api.dto.HoldingDto;
 import com.ftm.app.api.dto.HoldingUpdateRequest;
 import com.ftm.app.api.dto.HoldingsUploadResponse;
+import com.ftm.app.portfolio.domain.PortfolioValueSnapshot;
 import com.ftm.app.portfolio.service.HoldingUploadService;
+import com.ftm.app.portfolio.service.PortfolioSnapshotService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -26,9 +28,13 @@ import org.springframework.web.multipart.MultipartFile;
 public class HoldingController {
 
   private final HoldingUploadService holdingUploadService;
+  private final PortfolioSnapshotService portfolioSnapshotService;
 
-  public HoldingController(HoldingUploadService holdingUploadService) {
+  public HoldingController(
+      HoldingUploadService holdingUploadService,
+      PortfolioSnapshotService portfolioSnapshotService) {
     this.holdingUploadService = holdingUploadService;
+    this.portfolioSnapshotService = portfolioSnapshotService;
   }
 
   @Operation(summary = "Download CSV template for bulk holdings upload")
@@ -85,5 +91,12 @@ public class HoldingController {
   @PostMapping("/refresh-prices")
   public ResponseEntity<List<HoldingDto>> refreshPrices() {
     return ResponseEntity.ok(holdingUploadService.refreshPricesAndSyncAllocations());
+  }
+
+  @Operation(summary = "Portfolio value history snapshots for progress tracking")
+  @GetMapping("/snapshots")
+  public List<PortfolioValueSnapshot> getSnapshots(
+      @RequestParam(defaultValue = "90") int days) {
+    return portfolioSnapshotService.getRecentSnapshots(days);
   }
 }

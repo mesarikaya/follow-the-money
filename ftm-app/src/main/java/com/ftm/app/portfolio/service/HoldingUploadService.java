@@ -32,18 +32,21 @@ public class HoldingUploadService {
   private final HoldingClassificationService classificationService;
   private final HoldingCsvParser csvParser;
   private final HoldingPriceService holdingPriceService;
+  private final PortfolioSnapshotService portfolioSnapshotService;
 
   public HoldingUploadService(
       HoldingRepository holdingRepository,
       PortfolioRepository portfolioRepository,
       HoldingClassificationService classificationService,
       HoldingCsvParser csvParser,
-      HoldingPriceService holdingPriceService) {
+      HoldingPriceService holdingPriceService,
+      PortfolioSnapshotService portfolioSnapshotService) {
     this.holdingRepository = holdingRepository;
     this.portfolioRepository = portfolioRepository;
     this.classificationService = classificationService;
     this.csvParser = csvParser;
     this.holdingPriceService = holdingPriceService;
+    this.portfolioSnapshotService = portfolioSnapshotService;
   }
 
   public HoldingsUploadResponse upload(String csvContent) throws IOException {
@@ -222,6 +225,7 @@ public class HoldingUploadService {
     List<HoldingDto> holdingDtos =
         holdingRepository.findAll().stream().map(h -> toDto(h, usdPerEurRate, gbpUsdRate, sekUsdRate)).toList();
     syncPortfolioAllocations(holdingDtos);
+    portfolioSnapshotService.captureSnapshot(holdingDtos);
     return holdingDtos;
   }
 

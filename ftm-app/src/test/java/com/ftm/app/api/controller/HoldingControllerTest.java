@@ -19,6 +19,7 @@ import com.ftm.app.api.dto.HoldingUpdateRequest;
 import com.ftm.app.api.dto.HoldingsUploadResponse;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
 import com.ftm.app.portfolio.service.HoldingUploadService;
+import com.ftm.app.portfolio.service.PortfolioSnapshotService;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -37,6 +38,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 class HoldingControllerTest {
 
   @Mock HoldingUploadService holdingUploadService;
+  @Mock PortfolioSnapshotService portfolioSnapshotService;
 
   MockMvc mockMvc;
   ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
@@ -44,7 +46,7 @@ class HoldingControllerTest {
   @BeforeEach
   void setUp() {
     mockMvc =
-        MockMvcBuilders.standaloneSetup(new HoldingController(holdingUploadService))
+        MockMvcBuilders.standaloneSetup(new HoldingController(holdingUploadService, portfolioSnapshotService))
             .setControllerAdvice(new GlobalExceptionHandler())
             .build();
   }

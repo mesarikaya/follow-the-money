@@ -3546,13 +3546,16 @@ public class AlertRulesEngine {
           count++;
           log.info(
               "theme_strong_breakout_confirmation: theme={} score={} priorScore={}",
-              themeId, scorePct, priorPct);
+              themeId,
+              scorePct,
+              priorPct);
         }
       } else if (hasActive && score < THEME_STRONG_BREAKOUT_RESOLVE_SCORE) {
         alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_STRONG_BREAKOUT, themeId);
         log.info(
             "theme_strong_breakout_confirmation: resolved theme={} (score={})",
-            themeId, (int) Math.round(score * 100));
+            themeId,
+            (int) Math.round(score * 100));
       }
     }
     return count;

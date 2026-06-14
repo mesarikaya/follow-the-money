@@ -4,9 +4,10 @@ test.describe("Dashboard shell", () => {
   test("loads with sidebar navigation items", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText("Follow the Money")).toBeVisible();
-    await expect(page.getByRole("link", { name: /Rotation/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Macro/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /RRG/ })).toBeVisible();
+    // Use exact link text to avoid matching theme cards that may contain "Rotation"
+    await expect(page.getByRole("link", { name: /Sector Rotation/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Macro Regime/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /RRG Chart/ })).toBeVisible();
   });
 
   test("renders category table with mock data", async ({ page }) => {

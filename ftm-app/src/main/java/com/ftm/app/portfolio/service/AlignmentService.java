@@ -92,10 +92,11 @@ public class AlignmentService {
 
     if (adjustedWeights.isEmpty()) return Map.of();
 
-    List<Map.Entry<String, BigDecimal>> topEntries = adjustedWeights.entrySet().stream()
-        .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
-        .limit(MAX_CONCENTRATED_POSITIONS)
-        .toList();
+    List<Map.Entry<String, BigDecimal>> topEntries =
+        adjustedWeights.entrySet().stream()
+            .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
+            .limit(MAX_CONCENTRATED_POSITIONS)
+            .toList();
 
     BigDecimal totalWeight =
         topEntries.stream().map(Map.Entry::getValue).reduce(BigDecimal.ZERO, BigDecimal::add);

@@ -3983,7 +3983,8 @@ class AlertRulesEngineTest {
     // current: score 0.75 (above 0.70 fire threshold)
     when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
         .thenReturn(Map.of("TECH", new BigDecimal("0.75"), "SEMI", new BigDecimal("0.75")));
-    when(alertRepository.existsActiveAlertForTheme("theme_strong_breakout_confirmation", "AI_COMPUTE"))
+    when(alertRepository.existsActiveAlertForTheme(
+            "theme_strong_breakout_confirmation", "AI_COMPUTE"))
         .thenReturn(false);
     // prior (20 trading days ago): score was 0.60 (below 0.65 BUY threshold)
     LocalDate prior20 = DATE.minusDays(20);
@@ -4016,7 +4017,8 @@ class AlertRulesEngineTest {
     // score 0.68 — in BUY zone but below the 0.70 strong-breakout fire threshold
     when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
         .thenReturn(Map.of("TECH", new BigDecimal("0.68")));
-    when(alertRepository.existsActiveAlertForTheme("theme_strong_breakout_confirmation", "AI_COMPUTE"))
+    when(alertRepository.existsActiveAlertForTheme(
+            "theme_strong_breakout_confirmation", "AI_COMPUTE"))
         .thenReturn(false);
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
@@ -4037,7 +4039,8 @@ class AlertRulesEngineTest {
     // current: score 0.75 (above fire threshold)
     when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
         .thenReturn(Map.of("TECH", new BigDecimal("0.75")));
-    when(alertRepository.existsActiveAlertForTheme("theme_strong_breakout_confirmation", "AI_COMPUTE"))
+    when(alertRepository.existsActiveAlertForTheme(
+            "theme_strong_breakout_confirmation", "AI_COMPUTE"))
         .thenReturn(false);
     // prior (20 trading days ago): score was 0.72 (already above BUY threshold — no new breakout)
     LocalDate prior20 = DATE.minusDays(20);

@@ -522,8 +522,9 @@ test.describe("Alerts page — new theme alert rules", () => {
 
   test("shows Failed Breakout and Recovery Signal rules", async ({ page }) => {
     await page.goto("/alerts");
-    await expect(page.getByText("Failed Breakout")).toBeVisible();
-    await expect(page.getByText("Recovery Signal")).toBeVisible();
+    // Use .first() — the note text also contains these words so strict mode would see 2 elements
+    await expect(page.getByText("Failed Breakout").first()).toBeVisible();
+    await expect(page.getByText("Recovery Signal").first()).toBeVisible();
   });
 
   test("shows recovery signal active alert in recent alerts feed", async ({ page }) => {

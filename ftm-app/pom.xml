@@ -353,7 +353,15 @@
             <id>local-pg</id>
             <build>
                 <plugins>
-                    <!-- Apply all Flyway migrations BEFORE jOOQ codegen introspects the schema -->
+                    <!-- Activate the 'local' Spring profile so application-local.yml (FRED key, etc.) is loaded -->
+                    <plugin>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-maven-plugin</artifactId>
+                        <configuration>
+                            <profiles>local</profiles>
+                        </configuration>
+                    </plugin>
+                    <!-- Apply all Flyway migrations: ftm (for codegen) + ftm_test (isolated test DB) -->
                     <plugin>
                         <groupId>org.flywaydb</groupId>
                         <artifactId>flyway-maven-plugin</artifactId>
@@ -369,6 +377,18 @@
                                 <id>flyway-migrate-for-codegen</id>
                                 <phase>initialize</phase>
                                 <goals><goal>migrate</goal></goals>
+                            </execution>
+                            <!-- Migrate the test-only DB so tests run against a clean schema -->
+                            <execution>
+                                <id>flyway-migrate-test-db</id>
+                                <phase>process-test-resources</phase>
+                                <goals><goal>migrate</goal></goals>
+                                <configuration>
+                                    <url>jdbc:postgresql://localhost:5432/ftm_test</url>
+                                    <user>ftm</user>
+                                    <password>ftm</password>
+                                    <locations>filesystem:src/main/resources/db/migration</locations>
+                                </configuration>
                             </execution>
                         </executions>
                         <dependencies>
@@ -397,13 +417,13 @@
                             </jdbc>
                         </configuration>
                     </plugin>
-                    <!-- Override surefire: inject Spring datasource system properties to bypass Testcontainers -->
+                    <!-- Override surefire: tests use ftm_test (isolated) not ftm (production) -->
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration combine.children="append">
                             <systemPropertyVariables>
-                                <spring.datasource.url>jdbc:postgresql://localhost:5432/ftm</spring.datasource.url>
+                                <spring.datasource.url>jdbc:postgresql://localhost:5432/ftm_test</spring.datasource.url>
                                 <spring.datasource.driver-class-name>org.postgresql.Driver</spring.datasource.driver-class-name>
                                 <spring.datasource.username>ftm</spring.datasource.username>
                                 <spring.datasource.password>ftm</spring.datasource.password>

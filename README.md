@@ -52,7 +52,7 @@ cd ftm-app
 JAVA_HOME=/path/to/jdk-25 ./mvnw spring-boot:run -Plocal-pg
 ```
 
-> **`-Plocal-pg` is required** on every Maven invocation. This profile runs Flyway migrations directly against `localhost:5432` (bypassing Testcontainers) so that jOOQ codegen and tests work without Docker API compatibility issues.
+> **`-Plocal-pg` is required** on every Maven invocation. This profile runs Flyway migrations directly against `localhost:5432` (bypassing Testcontainers) so that jOOQ codegen and tests work without Docker API compatibility issues. It also activates the Spring `local` profile so that `application-local.yml` (which contains your FRED API key) is loaded.
 
 Replace `/path/to/jdk-25` with your Java 25 installation. Example on Windows with Git Bash:
 ```bash

@@ -197,6 +197,15 @@ public class AlertRulesEngine {
   private static final double THEME_STRONG_BREAKOUT_PRIOR_MAX_SCORE = 0.65;
   private static final double THEME_STRONG_BREAKOUT_RESOLVE_SCORE = 0.65;
   private static final int THEME_STRONG_BREAKOUT_LOOKBACK = 20;
+  private static final String RULE_THEME_PEER_DIVERGENCE = "theme_peer_divergence";
+  // Fires when ≥3 constituents have signals AND max − min composite spread > 30 pts, AND avg
+  // theme score > 0.40 (theme is active). Indicates internal rotation within the theme — one or
+  // more sub-sectors leading while others lag, creating a potential catch-up or narrowing signal.
+  // Resolves when spread falls below 20 pts (constituents re-converge).
+  private static final double THEME_PEER_DIVERGENCE_SPREAD_FIRE = 0.30;
+  private static final double THEME_PEER_DIVERGENCE_SPREAD_RESOLVE = 0.20;
+  private static final double THEME_PEER_DIVERGENCE_AVG_SCORE_MIN = 0.40;
+  private static final int THEME_PEER_DIVERGENCE_MIN_CONSTITUENTS = 3;
 
   private final AlertRepository alertRepository;
   private final AlertRulesRepository alertRulesRepository;
@@ -267,6 +276,7 @@ public class AlertRulesEngine {
     alertsCreated += evaluateThemeMomentumExhaustion(signalDate);
     alertsCreated += evaluateThemeRecoverySignal(signalDate);
     alertsCreated += evaluateThemeStrongBreakout(signalDate);
+    alertsCreated += evaluateThemePeerDivergence(signalDate);
     // Must run last: reads active alerts inserted by earlier evaluators in this cycle
     alertsCreated += evaluateMultiAlertBullConfluence(topLevelCategoryIds);
 
@@ -3556,6 +3566,104 @@ public class AlertRulesEngine {
             "theme_strong_breakout_confirmation: resolved theme={} (score={})",
             themeId,
             (int) Math.round(score * 100));
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Fires when a theme has ≥3 constituents with signals, the max−min composite spread exceeds 30
+   * pts, and the theme average score is above 0.40 (theme is active). Indicates internal rotation
+   * — one or more sub-sectors leading while others lag, signalling a potential catch-up or
+   * narrowing opportunity. Resolves when spread falls below 20 pts.
+   */
+  private int evaluateThemePeerDivergence(LocalDate signalDate) {
+    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_PEER_DIVERGENCE);
+    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+
+    Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
+    if (constituentsByTheme.isEmpty()) return 0;
+
+    Map<String, BigDecimal> currentComposite =
+        signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
+    if (currentComposite.isEmpty()) return 0;
+
+    int count = 0;
+    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
+      String themeId = entry.getKey();
+      List<String> ids = entry.getValue();
+
+      List<Map.Entry<String, Double>> scoredConstituents =
+          ids.stream()
+              .filter(id -> currentComposite.containsKey(id))
+              .map(id -> Map.entry(id, currentComposite.get(id).doubleValue()))
+              .toList();
+
+      if (scoredConstituents.size() < THEME_PEER_DIVERGENCE_MIN_CONSTITUENTS) continue;
+
+      double maxScore =
+          scoredConstituents.stream().mapToDouble(Map.Entry::getValue).max().getAsDouble();
+      double minScore =
+          scoredConstituents.stream().mapToDouble(Map.Entry::getValue).min().getAsDouble();
+      double avgScore =
+          scoredConstituents.stream().mapToDouble(Map.Entry::getValue).average().getAsDouble();
+      double spread = maxScore - minScore;
+
+      String leaderId =
+          scoredConstituents.stream()
+              .filter(e -> e.getValue() == maxScore)
+              .findFirst()
+              .map(Map.Entry::getKey)
+              .orElse("?");
+      String laggardId =
+          scoredConstituents.stream()
+              .filter(e -> e.getValue() == minScore)
+              .findFirst()
+              .map(Map.Entry::getKey)
+              .orElse("?");
+
+      boolean hasActive =
+          alertRepository.existsActiveAlertForTheme(RULE_THEME_PEER_DIVERGENCE, themeId);
+
+      if (!hasActive
+          && spread > THEME_PEER_DIVERGENCE_SPREAD_FIRE
+          && avgScore > THEME_PEER_DIVERGENCE_AVG_SCORE_MIN) {
+        Severity severity = rule.map(AlertRule::severity).orElse(Severity.INFO);
+        int spreadPct = (int) Math.round(spread * 100);
+        int leaderPct = (int) Math.round(maxScore * 100);
+        int laggardPct = (int) Math.round(minScore * 100);
+        alertRepository.insert(
+            new Alert(
+                null,
+                OffsetDateTime.now(),
+                null,
+                themeId,
+                RULE_THEME_PEER_DIVERGENCE,
+                severity,
+                String.format(
+                    "%s internal rotation: %s leads (score %d) while %s lags (score %d) — spread"
+                        + " of %d pts suggests within-theme catch-up opportunity",
+                    themeId, leaderId, leaderPct, laggardId, laggardPct, spreadPct),
+                String.format(
+                    "{\"themeId\":\"%s\",\"leaderId\":\"%s\",\"laggardId\":\"%s\","
+                        + "\"spread\":%.4f,\"avgScore\":%.4f,\"signalDate\":\"%s\"}",
+                    themeId, leaderId, laggardId, spread, avgScore, signalDate),
+                AlertStatus.ACTIVE,
+                null,
+                null));
+        count++;
+        log.info(
+            "theme_peer_divergence: fired theme={} leader={} laggard={} spread={}",
+            themeId,
+            leaderId,
+            laggardId,
+            spreadPct);
+      } else if (hasActive && spread < THEME_PEER_DIVERGENCE_SPREAD_RESOLVE) {
+        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_PEER_DIVERGENCE, themeId);
+        log.info(
+            "theme_peer_divergence: resolved theme={} (spread={})",
+            themeId,
+            (int) Math.round(spread * 100));
       }
     }
     return count;

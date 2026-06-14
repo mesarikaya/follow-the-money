@@ -353,6 +353,19 @@ const ALERTS_RESPONSE = {
       acknowledgedAt: null,
     },
     {
+      id: 8,
+      createdAt: "2026-06-13T09:30:00Z",
+      categoryId: null,
+      themeId: "DEFENSE_REARMAMENT",
+      ruleId: "theme_peer_divergence",
+      severity: "INFO",
+      message: "DEFENSE_REARMAMENT internal rotation: INDU leads (score 72) while FINL lags (score 41) — spread of 31 pts suggests within-theme catch-up opportunity",
+      triggerSnapshot: "{\"themeId\":\"DEFENSE_REARMAMENT\",\"leaderId\":\"INDU\",\"laggardId\":\"FINL\",\"spread\":0.3100,\"avgScore\":0.5600,\"signalDate\":\"2026-06-13\"}",
+      status: "ACTIVE",
+      resolvedAt: null,
+      acknowledgedAt: null,
+    },
+    {
       id: 6,
       createdAt: "2026-06-10T09:30:00Z",
       categoryId: null,
@@ -384,6 +397,7 @@ const ALERT_RULES_RESPONSE = [
   { ruleId: "theme_momentum_exhaustion",   enabled: true,  description: "BUY-zone theme showing negative 5d AND 20d trends simultaneously",         lookbackDays: 5,  threshold: 0.65, severity: "WARNING" },
   { ruleId: "theme_recovery_signal",           enabled: true,  description: "FADING/WEAK theme: score 35–55, 5d trend positive, 20d was negative 5d ago",        lookbackDays: 5,  threshold: null, severity: "INFO"   },
   { ruleId: "theme_strong_breakout_confirmation", enabled: true, description: "Theme score ≥ 0.70 AND was < 0.65 twenty trading days ago — institutional follow-through", lookbackDays: 20, threshold: 0.70, severity: "ACTION" },
+  { ruleId: "theme_peer_divergence",             enabled: true, description: "≥3 theme constituents with signals and max−min spread >30 pts, avg score >0.40 — internal rotation", lookbackDays: null, threshold: 0.30, severity: "INFO" },
 ];
 
 const INGEST_RESPONSE = {

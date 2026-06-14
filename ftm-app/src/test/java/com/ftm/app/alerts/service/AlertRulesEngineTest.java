@@ -1593,6 +1593,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("theme_recovery_signal")));
     when(alertRulesRepository.findById("theme_strong_breakout_confirmation"))
         .thenReturn(Optional.of(disabled("theme_strong_breakout_confirmation")));
+    when(alertRulesRepository.findById("theme_peer_divergence"))
+        .thenReturn(Optional.of(disabled("theme_peer_divergence")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
@@ -4066,5 +4068,119 @@ class AlertRulesEngineTest {
 
     verify(alertRepository, never())
         .insert(argThat(a -> a.ruleId().equals("theme_strong_breakout_confirmation")));
+  }
+
+  // ── theme_peer_divergence ────────────────────────────────────────────────
+
+  private void stubAllRulesDisabledExceptThemePeerDivergence() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("theme_phase_breakout_entry"))
+        .thenReturn(Optional.of(disabled("theme_phase_breakout_entry")));
+    when(alertRulesRepository.findById("theme_failed_breakout"))
+        .thenReturn(Optional.of(disabled("theme_failed_breakout")));
+    when(alertRulesRepository.findById("theme_setup_acceleration"))
+        .thenReturn(Optional.of(disabled("theme_setup_acceleration")));
+    when(alertRulesRepository.findById("theme_phase_fading"))
+        .thenReturn(Optional.of(disabled("theme_phase_fading")));
+    when(alertRulesRepository.findById("theme_momentum_exhaustion"))
+        .thenReturn(Optional.of(disabled("theme_momentum_exhaustion")));
+    when(alertRulesRepository.findById("theme_recovery_signal"))
+        .thenReturn(Optional.of(disabled("theme_recovery_signal")));
+    when(alertRulesRepository.findById("theme_strong_breakout_confirmation"))
+        .thenReturn(Optional.of(disabled("theme_strong_breakout_confirmation")));
+  }
+
+  @Test
+  @DisplayName(
+      "theme_peer_divergence: fires INFO when spread >30 pts and avg score >0.40 with ≥3 constituents")
+  void shouldCreateThemePeerDivergenceWhenSpreadExceedsThreshold() {
+    stubAllRulesDisabledExceptThemePeerDivergence();
+    when(alertRulesRepository.findById("theme_peer_divergence"))
+        .thenReturn(Optional.of(enabled("theme_peer_divergence", Severity.INFO)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("DEFENSE_REARMAMENT", List.of("INDU", "FINL", "TECH")));
+    // leader INDU at 0.72, laggard FINL at 0.41, TECH at 0.55 — spread = 0.31, avg = 0.56
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(
+            Map.of(
+                "INDU", new BigDecimal("0.72"),
+                "FINL", new BigDecimal("0.41"),
+                "TECH", new BigDecimal("0.55")));
+    when(alertRepository.existsActiveAlertForTheme("theme_peer_divergence", "DEFENSE_REARMAMENT"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("theme_peer_divergence");
+    assertThat(inserted.themeId()).isEqualTo("DEFENSE_REARMAMENT");
+    assertThat(inserted.severity()).isEqualTo(Severity.INFO);
+    assertThat(inserted.status()).isEqualTo(AlertStatus.ACTIVE);
+    assertThat(inserted.message()).contains("internal rotation");
+    assertThat(inserted.message()).contains("catch-up opportunity");
+  }
+
+  @Test
+  @DisplayName("theme_peer_divergence: no alert when spread is below 30 pt fire threshold")
+  void shouldNotCreateThemePeerDivergenceWhenSpreadTooNarrow() {
+    stubAllRulesDisabledExceptThemePeerDivergence();
+    when(alertRulesRepository.findById("theme_peer_divergence"))
+        .thenReturn(Optional.of(enabled("theme_peer_divergence", Severity.INFO)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("DEFENSE_REARMAMENT", List.of("INDU", "FINL", "TECH")));
+    // spread = 0.65 - 0.40 = 0.25 — below 0.30 threshold
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(
+            Map.of(
+                "INDU", new BigDecimal("0.65"),
+                "FINL", new BigDecimal("0.40"),
+                "TECH", new BigDecimal("0.52")));
+    when(alertRepository.existsActiveAlertForTheme("theme_peer_divergence", "DEFENSE_REARMAMENT"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("theme_peer_divergence")));
+  }
+
+  @Test
+  @DisplayName("theme_peer_divergence: no alert when average score is below 0.40 minimum")
+  void shouldNotCreateThemePeerDivergenceWhenThemeInactive() {
+    stubAllRulesDisabledExceptThemePeerDivergence();
+    when(alertRulesRepository.findById("theme_peer_divergence"))
+        .thenReturn(Optional.of(enabled("theme_peer_divergence", Severity.INFO)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("DEFENSE_REARMAMENT", List.of("INDU", "FINL", "TECH")));
+    // spread = 0.50 - 0.10 = 0.40 (above threshold) BUT avg = 0.27 (theme inactive)
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(
+            Map.of(
+                "INDU", new BigDecimal("0.50"),
+                "FINL", new BigDecimal("0.10"),
+                "TECH", new BigDecimal("0.20")));
+    when(alertRepository.existsActiveAlertForTheme("theme_peer_divergence", "DEFENSE_REARMAMENT"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("theme_peer_divergence")));
+  }
+
+  @Test
+  @DisplayName("theme_peer_divergence: no alert when rule is disabled")
+  void shouldNotCreateThemePeerDivergenceWhenRuleDisabled() {
+    stubAllRulesDisabledExceptThemePeerDivergence();
+    when(alertRulesRepository.findById("theme_peer_divergence"))
+        .thenReturn(Optional.of(disabled("theme_peer_divergence")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never()).insert(argThat(a -> a.ruleId().equals("theme_peer_divergence")));
   }
 }

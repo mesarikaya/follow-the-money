@@ -335,4 +335,84 @@
         </repository>
     </repositories>
 
+    <!--
+        local-pg profile: bypasses Testcontainers/docker-java for local development when
+        Docker Desktop API compatibility breaks (e.g. Docker Desktop 4.77.0 requires API ≥1.40
+        but docker-java 3.3.x hardcodes 1.32).
+
+        Usage:
+          docker compose up -d postgres          # start local PostgreSQL once
+          ./mvnw generate-sources -Plocal-pg     # regenerate jOOQ classes
+          ./mvnw test -Plocal-pg                 # run all tests
+
+        Both codegen and tests connect directly to jdbc:postgresql://localhost:5432/ftm.
+        Flyway runs in the initialize phase so jOOQ introspects the fully-migrated schema.
+    -->
+    <profiles>
+        <profile>
+            <id>local-pg</id>
+            <build>
+                <plugins>
+                    <!-- Apply all Flyway migrations BEFORE jOOQ codegen introspects the schema -->
+                    <plugin>
+                        <groupId>org.flywaydb</groupId>
+                        <artifactId>flyway-maven-plugin</artifactId>
+                        <version>${flyway.version}</version>
+                        <configuration>
+                            <url>jdbc:postgresql://localhost:5432/ftm</url>
+                            <user>ftm</user>
+                            <password>ftm</password>
+                            <locations>filesystem:src/main/resources/db/migration</locations>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>flyway-migrate-for-codegen</id>
+                                <phase>initialize</phase>
+                                <goals><goal>migrate</goal></goals>
+                            </execution>
+                        </executions>
+                        <dependencies>
+                            <dependency>
+                                <groupId>org.postgresql</groupId>
+                                <artifactId>postgresql</artifactId>
+                                <version>42.7.4</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.flywaydb</groupId>
+                                <artifactId>flyway-database-postgresql</artifactId>
+                                <version>${flyway.version}</version>
+                            </dependency>
+                        </dependencies>
+                    </plugin>
+                    <!-- Override jOOQ codegen: direct JDBC instead of Testcontainers JDBC URL -->
+                    <plugin>
+                        <groupId>org.jooq</groupId>
+                        <artifactId>jooq-codegen-maven</artifactId>
+                        <configuration>
+                            <jdbc>
+                                <driver>org.postgresql.Driver</driver>
+                                <url>jdbc:postgresql://localhost:5432/ftm</url>
+                                <user>ftm</user>
+                                <password>ftm</password>
+                            </jdbc>
+                        </configuration>
+                    </plugin>
+                    <!-- Override surefire: inject Spring datasource system properties to bypass Testcontainers -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration combine.children="append">
+                            <systemPropertyVariables>
+                                <spring.datasource.url>jdbc:postgresql://localhost:5432/ftm</spring.datasource.url>
+                                <spring.datasource.driver-class-name>org.postgresql.Driver</spring.datasource.driver-class-name>
+                                <spring.datasource.username>ftm</spring.datasource.username>
+                                <spring.datasource.password>ftm</spring.datasource.password>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
 </project>

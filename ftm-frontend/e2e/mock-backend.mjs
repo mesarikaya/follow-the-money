@@ -272,7 +272,7 @@ const HOLDINGS_RESPONSE = [
 ];
 
 const ALERTS_RESPONSE = {
-  activeCount: 7,
+  activeCount: 8,
   alerts: [
     {
       id: 1,

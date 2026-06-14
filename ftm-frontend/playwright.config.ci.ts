@@ -32,7 +32,7 @@ export default defineConfig({
       command: "node_modules/.bin/next dev --port 3001",
       url: "http://localhost:3001",
       reuseExistingServer: false,
-      env: { BACKEND_URL: "http://127.0.0.1:9999" },
+      env: { BACKEND_URL: "http://127.0.0.1:9999", NEXT_PUBLIC_BACKEND_URL: "http://127.0.0.1:9999" },
       timeout: 60000,
       stdout: "pipe",
       stderr: "pipe",

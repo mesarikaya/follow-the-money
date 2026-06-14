@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { fetchCategories, fetchMacro, fetchAlerts, fetchThemes, CategorySummary, AlertDto, ThemeSummary } from "@/lib/api";
+import { fetchCategories, fetchMacro, fetchAlerts, fetchThemes, fetchPortfolioSnapshots, CategorySummary, AlertDto, ThemeSummary, PortfolioSnapshot } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -155,11 +155,12 @@ function MoverRow({ cat, delta, direction }: { cat: CategorySummary; delta: numb
 }
 
 export default async function BriefPage() {
-  const [categoriesResult, macroResult, alertsResult, themesResult] = await Promise.allSettled([
+  const [categoriesResult, macroResult, alertsResult, themesResult, snapshotsResult] = await Promise.allSettled([
     fetchCategories("MONTH"),
     fetchMacro(),
     fetchAlerts(),
     fetchThemes(),
+    fetchPortfolioSnapshots(7),
   ]);
 
   const categories: CategorySummary[] =
@@ -173,6 +174,14 @@ export default async function BriefPage() {
     themesResult.status === "fulfilled"
       ? [...themesResult.value].sort((a, b) => (b.compositeScore ?? -1) - (a.compositeScore ?? -1))
       : [];
+  const snapshots: PortfolioSnapshot[] =
+    snapshotsResult.status === "fulfilled" ? snapshotsResult.value : [];
+  const latestSnapshot = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
+  const prevSnapshot = snapshots.length > 1 ? snapshots[snapshots.length - 2] : null;
+  const portfolioDayChange =
+    latestSnapshot && prevSnapshot
+      ? ((latestSnapshot.totalValueEur - prevSnapshot.totalValueEur) / prevSnapshot.totalValueEur) * 100
+      : null;
 
   const regime = macro?.regime ?? null;
   const regimeCfg = regime ? (REGIME_CONFIG[regime] ?? null) : null;
@@ -253,6 +262,38 @@ export default async function BriefPage() {
             </div>
           )}
         </div>
+
+        {/* Portfolio pulse strip */}
+        {latestSnapshot && (
+          <div className="flex items-center gap-4 bg-slate-900/50 border border-slate-700/50 rounded-lg px-4 py-2.5">
+            <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider shrink-0">Portfolio</span>
+            <Link href="/portfolio" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <span className="text-sm font-mono font-semibold text-emerald-400">
+                €{latestSnapshot.totalValueEur.toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </span>
+              {portfolioDayChange != null && (
+                <span className={`text-[11px] font-mono font-semibold px-1.5 py-0.5 rounded ${
+                  portfolioDayChange >= 0
+                    ? "text-emerald-400 bg-emerald-950/40"
+                    : "text-red-400 bg-red-950/40"
+                }`}>
+                  {portfolioDayChange >= 0 ? "+" : ""}{portfolioDayChange.toFixed(2)}% 1d
+                </span>
+              )}
+              <span className="text-[10px] text-slate-600">{latestSnapshot.holdingCount} holdings</span>
+            </Link>
+            {latestSnapshot.totalCostEur && latestSnapshot.totalCostEur > 0 && (() => {
+              const unrealizedPct = ((latestSnapshot.totalValueEur - latestSnapshot.totalCostEur) / latestSnapshot.totalCostEur) * 100;
+              const isPos = unrealizedPct >= 0;
+              return (
+                <span className={`ml-auto text-[10px] font-mono ${isPos ? "text-emerald-500" : "text-red-500"}`}
+                  title="Unrealized P&L vs cost basis">
+                  {isPos ? "+" : ""}{unrealizedPct.toFixed(1)}% total
+                </span>
+              );
+            })()}
+          </div>
+        )}
 
         {/* Alert counts strip */}
         {alerts.length > 0 && (

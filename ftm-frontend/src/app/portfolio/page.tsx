@@ -42,6 +42,16 @@ const SIGNAL_CONFIG: Record<TradeSignal, { className: string }> = {
 type SortField = "ticker" | "categoryId" | "quantity" | "avgCostLocal" | "currentPriceLocal" | "marketValueEur" | "unrealizedPnlPct";
 type SortDir = "asc" | "desc";
 
+function currencySymbol(currency: string | undefined): string {
+  switch (currency) {
+    case "EUR": return "€";
+    case "GBP": return "£";
+    case "GBX": return "p";
+    case "SEK": return "kr";
+    default:    return "$";
+  }
+}
+
 function isStale(holding: HoldingDto): boolean {
   if (!holding.priceSource) return true;
   if (!holding.priceDate) return true;
@@ -1124,7 +1134,7 @@ export default function PortfolioPage() {
                             />
                           ) : (
                             h.avgCostLocal != null
-                              ? `${h.currency === "EUR" ? "€" : "$"}${Number(h.avgCostLocal).toFixed(2)}`
+                              ? `${currencySymbol(h.currency)}${Number(h.avgCostLocal).toFixed(2)}`
                               : "—"
                           )}
                         </td>
@@ -1139,7 +1149,7 @@ export default function PortfolioPage() {
                             />
                           ) : h.currentPriceLocal != null ? (
                             <span className="text-slate-200">
-                              {h.currency === "EUR" ? "€" : "$"}{Number(h.currentPriceLocal).toFixed(2)}
+                              {currencySymbol(h.currency)}{Number(h.currentPriceLocal).toFixed(2)}
                               {h.priceDate && (
                                 <span className="text-slate-600 text-[10px] ml-1">{h.priceDate}</span>
                               )}
@@ -1154,13 +1164,13 @@ export default function PortfolioPage() {
                             if (!pnl) return <span className="text-slate-600 text-xs">—</span>;
                             const pctStr = `${pnl.pct >= 0 ? "+" : ""}${(pnl.pct * 100).toFixed(1)}%`;
                             const absStr = `${pnl.absLocal >= 0 ? "+" : ""}${Math.abs(pnl.absLocal) < 1000
-                              ? (h.currency === "EUR" ? "€" : "$") + Math.abs(pnl.absLocal).toFixed(0)
-                              : (h.currency === "EUR" ? "€" : "$") + (Math.abs(pnl.absLocal) / 1000).toFixed(1) + "k"}`;
+                              ? (currencySymbol(h.currency)) + Math.abs(pnl.absLocal).toFixed(0)
+                              : (currencySymbol(h.currency)) + (Math.abs(pnl.absLocal) / 1000).toFixed(1) + "k"}`;
                             const color = pnl.pct >= 0 ? "text-emerald-400" : "text-red-400";
                             return (
                               <div className={`flex flex-col items-end ${color}`} title={`Unrealized: ${pnl.pct >= 0 ? "+" : ""}${(pnl.pct * 100).toFixed(2)}% · ${absStr} in local currency`}>
                                 <span className="text-xs font-semibold">{pctStr}</span>
-                                <span className="text-[10px] opacity-70">{pnl.absLocal >= 0 ? "+" : ""}{h.currency === "EUR" ? "€" : "$"}{Math.abs(pnl.absLocal).toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
+                                <span className="text-[10px] opacity-70">{pnl.absLocal >= 0 ? "+" : ""}{currencySymbol(h.currency)}{Math.abs(pnl.absLocal).toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
                               </div>
                             );
                           })()}

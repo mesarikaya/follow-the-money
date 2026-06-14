@@ -251,6 +251,96 @@ function SignalDistributionBar({ constituents }: { constituents: ThemeConstituen
   );
 }
 
+function ConstituentScoreSpread({ constituents }: { constituents: ThemeConstituent[] }) {
+  const scored = constituents
+    .filter(c => c.compositeScore != null)
+    .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
+  if (scored.length < 2) return null;
+
+  const scores = scored.map(c => c.compositeScore!);
+  const maxScore = scores[0];
+  const minScore = scores[scores.length - 1];
+  const spread = Math.round((maxScore - minScore) * 100);
+  const spreadColor = spread >= 30 ? "#f87171" : spread >= 20 ? "#fbbf24" : "#34d399";
+
+  const toX = (s: number) => `${(s * 100).toFixed(1)}%`;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-slate-700/40">
+      <div className="flex items-center gap-3 mb-2">
+        <span className="text-[10px] text-slate-500 uppercase tracking-wider">Constituent Score Spread</span>
+        <span className="text-[10px] font-mono" style={{ color: spreadColor }}>
+          {spread}pt spread
+        </span>
+        {spread >= 30 && (
+          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">
+            peer divergence
+          </span>
+        )}
+      </div>
+      <div className="relative h-8">
+        {/* Background zones */}
+        <div className="absolute inset-0 rounded overflow-hidden flex">
+          <div className="h-full bg-red-500/5" style={{ width: "35%" }} />
+          <div className="h-full bg-amber-500/5" style={{ width: "15%" }} />
+          <div className="h-full bg-slate-700/20" style={{ width: "15%" }} />
+          <div className="h-full bg-emerald-500/5" style={{ width: "35%" }} />
+        </div>
+        {/* Threshold lines */}
+        <div className="absolute top-0 bottom-0 w-px bg-emerald-500/30" style={{ left: "65%" }} title="BUY 65" />
+        <div className="absolute top-0 bottom-0 w-px bg-red-500/30" style={{ left: "35%" }} title="REDUCE 35" />
+        {/* Spread range bar */}
+        <div
+          className="absolute top-3 h-0.5 rounded-full opacity-40"
+          style={{
+            left: toX(minScore),
+            width: `${spread}%`,
+            backgroundColor: spreadColor,
+          }}
+        />
+        {/* Constituent dots */}
+        {scored.map((c, i) => {
+          const isLeader = i === 0;
+          const isLaggard = i === scored.length - 1;
+          const pct = Math.round((c.compositeScore ?? 0) * 100);
+          const dotColor = (c.compositeScore ?? 0) >= 0.65 ? "#34d399"
+            : (c.compositeScore ?? 0) >= 0.50 ? "#22d3ee"
+            : (c.compositeScore ?? 0) >= 0.35 ? "#fbbf24" : "#f87171";
+          return (
+            <div
+              key={c.categoryId}
+              className="absolute top-0 bottom-0 flex flex-col items-center justify-center"
+              style={{ left: toX(c.compositeScore!), transform: "translateX(-50%)" }}
+              title={`${c.name}: ${pct}`}
+            >
+              <div
+                className="w-2 h-2 rounded-full border border-slate-900"
+                style={{ backgroundColor: dotColor }}
+              />
+              {(isLeader || isLaggard) && (
+                <span
+                  className="absolute text-[8px] font-mono whitespace-nowrap"
+                  style={{
+                    color: dotColor,
+                    top: isLeader ? "-12px" : "20px",
+                  }}
+                >
+                  {c.etfTicker} {pct}
+                </span>
+              )}
+            </div>
+          );
+        })}
+        {/* Axis labels */}
+        <div className="absolute bottom-0 left-0 text-[7px] font-mono text-slate-700">0</div>
+        <div className="absolute bottom-0 right-0 text-[7px] font-mono text-slate-700">100</div>
+        <div className="absolute bottom-0 text-[7px] font-mono text-emerald-700/60" style={{ left: "65%", transform: "translateX(-50%)" }}>65</div>
+        <div className="absolute bottom-0 text-[7px] font-mono text-red-700/60" style={{ left: "35%", transform: "translateX(-50%)" }}>35</div>
+      </div>
+    </div>
+  );
+}
+
 const RULE_LABELS: Record<string, string> = {
   theme_5d_acceleration:            "5d Momentum Acceleration",
   theme_dominant_signal_transition: "Signal Transition",
@@ -264,6 +354,7 @@ const RULE_LABELS: Record<string, string> = {
   theme_momentum_exhaustion:        "Momentum Exhaustion",
   theme_recovery_signal:            "Recovery Signal",
   theme_strong_breakout_confirmation: "Strong Breakout Confirmed",
+  theme_peer_divergence:            "Peer Divergence",
   pre_buy_flow_surge:               "Pre-Buy Flow Surge",
 };
 
@@ -746,6 +837,7 @@ export default async function ThemeDetailPage({
             )}
           </div>
           <SignalDistributionBar constituents={theme.constituents} />
+          <ConstituentScoreSpread constituents={theme.constituents} />
           {watchGuidance && (
             <div className="mt-3 pt-3 border-t border-slate-700/40">
               <span className="text-[9px] font-mono text-slate-600 uppercase tracking-wider mr-2">What to watch</span>

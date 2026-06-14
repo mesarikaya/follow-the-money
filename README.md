@@ -10,7 +10,7 @@ Tracks 19 categories (equity sectors, fixed income, commodities, currencies) usi
 
 | Tool | Version | Notes |
 |------|---------|-------|
-| Java | 25 | Required by Spring Boot 4 |
+| Java | 25 | Temurin 25 recommended |
 | Maven wrapper | included | `./mvnw` in `ftm-app/` |
 | Docker Desktop | any | Runs PostgreSQL |
 | Node.js | 20+ | For Next.js frontend |
@@ -37,20 +37,29 @@ Or set the environment variable: `FRED_API_KEY=your_key`
 
 ### 1. Start PostgreSQL
 
+From the repo root (not `ftm-app/`):
+
 ```bash
-docker compose up -d
+docker compose up -d postgres
 ```
 
-PostgreSQL runs on port 5432. Flyway applies all 4 schema migrations automatically when `ftm-app` starts.
+PostgreSQL runs on `localhost:5432`. Database/user/password are all `ftm`.
 
 ### 2. Start the backend
 
 ```bash
 cd ftm-app
-./mvnw spring-boot:run
+JAVA_HOME=/path/to/jdk-25 ./mvnw spring-boot:run -Plocal-pg
 ```
 
-Backend starts on `http://127.0.0.1:8080`. First run takes ~30s to apply Flyway migrations and seed 19 categories + 9 alert rules.
+> **`-Plocal-pg` is required** on every Maven invocation. This profile runs Flyway migrations directly against `localhost:5432` (bypassing Testcontainers) so that jOOQ codegen and tests work without Docker API compatibility issues.
+
+Replace `/path/to/jdk-25` with your Java 25 installation. Example on Windows with Git Bash:
+```bash
+JAVA_HOME=/c/Users/$USER/.jdks/temurin-25.0.3 ./mvnw spring-boot:run -Plocal-pg
+```
+
+Backend starts on `http://127.0.0.1:8080`. First run applies all Flyway migrations and seeds categories, alert rules, and theme definitions.
 
 Verify:
 ```bash
@@ -65,7 +74,7 @@ curl http://127.0.0.1:8080/api/v1/rotation
 curl -X POST http://127.0.0.1:8080/api/v1/ingest/trigger
 ```
 
-Or click **Refresh Data** in the dashboard. Ingestion fetches 5+ years of daily prices for all 19 categories + 8 FRED macro series. After prices are ingested, signals (RS, RRG, Composite) are computed automatically. Allow 2–3 minutes on first run.
+Or click **Refresh Data** in the dashboard. Ingestion fetches 5+ years of daily prices for all tracked categories + 9 FRED macro series. After prices are ingested, signals (RS, RRG, Composite, Themes) are computed automatically. Allow 2–5 minutes on first run.
 
 ### 4. Start the frontend
 
@@ -76,6 +85,8 @@ pnpm dev
 ```
 
 Dashboard available at **http://localhost:3000**
+
+> The frontend proxies all `/api/v1/` requests to `http://localhost:8080` (configured in `next.config.ts`). Make sure the backend is running before loading the dashboard.
 
 ---
 
@@ -172,16 +183,26 @@ All 8 milestones are delivered.
 
 ```bash
 cd ftm-app
-./mvnw test
+JAVA_HOME=/path/to/jdk-25 ./mvnw test -Plocal-pg
 ```
 
-Requires Docker (Testcontainers spins up PostgreSQL for integration tests). ~90 seconds. 141 tests.
+Requires PostgreSQL running (`docker compose up -d postgres` from the repo root). The `local-pg` profile bypasses Testcontainers and connects tests directly to `localhost:5432`. ~60 seconds. 540+ tests.
 
-> **Java 25 required.** The class files are compiled to Java 25 bytecode. If `JAVA_HOME` points to an older JDK the forked test process will fail with `class file version 69.0` errors. Set the correct JVM before running:
-> ```bash
-> export JAVA_HOME="/c/Program Files/Eclipse Adoptium/jdk-25.0.3.9-hotspot"
-> ./mvnw test
-> ```
+> **`-Plocal-pg` is required** on this machine due to Docker Desktop's API version enforcement (4.77.0+ requires API ≥1.40; Testcontainers uses an older version). Never run `./mvnw test` without the profile.
+
+For a full build including packaging:
+```bash
+JAVA_HOME=/path/to/jdk-25 ./mvnw clean install -Plocal-pg
+```
+
+> **Note on `mvn clean install` without the flag:** If `clean` deletes the target directory before jOOQ codegen runs, and jOOQ codegen then fails (Docker API mismatch), Surefire will run tests against stale class files — producing hundreds of `NoClassDefFoundError` failures. Always use `-Plocal-pg`.
+
+### Regenerate jOOQ classes after a schema change
+
+After adding a new Flyway migration:
+```bash
+JAVA_HOME=/path/to/jdk-25 ./mvnw generate-sources -Plocal-pg
+```
 
 ### Frontend type check + build
 
@@ -197,7 +218,7 @@ cd ftm-frontend
 pnpm test:e2e
 ```
 
-Starts a lightweight mock backend on port 9999 and a dedicated Next.js server on port 3001 (separate from the dev server on 3000). If a `pnpm dev` server is already running, the script stops it automatically before starting the E2E server. 24 tests across dashboard and all page routes.
+Starts a lightweight mock backend on port 9999 and a dedicated Next.js server on port 3001 (separate from the dev server on 3000). If a `pnpm dev` server is already running, the script stops it automatically before starting the E2E server. 86 tests across dashboard and all page routes.
 
 ---
 

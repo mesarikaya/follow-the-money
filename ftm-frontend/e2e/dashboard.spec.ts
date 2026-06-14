@@ -14,7 +14,7 @@ test.describe("Dashboard shell", () => {
     await page.goto("/");
     // Verify category name and ETF ticker appear in table cells
     await expect(page.getByRole("cell", { name: "Information Technology" })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "XLK", exact: true })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "XLK", exact: true }).first()).toBeVisible();
     await expect(page.getByRole("cell", { name: "Health Care" })).toBeVisible();
     // Verify rank column renders (rank=1 for first category)
     await expect(page.getByRole("cell", { name: "1", exact: true }).first()).toBeVisible();

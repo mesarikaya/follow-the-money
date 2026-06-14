@@ -934,9 +934,11 @@ export default function PortfolioPage() {
                     onChange={(e) => setAddCurrency(e.target.value)}
                     className="w-full text-xs bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-slate-200 focus:border-emerald-500 focus:outline-none"
                   >
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
+                    <option value="USD">USD — US Dollar</option>
+                    <option value="EUR">EUR — Euro</option>
+                    <option value="GBP">GBP — British Pound</option>
+                    <option value="GBX">GBX — Pence Sterling (LSE, e.g. BA.L)</option>
+                    <option value="SEK">SEK — Swedish Krona (e.g. SAAB-B.ST)</option>
                   </select>
                 </div>
                 <div>

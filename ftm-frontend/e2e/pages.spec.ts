@@ -94,6 +94,23 @@ test.describe("Alerts page", () => {
   });
 });
 
+test.describe("Daily Brief page", () => {
+  test("loads and shows signal grid sections", async ({ page }) => {
+    await page.goto("/brief");
+    // Brief is an RSC page — it uses <h1> Daily Brief in the header
+    await expect(page.getByRole("heading", { name: "Daily Brief" })).toBeVisible();
+    // Signal grid column headers
+    await expect(page.getByText("Buy").first()).toBeVisible();
+    await expect(page.getByText("Watch").first()).toBeVisible();
+  });
+
+  test("shows themes section with mock data", async ({ page }) => {
+    await page.goto("/brief");
+    // THEMES_RESPONSE has AI_INFRA and CHIP_COMPUTE — at least one theme name should appear
+    await expect(page.getByText(/AI Infrastructure|Semiconductor/).first()).toBeVisible();
+  });
+});
+
 test.describe("Backtester page", () => {
   test("loads with backtester heading and form controls", async ({ page }) => {
     await page.goto("/backtest");

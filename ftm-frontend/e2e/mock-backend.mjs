@@ -822,6 +822,22 @@ const server = http.createServer(async (req, res) => {
     ];
     res.writeHead(200);
     res.end(JSON.stringify(themeHistory));
+  } else if (path === "/api/v1/portfolio/holdings/snapshots") {
+    const days = parseInt(url.searchParams.get("days") ?? "90", 10);
+    const snapshots = [];
+    const now = new Date("2026-06-14");
+    for (let i = Math.min(days, 10) - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      snapshots.push({
+        snapshotDate: d.toISOString().split("T")[0],
+        totalValueEur: 148000 + i * -200 + Math.sin(i) * 500,
+        totalCostEur: 130000,
+        holdingCount: 18,
+      });
+    }
+    res.writeHead(200);
+    res.end(JSON.stringify(snapshots));
   } else if (path === "/api/v1/ingest/trigger" && req.method === "POST") {
     res.writeHead(202);
     res.end(JSON.stringify(INGEST_RESPONSE));

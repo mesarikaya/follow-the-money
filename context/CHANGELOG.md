@@ -14,6 +14,28 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 
 ---
 
+## 2026-06-14 (session 30 — CI E2E fix + test isolation + FRED data restore)
+
+- `RESOLVED` E2E CI test failures: 11 tests failing on CI because `BACKEND_URL` is server-side only
+  - Client components (alerts page, ticker-mappings) use `fetchAlertRules()` etc. from the browser
+  - Browser can't see `BACKEND_URL`; falls back to `localhost:8080` (no server on CI)
+  - Fix: added `NEXT_PUBLIC_BACKEND_URL=http://127.0.0.1:9999` to `playwright.config.ci.ts`
+  - Also updated `activeCount: 7 → 8` in `ALERTS_RESPONSE` to match 8 ACTIVE alerts
+
+- `RESOLVED` Test isolation: integration tests wiping production database when run with `-Plocal-pg`
+  - Root cause: `MacroIndicatorRepositoryIT`, `TickerMappingRepositoryIT` etc. have `TRUNCATE` in `@BeforeEach`
+  - With `-Plocal-pg`, Surefire connects to `localhost:5432/ftm` (production) — tests destroy real data
+  - Fix: created `ftm_test` database; pom.xml now migrates `ftm_test` before test phase
+  - Surefire now uses `jdbc:postgresql://localhost:5432/ftm_test` (isolated test DB)
+  - pom.xml also activates Spring `local` profile for `spring-boot:run` so `application-local.yml` loads
+
+- `RESOLVED` FRED macro data restoration
+  - `macro_indicators` had 1 corrupted test row (DGS10=5026.44 from 2024-01-02 — Instancio random value)
+  - Backend needed restart with `local` profile so FRED key is available
+  - User needs to: restart backend with `-Plocal-pg` then trigger ingestion
+
+---
+
 ## 2026-06-14 (session 29 — V63 theme_peer_divergence alert rule + Docker fix)
 
 - `NEW` V63: `theme_peer_divergence` alert rule

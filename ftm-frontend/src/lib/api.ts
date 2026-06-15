@@ -480,6 +480,7 @@ export type SignalWinRateDto = {
   signalCount: number;
   winRate: number | null;
   avgReturn30d: number | null;
+  avgReturn90d: number | null;
 };
 
 export const fetchSubSectors = (parent = "TECH") =>

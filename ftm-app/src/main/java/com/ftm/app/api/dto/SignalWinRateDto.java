@@ -12,4 +12,9 @@ public record SignalWinRateDto(
     @Schema(
             description =
                 "Average 30-day forward return across all BUY signals in the window (e.g. 0.045 = +4.5%)")
-        BigDecimal avgReturn30d) {}
+        BigDecimal avgReturn30d,
+    @Schema(
+            description =
+                "Average 90-day forward return across BUY signals that have at least 90 days of"
+                    + " history. Null when no signal is old enough.")
+        BigDecimal avgReturn90d) {}

@@ -197,7 +197,7 @@ public class CategoryService {
         .map(
             r ->
                 new SignalWinRateDto(
-                    r.categoryId(), r.signalCount(), r.winRate(), r.avgReturn30d()))
+                    r.categoryId(), r.signalCount(), r.winRate(), r.avgReturn30d(), r.avgReturn90d()))
         .toList();
   }
 

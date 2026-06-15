@@ -281,6 +281,52 @@ const HOLDINGS_RESPONSE = [
     priceDate: "2026-05-15", priceSource: "YAHOO",
     marketValueEur: 891.2,
   },
+  {
+    ticker: "XLE", name: "Energy Select SPDR", categoryId: "ENRG", currency: "USD",
+    quantity: 20, avgCostLocal: 90.0, usdFxRate: 1.08,
+    marketValueUsd: 1800.0, currentPriceLocal: 90.0,
+    priceDate: "2026-05-15", priceSource: "YAHOO",
+    marketValueEur: 1666.67,
+  },
+];
+
+const PORTFOLIO_ACTIONS_RESPONSE = [
+  {
+    ticker: "XLE",
+    name: "Energy Select SPDR",
+    categoryId: "ENRG",
+    categoryName: "Energy",
+    signal: "REDUCE",
+    convictionScore: 58,
+    action: "EXIT",
+    rationale: "Energy (38.3% of portfolio) is under REDUCE signal — selling pressure and weakening relative strength; conviction: 58.",
+    portfolioPct: 38.30,
+    urgency: 1,
+  },
+  {
+    ticker: "AAPL",
+    name: "Apple Inc.",
+    categoryId: "TECH",
+    categoryName: "Information Technology",
+    signal: "BUY",
+    convictionScore: 85,
+    action: "HOLD",
+    rationale: "Information Technology has an active BUY signal (conviction: 85) — maintain or add to position.",
+    portfolioPct: 40.91,
+    urgency: 4,
+  },
+  {
+    ticker: "XLK",
+    name: "Technology Select SPDR",
+    categoryId: "TECH",
+    categoryName: "Information Technology",
+    signal: "BUY",
+    convictionScore: 85,
+    action: "HOLD",
+    rationale: "Information Technology has an active BUY signal (conviction: 85) — maintain or add to position.",
+    portfolioPct: 20.45,
+    urgency: 4,
+  },
 ];
 
 const ALERTS_RESPONSE = {
@@ -817,6 +863,9 @@ const server = http.createServer(async (req, res) => {
   } else if (path === "/api/v1/portfolio" && req.method === "PUT") {
     res.writeHead(200);
     res.end(JSON.stringify(PORTFOLIO_RESPONSE));
+  } else if (path === "/api/v1/portfolio/actions" && req.method === "GET") {
+    res.writeHead(200);
+    res.end(JSON.stringify(PORTFOLIO_ACTIONS_RESPONSE));
   } else if (path === "/api/v1/portfolio/holdings" && req.method === "GET") {
     res.writeHead(200);
     res.end(JSON.stringify(HOLDINGS_RESPONSE));

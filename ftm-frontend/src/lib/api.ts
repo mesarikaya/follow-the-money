@@ -686,7 +686,7 @@ export type HoldingActionDto = {
   convictionScore: number | null;
   action: "EXIT" | "TRIM" | "WATCH" | "HOLD" | "UNCLASSIFIED";
   rationale: string;
-  portfolioPct: number;
+  portfolioPct: number | null;
   urgency: number;
 };
 

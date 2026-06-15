@@ -934,3 +934,24 @@ test.describe("Dashboard — Signal Streak Leaderboard (EP-054)", () => {
     await expect(panel.getByText(/-5d/)).toBeVisible();
   });
 });
+
+test.describe("Portfolio page — Recommended Actions panel", () => {
+  test("shows Recommended Actions section header", async ({ page }) => {
+    await page.goto("/portfolio");
+    await expect(page.getByText("Recommended Actions")).toBeVisible();
+  });
+
+  test("shows EXIT action for ENRG holding with REDUCE signal", async ({ page }) => {
+    await page.goto("/portfolio");
+    // XLE ticker has ENRG category with REDUCE signal → EXIT (over 5% threshold)
+    const exitBadge = page.getByText("EXIT").first();
+    await expect(exitBadge).toBeVisible();
+  });
+
+  test("shows HOLD action for TECH holdings with BUY signal", async ({ page }) => {
+    await page.goto("/portfolio");
+    // AAPL and XLK are TECH with BUY → HOLD
+    const holdBadges = page.getByText("HOLD");
+    await expect(holdBadges.first()).toBeVisible();
+  });
+});

@@ -3,6 +3,8 @@ import { ApproachingSignalDto, CategorySummary, PriceLevelDto, SignalTransitionD
 export type Urgency = "NOW" | "THIS WEEK" | "MONITOR";
 export type ActionVerb = "ENTRY" | "ADD" | "TRIM" | "AVOID" | "WATCH";
 
+export type ConvictionTier = "HIGH" | "MEDIUM" | "LOW";
+
 export type PriorityAction = {
   rank: number;
   verb: ActionVerb;
@@ -15,6 +17,8 @@ export type PriorityAction = {
   winRatePct: number | null;
   priceContext: string | null;
   riskNote: string | null;
+  conviction: ConvictionTier;
+  sizingHint: string;
 };
 
 const VERB_PRIORITY: Record<ActionVerb, number> = {
@@ -42,6 +46,43 @@ function buildPriceContext(pl: PriceLevelDto | undefined): string | null {
     parts.push(`${dd.toFixed(1)}% off high`);
   }
   return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+function computeConviction(
+  verb: ActionVerb,
+  cat: CategorySummary | undefined,
+  winRatePct: number | null,
+): { conviction: ConvictionTier; sizingHint: string } {
+  const pct = cat?.scorePercentile252d ?? null;
+  const macroFit = cat?.macroFit ?? null;
+  const improvingQuadrant = cat?.rrgQuadrant === "3" || cat?.rrgQuadrant === "4";
+
+  if (verb === "ENTRY" || verb === "ADD") {
+    const highScorePct = pct != null && pct > 0.75;
+    const strongMacro = macroFit != null && macroFit > 0.6;
+    const goodWinRate = winRatePct != null && winRatePct >= 60;
+    if ((highScorePct || strongMacro) && improvingQuadrant && goodWinRate) {
+      return { conviction: "HIGH", sizingHint: "Full position (4–6%)" };
+    }
+    if (pct != null && pct > 0.50 || strongMacro) {
+      return { conviction: "MEDIUM", sizingHint: "Half position (2–3%)" };
+    }
+    return { conviction: "LOW", sizingHint: "Starter (1–2%), add on confirmation" };
+  }
+
+  if (verb === "TRIM" || verb === "AVOID") {
+    const lowPct = pct != null && pct < 0.25;
+    const weakMacro = macroFit != null && macroFit < 0.40;
+    if (lowPct && weakMacro) {
+      return { conviction: "HIGH", sizingHint: "Exit position fully" };
+    }
+    if (lowPct || weakMacro) {
+      return { conviction: "MEDIUM", sizingHint: "Trim to half position" };
+    }
+    return { conviction: "LOW", sizingHint: "Trim 25% — monitor for confirmation" };
+  }
+
+  return { conviction: "LOW", sizingHint: "No action yet — set alert" };
 }
 
 function buildRiskNote(
@@ -95,11 +136,14 @@ export function derivePriorityActions(
   const priceCtx = (id: string) => buildPriceContext(priceLevelByCategory[id]);
   const risk = (verb: ActionVerb, id: string) =>
     buildRiskNote(verb, priceLevelByCategory[id], catById[id]);
+  const conv = (verb: ActionVerb, id: string, wp: number | null) =>
+    computeConviction(verb, catById[id], wp);
 
   // 1 — HIGH confidence approaching BUY (≤7d) — entry window is open NOW
   for (const s of approachingSignals) {
     if (s.confidence === "HIGH" && s.projectedSignal === "BUY") {
       seen.add(s.categoryId);
+      const wp = winPct(s.categoryId);
       candidates.push({
         verb: "ENTRY",
         etfTicker: s.etfTicker,
@@ -108,9 +152,10 @@ export function derivePriorityActions(
         signal: s.currentSignal,
         rationale: `BUY threshold in ${s.estimatedDays}d at current momentum (+${(s.dailyVelocity * 100).toFixed(2)}pt/day)`,
         urgency: "NOW",
-        winRatePct: winPct(s.categoryId),
+        winRatePct: wp,
         priceContext: priceCtx(s.categoryId),
         riskNote: risk("ENTRY", s.categoryId),
+        ...conv("ENTRY", s.categoryId, wp),
       });
     }
   }
@@ -135,6 +180,7 @@ export function derivePriorityActions(
         winRatePct: null,
         priceContext: priceCtx(cat.id),
         riskNote: risk("TRIM", cat.id),
+        ...conv("TRIM", cat.id, null),
       });
     }
   }
@@ -144,18 +190,20 @@ export function derivePriorityActions(
     if (seen.has(t.categoryId)) continue;
     if (t.currentSignal === "BUY" && t.daysAgo <= 3) {
       seen.add(t.categoryId);
-      const conviction = t.convictionScore ? ` (conviction ${Math.round(t.convictionScore * 100)}%)` : "";
+      const wp = winPct(t.categoryId);
+      const cvNote = t.convictionScore ? ` (conviction ${Math.round(t.convictionScore * 100)}%)` : "";
       candidates.push({
         verb: "ADD",
         etfTicker: t.etfTicker,
         categoryName: t.categoryName,
         categoryId: t.categoryId,
         signal: "BUY",
-        rationale: `Fresh BUY signal ${t.daysAgo === 0 ? "today" : `${t.daysAgo}d ago`}${conviction} — score ${Math.round(t.currentScore * 100)}`,
+        rationale: `Fresh BUY signal ${t.daysAgo === 0 ? "today" : `${t.daysAgo}d ago`}${cvNote} — score ${Math.round(t.currentScore * 100)}`,
         urgency: "THIS WEEK",
-        winRatePct: winPct(t.categoryId),
+        winRatePct: wp,
         priceContext: priceCtx(t.categoryId),
         riskNote: risk("ADD", t.categoryId),
+        ...conv("ADD", t.categoryId, wp),
       });
     }
   }
@@ -176,6 +224,7 @@ export function derivePriorityActions(
         winRatePct: null,
         priceContext: priceCtx(t.categoryId),
         riskNote: risk("AVOID", t.categoryId),
+        ...conv("AVOID", t.categoryId, null),
       });
     }
   }
@@ -189,6 +238,7 @@ export function derivePriorityActions(
       (cat.compositeTrend5d ?? 0) > 0.005
     ) {
       seen.add(cat.id);
+      const wp = winPct(cat.id);
       candidates.push({
         verb: "ADD",
         etfTicker: cat.etfTicker,
@@ -197,9 +247,10 @@ export function derivePriorityActions(
         signal: "BUY",
         rationale: `BUY + Leading quadrant + positive 5d momentum — institutional accumulation pattern`,
         urgency: "THIS WEEK",
-        winRatePct: winPct(cat.id),
+        winRatePct: wp,
         priceContext: priceCtx(cat.id),
         riskNote: risk("ADD", cat.id),
+        ...conv("ADD", cat.id, wp),
       });
     }
   }
@@ -209,6 +260,7 @@ export function derivePriorityActions(
     if (seen.has(s.categoryId)) continue;
     if (s.confidence === "MEDIUM" && s.projectedSignal === "BUY") {
       seen.add(s.categoryId);
+      const wp = winPct(s.categoryId);
       candidates.push({
         verb: "WATCH",
         etfTicker: s.etfTicker,
@@ -217,9 +269,10 @@ export function derivePriorityActions(
         signal: s.currentSignal,
         rationale: `BUY threshold in ~${s.estimatedDays}d at current pace — set price alert for entry`,
         urgency: "MONITOR",
-        winRatePct: winPct(s.categoryId),
+        winRatePct: wp,
         priceContext: priceCtx(s.categoryId),
         riskNote: risk("WATCH", s.categoryId),
+        ...conv("WATCH", s.categoryId, wp),
       });
     }
   }

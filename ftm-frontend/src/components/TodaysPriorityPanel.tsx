@@ -1,4 +1,4 @@
-import { PriorityAction, ActionVerb, Urgency } from "@/lib/prioritySynthesizer";
+import { PriorityAction, ActionVerb, Urgency, ConvictionTier } from "@/lib/prioritySynthesizer";
 
 const VERB_CONFIG: Record<ActionVerb, { label: string; cls: string }> = {
   ENTRY: { label: "ENTRY",  cls: "bg-emerald-500/25 text-emerald-200 border-emerald-500/40" },
@@ -6,6 +6,12 @@ const VERB_CONFIG: Record<ActionVerb, { label: string; cls: string }> = {
   WATCH: { label: "WATCH",  cls: "bg-cyan-500/15 text-cyan-300 border-cyan-600/30"          },
   TRIM:  { label: "TRIM",   cls: "bg-amber-500/20 text-amber-300 border-amber-600/30"       },
   AVOID: { label: "AVOID",  cls: "bg-red-500/20 text-red-300 border-red-600/30"             },
+};
+
+const CONVICTION_CONFIG: Record<ConvictionTier, { cls: string }> = {
+  HIGH:   { cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  MEDIUM: { cls: "bg-amber-500/15 text-amber-400 border-amber-500/30"       },
+  LOW:    { cls: "bg-slate-700/40 text-slate-500 border-slate-600/30"       },
 };
 
 const URGENCY_CONFIG: Record<Urgency, { label: string; dotCls: string }> = {
@@ -113,21 +119,26 @@ function PriorityRow({ action, scores }: RowProps) {
         </div>
       </div>
 
-      {/* Price context + risk note (secondary row) */}
-      {(action.priceContext || action.riskNote) && (
-        <div className="ml-8 mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-          {action.priceContext && (
-            <span className="text-[9px] text-slate-600 font-mono bg-slate-800/40 px-1.5 py-0.5 rounded">
-              📍 {action.priceContext}
-            </span>
-          )}
-          {action.riskNote && (
-            <span className="text-[9px] text-amber-700/80 italic">
-              ⚠ {action.riskNote}
-            </span>
-          )}
-        </div>
-      )}
+      {/* Conviction tier + sizing hint + price context + risk note (secondary row) */}
+      <div className="ml-8 mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span
+          className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${CONVICTION_CONFIG[action.conviction].cls}`}
+          title="Signal conviction: HIGH = all factors align (score percentile + macro + quadrant + win rate)"
+        >
+          {action.conviction}
+        </span>
+        <span className="text-[9px] text-slate-500">{action.sizingHint}</span>
+        {action.priceContext && (
+          <span className="text-[9px] text-slate-600 font-mono bg-slate-800/40 px-1.5 py-0.5 rounded">
+            📍 {action.priceContext}
+          </span>
+        )}
+        {action.riskNote && (
+          <span className="text-[9px] text-amber-700/80 italic">
+            ⚠ {action.riskNote}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

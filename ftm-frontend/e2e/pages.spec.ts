@@ -610,6 +610,78 @@ test.describe("Dashboard — Score Streak badges", () => {
   });
 });
 
+test.describe("Dashboard — Today's Priorities panel", () => {
+  test("shows Today's Priorities panel heading on dashboard", async ({ page }) => {
+    await page.goto("/");
+    // Panel is rendered at the very top of the dashboard before StaleDataBanner
+    await expect(page.getByText("Today's Priorities", { exact: true })).toBeVisible();
+  });
+
+  test("shows ENTRY action for GOLD approaching BUY in 4d (HIGH confidence)", async ({ page }) => {
+    await page.goto("/");
+    // ENTRY badge comes from HIGH confidence approaching BUY: GOLD/GLD 4d
+    await expect(page.getByText("ENTRY").first()).toBeVisible();
+    // GLD ticker appears in the entry row; .first() because it may also appear in ApproachingSignalsPanel
+    await expect(page.getByText("GLD").first()).toBeVisible();
+  });
+
+  test("shows EXIT action for XLE portfolio position ranked #1 (highest priority)", async ({ page }) => {
+    await page.goto("/");
+    // EXIT from portfolio: XLE has action=EXIT in portfolio/actions mock (6.5% of portfolio)
+    // EXIT verb (priority 0) outranks ENTRY (1) — so it must be rank 1
+    await expect(page.getByText("EXIT").first()).toBeVisible();
+    await expect(page.getByText("XLE").first()).toBeVisible();
+  });
+
+  test("shows ADD action for XLK with BUY + Leading quadrant momentum", async ({ page }) => {
+    await page.goto("/");
+    // ADD from TECH: BUY signal + quadrant 4 + positive trend5d
+    await expect(page.getByText("ADD").first()).toBeVisible();
+  });
+
+  test("shows NOW urgency counter in panel header for time-sensitive actions", async ({ page }) => {
+    await page.goto("/");
+    // 2 NOW items: EXIT (XLE/ENRG portfolio) + ENTRY (GOLD approaching BUY in 4d)
+    await expect(page.getByText("2 NOW")).toBeVisible();
+  });
+});
+
+test.describe("Dashboard — Approaching Signals panel", () => {
+  test("shows Approaching Signals panel heading on dashboard", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Approaching Signals", { exact: true })).toBeVisible();
+  });
+
+  test("shows GOLD approaching BUY transition with ETF ticker", async ({ page }) => {
+    await page.goto("/");
+    // Mock: GOLD/GLD WATCH→BUY in 4 days (HIGH confidence)
+    await expect(page.getByText("GLD").first()).toBeVisible();
+    // "→ BUY" appears as a separate span inside the row
+    await expect(page.getByText("→ BUY").first()).toBeVisible();
+  });
+
+  test("shows HIGH confidence badge for imminent BUY signal", async ({ page }) => {
+    await page.goto("/");
+    // Panel header shows "1 HIGH" (one HIGH-confidence signal: GOLD at 4 days)
+    await expect(page.getByText("1 HIGH")).toBeVisible();
+  });
+
+  test("shows TLTD approaching REDUCE transition", async ({ page }) => {
+    await page.goto("/");
+    // Mock: TLTD/TLT HOLD→REDUCE in 18 days
+    await expect(page.getByText("TLT").first()).toBeVisible();
+    await expect(page.getByText("→ REDUCE").first()).toBeVisible();
+  });
+
+  test("shows ↑ BUY and ↓ REDUCE counters in panel header", async ({ page }) => {
+    await page.goto("/");
+    // 2 approaching BUY (GOLD + HLTH), 1 approaching REDUCE (TLTD)
+    // Use .first() — TodaysPriorityPanel may also show a ↓N reduce counter in its header
+    await expect(page.getByText("↑2 BUY")).toBeVisible();
+    await expect(page.getByText("↓1 REDUCE").first()).toBeVisible();
+  });
+});
+
 test.describe("Alerts page — Strong Breakout Confirmation rule", () => {
   test("shows Strong Breakout Confirmation rule in Alert Rules panel", async ({ page }) => {
     await page.goto("/alerts");

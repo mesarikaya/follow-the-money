@@ -693,3 +693,27 @@ test.describe("Portfolio page — Radar, trend arrows, concentration risk", () =
     await expect(page.getByText("↑").first()).toBeVisible();
   });
 });
+
+test.describe("Dashboard — Win Rate badges", () => {
+  test("shows WR sort header in CategoryTable", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("WR").first()).toBeVisible();
+  });
+
+  test("shows win rate badges for categories with signal history", async ({ page }) => {
+    await page.goto("/");
+    // Mock provides TECH (74% WR) and HLTH (68% WR) — both have signalCount >= 3
+    const badges = page.getByTestId("win-rate-badge");
+    await expect(badges.first()).toBeVisible();
+    const count = await badges.count();
+    expect(count).toBeGreaterThanOrEqual(2);
+  });
+
+  test("win rate badge shows percentage and avg return", async ({ page }) => {
+    await page.goto("/");
+    // TECH: 74% WR, +3.8% avg return
+    await expect(page.getByTestId("win-rate-badge").first()).toBeVisible();
+    await expect(page.getByText(/74% WR/).first()).toBeVisible();
+    await expect(page.getByText(/\+3\.8%/).first()).toBeVisible();
+  });
+});

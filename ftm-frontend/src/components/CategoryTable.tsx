@@ -2,7 +2,7 @@
 
 import { Fragment, useState } from "react";
 import Link from "next/link";
-import { CategorySummary, PriceLevelDto, SubSectorSummary } from "@/lib/api";
+import { CategorySummary, PriceLevelDto, SignalWinRateDto, SubSectorSummary } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 import Sparkline from "@/components/Sparkline";
@@ -441,7 +441,7 @@ function TopSubChip({ sub, allSubs }: { sub: SubSectorSummary; allSubs?: SubSect
   );
 }
 
-type SortKey = "default" | "score" | "rs" | "signal" | "close" | "macroFit" | "conviction";
+type SortKey = "default" | "score" | "rs" | "signal" | "close" | "macroFit" | "conviction" | "winrate";
 type SortDir = "asc" | "desc";
 
 const SIGNAL_ORDER: Record<string, number> = { BUY: 0, WATCH: 1, HOLD: 2, REDUCE: 3 };
@@ -451,6 +451,7 @@ function sortCategories(
   key: SortKey,
   dir: SortDir,
   deriveSignal: (c: CategorySummary) => TradeSignal | null,
+  winRates: Record<string, SignalWinRateDto> = {},
 ): CategorySummary[] {
   if (key === "default") return cats;
   return [...cats].sort((a, b) => {
@@ -477,6 +478,9 @@ function sortCategories(
       case "conviction":
         delta = (a.convictionScore ?? -1) - (b.convictionScore ?? -1);
         break;
+      case "winrate":
+        delta = (winRates[a.id]?.winRate ?? -1) - (winRates[b.id]?.winRate ?? -1);
+        break;
     }
     return dir === "desc" ? -delta : delta;
   });
@@ -494,6 +498,7 @@ export default function CategoryTable({
   topSubSectors = {},
   allSubSectorsByParent = {},
   priceLevels = {},
+  winRates = {},
 }: {
   categories: CategorySummary[];
   timeframe?: string;
@@ -501,6 +506,7 @@ export default function CategoryTable({
   topSubSectors?: Record<string, SubSectorSummary>;
   allSubSectorsByParent?: Record<string, SubSectorSummary[]>;
   priceLevels?: Record<string, PriceLevelDto>;
+  winRates?: Record<string, SignalWinRateDto>;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("default");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -511,7 +517,7 @@ export default function CategoryTable({
 
   const getSignal = (c: CategorySummary) => (c.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(c);
   const isSorted = sortKey !== "default";
-  const sorted = sortCategories(categories, sortKey, sortDir, getSignal);
+  const sorted = sortCategories(categories, sortKey, sortDir, getSignal, winRates);
 
   // RS percentile rank: rank each top-level equity sector among its 11 GICS peers
   const equityPeers = sorted.filter(c => SECTOR_DRILLDOWN_IDS.has(c.id) && c.rs60 != null);
@@ -595,6 +601,15 @@ export default function CategoryTable({
               >
                 C
                 <SortIcon active={sortKey === "conviction"} dir={sortDir} />
+              </span>
+              <span className="text-slate-700 mx-1">/</span>
+              <span
+                className="inline-flex items-center gap-1 cursor-pointer hover:text-slate-200 transition-colors"
+                onClick={() => handleSort("winrate")}
+                title="Sort by historical BUY signal win rate (% of BUY signals that returned positively over 30 days)"
+              >
+                WR
+                <SortIcon active={sortKey === "winrate"} dir={sortDir} />
               </span>
             </th>
           </tr>
@@ -758,6 +773,28 @@ export default function CategoryTable({
                         <span className="text-slate-600 text-xs">—</span>
                       )}
                       <TradeSignalBadge cat={cat} />
+                      {(() => {
+                        const wr = winRates[cat.id];
+                        if (!wr || wr.winRate == null || wr.signalCount < 3) return null;
+                        const wrPct = Math.round(wr.winRate * 100);
+                        const wrColor = wrPct >= 65 ? "text-emerald-400" : wrPct >= 50 ? "text-amber-400" : "text-slate-500";
+                        return (
+                          <div
+                            className="flex flex-col items-center gap-0"
+                            data-testid="win-rate-badge"
+                            title={`Historical win rate: ${wrPct}% of ${wr.signalCount} BUY signals produced positive returns over 30 days${wr.avgReturn30d != null ? `. Avg 30d return: ${wr.avgReturn30d > 0 ? "+" : ""}${(wr.avgReturn30d * 100).toFixed(1)}%` : ""}`}
+                          >
+                            <span className={`text-[8px] tabular-nums font-mono ${wrColor}`}>
+                              {wrPct}% WR
+                            </span>
+                            {wr.avgReturn30d != null && (
+                              <span className={`text-[8px] tabular-nums font-mono ${wr.avgReturn30d > 0 ? "text-emerald-500/70" : "text-red-500/70"}`}>
+                                {wr.avgReturn30d > 0 ? "+" : ""}{(wr.avgReturn30d * 100).toFixed(1)}%
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </td>
                 </tr>
@@ -776,7 +813,7 @@ export default function CategoryTable({
           </span>
         ))}
         <span className="ml-auto text-[10px]" title="Click any column header to sort. Click again to reverse. Click a third time to reset.">
-          Click headers to sort · S/R/T = BUY conditions met · ⇅ = sortable
+          Click headers to sort · S/R/T = BUY conditions · WR = 30d win rate · ⇅ = sortable
         </span>
       </div>
     </div>

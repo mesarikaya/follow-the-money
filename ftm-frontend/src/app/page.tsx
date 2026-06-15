@@ -206,7 +206,7 @@ export default async function Home({ searchParams }: Props) {
             </span>
           </h2>
           {categories.length > 0 ? (
-            <CategoryTable categories={categories} timeframe={timeframe} scoreHistory={scoreHistory} topSubSectors={topSubSectorByParent} allSubSectorsByParent={allSubSectorsByParent} priceLevels={priceLevelByCategory} />
+            <CategoryTable categories={categories} timeframe={timeframe} scoreHistory={scoreHistory} topSubSectors={topSubSectorByParent} allSubSectorsByParent={allSubSectorsByParent} priceLevels={priceLevelByCategory} winRates={winRateByCategory} />
           ) : (
             <div className="text-slate-500 text-sm py-8 text-center">
               No categories loaded.

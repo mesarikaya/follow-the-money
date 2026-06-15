@@ -31,6 +31,7 @@ import ApproachingSignalsPanel from "@/components/ApproachingSignalsPanel";
 import TodaysPriorityPanel from "@/components/TodaysPriorityPanel";
 import DailySignalDiff from "@/components/DailySignalDiff";
 import { derivePriorityActions } from "@/lib/prioritySynthesizer";
+import SignalStreakPanel from "@/components/SignalStreakPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -162,6 +163,8 @@ export default async function Home({ searchParams }: Props) {
         {categories.length > 0 && <PortfolioGapAlert categories={categories} />}
 
         {categories.length > 0 && <ScoreMoversPanel categories={categories} />}
+
+        {categories.length > 0 && <SignalStreakPanel categories={categories} />}
 
         <SignalTransitionsPanel transitions={signalTransitions} days={7} />
 

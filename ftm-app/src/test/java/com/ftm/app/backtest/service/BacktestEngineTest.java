@@ -19,7 +19,7 @@ class BacktestEngineTest {
 
   @BeforeEach
   void setUp() {
-    engine = new BacktestEngine(mock(SignalRepository.class), mock(DSLContext.class));
+    engine = new BacktestEngine(mock(SignalRepository.class), mock(DSLContext.class), new AllocationComputer());
   }
 
   // ── computeSortinoRatio ──────────────────────────────────────────────────────

@@ -3,10 +3,13 @@ package com.ftm.app.api.controller;
 import static org.instancio.Select.field;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -14,13 +17,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.ftm.app.api.dto.CreateHoldingRequest;
 import com.ftm.app.api.dto.HoldingDto;
 import com.ftm.app.api.dto.HoldingUpdateRequest;
 import com.ftm.app.api.dto.HoldingsUploadResponse;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
+import com.ftm.app.portfolio.domain.PortfolioValueSnapshot;
 import com.ftm.app.portfolio.service.HoldingUploadService;
 import com.ftm.app.portfolio.service.PortfolioSnapshotService;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.NoSuchElementException;
 import org.instancio.Instancio;
@@ -134,5 +140,96 @@ class HoldingControllerTest {
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isNotFound());
+  }
+
+  @Test
+  @DisplayName("POST /portfolio/holdings creates a holding and returns 200 with the new holding")
+  void shouldCreateHoldingAndReturn200() throws Exception {
+    CreateHoldingRequest request =
+        new CreateHoldingRequest("AAPL", "Apple Inc.", "TECH", "USD", new BigDecimal("5"), null);
+    HoldingDto created = sampleHolding("AAPL", "TECH");
+    when(holdingUploadService.createHolding(any(CreateHoldingRequest.class))).thenReturn(created);
+
+    mockMvc
+        .perform(
+            post("/portfolio/holdings")
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.ticker").value("AAPL"));
+  }
+
+  @Test
+  @DisplayName("POST /portfolio/holdings returns 422 when ticker already exists")
+  void shouldReturn422WhenHoldingAlreadyExists() throws Exception {
+    CreateHoldingRequest request =
+        new CreateHoldingRequest("XLK", "Tech ETF", "TECH", "USD", new BigDecimal("10"), null);
+    when(holdingUploadService.createHolding(any()))
+        .thenThrow(new IllegalArgumentException("Holding already exists for ticker: XLK"));
+
+    mockMvc
+        .perform(
+            post("/portfolio/holdings")
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isUnprocessableEntity());
+  }
+
+  @Test
+  @DisplayName("DELETE /portfolio/holdings/{ticker} returns 204 No Content")
+  void shouldDeleteHoldingAndReturn204() throws Exception {
+    mockMvc
+        .perform(delete("/portfolio/holdings/XLK"))
+        .andExpect(status().isNoContent());
+  }
+
+  @Test
+  @DisplayName("DELETE /portfolio/holdings/{ticker} returns 404 for unknown ticker")
+  void shouldReturn404WhenDeletingUnknownTicker() throws Exception {
+    doThrow(new NoSuchElementException("No holding found for ticker: UNKNOWN"))
+        .when(holdingUploadService)
+        .deleteHolding("UNKNOWN");
+
+    mockMvc
+        .perform(delete("/portfolio/holdings/UNKNOWN"))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  @DisplayName("POST /portfolio/holdings/refresh-prices returns 200 with updated holdings list")
+  void shouldRefreshPricesAndReturn200() throws Exception {
+    List<HoldingDto> refreshed = List.of(sampleHolding("XLK", "TECH"), sampleHolding("GLD", "GOLD"));
+    when(holdingUploadService.refreshPricesAndSyncAllocations()).thenReturn(refreshed);
+
+    mockMvc
+        .perform(post("/portfolio/holdings/refresh-prices"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(2));
+  }
+
+  @Test
+  @DisplayName("GET /portfolio/holdings/snapshots returns 200 with snapshot list using default 90-day window")
+  void shouldReturnSnapshotsWithDefaultDays() throws Exception {
+    List<PortfolioValueSnapshot> snapshots =
+        List.of(new PortfolioValueSnapshot(LocalDate.of(2026, 6, 1), new BigDecimal("10000"), new BigDecimal("9000"), 5));
+    when(portfolioSnapshotService.getRecentSnapshots(90)).thenReturn(snapshots);
+
+    mockMvc
+        .perform(get("/portfolio/holdings/snapshots"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1));
+  }
+
+  @Test
+  @DisplayName("GET /portfolio/holdings/snapshots?days=30 passes the custom day count to the service")
+  void shouldReturnSnapshotsWithCustomDays() throws Exception {
+    List<PortfolioValueSnapshot> snapshots =
+        List.of(new PortfolioValueSnapshot(LocalDate.of(2026, 6, 1), new BigDecimal("10000"), new BigDecimal("9000"), 5));
+    when(portfolioSnapshotService.getRecentSnapshots(30)).thenReturn(snapshots);
+
+    mockMvc
+        .perform(get("/portfolio/holdings/snapshots").param("days", "30"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1));
   }
 }

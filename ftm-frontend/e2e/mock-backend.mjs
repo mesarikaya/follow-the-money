@@ -748,6 +748,13 @@ const server = http.createServer(async (req, res) => {
       { categoryId: "HLTH", month: 3,  avgReturn: 0.0210, sampleCount: 4 },
       { categoryId: "ENRG", month: 6,  avgReturn: 0.0180, sampleCount: 6 },
     ]));
+  } else if (path === "/api/v1/categories/score-components") {
+    res.writeHead(200);
+    res.end(JSON.stringify({
+      TECH: { categoryId: "TECH", relativeStrength60Contribution: 0.22, relativeStrength120Contribution: 0.08, persistence20dContribution: 0.16, flow20dContribution: 0.07, momentumContribution: 0.12, macroFitContribution: 0.08, rrgContribution: 0.09, totalScore: 0.82 },
+      HLTH: { categoryId: "HLTH", relativeStrength60Contribution: 0.14, relativeStrength120Contribution: 0.05, persistence20dContribution: 0.11, flow20dContribution: 0.04, momentumContribution: 0.08, macroFitContribution: 0.05, rrgContribution: 0.03, totalScore: 0.50 },
+      ENRG: { categoryId: "ENRG", relativeStrength60Contribution: 0.06, relativeStrength120Contribution: 0.03, persistence20dContribution: 0.04, flow20dContribution: 0.02, momentumContribution: 0.03, macroFitContribution: 0.03, rrgContribution: 0.00, totalScore: 0.21 },
+    }));
   } else if (path === "/api/v1/categories/score-history") {
     const scores30 = [0.55,0.57,0.58,0.61,0.63,0.65,0.67,0.68,0.70,0.71,0.72,0.73,0.74,0.75,0.76,0.77,0.78,0.79,0.80,0.81,0.81,0.82,0.83,0.83,0.84,0.84,0.83,0.82,0.82,0.82];
     res.writeHead(200);

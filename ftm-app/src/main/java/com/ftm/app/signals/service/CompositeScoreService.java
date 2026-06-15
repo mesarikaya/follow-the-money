@@ -44,6 +44,110 @@ public class CompositeScoreService {
   private static final int WEAKENING_QUADRANT = 2;
 
   /**
+   * Per-category breakdown of each factor's contribution to the composite score.
+   *
+   * <p>Each contribution is {@code (weight × normalizedValue) / totalWeight} so all non-null
+   * contributions sum exactly to {@code totalScore}, even when some components are absent and
+   * weights are redistributed.
+   */
+  public record ScoreDecomposition(
+      BigDecimal relativeStrength60Contribution,
+      BigDecimal relativeStrength120Contribution,
+      BigDecimal persistence20dContribution,
+      BigDecimal flow20dContribution,
+      BigDecimal momentumContribution,
+      BigDecimal macroFitContribution,
+      BigDecimal rrgContribution,
+      BigDecimal totalScore) {}
+
+  /**
+   * Computes the factor-level contributions for each category.
+   *
+   * <p>Runs the same normalization as {@link #computeCompositeScores} and scales each
+   * contribution by {@code 1/totalWeight} so the 7 values sum to {@code totalScore}.
+   */
+  public Map<String, ScoreDecomposition> computeScoreDecompositions(
+      Map<String, BigDecimal> rs60ByCategoryId,
+      Map<String, BigDecimal> rs120ByCategoryId,
+      Map<String, BigDecimal> persistence20dByCategoryId,
+      Map<String, BigDecimal> flow20DayByCategoryId,
+      Map<String, BigDecimal> momentumByCategoryId,
+      Map<String, BigDecimal> macroFitByCategoryId,
+      Map<String, BigDecimal> rrgQuadrantByCategoryId) {
+
+    Set<String> allCategoryIds =
+        collectAllCategoryIds(
+            rs60ByCategoryId,
+            rs120ByCategoryId,
+            persistence20dByCategoryId,
+            flow20DayByCategoryId,
+            momentumByCategoryId,
+            macroFitByCategoryId,
+            rrgQuadrantByCategoryId);
+
+    Map<String, BigDecimal> normalizedRs60 = normalize(rs60ByCategoryId, allCategoryIds);
+    Map<String, BigDecimal> normalizedRs120 = normalize(rs120ByCategoryId, allCategoryIds);
+    Map<String, BigDecimal> normalizedPersistence20d =
+        normalize(persistence20dByCategoryId, allCategoryIds);
+    Map<String, BigDecimal> normalizedFlow20Day = normalize(flow20DayByCategoryId, allCategoryIds);
+    Map<String, BigDecimal> normalizedMomentum = normalize(momentumByCategoryId, allCategoryIds);
+    Map<String, BigDecimal> normalizedMacroFit = normalize(macroFitByCategoryId, allCategoryIds);
+    Map<String, BigDecimal> rrgScores = deriveRrgScores(rrgQuadrantByCategoryId, allCategoryIds);
+
+    Map<String, ScoreDecomposition> decompositions = new HashMap<>();
+    for (String categoryId : allCategoryIds) {
+      BigDecimal nRs60 = normalizedRs60.get(categoryId);
+      BigDecimal nRs120 = normalizedRs120.get(categoryId);
+      BigDecimal nPers20d = normalizedPersistence20d.get(categoryId);
+      BigDecimal nFlow20d = normalizedFlow20Day.get(categoryId);
+      BigDecimal nMom = normalizedMomentum.get(categoryId);
+      BigDecimal nMacroFit = normalizedMacroFit.get(categoryId);
+      BigDecimal nRrg = rrgScores.get(categoryId);
+
+      BigDecimal totalWeight = totalWeight(nRs60, nRs120, nPers20d, nFlow20d, nMom, nMacroFit, nRrg);
+      if (totalWeight.compareTo(BigDecimal.ZERO) == 0) continue;
+
+      BigDecimal totalScore =
+          computeWeightedScore(nRs60, nRs120, nPers20d, nFlow20d, nMom, nMacroFit, nRrg);
+      decompositions.put(
+          categoryId,
+          new ScoreDecomposition(
+              scaledContribution(RS_60_WEIGHT, nRs60, totalWeight),
+              scaledContribution(RS_120_WEIGHT, nRs120, totalWeight),
+              scaledContribution(PERSISTENCE_20D_WEIGHT, nPers20d, totalWeight),
+              scaledContribution(FLOW_20_DAY_WEIGHT, nFlow20d, totalWeight),
+              scaledContribution(MOMENTUM_WEIGHT, nMom, totalWeight),
+              scaledContribution(MACRO_FIT_WEIGHT, nMacroFit, totalWeight),
+              scaledContribution(RELATIVE_ROTATION_GRAPH_WEIGHT, nRrg, totalWeight),
+              totalScore));
+    }
+    return decompositions;
+  }
+
+  private BigDecimal totalWeight(BigDecimal... normalizedValues) {
+    BigDecimal[][] pairs = {
+      {RS_60_WEIGHT, normalizedValues[0]},
+      {RS_120_WEIGHT, normalizedValues[1]},
+      {PERSISTENCE_20D_WEIGHT, normalizedValues[2]},
+      {FLOW_20_DAY_WEIGHT, normalizedValues[3]},
+      {MOMENTUM_WEIGHT, normalizedValues[4]},
+      {MACRO_FIT_WEIGHT, normalizedValues[5]},
+      {RELATIVE_ROTATION_GRAPH_WEIGHT, normalizedValues[6]}
+    };
+    BigDecimal total = BigDecimal.ZERO;
+    for (BigDecimal[] pair : pairs) {
+      if (pair[1] != null) total = total.add(pair[0]);
+    }
+    return total;
+  }
+
+  private BigDecimal scaledContribution(
+      BigDecimal weight, BigDecimal normalizedValue, BigDecimal totalWeight) {
+    if (normalizedValue == null) return null;
+    return weight.multiply(normalizedValue).divide(totalWeight, 6, RoundingMode.HALF_UP);
+  }
+
+  /**
    * Computes the composite score for each category.
    *
    * @param rs60ByCategoryId raw RS_60 values per category

@@ -7,6 +7,7 @@ import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 import Sparkline from "@/components/Sparkline";
 import GlossaryTooltip from "@/components/GlossaryTooltip";
+import ScoreBreakdownBar from "@/components/ScoreBreakdownBar";
 
 const TYPE_CONFIG: Record<string, { label: string; className: string }> = {
   EQUITY_SECTOR:  { label: "Equity",         className: "bg-blue-900/50 text-blue-300 border border-blue-800/40" },
@@ -499,6 +500,7 @@ export default function CategoryTable({
   allSubSectorsByParent = {},
   priceLevels = {},
   winRates = {},
+  scoreComponents = {},
 }: {
   categories: CategorySummary[];
   timeframe?: string;
@@ -507,6 +509,7 @@ export default function CategoryTable({
   allSubSectorsByParent?: Record<string, SubSectorSummary[]>;
   priceLevels?: Record<string, PriceLevelDto>;
   winRates?: Record<string, SignalWinRateDto>;
+  scoreComponents?: Record<string, import("@/lib/api").ScoreDecompositionDto>;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("default");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -826,8 +829,13 @@ export default function CategoryTable({
                     </td>
                   )}
                   <td className="px-4 py-2.5" title={buildScoreTooltip(cat, cat.macroFit ?? null)}>
-                    <div className="flex justify-center">
+                    <div className="flex flex-col items-center gap-1">
                       <ScoreBar score={cat.compositeScore} trend5d={cat.compositeTrend5d} trend20d={cat.compositeTrend20d} macroFit={cat.macroFit ?? null} persistence5d={cat.persistence5d ?? null} persistence20d={cat.persistence20d ?? null} momentum={cat.momentum ?? null} realizedVol20d={cat.realizedVol20d ?? null} flow20d={cat.flow20d ?? null} />
+                      {scoreComponents[cat.id] && (
+                        <div className="w-full max-w-[72px]">
+                          <ScoreBreakdownBar decomposition={scoreComponents[cat.id]} />
+                        </div>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-right">

@@ -1,4 +1,4 @@
-import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, fetchWinRates, fetchPriceLevels, fetchSignalTransitions, fetchScreenerSnapshot, fetchThemes, fetchThemeHistory, fetchApproachingSignals, fetchPortfolioActions, SignalWinRateDto, PriceLevelDto, SubSectorSummary, SignalTransitionDto, ThemeSummary, ThemeHistoryPoint, ApproachingSignalDto, HoldingActionDto } from "@/lib/api";
+import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, fetchWinRates, fetchPriceLevels, fetchSignalTransitions, fetchScoreComponents, fetchScreenerSnapshot, fetchThemes, fetchThemeHistory, fetchApproachingSignals, fetchPortfolioActions, SignalWinRateDto, PriceLevelDto, SubSectorSummary, SignalTransitionDto, ScoreDecompositionDto, ThemeSummary, ThemeHistoryPoint, ApproachingSignalDto, HoldingActionDto } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import CategoryTable from "@/components/CategoryTable";
 import MacroPanel from "@/components/MacroPanel";
@@ -43,7 +43,7 @@ export default async function Home({ searchParams }: Props) {
 
   const sectorIds = Array.from(SECTOR_DRILLDOWN_IDS);
 
-  const [categoriesResult, macroResult, rotationResult, scoreHistoryResult, winRatesResult, priceLevelsResult, transitionsResult, ...subSectorResults] =
+  const [categoriesResult, macroResult, rotationResult, scoreHistoryResult, winRatesResult, priceLevelsResult, transitionsResult, scoreComponentsResult, ...subSectorResults] =
     await Promise.allSettled([
       fetchCategories(timeframe),
       fetchMacro(),
@@ -52,8 +52,12 @@ export default async function Home({ searchParams }: Props) {
       fetchWinRates(365),
       fetchPriceLevels(),
       fetchSignalTransitions(7),
+      fetchScoreComponents(),
       ...sectorIds.map((id) => fetchSubSectors(id)),
     ]);
+
+  const scoreComponentsByCategory: Record<string, ScoreDecompositionDto> =
+    scoreComponentsResult.status === "fulfilled" ? scoreComponentsResult.value : {};
 
   const winRates: SignalWinRateDto[] =
     winRatesResult.status === "fulfilled" ? winRatesResult.value : [];
@@ -230,7 +234,7 @@ export default async function Home({ searchParams }: Props) {
             </span>
           </h2>
           {categories.length > 0 ? (
-            <CategoryTable categories={categories} timeframe={timeframe} scoreHistory={scoreHistory} topSubSectors={topSubSectorByParent} allSubSectorsByParent={allSubSectorsByParent} priceLevels={priceLevelByCategory} winRates={winRateByCategory} />
+            <CategoryTable categories={categories} timeframe={timeframe} scoreHistory={scoreHistory} topSubSectors={topSubSectorByParent} allSubSectorsByParent={allSubSectorsByParent} priceLevels={priceLevelByCategory} winRates={winRateByCategory} scoreComponents={scoreComponentsByCategory} />
           ) : (
             <div className="text-slate-500 text-sm py-8 text-center">
               No categories loaded.

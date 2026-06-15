@@ -226,6 +226,94 @@ class CompositeScoreServiceTest {
   }
 
   @Nested
+  @DisplayName("computeScoreDecompositions")
+  class ComputeScoreDecompositions {
+
+    @Test
+    @DisplayName("returns empty map when all inputs are empty")
+    void returnsEmptyMapForEmptyInputs() {
+      var result =
+          service.computeScoreDecompositions(
+              Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
+
+      assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("all non-null contributions sum exactly to totalScore")
+    void contributionsSumToTotalScore() {
+      var rs60 = Map.of(TECH, new BigDecimal("1.10"), FINL, new BigDecimal("0.95"));
+      var rs120 = Map.of(TECH, new BigDecimal("1.05"), FINL, new BigDecimal("0.90"));
+      var pers20d = Map.of(TECH, new BigDecimal("16"), FINL, new BigDecimal("8"));
+      var flow20d = Map.of(TECH, new BigDecimal("0.60"), FINL, new BigDecimal("0.20"));
+      var mom = Map.of(TECH, new BigDecimal("0.08"), FINL, new BigDecimal("0.02"));
+      var macroFit = Map.of(TECH, new BigDecimal("0.70"), FINL, new BigDecimal("0.40"));
+      var rrgQuad = Map.of(TECH, new BigDecimal("4"), FINL, new BigDecimal("2"));
+
+      var decompositions =
+          service.computeScoreDecompositions(rs60, rs120, pers20d, flow20d, mom, macroFit, rrgQuad);
+
+      for (var entry : decompositions.entrySet()) {
+        var d = entry.getValue();
+        BigDecimal contributionSum =
+            java.util.stream.Stream.of(
+                    d.relativeStrength60Contribution(),
+                    d.relativeStrength120Contribution(),
+                    d.persistence20dContribution(),
+                    d.flow20dContribution(),
+                    d.momentumContribution(),
+                    d.macroFitContribution(),
+                    d.rrgContribution())
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(contributionSum)
+            .as("contributions should sum to totalScore for category %s", entry.getKey())
+            .isEqualByComparingTo(d.totalScore());
+      }
+    }
+
+    @Test
+    @DisplayName("totalScore in decomposition matches computeCompositeScores")
+    void totalScoreMatchesCompositeScores() {
+      var rs60 = Map.of(TECH, new BigDecimal("1.10"), FINL, new BigDecimal("0.90"));
+      var pers20d = Map.of(TECH, new BigDecimal("15"), FINL, new BigDecimal("5"));
+      var macroFit = Map.of(TECH, new BigDecimal("0.75"), FINL, new BigDecimal("0.45"));
+      var rrgQuad = Map.of(TECH, new BigDecimal("4"), FINL, new BigDecimal("1"));
+
+      var compositeScores =
+          service.computeCompositeScores(
+              rs60, Map.of(), pers20d, Map.of(), Map.of(), macroFit, rrgQuad);
+      var decompositions =
+          service.computeScoreDecompositions(
+              rs60, Map.of(), pers20d, Map.of(), Map.of(), macroFit, rrgQuad);
+
+      for (String categoryId : compositeScores.keySet()) {
+        assertThat(decompositions.get(categoryId).totalScore())
+            .as("totalScore in decomposition should match computeCompositeScores for %s", categoryId)
+            .isEqualByComparingTo(compositeScores.get(categoryId));
+      }
+    }
+
+    @Test
+    @DisplayName("absent signal component yields null contribution for that factor")
+    void absentSignalYieldsNullContribution() {
+      // Only RS-60 and RRG provided; Flow-20D absent
+      var rs60 = Map.of(TECH, new BigDecimal("1.05"));
+      var rrgQuad = Map.of(TECH, new BigDecimal("4"));
+
+      var result =
+          service.computeScoreDecompositions(
+              rs60, Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), rrgQuad);
+
+      var decomposition = result.get(TECH);
+      assertThat(decomposition).isNotNull();
+      assertThat(decomposition.flow20dContribution()).isNull();
+      assertThat(decomposition.relativeStrength60Contribution()).isNotNull();
+      assertThat(decomposition.rrgContribution()).isNotNull();
+    }
+  }
+
+  @Nested
   @DisplayName("RRG score mapping")
   class RrgScoreMapping {
 

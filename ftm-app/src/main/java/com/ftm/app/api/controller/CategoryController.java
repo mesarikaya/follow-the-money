@@ -2,11 +2,13 @@ package com.ftm.app.api.controller;
 
 import com.ftm.app.api.dto.CategoriesResponse;
 import com.ftm.app.api.dto.PriceLevelDto;
+import com.ftm.app.api.dto.ScoreDecompositionDto;
 import com.ftm.app.api.dto.ScreenerSnapshotDto;
 import com.ftm.app.api.dto.SeasonalReturnDto;
 import com.ftm.app.api.dto.SignalTransitionDto;
 import com.ftm.app.api.dto.SignalWinRateDto;
 import com.ftm.app.api.service.CategoryService;
+import com.ftm.app.api.service.ScoreDecompositionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
@@ -28,9 +30,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class CategoryController {
 
   private final CategoryService categoryService;
+  private final ScoreDecompositionService scoreDecompositionService;
 
-  public CategoryController(CategoryService categoryService) {
+  public CategoryController(
+      CategoryService categoryService, ScoreDecompositionService scoreDecompositionService) {
     this.categoryService = categoryService;
+    this.scoreDecompositionService = scoreDecompositionService;
   }
 
   @GetMapping
@@ -84,6 +89,18 @@ public class CategoryController {
               + "Requires at least 2 complete calendar months of data per bucket.")
   public ResponseEntity<List<SeasonalReturnDto>> getSeasonalReturns() {
     return ResponseEntity.ok(categoryService.getSeasonalReturns());
+  }
+
+  @GetMapping("/score-components")
+  @Operation(
+      summary = "Factor contributions to the composite score for all categories",
+      description =
+          "Returns the 7 weighted factor contributions (RS-60, RS-120, Persistence, Flow, "
+              + "Momentum, MacroFit, RRG) that sum to the composite score for each category. "
+              + "Contributions are scaled by the effective weight denominator so they sum to "
+              + "totalScore even when some components are unavailable.")
+  public ResponseEntity<Map<String, ScoreDecompositionDto>> getScoreComponents() {
+    return ResponseEntity.ok(scoreDecompositionService.getAllScoreDecompositions());
   }
 
   @GetMapping("/transitions")

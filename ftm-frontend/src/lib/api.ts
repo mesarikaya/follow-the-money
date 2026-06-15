@@ -520,6 +520,21 @@ export type SignalTransitionDto = {
 export const fetchSignalTransitions = (days = 7) =>
   get<SignalTransitionDto[]>(`/api/v1/categories/transitions?days=${days}`);
 
+export type ScoreDecompositionDto = {
+  categoryId: string;
+  relativeStrength60Contribution: number | null;
+  relativeStrength120Contribution: number | null;
+  persistence20dContribution: number | null;
+  flow20dContribution: number | null;
+  momentumContribution: number | null;
+  macroFitContribution: number | null;
+  rrgContribution: number | null;
+  totalScore: number | null;
+};
+
+export const fetchScoreComponents = () =>
+  get<Record<string, ScoreDecompositionDto>>("/api/v1/categories/score-components");
+
 export type ScreenerSnapshotDto = {
   buyCount: number;
   watchCount: number;

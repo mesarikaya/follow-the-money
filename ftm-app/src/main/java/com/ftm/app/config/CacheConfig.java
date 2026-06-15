@@ -104,6 +104,11 @@ public class CacheConfig {
     manager.registerCustomCache(
         "recent-alerts",
         Caffeine.newBuilder().maximumSize(1).expireAfterWrite(30, TimeUnit.MINUTES).build());
+    // Evicted on SignalsUpdatedEvent — 7-factor decomposition of composite score; no-arg (single
+    // entry)
+    manager.registerCustomCache(
+        "score-components",
+        Caffeine.newBuilder().maximumSize(1).expireAfterWrite(1, TimeUnit.HOURS).build());
     // Not evicted by events — FX rates fetched from FRED/Yahoo on every upload; 1h TTL avoids
     // repeated external calls when multiple holdings share the same currency conversion step
     manager.registerCustomCache(

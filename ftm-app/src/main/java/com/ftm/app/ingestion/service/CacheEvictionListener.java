@@ -53,6 +53,7 @@ public class CacheEvictionListener {
     evict("alerts-count");
     evict("recent-alerts");
     evict("theme-alert-history");
+    evict("score-components");
     evict("themes-latest");
     evict("theme-detail");
     evict("theme-history");

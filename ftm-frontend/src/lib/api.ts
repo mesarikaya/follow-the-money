@@ -645,3 +645,19 @@ export const fetchThemes = () => get<ThemeSummary[]>("/api/v1/themes");
 export const fetchTheme = (themeId: string) => get<ThemeDetail>(`/api/v1/themes/${themeId}`);
 export const fetchThemeHistory = (themeId: string, days = 30) =>
   get<ThemeHistoryPoint[]>(`/api/v1/themes/${themeId}/history?days=${days}`);
+
+export type ApproachingSignalDto = {
+  categoryId: string;
+  categoryName: string;
+  etfTicker: string;
+  currentSignal: string;
+  projectedSignal: string;
+  estimatedDays: number;
+  currentScore: number;
+  scoreGapToThreshold: number;
+  dailyVelocity: number;
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+};
+
+export const fetchApproachingSignals = (timeframe = "60d") =>
+  get<ApproachingSignalDto[]>(`/api/v1/categories/approaching?timeframe=${timeframe}`);

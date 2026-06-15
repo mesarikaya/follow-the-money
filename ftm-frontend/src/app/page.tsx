@@ -1,4 +1,4 @@
-import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, fetchWinRates, fetchPriceLevels, fetchSignalTransitions, fetchScreenerSnapshot, fetchThemes, fetchThemeHistory, SignalWinRateDto, PriceLevelDto, SubSectorSummary, SignalTransitionDto, ThemeSummary, ThemeHistoryPoint } from "@/lib/api";
+import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, fetchWinRates, fetchPriceLevels, fetchSignalTransitions, fetchScreenerSnapshot, fetchThemes, fetchThemeHistory, fetchApproachingSignals, SignalWinRateDto, PriceLevelDto, SubSectorSummary, SignalTransitionDto, ThemeSummary, ThemeHistoryPoint, ApproachingSignalDto } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import CategoryTable from "@/components/CategoryTable";
 import MacroPanel from "@/components/MacroPanel";
@@ -27,6 +27,7 @@ import MarketRegimeBanner from "@/components/MarketRegimeBanner";
 import SectorRotationWheel from "@/components/SectorRotationWheel";
 import ThemeSignalWidget from "@/components/ThemeSignalWidget";
 import ScreenerSnapshotBanner from "@/components/ScreenerSnapshotBanner";
+import ApproachingSignalsPanel from "@/components/ApproachingSignalsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +88,8 @@ export default async function Home({ searchParams }: Props) {
   const scoreHistory =
     scoreHistoryResult.status === "fulfilled" ? scoreHistoryResult.value : {};
 
+  const approachingSignals: ApproachingSignalDto[] = await fetchApproachingSignals().catch(() => []);
+
   const themes: ThemeSummary[] = await fetchThemes().catch(() => []);
   const themeHistoryResults = await Promise.allSettled(
     themes.map(t => fetchThemeHistory(t.id, 30))
@@ -116,6 +119,8 @@ export default async function Home({ searchParams }: Props) {
         {categories.length > 0 && <MarketRegimeBanner categories={categories} />}
 
         {categories.length > 0 && <ActionSummaryPanel categories={categories} winRateByCategory={winRateByCategory} priceLevelByCategory={priceLevelByCategory} scoreHistory={scoreHistory} />}
+
+        {approachingSignals.length > 0 && <ApproachingSignalsPanel signals={approachingSignals} />}
 
         {themes.length > 0 && (
           <ThemeSignalWidget themes={themes} historiesByThemeId={historiesByThemeId} />

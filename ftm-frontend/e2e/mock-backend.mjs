@@ -412,6 +412,45 @@ const ALERT_RULES_RESPONSE = [
   { ruleId: "theme_peer_divergence",             enabled: true, description: "≥3 theme constituents with signals and max−min spread >30 pts, avg score >0.40 — internal rotation", lookbackDays: null, threshold: 0.30, severity: "INFO" },
 ];
 
+const APPROACHING_SIGNALS_RESPONSE = [
+  {
+    categoryId: "GOLD",
+    categoryName: "Gold",
+    etfTicker: "GLD",
+    currentSignal: "WATCH",
+    projectedSignal: "BUY",
+    estimatedDays: 4,
+    currentScore: 0.61,
+    scoreGapToThreshold: 0.04,
+    dailyVelocity: 0.0100,
+    confidence: "HIGH",
+  },
+  {
+    categoryId: "HLTH",
+    categoryName: "Health Care",
+    etfTicker: "XLV",
+    currentSignal: "WATCH",
+    projectedSignal: "BUY",
+    estimatedDays: 11,
+    currentScore: 0.57,
+    scoreGapToThreshold: 0.08,
+    dailyVelocity: 0.0075,
+    confidence: "MEDIUM",
+  },
+  {
+    categoryId: "TLTD",
+    categoryName: "Long-Duration Treasuries",
+    etfTicker: "TLT",
+    currentSignal: "HOLD",
+    projectedSignal: "REDUCE",
+    estimatedDays: 18,
+    currentScore: 0.42,
+    scoreGapToThreshold: -0.07,
+    dailyVelocity: -0.0040,
+    confidence: "LOW",
+  },
+];
+
 const INGEST_RESPONSE = {
   runIds: ["00000000-0000-0000-0000-000000000001"],
   status: "queued",
@@ -643,6 +682,9 @@ const server = http.createServer(async (req, res) => {
   } else if (path === "/api/v1/categories/transitions") {
     res.writeHead(200);
     res.end(JSON.stringify(TRANSITIONS_RESPONSE));
+  } else if (path === "/api/v1/categories/approaching") {
+    res.writeHead(200);
+    res.end(JSON.stringify(APPROACHING_SIGNALS_RESPONSE));
   } else if (path === "/api/v1/macro/history") {
     const days = parseInt(url.searchParams.get("days") ?? "90", 10);
     res.writeHead(200);

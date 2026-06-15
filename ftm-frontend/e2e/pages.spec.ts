@@ -610,6 +610,41 @@ test.describe("Dashboard — Score Streak badges", () => {
   });
 });
 
+test.describe("Dashboard — Approaching Signals panel", () => {
+  test("shows Approaching Signals panel heading on dashboard", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Approaching Signals", { exact: true })).toBeVisible();
+  });
+
+  test("shows GOLD approaching BUY transition with ETF ticker", async ({ page }) => {
+    await page.goto("/");
+    // Mock: GOLD/GLD WATCH→BUY in 4 days (HIGH confidence)
+    await expect(page.getByText("GLD").first()).toBeVisible();
+    // "→ BUY" appears as a separate span inside the row
+    await expect(page.getByText("→ BUY").first()).toBeVisible();
+  });
+
+  test("shows HIGH confidence badge for imminent BUY signal", async ({ page }) => {
+    await page.goto("/");
+    // Panel header shows "1 HIGH" (one HIGH-confidence signal: GOLD at 4 days)
+    await expect(page.getByText("1 HIGH")).toBeVisible();
+  });
+
+  test("shows TLTD approaching REDUCE transition", async ({ page }) => {
+    await page.goto("/");
+    // Mock: TLTD/TLT HOLD→REDUCE in 18 days
+    await expect(page.getByText("TLT").first()).toBeVisible();
+    await expect(page.getByText("→ REDUCE").first()).toBeVisible();
+  });
+
+  test("shows ↑ BUY and ↓ REDUCE counters in panel header", async ({ page }) => {
+    await page.goto("/");
+    // 2 approaching BUY (GOLD + HLTH), 1 approaching REDUCE (TLTD)
+    await expect(page.getByText("↑2 BUY")).toBeVisible();
+    await expect(page.getByText("↓1 REDUCE")).toBeVisible();
+  });
+});
+
 test.describe("Alerts page — Strong Breakout Confirmation rule", () => {
   test("shows Strong Breakout Confirmation rule in Alert Rules panel", async ({ page }) => {
     await page.goto("/alerts");

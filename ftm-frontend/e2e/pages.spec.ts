@@ -1051,7 +1051,7 @@ test.describe("Dashboard — Theme Rotation Heatmap (EP-058)", () => {
     await page.goto("/");
     const heatmap = page.getByTestId("theme-rotation-heatmap");
     // Column headers are formatted dates — at least one month abbreviation should appear
-    await expect(heatmap.getByText(/May|Jun|Jul/)).toBeVisible();
+    await expect(heatmap.getByText(/May|Jun|Jul/).first()).toBeVisible();
   });
 
   test("shows color-coded score cells", async ({ page }) => {

@@ -652,6 +652,48 @@ test.describe("Dashboard — Alert count badges (EP-051)", () => {
   });
 });
 
+test.describe("Dashboard — Category filter (EP-050)", () => {
+  test("filter input is present on dashboard", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("category-filter")).toBeVisible();
+  });
+
+  test("typing in filter shows only matching categories", async ({ page }) => {
+    await page.goto("/");
+    const filter = page.getByTestId("category-filter");
+    await filter.fill("Health");
+    // Health Care should be visible; Information Technology should not
+    await expect(page.getByRole("cell", { name: /Health Care/ }).first()).toBeVisible();
+    await expect(page.getByRole("cell", { name: /Information Technology/ })).not.toBeVisible();
+  });
+
+  test("ticker filter shows only the matching category", async ({ page }) => {
+    await page.goto("/");
+    const filter = page.getByTestId("category-filter");
+    await filter.fill("XLK");
+    await expect(page.getByRole("cell", { name: /Information Technology/ }).first()).toBeVisible();
+    await expect(page.getByRole("cell", { name: /Health Care/ })).not.toBeVisible();
+  });
+
+  test("Escape key clears the filter", async ({ page }) => {
+    await page.goto("/");
+    const filter = page.getByTestId("category-filter");
+    await filter.fill("XLK");
+    await expect(page.getByRole("cell", { name: /Health Care/ })).not.toBeVisible();
+    await filter.press("Escape");
+    await expect(page.getByRole("cell", { name: /Health Care/ }).first()).toBeVisible();
+  });
+
+  test("/ key focuses the filter from document level", async ({ page }) => {
+    await page.goto("/");
+    // Click somewhere on the body to ensure focus is not in an input
+    await page.click("h2");
+    await page.keyboard.press("/");
+    const filter = page.getByTestId("category-filter");
+    await expect(filter).toBeFocused();
+  });
+});
+
 test.describe("Dashboard — Screener Snapshot Banner (EP-052)", () => {
   test("screener snapshot banner renders on the dashboard", async ({ page }) => {
     await page.goto("/");

@@ -73,4 +73,9 @@ public record CategorySummaryDto(
     @Schema(
             description =
                 "Parent category ID for sub-sectors (e.g. 'TECH' for 'SOFT'); null for top-level categories")
-        String parentId) {}
+        String parentId,
+    @Schema(
+            description =
+                "Consecutive trading days the composite score has moved in the same direction ending today. "
+                    + "Positive = N days up, negative = N days down, null = flat or insufficient history.")
+        Integer scoreStreakDays) {}

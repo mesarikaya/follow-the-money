@@ -1,8 +1,8 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { CategorySummary, PriceLevelDto, SubSectorSummary } from "@/lib/api";
+import { CategorySummary, PriceLevelDto, SignalWinRateDto, SubSectorSummary } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 import Sparkline from "@/components/Sparkline";
@@ -441,7 +441,7 @@ function TopSubChip({ sub, allSubs }: { sub: SubSectorSummary; allSubs?: SubSect
   );
 }
 
-type SortKey = "default" | "score" | "rs" | "signal" | "close" | "macroFit" | "conviction";
+type SortKey = "default" | "score" | "rs" | "signal" | "close" | "macroFit" | "conviction" | "winrate";
 type SortDir = "asc" | "desc";
 
 const SIGNAL_ORDER: Record<string, number> = { BUY: 0, WATCH: 1, HOLD: 2, REDUCE: 3 };
@@ -451,6 +451,7 @@ function sortCategories(
   key: SortKey,
   dir: SortDir,
   deriveSignal: (c: CategorySummary) => TradeSignal | null,
+  winRates: Record<string, SignalWinRateDto> = {},
 ): CategorySummary[] {
   if (key === "default") return cats;
   return [...cats].sort((a, b) => {
@@ -477,6 +478,9 @@ function sortCategories(
       case "conviction":
         delta = (a.convictionScore ?? -1) - (b.convictionScore ?? -1);
         break;
+      case "winrate":
+        delta = (winRates[a.id]?.winRate ?? -1) - (winRates[b.id]?.winRate ?? -1);
+        break;
     }
     return dir === "desc" ? -delta : delta;
   });
@@ -494,6 +498,7 @@ export default function CategoryTable({
   topSubSectors = {},
   allSubSectorsByParent = {},
   priceLevels = {},
+  winRates = {},
 }: {
   categories: CategorySummary[];
   timeframe?: string;
@@ -501,9 +506,24 @@ export default function CategoryTable({
   topSubSectors?: Record<string, SubSectorSummary>;
   allSubSectorsByParent?: Record<string, SubSectorSummary[]>;
   priceLevels?: Record<string, PriceLevelDto>;
+  winRates?: Record<string, SignalWinRateDto>;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("default");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [filterText, setFilterText] = useState("");
+  const filterRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+      e.preventDefault();
+      filterRef.current?.focus();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const rsLabel = RS_LABEL[timeframe] ?? "60d";
   const hasHistory = Object.keys(scoreHistory).length > 0;
@@ -511,7 +531,18 @@ export default function CategoryTable({
 
   const getSignal = (c: CategorySummary) => (c.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(c);
   const isSorted = sortKey !== "default";
-  const sorted = sortCategories(categories, sortKey, sortDir, getSignal);
+  const query = filterText.trim().toLowerCase();
+  const sorted = sortCategories(
+    query
+      ? categories.filter(c =>
+          c.name.toLowerCase().includes(query) || c.etfTicker.toLowerCase().includes(query)
+        )
+      : categories,
+    sortKey,
+    sortDir,
+    getSignal,
+    winRates,
+  );
 
   // RS percentile rank: rank each top-level equity sector among its 11 GICS peers
   const equityPeers = sorted.filter(c => SECTOR_DRILLDOWN_IDS.has(c.id) && c.rs60 != null);
@@ -528,6 +559,35 @@ export default function CategoryTable({
       setSortKey(key);
       setSortDir(key === "signal" ? "asc" : "desc");
     }
+  }
+
+  function exportToCSV() {
+    const headers = [
+      "Rank", "ETF", "Name", "Type", "Price", "Score",
+      `RS-${rsLabel}`, "MacroFit%", "RRG", "Signal", "Conviction", "DaysActive",
+    ];
+    const rows = sorted.map((cat, idx) => [
+      idx + 1,
+      cat.etfTicker,
+      `"${cat.name.replace(/"/g, '""')}"`,
+      cat.type,
+      cat.latestClose != null ? Number(cat.latestClose).toFixed(2) : "",
+      cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : "",
+      cat.rs60 != null ? (cat.rs60 * 100).toFixed(1) : "",
+      cat.macroFit != null ? Math.round(cat.macroFit * 100) : "",
+      cat.rrgQuadrant ?? "",
+      cat.tradeSignal ?? "",
+      cat.convictionScore ?? "",
+      cat.signalDaysActive ?? "",
+    ]);
+    const csv = [headers, ...rows].map(row => row.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `categories-${new Date().toISOString().split("T")[0]}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   }
 
   function SortTh({ children, sortK, className = "" }: { children: React.ReactNode; sortK: SortKey; className?: string }) {
@@ -547,17 +607,46 @@ export default function CategoryTable({
 
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-700">
-      {isSorted && (
-        <div className="px-4 py-1.5 bg-cyan-900/20 border-b border-cyan-800/30 flex items-center gap-2 text-[10px] text-cyan-400">
-          <span>Sorted by <strong>{sortKey}</strong> {sortDir === "desc" ? "(highest first)" : "(lowest first)"}</span>
-          <button
-            className="ml-auto text-slate-500 hover:text-slate-300 transition-colors"
-            onClick={() => { setSortKey("default"); setSortDir("desc"); }}
-          >
-            ✕ Reset
-          </button>
+      <div className="px-4 py-2 border-b border-slate-700/60 flex items-center gap-3 bg-slate-800/60">
+        <div className="relative flex-1 max-w-xs">
+          <input
+            ref={filterRef}
+            type="text"
+            value={filterText}
+            onChange={e => setFilterText(e.target.value)}
+            onKeyDown={e => { if (e.key === "Escape") { setFilterText(""); filterRef.current?.blur(); } }}
+            placeholder="Filter by name or ticker…"
+            data-testid="category-filter"
+            className="w-full bg-slate-900/60 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600/50 transition-colors"
+          />
+          {!filterText && (
+            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-700 font-mono">/</span>
+          )}
+          {filterText && (
+            <button
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-400 transition-colors"
+              onClick={() => { setFilterText(""); filterRef.current?.focus(); }}
+              aria-label="Clear filter"
+            >✕</button>
+          )}
         </div>
-      )}
+        {filterText && (
+          <span className="text-[10px] text-slate-500 shrink-0">
+            {sorted.length} of {categories.length}
+          </span>
+        )}
+        {isSorted && (
+          <div className="flex items-center gap-2 text-[10px] text-cyan-400 ml-auto">
+            <span>Sorted by <strong>{sortKey}</strong> {sortDir === "desc" ? "↓" : "↑"}</span>
+            <button
+              className="text-slate-500 hover:text-slate-300 transition-colors"
+              onClick={() => { setSortKey("default"); setSortDir("desc"); }}
+            >
+              ✕ Reset
+            </button>
+          </div>
+        )}
+      </div>
       <table className="w-full text-sm text-left">
         <thead>
           <tr className="border-b border-slate-700 bg-slate-800/80 text-slate-400 text-xs uppercase tracking-wider">
@@ -595,6 +684,15 @@ export default function CategoryTable({
               >
                 C
                 <SortIcon active={sortKey === "conviction"} dir={sortDir} />
+              </span>
+              <span className="text-slate-700 mx-1">/</span>
+              <span
+                className="inline-flex items-center gap-1 cursor-pointer hover:text-slate-200 transition-colors"
+                onClick={() => handleSort("winrate")}
+                title="Sort by historical BUY signal win rate (% of BUY signals that returned positively over 30 days)"
+              >
+                WR
+                <SortIcon active={sortKey === "winrate"} dir={sortDir} />
               </span>
             </th>
           </tr>
@@ -689,7 +787,7 @@ export default function CategoryTable({
                     <td className="px-3 py-2.5">
                       <div className="flex flex-col items-center gap-0.5">
                         <Sparkline values={history} />
-                        <StreakBadge streak={computeStreak(history)} />
+                        <StreakBadge streak={cat.scoreStreakDays ?? computeStreak(history)} />
                         {(() => {
                           // Prefer 252-day backend percentile; fall back to 30-day computed
                           if (cat.scorePercentile252d != null) {
@@ -758,6 +856,28 @@ export default function CategoryTable({
                         <span className="text-slate-600 text-xs">—</span>
                       )}
                       <TradeSignalBadge cat={cat} />
+                      {(() => {
+                        const wr = winRates[cat.id];
+                        if (!wr || wr.winRate == null || wr.signalCount < 3) return null;
+                        const wrPct = Math.round(wr.winRate * 100);
+                        const wrColor = wrPct >= 65 ? "text-emerald-400" : wrPct >= 50 ? "text-amber-400" : "text-slate-500";
+                        return (
+                          <div
+                            className="flex flex-col items-center gap-0"
+                            data-testid="win-rate-badge"
+                            title={`Historical win rate: ${wrPct}% of ${wr.signalCount} BUY signals produced positive returns over 30 days${wr.avgReturn30d != null ? `. Avg 30d return: ${wr.avgReturn30d > 0 ? "+" : ""}${(wr.avgReturn30d * 100).toFixed(1)}%` : ""}`}
+                          >
+                            <span className={`text-[8px] tabular-nums font-mono ${wrColor}`}>
+                              {wrPct}% WR
+                            </span>
+                            {wr.avgReturn30d != null && (
+                              <span className={`text-[8px] tabular-nums font-mono ${wr.avgReturn30d > 0 ? "text-emerald-500/70" : "text-red-500/70"}`}>
+                                {wr.avgReturn30d > 0 ? "+" : ""}{(wr.avgReturn30d * 100).toFixed(1)}%
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </td>
                 </tr>
@@ -775,9 +895,18 @@ export default function CategoryTable({
             </span>
           </span>
         ))}
-        <span className="ml-auto text-[10px]" title="Click any column header to sort. Click again to reverse. Click a third time to reset.">
-          Click headers to sort · S/R/T = BUY conditions met · ⇅ = sortable
+        <span className="text-[10px]" title="Click any column header to sort. Click again to reverse. Click a third time to reset.">
+          Click headers to sort · S/R/T = BUY conditions · WR = 30d win rate · ⇅ = sortable
         </span>
+        <button
+          className="ml-auto text-[10px] px-2 py-0.5 rounded border border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-400 transition-colors"
+          onClick={exportToCSV}
+          title="Export current table data as CSV (respects current sort order)"
+          aria-label="Export CSV"
+          data-testid="export-csv-button"
+        >
+          ↓ CSV
+        </button>
       </div>
     </div>
   );

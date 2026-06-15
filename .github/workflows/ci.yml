@@ -24,6 +24,46 @@ jobs:
         run: ./mvnw test -q
         working-directory: ftm-app
 
+  frontend-unit:
+    name: Frontend Typecheck + Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9'
+          run_install: false
+
+      - name: Get pnpm store path
+        id: pnpm-cache
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('ftm-frontend/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install
+        working-directory: ftm-frontend
+
+      - name: TypeScript typecheck
+        run: pnpm typecheck
+        working-directory: ftm-frontend
+
+      - name: Jest unit tests
+        run: pnpm test
+        working-directory: ftm-frontend
+
   frontend-e2e:
     name: Frontend E2E Tests
     runs-on: ubuntu-latest

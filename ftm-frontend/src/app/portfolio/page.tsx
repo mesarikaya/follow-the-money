@@ -398,6 +398,32 @@ export default function PortfolioPage() {
     return { totalPnlEur, totalPnlPct };
   })() : null;
 
+  const radarSignals = (() => {
+    if (!holdings) return [] as (typeof categoryById)[string][];
+    const ownedCategoryIds = new Set(holdings.map(h => h.categoryId).filter(Boolean) as string[]);
+    return Object.values(categoryById)
+      .filter(c => ((c.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(c)) === "BUY")
+      .filter(c => !ownedCategoryIds.has(c.id))
+      .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0))
+      .slice(0, 5);
+  })();
+
+  const concentrationRisk = (() => {
+    if (!holdings || !totalEur || totalEur === 0) return null;
+    const sectorEur: Record<string, { name: string; eur: number }> = {};
+    for (const h of holdings) {
+      if (!h.categoryId || h.marketValueEur == null) continue;
+      if (!sectorEur[h.categoryId]) {
+        sectorEur[h.categoryId] = { name: categoryById[h.categoryId]?.name ?? h.categoryId, eur: 0 };
+      }
+      sectorEur[h.categoryId].eur += h.marketValueEur;
+    }
+    const top = Object.entries(sectorEur)
+      .map(([id, data]) => ({ id, ...data, pct: (data.eur / totalEur) * 100 }))
+      .sort((a, b) => b.pct - a.pct)[0];
+    return top && top.pct > 40 ? top : null;
+  })();
+
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center justify-between px-6 py-4 border-b border-slate-700 shrink-0">
@@ -692,6 +718,35 @@ export default function PortfolioPage() {
                 </>
               )}
               </div>
+
+              {radarSignals.length > 0 && (
+                <div className="bg-slate-800/50 border border-emerald-900/50 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <h2 className="text-sm font-semibold text-emerald-300">Radar · Unowned BUY Signals</h2>
+                    <span
+                      className="text-[10px] text-slate-600 cursor-help"
+                      title="BUY-signal sectors not currently in your portfolio."
+                    >ⓘ</span>
+                  </div>
+                  <ul className="space-y-2">
+                    {radarSignals.map(cat => (
+                      <li key={cat.id} className="flex items-center gap-2">
+                        <span className="text-[9px] font-mono text-slate-500 w-16 shrink-0">{cat.id}</span>
+                        <span className="text-xs text-slate-300 flex-1 truncate">{cat.name}</span>
+                        <span className="text-[9px] font-mono text-emerald-400 shrink-0">
+                          {cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : "—"}
+                        </span>
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-green-500/20 text-green-300 border border-green-500/40 shrink-0">
+                          BUY
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-[10px] text-slate-600 mt-3">
+                    These sectors have active BUY signals · Add via + Add Holding
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -847,6 +902,18 @@ export default function PortfolioPage() {
             </section>
           );
         })()}
+
+        {concentrationRisk && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-amber-900/20 border border-amber-700/40 text-sm">
+            <span className="text-amber-400 text-base shrink-0">⚠</span>
+            <div>
+              <span className="font-semibold text-amber-300">Concentration Risk</span>
+              <span className="text-amber-200/70 ml-2">
+                {concentrationRisk.name} is {concentrationRisk.pct.toFixed(0)}% of your portfolio — consider diversifying across more sectors.
+              </span>
+            </div>
+          </div>
+        )}
 
         <section className="space-y-3">
           <div className="flex items-center justify-between">
@@ -1096,12 +1163,20 @@ export default function PortfolioPage() {
                             const score = cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : null;
                             if (!sig) return <span className="text-slate-700 text-[10px]">—</span>;
                             const cfg = SIGNAL_CONFIG[sig];
+                            const trend5d = cat.compositeTrend5d ?? null;
+                            const trendArrow = trend5d == null ? null : trend5d > 0 ? "↑" : trend5d < 0 ? "↓" : "→";
+                            const trendColor = trend5d == null ? "" : trend5d > 0 ? "text-emerald-400" : trend5d < 0 ? "text-red-400" : "text-slate-500";
                             return (
                               <div className="flex flex-col items-center gap-0.5">
                                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${cfg.className}`}>{sig}</span>
-                                {score != null && (
-                                  <span className={`text-[9px] font-mono ${score >= 65 ? "text-green-400" : score >= 45 ? "text-yellow-400" : "text-red-400"}`}>{score}</span>
-                                )}
+                                <div className="flex items-center gap-1">
+                                  {score != null && (
+                                    <span className={`text-[9px] font-mono ${score >= 65 ? "text-green-400" : score >= 45 ? "text-yellow-400" : "text-red-400"}`}>{score}</span>
+                                  )}
+                                  {trendArrow && (
+                                    <span className={`text-[9px] font-bold ${trendColor}`}>{trendArrow}</span>
+                                  )}
+                                </div>
                               </div>
                             );
                           })()}

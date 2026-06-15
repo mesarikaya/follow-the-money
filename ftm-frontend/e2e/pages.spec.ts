@@ -586,6 +586,133 @@ test.describe("Dashboard — ThemeSignalWidget Near Entry section", () => {
   });
 });
 
+test.describe("Dashboard — Score Streak badges", () => {
+  test("shows up-streak badge for TECH (7-day server-side streak)", async ({ page }) => {
+    await page.goto("/");
+    // TECH mock has scoreStreakDays=7 → StreakBadge renders "↑7d" (threshold: abs >= 3)
+    await expect(page.getByText("↑7d").first()).toBeVisible();
+  });
+
+  test("shows down-streak badge for ENRG (5-day down streak)", async ({ page }) => {
+    await page.goto("/");
+    // ENRG mock has scoreStreakDays=-5 → StreakBadge renders "↓5d"
+    await expect(page.getByText("↓5d").first()).toBeVisible();
+  });
+
+  test("streak badge tooltip describes the streak direction", async ({ page }) => {
+    await page.goto("/");
+    // ↑7d badge has a title attribute explaining the streak
+    const badge = page.getByText("↑7d").first();
+    await expect(badge).toBeVisible();
+    const title = await badge.getAttribute("title");
+    expect(title).toMatch(/7 consecutive day/);
+    expect(title).toMatch(/improving/);
+  });
+});
+
+test.describe("Dashboard — Today's Priorities panel", () => {
+  test("shows Today's Priorities panel heading on dashboard", async ({ page }) => {
+    await page.goto("/");
+    // Panel is rendered at the very top of the dashboard before StaleDataBanner
+    await expect(page.getByText("Today's Priorities", { exact: true })).toBeVisible();
+  });
+
+  test("shows ENTRY action for GOLD approaching BUY in 4d (HIGH confidence)", async ({ page }) => {
+    await page.goto("/");
+    // ENTRY badge comes from HIGH confidence approaching BUY: GOLD/GLD 4d
+    await expect(page.getByText("ENTRY").first()).toBeVisible();
+    // GLD ticker appears in the entry row; .first() because it may also appear in ApproachingSignalsPanel
+    await expect(page.getByText("GLD").first()).toBeVisible();
+  });
+
+  test("shows EXIT action for XLE portfolio position ranked #1 (highest priority)", async ({ page }) => {
+    await page.goto("/");
+    // EXIT from portfolio: XLE has action=EXIT in portfolio/actions mock (6.5% of portfolio)
+    // EXIT verb (priority 0) outranks ENTRY (1) — so it must be rank 1
+    await expect(page.getByText("EXIT").first()).toBeVisible();
+    await expect(page.getByText("XLE").first()).toBeVisible();
+  });
+
+  test("shows ADD action for XLK with BUY + Leading quadrant momentum", async ({ page }) => {
+    await page.goto("/");
+    // ADD from TECH: BUY signal + quadrant 4 + positive trend5d
+    await expect(page.getByText("ADD").first()).toBeVisible();
+  });
+
+  test("shows NOW urgency counter in panel header for time-sensitive actions", async ({ page }) => {
+    await page.goto("/");
+    // 2 NOW items: EXIT (XLE/ENRG portfolio) + ENTRY (GOLD approaching BUY in 4d)
+    await expect(page.getByText("2 NOW")).toBeVisible();
+  });
+});
+
+test.describe("Dashboard — Approaching Signals panel", () => {
+  test("shows Approaching Signals panel heading on dashboard", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Approaching Signals", { exact: true })).toBeVisible();
+  });
+
+  test("shows GOLD approaching BUY transition with ETF ticker", async ({ page }) => {
+    await page.goto("/");
+    // Mock: GOLD/GLD WATCH→BUY in 4 days (HIGH confidence)
+    await expect(page.getByText("GLD").first()).toBeVisible();
+    // "→ BUY" appears as a separate span inside the row
+    await expect(page.getByText("→ BUY").first()).toBeVisible();
+  });
+
+  test("shows HIGH confidence badge for imminent BUY signal", async ({ page }) => {
+    await page.goto("/");
+    // Panel header shows "1 HIGH" (one HIGH-confidence signal: GOLD at 4 days)
+    await expect(page.getByText("1 HIGH")).toBeVisible();
+  });
+
+  test("shows TLTD approaching REDUCE transition", async ({ page }) => {
+    await page.goto("/");
+    // Mock: TLTD/TLT HOLD→REDUCE in 18 days
+    await expect(page.getByText("TLT").first()).toBeVisible();
+    await expect(page.getByText("→ REDUCE").first()).toBeVisible();
+  });
+
+  test("shows ↑ BUY and ↓ REDUCE counters in panel header", async ({ page }) => {
+    await page.goto("/");
+    // 2 approaching BUY (GOLD + HLTH), 1 approaching REDUCE (TLTD)
+    // Use .first() — TodaysPriorityPanel may also show a ↓N reduce counter in its header
+    await expect(page.getByText("↑2 BUY")).toBeVisible();
+    await expect(page.getByText("↓1 REDUCE").first()).toBeVisible();
+  });
+});
+
+test.describe("Dashboard — Daily Signal Diff panel", () => {
+  test("shows 'What Changed Today' heading when there are transitions today", async ({ page }) => {
+    await page.goto("/");
+    // Mock has GOLD daysAgo=0 (HOLD→WATCH today) — panel should render
+    await expect(page.getByText("What Changed Today", { exact: true })).toBeVisible();
+  });
+
+  test("shows LAST 24H label in the diff panel header", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("LAST 24H")).toBeVisible();
+  });
+
+  test("shows GLD ticker with HOLD → WATCH transition from today", async ({ page }) => {
+    await page.goto("/");
+    // Mock: GOLD/GLD transitioned HOLD→WATCH daysAgo=0
+    await expect(page.getByText("GLD").first()).toBeVisible();
+  });
+
+  test("shows upgrade arrow and description for HOLD→WATCH transition", async ({ page }) => {
+    await page.goto("/");
+    // HOLD→WATCH is an upgrade — shows "Recovering" description in the diff panel
+    await expect(page.getByText(/Recovering — score entering/).first()).toBeVisible();
+  });
+
+  test("shows upgrade count in header", async ({ page }) => {
+    await page.goto("/");
+    // 1 upgrade (GOLD HOLD→WATCH)
+    await expect(page.getByText("↑1 upgrade")).toBeVisible();
+  });
+});
+
 test.describe("Alerts page — Strong Breakout Confirmation rule", () => {
   test("shows Strong Breakout Confirmation rule in Alert Rules panel", async ({ page }) => {
     await page.goto("/alerts");
@@ -628,6 +755,48 @@ test.describe("Dashboard — Alert count badges (EP-051)", () => {
   });
 });
 
+test.describe("Dashboard — Category filter (EP-050)", () => {
+  test("filter input is present on dashboard", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("category-filter")).toBeVisible();
+  });
+
+  test("typing in filter shows only matching categories", async ({ page }) => {
+    await page.goto("/");
+    const filter = page.getByTestId("category-filter");
+    await filter.fill("Health");
+    // Health Care should be visible; Information Technology should not
+    await expect(page.getByRole("cell", { name: /Health Care/ }).first()).toBeVisible();
+    await expect(page.getByRole("cell", { name: /Information Technology/ })).not.toBeVisible();
+  });
+
+  test("ticker filter shows only the matching category", async ({ page }) => {
+    await page.goto("/");
+    const filter = page.getByTestId("category-filter");
+    await filter.fill("XLK");
+    await expect(page.getByRole("cell", { name: /Information Technology/ }).first()).toBeVisible();
+    await expect(page.getByRole("cell", { name: /Health Care/ })).not.toBeVisible();
+  });
+
+  test("Escape key clears the filter", async ({ page }) => {
+    await page.goto("/");
+    const filter = page.getByTestId("category-filter");
+    await filter.fill("XLK");
+    await expect(page.getByRole("cell", { name: /Health Care/ })).not.toBeVisible();
+    await filter.press("Escape");
+    await expect(page.getByRole("cell", { name: /Health Care/ }).first()).toBeVisible();
+  });
+
+  test("/ key focuses the filter from document level", async ({ page }) => {
+    await page.goto("/");
+    // Click somewhere on the body to ensure focus is not in an input
+    await page.click("h2");
+    await page.keyboard.press("/");
+    const filter = page.getByTestId("category-filter");
+    await expect(filter).toBeFocused();
+  });
+});
+
 test.describe("Dashboard — Screener Snapshot Banner (EP-052)", () => {
   test("screener snapshot banner renders on the dashboard", async ({ page }) => {
     await page.goto("/");
@@ -643,5 +812,73 @@ test.describe("Dashboard — Screener Snapshot Banner (EP-052)", () => {
     await page.goto("/");
     // mock returns rsBreadthPct: 57.1 → rendered as "57%"
     await expect(page.getByTestId("snapshot-rs-breadth")).toContainText("57%");
+  });
+});
+
+test.describe("Portfolio page — Radar, trend arrows, concentration risk", () => {
+  test("shows Radar panel with GOLD as unowned BUY signal", async ({ page }) => {
+    await page.goto("/portfolio");
+    // Mock: GOLD tradeSignal=BUY, not in holdings (AAPL + XLK both TECH)
+    await expect(page.getByText("Radar · Unowned BUY Signals")).toBeVisible();
+    // Radar panel has a BUY badge inside it — verify the panel heading and at least one BUY badge is visible
+    await expect(page.getByText("These sectors have active BUY signals")).toBeVisible();
+  });
+
+  test("shows concentration risk warning when top sector exceeds 40%", async ({ page }) => {
+    await page.goto("/portfolio");
+    // Mock holdings: AAPL + XLK both TECH = 100% concentration → warning fires
+    await expect(page.getByText("Concentration Risk")).toBeVisible();
+    // The warning text contains the exact phrase "100% of your portfolio"
+    await expect(page.getByText(/100% of your portfolio/)).toBeVisible();
+  });
+
+  test("shows trend arrows in holdings signal cell", async ({ page }) => {
+    await page.goto("/portfolio");
+    // TECH has compositeTrend5d=0.04 (positive) → ↑ arrow for AAPL and XLK rows
+    await expect(page.getByText("↑").first()).toBeVisible();
+  });
+});
+
+test.describe("Dashboard — Win Rate badges", () => {
+  test("shows WR sort header in CategoryTable", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("WR").first()).toBeVisible();
+  });
+
+  test("shows win rate badges for categories with signal history", async ({ page }) => {
+    await page.goto("/");
+    // Mock provides TECH (74% WR) and HLTH (68% WR) — both have signalCount >= 3
+    const badges = page.getByTestId("win-rate-badge");
+    await expect(badges.first()).toBeVisible();
+    const count = await badges.count();
+    expect(count).toBeGreaterThanOrEqual(2);
+  });
+
+  test("win rate badge shows percentage and avg return", async ({ page }) => {
+    await page.goto("/");
+    // TECH: 74% WR, +3.8% avg return
+    await expect(page.getByTestId("win-rate-badge").first()).toBeVisible();
+    await expect(page.getByText(/74% WR/).first()).toBeVisible();
+    await expect(page.getByText(/\+3\.8%/).first()).toBeVisible();
+  });
+});
+
+test.describe("Dashboard — CSV Export", () => {
+  test("shows Export CSV button in CategoryTable footer", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("export-csv-button")).toBeVisible();
+  });
+
+  test("CSV download contains category data with correct filename format", async ({ page }) => {
+    await page.goto("/");
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByTestId("export-csv-button").click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/^categories-\d{4}-\d{2}-\d{2}\.csv$/);
+  });
+
+  test("CSV button has correct accessible label", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: "Export CSV" })).toBeVisible();
   });
 });

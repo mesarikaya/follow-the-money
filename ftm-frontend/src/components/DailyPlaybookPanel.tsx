@@ -135,8 +135,10 @@ function buildReasons(
 
   if (wr != null && wr.winRate != null && (sig === "BUY" || sig === "REDUCE") && wr.signalCount >= 5) {
     const winPct = Math.round(wr.winRate * 100);
-    const avgRet = wr.avgReturn30d != null ? (wr.avgReturn30d * 100).toFixed(1) : null;
-    reasons.push(`historical win rate ${winPct}% (${wr.signalCount} signals${avgRet ? `, avg +${avgRet}% / 30d` : ""})`);
+    const avgRet30 = wr.avgReturn30d != null ? (wr.avgReturn30d * 100).toFixed(1) : null;
+    const avgRet90 = wr.avgReturn90d != null ? (wr.avgReturn90d * 100).toFixed(1) : null;
+    const returnDetail = avgRet30 ? `, avg +${avgRet30}%/30d${avgRet90 ? ` · +${avgRet90}%/90d` : ""}` : "";
+    reasons.push(`historical win rate ${winPct}% (${wr.signalCount} signals${returnDetail})`);
   }
 
   const flowZ = cat.flow20d;

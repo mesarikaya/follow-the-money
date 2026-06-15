@@ -91,6 +91,9 @@ public interface CategoryMapper {
       expression =
           "java(activeAlertCountByCategoryId.getOrDefault(row.category().id().name(), 0))")
   @Mapping(target = "parentId", source = "row.category.parentId")
+  @Mapping(
+      target = "scoreStreakDays",
+      expression = "java(scoreStreakDaysByCategoryId.get(row.category().id().name()))")
   CategorySummaryDto toDto(
       CategoryRepository.CategoryPriceRow row,
       int rank,
@@ -110,5 +113,6 @@ public interface CategoryMapper {
       Map<String, Integer> signalDaysActiveByCategoryId,
       Map<String, BigDecimal> realizedVol20dByCategoryId,
       Map<String, BigDecimal> scorePercentile252dByCategoryId,
-      Map<String, Integer> activeAlertCountByCategoryId);
+      Map<String, Integer> activeAlertCountByCategoryId,
+      Map<String, Integer> scoreStreakDaysByCategoryId);
 }

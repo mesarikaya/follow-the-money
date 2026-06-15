@@ -29,6 +29,7 @@ const CATEGORIES_RESPONSE = {
       tradeSignal: "BUY",
       macroFit: 0.78,
       activeAlertCount: 2,
+      scoreStreakDays: 7,
     },
     {
       id: "HLTH",
@@ -50,6 +51,7 @@ const CATEGORIES_RESPONSE = {
       tradeSignal: "WATCH",
       macroFit: 0.63,
       activeAlertCount: 0,
+      scoreStreakDays: 3,
     },
     {
       id: "ENRG",
@@ -71,6 +73,7 @@ const CATEGORIES_RESPONSE = {
       tradeSignal: "REDUCE",
       macroFit: 0.48,
       activeAlertCount: 0,
+      scoreStreakDays: -5,
     },
     {
       id: "GOLD",
@@ -89,9 +92,10 @@ const CATEGORIES_RESPONSE = {
       rank: 4,
       latestClose: 310.2,
       priceDate: "2026-05-15",
-      tradeSignal: "WATCH",
+      tradeSignal: "BUY",
       macroFit: 0.35,
       activeAlertCount: 0,
+      scoreStreakDays: null,
     },
     {
       id: "TLTD",
@@ -113,6 +117,7 @@ const CATEGORIES_RESPONSE = {
       tradeSignal: "HOLD",
       macroFit: 0.28,
       activeAlertCount: 0,
+      scoreStreakDays: -3,
     },
     {
       id: "CASH",
@@ -134,6 +139,7 @@ const CATEGORIES_RESPONSE = {
       tradeSignal: null,
       macroFit: null,
       activeAlertCount: 0,
+      scoreStreakDays: null,
     },
   ],
 };
@@ -406,6 +412,72 @@ const ALERT_RULES_RESPONSE = [
   { ruleId: "theme_peer_divergence",             enabled: true, description: "≥3 theme constituents with signals and max−min spread >30 pts, avg score >0.40 — internal rotation", lookbackDays: null, threshold: 0.30, severity: "INFO" },
 ];
 
+const APPROACHING_SIGNALS_RESPONSE = [
+  {
+    categoryId: "GOLD",
+    categoryName: "Gold",
+    etfTicker: "GLD",
+    currentSignal: "WATCH",
+    projectedSignal: "BUY",
+    estimatedDays: 4,
+    currentScore: 0.61,
+    scoreGapToThreshold: 0.04,
+    dailyVelocity: 0.0100,
+    confidence: "HIGH",
+  },
+  {
+    categoryId: "HLTH",
+    categoryName: "Health Care",
+    etfTicker: "XLV",
+    currentSignal: "WATCH",
+    projectedSignal: "BUY",
+    estimatedDays: 11,
+    currentScore: 0.57,
+    scoreGapToThreshold: 0.08,
+    dailyVelocity: 0.0075,
+    confidence: "MEDIUM",
+  },
+  {
+    categoryId: "TLTD",
+    categoryName: "Long-Duration Treasuries",
+    etfTicker: "TLT",
+    currentSignal: "HOLD",
+    projectedSignal: "REDUCE",
+    estimatedDays: 18,
+    currentScore: 0.42,
+    scoreGapToThreshold: -0.07,
+    dailyVelocity: -0.0040,
+    confidence: "LOW",
+  },
+];
+
+const PORTFOLIO_ACTIONS_RESPONSE = [
+  {
+    ticker: "XLE",
+    name: "Energy Select Sector SPDR",
+    categoryId: "ENRG",
+    categoryName: "Energy",
+    signal: "REDUCE",
+    convictionScore: 0.72,
+    action: "EXIT",
+    rationale: "REDUCE signal with >5% portfolio weight",
+    portfolioPct: 6.5,
+    urgency: 1,
+  },
+  {
+    ticker: "XLK",
+    name: "Technology Select Sector SPDR",
+    categoryId: "TECH",
+    categoryName: "Information Technology",
+    signal: "BUY",
+    convictionScore: 0.88,
+    action: "HOLD",
+    rationale: "BUY signal — hold for continuation",
+    portfolioPct: 18.2,
+    urgency: 4,
+  },
+];
+
 const INGEST_RESPONSE = {
   runIds: ["00000000-0000-0000-0000-000000000001"],
   status: "queued",
@@ -413,11 +485,11 @@ const INGEST_RESPONSE = {
 };
 
 const WIN_RATES_RESPONSE = [
-  { categoryId: "TECH", signalCount: 42, winRate: 0.74, avgReturn30d: 0.038 },
-  { categoryId: "HLTH", signalCount: 31, winRate: 0.68, avgReturn30d: 0.021 },
-  { categoryId: "ENRG", signalCount: 18, winRate: 0.44, avgReturn30d: -0.012 },
-  { categoryId: "GOLD", signalCount: 24, winRate: 0.58, avgReturn30d: 0.015 },
-  { categoryId: "TLTD", signalCount: 12, winRate: 0.50, avgReturn30d: 0.004 },
+  { categoryId: "TECH", signalCount: 42, winRate: 0.74, avgReturn30d: 0.038, avgReturn90d: 0.092 },
+  { categoryId: "HLTH", signalCount: 31, winRate: 0.68, avgReturn30d: 0.021, avgReturn90d: 0.057 },
+  { categoryId: "ENRG", signalCount: 18, winRate: 0.44, avgReturn30d: -0.012, avgReturn90d: -0.031 },
+  { categoryId: "GOLD", signalCount: 24, winRate: 0.58, avgReturn30d: 0.015, avgReturn90d: 0.041 },
+  { categoryId: "TLTD", signalCount: 12, winRate: 0.50, avgReturn30d: 0.004, avgReturn90d: null },
 ];
 
 const PRICE_LEVELS_RESPONSE = [
@@ -430,6 +502,7 @@ const PRICE_LEVELS_RESPONSE = [
 ];
 
 const TRANSITIONS_RESPONSE = [
+  { categoryId: "GOLD", categoryName: "Gold",                   etfTicker: "GLD", previousSignal: "HOLD",  currentSignal: "WATCH",  currentScore: 0.53, comparisonDate: "2026-05-15", daysAgo: 0, scorePercentile252d: 0.61, macroFit: 0.72, signalDaysActive: 1, convictionScore: 74 },
   { categoryId: "TECH", categoryName: "Information Technology", etfTicker: "XLK", previousSignal: "WATCH", currentSignal: "BUY",    currentScore: 0.82, comparisonDate: "2026-05-08", daysAgo: 7, scorePercentile252d: 0.88, macroFit: 0.78, signalDaysActive: 7, convictionScore: 85 },
   { categoryId: "ENRG", categoryName: "Energy",                 etfTicker: "XLE", previousSignal: "HOLD",  currentSignal: "REDUCE", currentScore: 0.31, comparisonDate: "2026-05-12", daysAgo: 3, scorePercentile252d: 0.18, macroFit: 0.48, signalDaysActive: 3, convictionScore: null },
 ];
@@ -637,6 +710,12 @@ const server = http.createServer(async (req, res) => {
   } else if (path === "/api/v1/categories/transitions") {
     res.writeHead(200);
     res.end(JSON.stringify(TRANSITIONS_RESPONSE));
+  } else if (path === "/api/v1/categories/approaching") {
+    res.writeHead(200);
+    res.end(JSON.stringify(APPROACHING_SIGNALS_RESPONSE));
+  } else if (path === "/api/v1/portfolio/actions") {
+    res.writeHead(200);
+    res.end(JSON.stringify(PORTFOLIO_ACTIONS_RESPONSE));
   } else if (path === "/api/v1/macro/history") {
     const days = parseInt(url.searchParams.get("days") ?? "90", 10);
     res.writeHead(200);

@@ -285,8 +285,9 @@ public class SignalRepository {
         ),
         forward_prices AS (
           SELECT nbs.category_id, nbs.signal_date,
-                 p_entry.adj_close AS entry_price,
-                 p_fwd.adj_close   AS fwd_price
+                 p_entry.adj_close  AS entry_price,
+                 p_fwd30.adj_close  AS fwd_price_30d,
+                 p_fwd90.adj_close  AS fwd_price_90d
           FROM new_buy_signals nbs
           JOIN raw_prices p_entry
             ON p_entry.category_id = nbs.category_id AND p_entry.trade_date = nbs.signal_date
@@ -296,13 +297,21 @@ public class SignalRepository {
               AND trade_date > nbs.signal_date + INTERVAL '28 days'
               AND trade_date <= nbs.signal_date + INTERVAL '40 days'
             ORDER BY trade_date ASC LIMIT 1
-          ) p_fwd ON true
+          ) p_fwd30 ON true
+          LEFT JOIN LATERAL (
+            SELECT adj_close FROM raw_prices
+            WHERE category_id = nbs.category_id
+              AND trade_date > nbs.signal_date + INTERVAL '85 days'
+              AND trade_date <= nbs.signal_date + INTERVAL '95 days'
+            ORDER BY trade_date ASC LIMIT 1
+          ) p_fwd90 ON true
           WHERE p_entry.adj_close > 0
         )
         SELECT category_id,
-               COUNT(*)::int                                                              AS signal_count,
-               ROUND(AVG(CASE WHEN fwd_price > entry_price THEN 1.0 ELSE 0.0 END)::numeric, 3) AS win_rate,
-               ROUND(AVG((fwd_price - entry_price) / entry_price)::numeric, 4)           AS avg_return_30d
+               COUNT(*)::int                                                                       AS signal_count,
+               ROUND(AVG(CASE WHEN fwd_price_30d > entry_price THEN 1.0 ELSE 0.0 END)::numeric, 3) AS win_rate,
+               ROUND(AVG((fwd_price_30d - entry_price) / entry_price)::numeric, 4)                AS avg_return_30d,
+               ROUND(AVG((fwd_price_90d - entry_price) / entry_price)::numeric, 4)                AS avg_return_90d
         FROM forward_prices
         GROUP BY category_id
         HAVING COUNT(*) >= 2
@@ -316,11 +325,16 @@ public class SignalRepository {
                     r.get("category_id", String.class),
                     r.get("signal_count", Integer.class),
                     r.get("win_rate", BigDecimal.class),
-                    r.get("avg_return_30d", BigDecimal.class)));
+                    r.get("avg_return_30d", BigDecimal.class),
+                    r.get("avg_return_90d", BigDecimal.class)));
   }
 
   public record BuySignalWinRateRow(
-      String categoryId, int signalCount, BigDecimal winRate, BigDecimal avgReturn30d) {}
+      String categoryId,
+      int signalCount,
+      BigDecimal winRate,
+      BigDecimal avgReturn30d,
+      BigDecimal avgReturn90d) {}
 
   /**
    * Returns two signal snapshots (current + N-days-ago) for computing signal transitions.
@@ -498,6 +512,48 @@ public class SignalRepository {
 
   public record DateHistory(
       LocalDate date, double averageComposite, Double averageTrend5d, Double averageTrend20d) {}
+
+  @Cacheable("score-streak-90d")
+  public Map<String, Integer> findScoreStreakDays() {
+    return dsl.resultQuery(
+            """
+        WITH ordered AS (
+          SELECT category_id, signal_date, value,
+            value - LAG(value) OVER (PARTITION BY category_id ORDER BY signal_date ASC) AS delta,
+            ROW_NUMBER() OVER (PARTITION BY category_id ORDER BY signal_date DESC) AS rn_from_end
+          FROM signals
+          WHERE signal_type = 'COMPOSITE'
+            AND signal_date >= CURRENT_DATE - INTERVAL '90 days'
+        ),
+        directions AS (
+          SELECT category_id, rn_from_end,
+            SIGN(delta)::int AS dir
+          FROM ordered
+          WHERE delta IS NOT NULL
+        ),
+        current_direction AS (
+          SELECT category_id, dir AS latest_dir
+          FROM directions
+          WHERE rn_from_end = 1
+        ),
+        streak_bounds AS (
+          SELECT d.category_id,
+            cd.latest_dir,
+            MIN(CASE WHEN d.dir != cd.latest_dir THEN d.rn_from_end END) AS first_break_rn,
+            MAX(d.rn_from_end) AS max_rn
+          FROM directions d
+          JOIN current_direction cd ON d.category_id = cd.category_id
+          GROUP BY d.category_id, cd.latest_dir
+        )
+        SELECT category_id,
+          (latest_dir * COALESCE(first_break_rn - 1, max_rn))::int AS score_streak_days
+        FROM streak_bounds
+        WHERE latest_dir != 0
+        """)
+        .fetchMap(
+            r -> r.get("category_id", String.class),
+            r -> r.get("score_streak_days", Integer.class));
+  }
 
   @Cacheable("score-percentile-252d")
   public Map<String, BigDecimal> findScorePercentile252d() {

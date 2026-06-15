@@ -341,8 +341,8 @@ test.describe("Alerts page — Alert Rules", () => {
   test("renders rule names in Alert Rules panel", async ({ page }) => {
     await page.goto("/alerts");
     await expect(page.getByText("RRG Transition")).toBeVisible();
-    await expect(page.getByText("Composite Breakout")).toBeVisible();
-    await expect(page.getByText("Macro Regime Shift")).toBeVisible();
+    await expect(page.getByText("Composite Breakout").first()).toBeVisible();
+    await expect(page.getByText("Macro Regime Shift").first()).toBeVisible();
   });
 
   test("toggle buttons are present for each rule", async ({ page }) => {
@@ -533,8 +533,8 @@ test.describe("Alerts page — new theme alert rules", () => {
 
   test("shows Phase Fading and Momentum Exhaustion rules", async ({ page }) => {
     await page.goto("/alerts");
-    await expect(page.getByText("Phase Fading")).toBeVisible();
-    await expect(page.getByText("Momentum Exhaustion")).toBeVisible();
+    await expect(page.getByText("Phase Fading").first()).toBeVisible();
+    await expect(page.getByText("Momentum Exhaustion").first()).toBeVisible();
   });
 
   test("shows Failed Breakout and Recovery Signal rules", async ({ page }) => {
@@ -717,7 +717,7 @@ test.describe("Alerts page — Strong Breakout Confirmation rule", () => {
   test("shows Strong Breakout Confirmation rule in Alert Rules panel", async ({ page }) => {
     await page.goto("/alerts");
     // BUILTIN_RULES label for theme_strong_breakout_confirmation
-    await expect(page.getByText("Strong Breakout Confirmed")).toBeVisible();
+    await expect(page.getByText("Strong Breakout Confirmed").first()).toBeVisible();
   });
 
   test("shows strong breakout active alert for AI_INFRA", async ({ page }) => {
@@ -1093,5 +1093,31 @@ test.describe("Dashboard — Theme Phase Pipeline (EP-059)", () => {
     const pipeline = page.getByTestId("theme-phase-pipeline");
     // Themes with positive compositeTrend5d show ↑ arrow
     await expect(pipeline.getByText("↑").first()).toBeVisible();
+  });
+});
+
+test.describe("Alerts — Rule Activity Panel (EP-060)", () => {
+  test("shows alert rule activity panel on alerts page", async ({ page }) => {
+    await page.goto("/alerts");
+    await expect(page.getByTestId("alert-rule-activity-panel")).toBeVisible();
+  });
+
+  test("shows Rule Activity heading", async ({ page }) => {
+    await page.goto("/alerts");
+    const panel = page.getByTestId("alert-rule-activity-panel");
+    await expect(panel.getByRole("heading", { name: "Rule Activity" })).toBeVisible();
+  });
+
+  test("shows top fired rules from mock data", async ({ page }) => {
+    await page.goto("/alerts");
+    const panel = page.getByTestId("alert-rule-activity-panel");
+    await expect(panel.getByText("Theme Momentum Surge")).toBeVisible();
+    await expect(panel.getByText("Composite Breakout")).toBeVisible();
+  });
+
+  test("shows score-price divergence rule label", async ({ page }) => {
+    await page.goto("/alerts");
+    const panel = page.getByTestId("alert-rule-activity-panel");
+    await expect(panel.getByText("Score-Price Divergence")).toBeVisible();
   });
 });

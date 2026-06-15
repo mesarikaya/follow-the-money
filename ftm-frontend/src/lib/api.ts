@@ -303,6 +303,8 @@ export const fetchAlerts = () => get<AlertsResponse>("/api/v1/alerts");
 export const fetchThemeAlertHistory = (themeId: string) =>
   get<AlertDto[]>(`/api/v1/alerts/theme/${themeId}`);
 export const fetchRecentAlerts = () => get<AlertDto[]>("/api/v1/alerts/recent");
+export const fetchAlertRuleStats = (days = 30) =>
+  get<Record<string, number>>(`/api/v1/alerts/rule-stats?days=${days}`);
 
 export type AlertRuleDto = {
   ruleId: string;

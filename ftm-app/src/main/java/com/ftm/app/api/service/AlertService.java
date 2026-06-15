@@ -90,6 +90,11 @@ public class AlertService {
     return alertRepository.findActiveAlertCountsByCategory();
   }
 
+  @Cacheable(value = "alert-rule-stats", key = "#days")
+  public Map<String, Integer> getAlertRuleFireCounts(int days) {
+    return alertRepository.findFireCountsByRuleSince(days);
+  }
+
   @Cacheable("recent-alerts")
   public List<AlertDto> getRecentAlerts() {
     return alertRepository.findRecentAlerts(EVENTS_FEED_LIMIT).stream()

@@ -61,7 +61,7 @@ jobs:
         working-directory: ftm-frontend
 
       - name: Jest unit tests
-        run: pnpm test
+        run: pnpm test --no-coverage
         working-directory: ftm-frontend
 
   frontend-e2e:

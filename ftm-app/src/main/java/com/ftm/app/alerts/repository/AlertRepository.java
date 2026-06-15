@@ -167,6 +167,21 @@ public class AlertRepository {
         });
   }
 
+  public int countRecentByThemeId(String themeId, int days) {
+    var since = OffsetDateTime.now().minusDays(days);
+    return dsl.fetchCount(
+        ALERTS,
+        ALERTS.THEME_ID.eq(themeId).and(ALERTS.CREATED_AT.ge(since)));
+  }
+
+  public int countRecentByCategoryIds(List<String> categoryIds, int days) {
+    if (categoryIds.isEmpty()) return 0;
+    var since = OffsetDateTime.now().minusDays(days);
+    return dsl.fetchCount(
+        ALERTS,
+        ALERTS.CATEGORY_ID.in(categoryIds).and(ALERTS.CREATED_AT.ge(since)));
+  }
+
   public Map<String, Integer> findActiveAlertCountsByCategory() {
     var countField = DSL.count();
     return dsl.select(ALERTS.CATEGORY_ID, countField)

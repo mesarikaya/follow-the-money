@@ -504,6 +504,7 @@ export default function CategoryTable({
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("default");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [filterText, setFilterText] = useState("");
 
   const rsLabel = RS_LABEL[timeframe] ?? "60d";
   const hasHistory = Object.keys(scoreHistory).length > 0;
@@ -512,6 +513,17 @@ export default function CategoryTable({
   const getSignal = (c: CategorySummary) => (c.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(c);
   const isSorted = sortKey !== "default";
   const sorted = sortCategories(categories, sortKey, sortDir, getSignal);
+
+  const filterLower = filterText.trim().toLowerCase();
+  const isFiltered = filterLower.length > 0;
+  const displayed = isFiltered
+    ? sorted.filter(
+        c =>
+          c.name.toLowerCase().includes(filterLower) ||
+          c.etfTicker.toLowerCase().includes(filterLower) ||
+          c.id.toLowerCase().includes(filterLower)
+      )
+    : sorted;
 
   // RS percentile rank: rank each top-level equity sector among its 11 GICS peers
   const equityPeers = sorted.filter(c => SECTOR_DRILLDOWN_IDS.has(c.id) && c.rs60 != null);
@@ -546,7 +558,36 @@ export default function CategoryTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-700">
+    <div className="overflow-x-auto rounded-xl border border-slate-700" data-testid="category-table">
+      <div className="px-4 py-2 border-b border-slate-700/60 bg-slate-900/40 flex items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <input
+            type="text"
+            value={filterText}
+            onChange={e => setFilterText(e.target.value)}
+            placeholder="Filter by name, ticker, or ID…"
+            aria-label="Filter categories"
+            data-testid="category-filter-input"
+            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
+          />
+          {isFiltered && (
+            <button
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs"
+              onClick={() => setFilterText("")}
+              aria-label="Clear filter"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        {isFiltered && (
+          <span className="text-[10px] text-slate-500 shrink-0">
+            {displayed.length === 0
+              ? "No match"
+              : `${displayed.length} of ${sorted.length}`}
+          </span>
+        )}
+      </div>
       {isSorted && (
         <div className="px-4 py-1.5 bg-cyan-900/20 border-b border-cyan-800/30 flex items-center gap-2 text-[10px] text-cyan-400">
           <span>Sorted by <strong>{sortKey}</strong> {sortDir === "desc" ? "(highest first)" : "(lowest first)"}</span>
@@ -600,10 +641,17 @@ export default function CategoryTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-800">
-          {sorted.map((cat, idx) => {
+          {displayed.length === 0 && isFiltered && (
+            <tr>
+              <td colSpan={colSpan + 1} className="px-4 py-8 text-center text-sm text-slate-500">
+                No categories match &ldquo;{filterText}&rdquo;
+              </td>
+            </tr>
+          )}
+          {displayed.map((cat, idx) => {
             const typeConfig = TYPE_CONFIG[cat.type] ?? TYPE_CONFIG.ALTERNATIVE;
-            const prevType = idx > 0 ? sorted[idx - 1].type : null;
-            const showDivider = !isSorted && prevType !== cat.type && TYPE_SECTION_LABELS[cat.type] != null;
+            const prevType = idx > 0 ? displayed[idx - 1].type : null;
+            const showDivider = !isSorted && !isFiltered && prevType !== cat.type && TYPE_SECTION_LABELS[cat.type] != null;
             const history = scoreHistory[cat.id] ?? [];
             const quadrantInfo = cat.rrgQuadrant != null ? RRG_QUADRANT_CONFIG[Number(cat.rrgQuadrant)] : null;
             const rowBorderClass = quadrantInfo ? quadrantInfo.borderClass : "border-l-slate-700/20";

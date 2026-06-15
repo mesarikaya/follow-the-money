@@ -605,3 +605,44 @@ test.describe("Alerts page — Strong Breakout Confirmation rule", () => {
     await expect(page.getByText(/score 78/).first()).toBeVisible();
   });
 });
+
+test.describe("Dashboard — CategoryTable filter", () => {
+  test("shows filter input in CategoryTable", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("category-filter-input")).toBeVisible();
+  });
+
+  test("filtering by name narrows displayed rows", async ({ page }) => {
+    await page.goto("/");
+    const table = page.getByTestId("category-table");
+    await table.getByTestId("category-filter-input").fill("Technology");
+    // Information Technology row should remain in the table
+    await expect(table.getByText("Information Technology").first()).toBeVisible();
+    // Health Care row should be removed from the table tbody
+    await expect(table.locator("tbody").getByText("Health Care")).not.toBeVisible();
+  });
+
+  test("filtering by ETF ticker narrows displayed rows", async ({ page }) => {
+    await page.goto("/");
+    const table = page.getByTestId("category-table");
+    await table.getByTestId("category-filter-input").fill("XLK");
+    await expect(table.getByText("Information Technology").first()).toBeVisible();
+    await expect(table.locator("tbody").getByText("Health Care")).not.toBeVisible();
+  });
+
+  test("clear button resets filter and shows all categories", async ({ page }) => {
+    await page.goto("/");
+    const table = page.getByTestId("category-table");
+    await table.getByTestId("category-filter-input").fill("XLK");
+    await expect(table.locator("tbody").getByText("Health Care")).not.toBeVisible();
+    await page.getByRole("button", { name: "Clear filter" }).click();
+    await expect(table.locator("tbody").getByText("Health Care")).toBeVisible();
+  });
+
+  test("shows match count when filtering", async ({ page }) => {
+    await page.goto("/");
+    await page.getByTestId("category-filter-input").fill("XLK");
+    // "1 of 6" (TECH matches, 6 total in mock)
+    await expect(page.getByText(/1 of \d+/).first()).toBeVisible();
+  });
+});

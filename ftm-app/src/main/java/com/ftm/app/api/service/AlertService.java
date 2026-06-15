@@ -45,6 +45,7 @@ public class AlertService {
     return new AlertsResponse(alertDtos.size(), alertDtos);
   }
 
+  @Cacheable("alert-rules")
   public List<AlertRuleDto> getAlertRules() {
     return alertRulesRepository.findAll().stream()
         .map(
@@ -58,6 +59,7 @@ public class AlertService {
         .toList();
   }
 
+  @CacheEvict("alert-rules")
   public AlertRuleDto setRuleEnabled(String ruleId, boolean enabled) {
     AlertRule rule =
         alertRulesRepository
@@ -77,6 +79,7 @@ public class AlertService {
     return alertRepository.countActive();
   }
 
+  @Cacheable(value = "theme-alert-history", key = "#themeId.toUpperCase()")
   public List<AlertDto> getThemeAlertHistory(String themeId) {
     return alertRepository.findRecentByThemeId(themeId.toUpperCase(), RECENT_ALERTS_LIMIT).stream()
         .map(alertMapper::toDto)
@@ -87,20 +90,29 @@ public class AlertService {
     return alertRepository.findActiveAlertCountsByCategory();
   }
 
+  @Cacheable("recent-alerts")
   public List<AlertDto> getRecentAlerts() {
     return alertRepository.findRecentAlerts(EVENTS_FEED_LIMIT).stream()
         .map(alertMapper::toDto)
         .toList();
   }
 
-  @Caching(evict = {@CacheEvict("alerts-latest"), @CacheEvict("alerts-count")})
+  @Caching(evict = {
+      @CacheEvict("alerts-latest"),
+      @CacheEvict("alerts-count"),
+      @CacheEvict("recent-alerts")
+  })
   public int acknowledgeAllActive() {
     int count = alertRepository.acknowledgeAllActive();
     log.info("Bulk-dismissed {} active alerts", count);
     return count;
   }
 
-  @Caching(evict = {@CacheEvict("alerts-latest"), @CacheEvict("alerts-count")})
+  @Caching(evict = {
+      @CacheEvict("alerts-latest"),
+      @CacheEvict("alerts-count"),
+      @CacheEvict("recent-alerts")
+  })
   public AlertDto acknowledgeAlert(Long alertId) {
     Alert acknowledged =
         alertRepository

@@ -91,6 +91,19 @@ public class CacheConfig {
     manager.registerCustomCache(
         "theme-history",
         Caffeine.newBuilder().maximumSize(100).expireAfterWrite(1, TimeUnit.HOURS).build());
+    // Evicted when setRuleEnabled is called (user toggles a rule in the UI)
+    manager.registerCustomCache(
+        "alert-rules",
+        Caffeine.newBuilder().maximumSize(1).expireAfterWrite(1, TimeUnit.HOURS).build());
+    // Evicted on SignalsUpdatedEvent — keyed by themeId; avoids repeated alert table scans per
+    // theme page load
+    manager.registerCustomCache(
+        "theme-alert-history",
+        Caffeine.newBuilder().maximumSize(100).expireAfterWrite(30, TimeUnit.MINUTES).build());
+    // Evicted on SignalsUpdatedEvent and after acknowledge operations
+    manager.registerCustomCache(
+        "recent-alerts",
+        Caffeine.newBuilder().maximumSize(1).expireAfterWrite(30, TimeUnit.MINUTES).build());
     // Not evicted by events — FX rates fetched from FRED/Yahoo on every upload; 1h TTL avoids
     // repeated external calls when multiple holdings share the same currency conversion step
     manager.registerCustomCache(

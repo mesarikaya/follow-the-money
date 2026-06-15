@@ -51,6 +51,8 @@ public class CacheEvictionListener {
     evict("signal-history");
     evict("alerts-latest");
     evict("alerts-count");
+    evict("recent-alerts");
+    evict("theme-alert-history");
     evict("themes-latest");
     evict("theme-detail");
     evict("theme-history");

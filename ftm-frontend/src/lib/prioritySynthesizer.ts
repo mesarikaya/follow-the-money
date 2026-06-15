@@ -1,4 +1,4 @@
-import { ApproachingSignalDto, CategorySummary, SignalTransitionDto, SignalWinRateDto } from "./api";
+import { ApproachingSignalDto, CategorySummary, PriceLevelDto, SignalTransitionDto, SignalWinRateDto } from "./api";
 
 export type Urgency = "NOW" | "THIS WEEK" | "MONITOR";
 export type ActionVerb = "ENTRY" | "ADD" | "TRIM" | "AVOID" | "WATCH";
@@ -13,6 +13,8 @@ export type PriorityAction = {
   rationale: string;
   urgency: Urgency;
   winRatePct: number | null;
+  priceContext: string | null;
+  riskNote: string | null;
 };
 
 const VERB_PRIORITY: Record<ActionVerb, number> = {
@@ -24,24 +26,75 @@ const VERB_PRIORITY: Record<ActionVerb, number> = {
 };
 
 const URGENCY_WEIGHT: Record<Urgency, number> = {
-  NOW:       0,
+  NOW:         0,
   "THIS WEEK": 10,
-  MONITOR:   20,
+  MONITOR:     20,
 };
+
+function buildPriceContext(pl: PriceLevelDto | undefined): string | null {
+  if (!pl || pl.currentPrice == null) return null;
+  const parts: string[] = [];
+  if (pl.positionInRange != null) {
+    parts.push(`${Math.round(pl.positionInRange * 100)}% of 52w range`);
+  }
+  if (pl.drawdownFromHigh != null) {
+    const dd = Math.abs(pl.drawdownFromHigh * 100);
+    parts.push(`${dd.toFixed(1)}% off high`);
+  }
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+function buildRiskNote(
+  verb: ActionVerb,
+  pl: PriceLevelDto | undefined,
+  cat: CategorySummary | undefined,
+): string | null {
+  if (verb === "ENTRY" || verb === "ADD") {
+    if (pl == null) return null;
+    if (pl.positionInRange != null && pl.positionInRange > 0.85) {
+      return "Near 52w high — use a tight stop; momentum extension risk.";
+    }
+    if (pl.drawdownFromHigh != null && Math.abs(pl.drawdownFromHigh) > 0.15) {
+      return "Significant drawdown from high — confirm momentum is recovering, not a dead-cat bounce.";
+    }
+    if (pl.positionInRange != null && pl.positionInRange < 0.30) {
+      return "At low end of 52w range — strong momentum required before sizing up.";
+    }
+  }
+  if (verb === "TRIM" || verb === "AVOID") {
+    if (cat?.macroFit != null && cat.macroFit > 0.6) {
+      return "Macro regime still broadly supportive — consider partial trim rather than full exit.";
+    }
+    if (pl?.positionInRange != null && pl.positionInRange < 0.20) {
+      return "Already near 52w low — may be late to trim; evaluate vs original thesis.";
+    }
+  }
+  if (verb === "WATCH") {
+    return "Confirm signal after threshold cross before entering — velocity can reverse.";
+  }
+  return null;
+}
 
 export function derivePriorityActions(
   categories: CategorySummary[],
   approachingSignals: ApproachingSignalDto[],
   signalTransitions: SignalTransitionDto[],
   winRateByCategory: Record<string, SignalWinRateDto>,
+  priceLevelByCategory: Record<string, PriceLevelDto> = {},
 ): PriorityAction[] {
   const seen = new Set<string>();
   const candidates: Omit<PriorityAction, "rank">[] = [];
+  const catById: Record<string, CategorySummary> = {};
+  categories.forEach(c => { catById[c.id] = c; });
 
   const winPct = (id: string) => {
     const wr = winRateByCategory[id];
     return wr ? Math.round(wr.buyWinRate * 100) : null;
   };
+
+  const priceCtx = (id: string) => buildPriceContext(priceLevelByCategory[id]);
+  const risk = (verb: ActionVerb, id: string) =>
+    buildRiskNote(verb, priceLevelByCategory[id], catById[id]);
 
   // 1 — HIGH confidence approaching BUY (≤7d) — entry window is open NOW
   for (const s of approachingSignals) {
@@ -56,6 +109,8 @@ export function derivePriorityActions(
         rationale: `BUY threshold in ${s.estimatedDays}d at current momentum (+${(s.dailyVelocity * 100).toFixed(2)}pt/day)`,
         urgency: "NOW",
         winRatePct: winPct(s.categoryId),
+        priceContext: priceCtx(s.categoryId),
+        riskNote: risk("ENTRY", s.categoryId),
       });
     }
   }
@@ -68,15 +123,18 @@ export function derivePriorityActions(
     const falling = (cat.compositeTrend5d ?? 0) < -0.005;
     if (isReduce && isWeakening && falling) {
       seen.add(cat.id);
+      const quadrantLabel = cat.rrgQuadrant === "1" ? "Lagging" : "Weakening";
       candidates.push({
         verb: "TRIM",
         etfTicker: cat.etfTicker,
         categoryName: cat.name,
         categoryId: cat.id,
         signal: "REDUCE",
-        rationale: `REDUCE + ${cat.rrgQuadrant === "1" ? "Lagging" : "Weakening"} quadrant + falling momentum — deterioration confirmed`,
+        rationale: `REDUCE + ${quadrantLabel} quadrant + falling momentum — deterioration confirmed`,
         urgency: "NOW",
         winRatePct: null,
+        priceContext: priceCtx(cat.id),
+        riskNote: risk("TRIM", cat.id),
       });
     }
   }
@@ -96,6 +154,8 @@ export function derivePriorityActions(
         rationale: `Fresh BUY signal ${t.daysAgo === 0 ? "today" : `${t.daysAgo}d ago`}${conviction} — score ${Math.round(t.currentScore * 100)}`,
         urgency: "THIS WEEK",
         winRatePct: winPct(t.categoryId),
+        priceContext: priceCtx(t.categoryId),
+        riskNote: risk("ADD", t.categoryId),
       });
     }
   }
@@ -114,6 +174,8 @@ export function derivePriorityActions(
         rationale: `Signal just crossed to REDUCE (${t.daysAgo === 0 ? "today" : `${t.daysAgo}d ago`}) — score ${Math.round(t.currentScore * 100)}`,
         urgency: "THIS WEEK",
         winRatePct: null,
+        priceContext: priceCtx(t.categoryId),
+        riskNote: risk("AVOID", t.categoryId),
       });
     }
   }
@@ -136,6 +198,8 @@ export function derivePriorityActions(
         rationale: `BUY + Leading quadrant + positive 5d momentum — institutional accumulation pattern`,
         urgency: "THIS WEEK",
         winRatePct: winPct(cat.id),
+        priceContext: priceCtx(cat.id),
+        riskNote: risk("ADD", cat.id),
       });
     }
   }
@@ -154,11 +218,12 @@ export function derivePriorityActions(
         rationale: `BUY threshold in ~${s.estimatedDays}d at current pace — set price alert for entry`,
         urgency: "MONITOR",
         winRatePct: winPct(s.categoryId),
+        priceContext: priceCtx(s.categoryId),
+        riskNote: risk("WATCH", s.categoryId),
       });
     }
   }
 
-  // Sort: verb priority first, then urgency weight, cap at 5
   candidates.sort((a, b) => {
     const pa = VERB_PRIORITY[a.verb] + URGENCY_WEIGHT[a.urgency];
     const pb = VERB_PRIORITY[b.verb] + URGENCY_WEIGHT[b.urgency];

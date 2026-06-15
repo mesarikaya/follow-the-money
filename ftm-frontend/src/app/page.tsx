@@ -97,6 +97,7 @@ export default async function Home({ searchParams }: Props) {
     approachingSignals,
     signalTransitions,
     winRateByCategory,
+    priceLevelByCategory,
   );
 
   const themes: ThemeSummary[] = await fetchThemes().catch(() => []);

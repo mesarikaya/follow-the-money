@@ -19,40 +19,58 @@ function PriorityRow({ action }: { action: PriorityAction }) {
   const urgency = URGENCY_CONFIG[action.urgency];
 
   return (
-    <div className="flex items-start gap-3 py-3 border-b border-slate-800/60 last:border-0">
-      {/* Rank */}
-      <span className="shrink-0 w-5 text-center text-xs font-bold text-slate-600 mt-0.5">
-        {action.rank}
-      </span>
+    <div className="py-3 border-b border-slate-800/60 last:border-0">
+      <div className="flex items-start gap-3">
+        {/* Rank */}
+        <span className="shrink-0 w-5 text-center text-xs font-bold text-slate-600 mt-0.5">
+          {action.rank}
+        </span>
 
-      {/* Verb badge */}
-      <span
-        className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded border mt-0.5 ${verb.cls}`}
-      >
-        {verb.label}
-      </span>
+        {/* Verb badge */}
+        <span
+          className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded border mt-0.5 ${verb.cls}`}
+        >
+          {verb.label}
+        </span>
 
-      {/* ETF + name */}
-      <div className="shrink-0 flex flex-col w-24 min-w-0">
-        <span className="text-[11px] font-mono font-semibold text-slate-200">{action.etfTicker}</span>
-        <span className="text-[9px] text-slate-500 truncate">{action.categoryName}</span>
+        {/* ETF + name */}
+        <div className="shrink-0 flex flex-col w-24 min-w-0">
+          <span className="text-[11px] font-mono font-semibold text-slate-200">{action.etfTicker}</span>
+          <span className="text-[9px] text-slate-500 truncate">{action.categoryName}</span>
+        </div>
+
+        {/* Rationale */}
+        <p className="flex-1 text-[10px] text-slate-400 leading-relaxed min-w-0">
+          {action.rationale}
+          {action.winRatePct !== null && (
+            <span className="ml-1.5 text-emerald-600/70">
+              · {action.winRatePct}% BUY win rate
+            </span>
+          )}
+        </p>
+
+        {/* Urgency */}
+        <div className="shrink-0 flex items-center gap-1.5 mt-0.5">
+          <span className={`w-1.5 h-1.5 rounded-full ${urgency.dotCls}`} />
+          <span className="text-[9px] text-slate-500 font-mono">{urgency.label}</span>
+        </div>
       </div>
 
-      {/* Rationale */}
-      <p className="flex-1 text-[10px] text-slate-400 leading-relaxed min-w-0">
-        {action.rationale}
-        {action.winRatePct !== null && (
-          <span className="ml-1.5 text-emerald-600/70">
-            · {action.winRatePct}% BUY win rate
-          </span>
-        )}
-      </p>
-
-      {/* Urgency */}
-      <div className="shrink-0 flex items-center gap-1.5 mt-0.5">
-        <span className={`w-1.5 h-1.5 rounded-full ${urgency.dotCls}`} />
-        <span className="text-[9px] text-slate-500 font-mono">{urgency.label}</span>
-      </div>
+      {/* Price context + risk note (secondary row) */}
+      {(action.priceContext || action.riskNote) && (
+        <div className="ml-8 mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+          {action.priceContext && (
+            <span className="text-[9px] text-slate-600 font-mono bg-slate-800/40 px-1.5 py-0.5 rounded">
+              📍 {action.priceContext}
+            </span>
+          )}
+          {action.riskNote && (
+            <span className="text-[9px] text-amber-700/80 italic">
+              ⚠ {action.riskNote}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

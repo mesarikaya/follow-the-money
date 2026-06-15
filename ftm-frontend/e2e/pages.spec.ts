@@ -907,3 +907,30 @@ test.describe("Dashboard — Score Breakdown Bar", () => {
     expect(count).toBeGreaterThanOrEqual(2);
   });
 });
+
+test.describe("Dashboard — Signal Streak Leaderboard (EP-054)", () => {
+  test("renders signal streak panel", async ({ page }) => {
+    await page.goto("/");
+    // TECH has scoreStreakDays=7 (BUY), ENRG has -5 (REDUCE) — both meet the ≥3 threshold
+    await expect(page.getByTestId("signal-streak-panel")).toBeVisible();
+  });
+
+  test("shows Signal Streaks heading", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Signal Streaks")).toBeVisible();
+  });
+
+  test("shows TECH in bullish streaks with 7d", async ({ page }) => {
+    await page.goto("/");
+    const panel = page.getByTestId("signal-streak-panel");
+    // TECH scoreStreakDays=7, BUY signal → Bullish Streaks
+    await expect(panel.getByText(/7d/)).toBeVisible();
+  });
+
+  test("shows ENRG in bearish streaks with negative streak", async ({ page }) => {
+    await page.goto("/");
+    const panel = page.getByTestId("signal-streak-panel");
+    // ENRG scoreStreakDays=-5, REDUCE signal → Bearish Streaks
+    await expect(panel.getByText(/-5d/)).toBeVisible();
+  });
+});

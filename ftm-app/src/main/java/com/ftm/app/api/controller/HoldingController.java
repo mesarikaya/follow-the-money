@@ -95,8 +95,7 @@ public class HoldingController {
 
   @Operation(summary = "Portfolio value history snapshots for progress tracking")
   @GetMapping("/snapshots")
-  public List<PortfolioValueSnapshot> getSnapshots(
-      @RequestParam(defaultValue = "90") int days) {
+  public List<PortfolioValueSnapshot> getSnapshots(@RequestParam(defaultValue = "90") int days) {
     return portfolioSnapshotService.getRecentSnapshots(days);
   }
 }

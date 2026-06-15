@@ -2,6 +2,7 @@ package com.ftm.app.api.controller;
 
 import com.ftm.app.api.dto.CategoriesResponse;
 import com.ftm.app.api.dto.PriceLevelDto;
+import com.ftm.app.api.dto.ScreenerSnapshotDto;
 import com.ftm.app.api.dto.SeasonalReturnDto;
 import com.ftm.app.api.dto.SignalTransitionDto;
 import com.ftm.app.api.dto.SignalWinRateDto;
@@ -95,5 +96,16 @@ public class CategoryController {
   public ResponseEntity<List<SignalTransitionDto>> getSignalTransitions(
       @RequestParam(defaultValue = "7") @Min(1) @Max(90) int days) {
     return ResponseEntity.ok(categoryService.getSignalTransitions(days));
+  }
+
+  @GetMapping("/screener-snapshot")
+  @Operation(
+      summary = "Market-level signal distribution snapshot",
+      description =
+          "Returns aggregated BUY/WATCH/HOLD/REDUCE counts, average composite score, "
+              + "RS breadth (% outperforming benchmark), momentum breadth (% where RS-20 > RS-60), "
+              + "and risk-on breadth (% in Leading/Improving RRG quadrant) across top-level categories.")
+  public ResponseEntity<ScreenerSnapshotDto> getScreenerSnapshot() {
+    return ResponseEntity.ok(categoryService.getScreenerSnapshot());
   }
 }

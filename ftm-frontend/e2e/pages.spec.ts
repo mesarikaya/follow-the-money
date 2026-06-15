@@ -605,3 +605,21 @@ test.describe("Alerts page — Strong Breakout Confirmation rule", () => {
     await expect(page.getByText(/score 78/).first()).toBeVisible();
   });
 });
+
+test.describe("Dashboard — Screener Snapshot Banner (EP-052)", () => {
+  test("screener snapshot banner renders on the dashboard", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("screener-snapshot-banner")).toBeVisible();
+  });
+
+  test("screener snapshot banner shows BUY count from mock data", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("snapshot-buy-count")).toContainText("3");
+  });
+
+  test("screener snapshot banner shows RS breadth percentage", async ({ page }) => {
+    await page.goto("/");
+    // mock returns rsBreadthPct: 57.1 → rendered as "57%"
+    await expect(page.getByTestId("snapshot-rs-breadth")).toContainText("57%");
+  });
+});

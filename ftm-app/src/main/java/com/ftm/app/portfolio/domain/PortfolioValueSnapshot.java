@@ -4,7 +4,4 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public record PortfolioValueSnapshot(
-    LocalDate snapshotDate,
-    BigDecimal totalValueEur,
-    BigDecimal totalCostEur,
-    int holdingCount) {}
+    LocalDate snapshotDate, BigDecimal totalValueEur, BigDecimal totalCostEur, int holdingCount) {}

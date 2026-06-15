@@ -517,6 +517,21 @@ export type SignalTransitionDto = {
 export const fetchSignalTransitions = (days = 7) =>
   get<SignalTransitionDto[]>(`/api/v1/categories/transitions?days=${days}`);
 
+export type ScreenerSnapshotDto = {
+  buyCount: number;
+  watchCount: number;
+  holdCount: number;
+  reduceCount: number;
+  totalCategories: number;
+  avgCompositeScore: number;
+  rsBreadthPct: number;
+  momentumBreadthPct: number;
+  riskOnPct: number;
+};
+
+export const fetchScreenerSnapshot = () =>
+  get<ScreenerSnapshotDto>("/api/v1/categories/screener-snapshot");
+
 export type TickerMappingDto = {
   ticker: string;
   categoryId: string;

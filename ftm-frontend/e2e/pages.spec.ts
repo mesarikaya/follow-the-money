@@ -682,6 +682,37 @@ test.describe("Dashboard — Approaching Signals panel", () => {
   });
 });
 
+test.describe("Dashboard — Daily Signal Diff panel", () => {
+  test("shows 'What Changed Today' heading when there are transitions today", async ({ page }) => {
+    await page.goto("/");
+    // Mock has GOLD daysAgo=0 (HOLD→WATCH today) — panel should render
+    await expect(page.getByText("What Changed Today", { exact: true })).toBeVisible();
+  });
+
+  test("shows LAST 24H label in the diff panel header", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("LAST 24H")).toBeVisible();
+  });
+
+  test("shows GLD ticker with HOLD → WATCH transition from today", async ({ page }) => {
+    await page.goto("/");
+    // Mock: GOLD/GLD transitioned HOLD→WATCH daysAgo=0
+    await expect(page.getByText("GLD").first()).toBeVisible();
+  });
+
+  test("shows upgrade arrow and description for HOLD→WATCH transition", async ({ page }) => {
+    await page.goto("/");
+    // HOLD→WATCH is an upgrade — shows "Recovering" description in the diff panel
+    await expect(page.getByText(/Recovering — score entering/).first()).toBeVisible();
+  });
+
+  test("shows upgrade count in header", async ({ page }) => {
+    await page.goto("/");
+    // 1 upgrade (GOLD HOLD→WATCH)
+    await expect(page.getByText("↑1 upgrade")).toBeVisible();
+  });
+});
+
 test.describe("Alerts page — Strong Breakout Confirmation rule", () => {
   test("shows Strong Breakout Confirmation rule in Alert Rules panel", async ({ page }) => {
     await page.goto("/alerts");

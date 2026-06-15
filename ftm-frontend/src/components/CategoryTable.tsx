@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { CategorySummary, PriceLevelDto, SignalWinRateDto, SubSectorSummary } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
@@ -510,6 +510,20 @@ export default function CategoryTable({
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("default");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [filterText, setFilterText] = useState("");
+  const filterRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+      e.preventDefault();
+      filterRef.current?.focus();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const rsLabel = RS_LABEL[timeframe] ?? "60d";
   const hasHistory = Object.keys(scoreHistory).length > 0;
@@ -517,7 +531,18 @@ export default function CategoryTable({
 
   const getSignal = (c: CategorySummary) => (c.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(c);
   const isSorted = sortKey !== "default";
-  const sorted = sortCategories(categories, sortKey, sortDir, getSignal, winRates);
+  const query = filterText.trim().toLowerCase();
+  const sorted = sortCategories(
+    query
+      ? categories.filter(c =>
+          c.name.toLowerCase().includes(query) || c.etfTicker.toLowerCase().includes(query)
+        )
+      : categories,
+    sortKey,
+    sortDir,
+    getSignal,
+    winRates,
+  );
 
   // RS percentile rank: rank each top-level equity sector among its 11 GICS peers
   const equityPeers = sorted.filter(c => SECTOR_DRILLDOWN_IDS.has(c.id) && c.rs60 != null);
@@ -582,17 +607,46 @@ export default function CategoryTable({
 
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-700">
-      {isSorted && (
-        <div className="px-4 py-1.5 bg-cyan-900/20 border-b border-cyan-800/30 flex items-center gap-2 text-[10px] text-cyan-400">
-          <span>Sorted by <strong>{sortKey}</strong> {sortDir === "desc" ? "(highest first)" : "(lowest first)"}</span>
-          <button
-            className="ml-auto text-slate-500 hover:text-slate-300 transition-colors"
-            onClick={() => { setSortKey("default"); setSortDir("desc"); }}
-          >
-            ✕ Reset
-          </button>
+      <div className="px-4 py-2 border-b border-slate-700/60 flex items-center gap-3 bg-slate-800/60">
+        <div className="relative flex-1 max-w-xs">
+          <input
+            ref={filterRef}
+            type="text"
+            value={filterText}
+            onChange={e => setFilterText(e.target.value)}
+            onKeyDown={e => { if (e.key === "Escape") { setFilterText(""); filterRef.current?.blur(); } }}
+            placeholder="Filter by name or ticker…"
+            data-testid="category-filter"
+            className="w-full bg-slate-900/60 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600/50 transition-colors"
+          />
+          {!filterText && (
+            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-700 font-mono">/</span>
+          )}
+          {filterText && (
+            <button
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-400 transition-colors"
+              onClick={() => { setFilterText(""); filterRef.current?.focus(); }}
+              aria-label="Clear filter"
+            >✕</button>
+          )}
         </div>
-      )}
+        {filterText && (
+          <span className="text-[10px] text-slate-500 shrink-0">
+            {sorted.length} of {categories.length}
+          </span>
+        )}
+        {isSorted && (
+          <div className="flex items-center gap-2 text-[10px] text-cyan-400 ml-auto">
+            <span>Sorted by <strong>{sortKey}</strong> {sortDir === "desc" ? "↓" : "↑"}</span>
+            <button
+              className="text-slate-500 hover:text-slate-300 transition-colors"
+              onClick={() => { setSortKey("default"); setSortDir("desc"); }}
+            >
+              ✕ Reset
+            </button>
+          </div>
+        )}
+      </div>
       <table className="w-full text-sm text-left">
         <thead>
           <tr className="border-b border-slate-700 bg-slate-800/80 text-slate-400 text-xs uppercase tracking-wider">

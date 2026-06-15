@@ -1061,3 +1061,37 @@ test.describe("Dashboard — Theme Rotation Heatmap (EP-058)", () => {
     await expect(heatmap.getByText("Now")).toBeVisible();
   });
 });
+
+test.describe("Dashboard — Theme Phase Pipeline (EP-059)", () => {
+  test("renders theme phase pipeline panel", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("theme-phase-pipeline")).toBeVisible();
+  });
+
+  test("shows Theme Phase Pipeline heading", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "Theme Phase Pipeline" })).toBeVisible();
+  });
+
+  test("shows Breakout phase column with AI Infrastructure", async ({ page }) => {
+    await page.goto("/");
+    const pipeline = page.getByTestId("theme-phase-pipeline");
+    await expect(pipeline.getByText("Breakout", { exact: true })).toBeVisible();
+    // AI_INFRA has themePhase=BREAKOUT in mock data
+    await expect(pipeline.getByText("AI Infrastructure").first()).toBeVisible();
+  });
+
+  test("shows Fading phase column with SaaS at Risk", async ({ page }) => {
+    await page.goto("/");
+    const pipeline = page.getByTestId("theme-phase-pipeline");
+    await expect(pipeline.getByText("Fading", { exact: true })).toBeVisible();
+    await expect(pipeline.getByText("SaaS at Risk").first()).toBeVisible();
+  });
+
+  test("shows trend arrows in pipeline cards", async ({ page }) => {
+    await page.goto("/");
+    const pipeline = page.getByTestId("theme-phase-pipeline");
+    // Themes with positive compositeTrend5d show ↑ arrow
+    await expect(pipeline.getByText("↑").first()).toBeVisible();
+  });
+});

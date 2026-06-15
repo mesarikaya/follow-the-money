@@ -28,6 +28,8 @@ import SectorRotationWheel from "@/components/SectorRotationWheel";
 import ThemeSignalWidget from "@/components/ThemeSignalWidget";
 import ScreenerSnapshotBanner from "@/components/ScreenerSnapshotBanner";
 import ApproachingSignalsPanel from "@/components/ApproachingSignalsPanel";
+import TodaysPriorityPanel from "@/components/TodaysPriorityPanel";
+import { derivePriorityActions } from "@/lib/prioritySynthesizer";
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +92,13 @@ export default async function Home({ searchParams }: Props) {
 
   const approachingSignals: ApproachingSignalDto[] = await fetchApproachingSignals().catch(() => []);
 
+  const priorityActions = derivePriorityActions(
+    categories,
+    approachingSignals,
+    signalTransitions,
+    winRateByCategory,
+  );
+
   const themes: ThemeSummary[] = await fetchThemes().catch(() => []);
   const themeHistoryResults = await Promise.allSettled(
     themes.map(t => fetchThemeHistory(t.id, 30))
@@ -109,6 +118,8 @@ export default async function Home({ searchParams }: Props) {
             {String((categoriesResult as PromiseRejectedResult).reason)}
           </div>
         )}
+
+        {priorityActions.length > 0 && <TodaysPriorityPanel actions={priorityActions} />}
 
         {categories.length > 0 && <StaleDataBanner categories={categories} />}
 

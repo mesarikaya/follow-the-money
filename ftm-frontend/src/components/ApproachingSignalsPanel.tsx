@@ -20,15 +20,27 @@ const ARROW: Record<string, string> = {
 };
 
 function ScoreGapBar({ currentScore, projectedSignal }: { currentScore: number; projectedSignal: string }) {
+  const fallingToReduce = projectedSignal === "REDUCE";
   const threshold = projectedSignal === "BUY" ? 0.65 : projectedSignal === "WATCH" ? 0.50 : 0.35;
-  const pct = Math.min((currentScore / threshold) * 100, 100);
+
+  // For falling-to-REDUCE: bar shows how much of the danger zone has been consumed (score dropping toward threshold).
+  // A full bar = score has reached threshold = sell signal triggered.
+  // For rising signals: bar shows progress toward the next threshold.
+  const pct = fallingToReduce
+    ? Math.min(((1 - currentScore) / (1 - threshold)) * 100, 100)
+    : Math.min((currentScore / threshold) * 100, 100);
+
   const color =
     projectedSignal === "BUY"    ? "bg-emerald-500/60" :
     projectedSignal === "REDUCE" ? "bg-red-500/60" :
     "bg-cyan-500/60";
+
   return (
     <div className="flex items-center gap-1.5 flex-1 min-w-0">
-      <div className="flex-1 h-1.5 bg-slate-700/60 rounded-full overflow-hidden" title={`${Math.round(currentScore * 100)}/100 → threshold at ${Math.round(threshold * 100)}`}>
+      <div
+        className="flex-1 h-1.5 bg-slate-700/60 rounded-full overflow-hidden"
+        title={`Score ${Math.round(currentScore * 100)} → ${fallingToReduce ? "sell" : "buy"} threshold at ${Math.round(threshold * 100)}`}
+      >
         <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${pct}%` }} />
       </div>
       <span className="text-[9px] font-mono tabular-nums text-slate-600 shrink-0">

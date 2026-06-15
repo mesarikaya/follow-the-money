@@ -12,6 +12,7 @@ import com.ftm.app.api.dto.CategoriesResponse;
 import com.ftm.app.api.dto.SeasonalReturnDto;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
 import com.ftm.app.api.service.CategoryService;
+import com.ftm.app.api.service.ScoreDecompositionService;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -29,12 +30,14 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 class CategoryControllerTest {
 
   @Mock CategoryService categoryService;
+  @Mock ScoreDecompositionService scoreDecompositionService;
   MockMvc mockMvc;
 
   @BeforeEach
   void setUp() {
     mockMvc =
-        MockMvcBuilders.standaloneSetup(new CategoryController(categoryService))
+        MockMvcBuilders.standaloneSetup(
+                new CategoryController(categoryService, scoreDecompositionService))
             .setControllerAdvice(new GlobalExceptionHandler())
             .build();
   }

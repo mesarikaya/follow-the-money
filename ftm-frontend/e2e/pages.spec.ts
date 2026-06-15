@@ -882,3 +882,28 @@ test.describe("Dashboard — CSV Export", () => {
     await expect(page.getByRole("button", { name: "Export CSV" })).toBeVisible();
   });
 });
+
+test.describe("Dashboard — Score Breakdown Bar", () => {
+  test("renders score breakdown bar for TECH in category table", async ({ page }) => {
+    await page.goto("/");
+    // ScoreBreakdownBar renders with data-testid for categories that have decomposition data
+    await expect(page.getByTestId("score-breakdown-bar").first()).toBeVisible();
+  });
+
+  test("score breakdown bar appears in the categories section", async ({ page }) => {
+    await page.goto("/");
+    // The Categories heading is visible
+    await expect(page.getByText("Categories").first()).toBeVisible();
+    // And at least one breakdown bar is present
+    const breakdownBars = page.getByTestId("score-breakdown-bar");
+    await expect(breakdownBars.first()).toBeVisible();
+  });
+
+  test("multiple categories have score breakdown bars", async ({ page }) => {
+    await page.goto("/");
+    // Mock provides decompositions for TECH, HLTH, ENRG — expect multiple bars
+    const breakdownBars = page.getByTestId("score-breakdown-bar");
+    const count = await breakdownBars.count();
+    expect(count).toBeGreaterThanOrEqual(2);
+  });
+});

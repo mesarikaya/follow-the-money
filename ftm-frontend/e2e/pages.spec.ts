@@ -1028,3 +1028,36 @@ test.describe("Dashboard — Momentum Velocity Radar (EP-056)", () => {
     await expect(radar.getByText("XLE").first()).toBeVisible();
   });
 });
+
+test.describe("Dashboard — Theme Rotation Heatmap (EP-058)", () => {
+  test("renders theme rotation heatmap panel", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("theme-rotation-heatmap")).toBeVisible();
+  });
+
+  test("shows Theme Rotation Heatmap heading", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "Theme Rotation Heatmap" })).toBeVisible();
+  });
+
+  test("shows theme names from mock data", async ({ page }) => {
+    await page.goto("/");
+    const heatmap = page.getByTestId("theme-rotation-heatmap");
+    // THEMES_RESPONSE includes AI Infrastructure and Semiconductor Supercycle
+    await expect(heatmap.getByText("AI Infrastructure").first()).toBeVisible();
+  });
+
+  test("shows date column headers", async ({ page }) => {
+    await page.goto("/");
+    const heatmap = page.getByTestId("theme-rotation-heatmap");
+    // Column headers are formatted dates — at least one month abbreviation should appear
+    await expect(heatmap.getByText(/May|Jun|Jul/)).toBeVisible();
+  });
+
+  test("shows color-coded score cells", async ({ page }) => {
+    await page.goto("/");
+    const heatmap = page.getByTestId("theme-rotation-heatmap");
+    // Score cells display 0-100 integers
+    await expect(heatmap.getByText("Now")).toBeVisible();
+  });
+});

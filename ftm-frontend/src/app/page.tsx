@@ -35,6 +35,7 @@ import SignalStreakPanel from "@/components/SignalStreakPanel";
 import ScoreComponentHeatmap from "@/components/ScoreComponentHeatmap";
 import ScoreTimelineGrid from "@/components/ScoreTimelineGrid";
 import MomentumVelocityRadar from "@/components/MomentumVelocityRadar";
+import ThemeRotationHeatmap from "@/components/ThemeRotationHeatmap";
 
 export const dynamic = "force-dynamic";
 
@@ -151,6 +152,10 @@ export default async function Home({ searchParams }: Props) {
 
         {themes.length > 0 && (
           <ThemeSignalWidget themes={themes} historiesByThemeId={historiesByThemeId} />
+        )}
+
+        {themes.length > 0 && Object.keys(historiesByThemeId).length > 0 && (
+          <ThemeRotationHeatmap themes={themes} historiesByThemeId={historiesByThemeId} />
         )}
 
         {categories.length > 0 && (

@@ -994,3 +994,37 @@ test.describe("Dashboard — Score Timeline Grid (EP-053)", () => {
     await expect(grid.getByText("XLK")).toBeVisible();
   });
 });
+
+test.describe("Dashboard — Momentum Velocity Radar (EP-056)", () => {
+  test("renders momentum velocity radar panel", async ({ page }) => {
+    await page.goto("/");
+    // TECH (trend=+0.04) and ENRG (trend=-0.05) both have compositeTrend5d
+    await expect(page.getByTestId("momentum-velocity-radar")).toBeVisible();
+  });
+
+  test("shows Momentum Velocity heading", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "Momentum Velocity" })).toBeVisible();
+  });
+
+  test("shows Rising and Fading column headers", async ({ page }) => {
+    await page.goto("/");
+    const radar = page.getByTestId("momentum-velocity-radar");
+    await expect(radar.getByText("Rising")).toBeVisible();
+    await expect(radar.getByText("Fading")).toBeVisible();
+  });
+
+  test("shows XLK in rising column (highest positive trend)", async ({ page }) => {
+    await page.goto("/");
+    // TECH/XLK has compositeTrend5d=0.04 — should appear in Rising column
+    const radar = page.getByTestId("momentum-velocity-radar");
+    await expect(radar.getByText("XLK").first()).toBeVisible();
+  });
+
+  test("shows XLE in fading column (most negative trend)", async ({ page }) => {
+    await page.goto("/");
+    // ENRG/XLE has compositeTrend5d=-0.05 — should appear in Fading column
+    const radar = page.getByTestId("momentum-velocity-radar");
+    await expect(radar.getByText("XLE").first()).toBeVisible();
+  });
+});

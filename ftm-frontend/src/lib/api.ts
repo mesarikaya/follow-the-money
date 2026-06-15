@@ -316,6 +316,17 @@ export type AlertRuleDto = {
 
 export const fetchAlertRules = () => get<AlertRuleDto[]>("/api/v1/alerts/rules");
 
+export type AlertSeverityDayDto = {
+  date: string;
+  urgentCount: number;
+  actionCount: number;
+  warningCount: number;
+  infoCount: number;
+};
+
+export const fetchAlertSeverityHistory = (days = 30) =>
+  get<AlertSeverityDayDto[]>(`/api/v1/alerts/severity-history?days=${days}`);
+
 export const setAlertRuleEnabled = (ruleId: string, enabled: boolean) =>
   fetch(`${BACKEND}/api/v1/alerts/rules/${encodeURIComponent(ruleId)}/enabled?enabled=${enabled}`, {
     method: "PUT",

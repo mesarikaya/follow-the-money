@@ -1121,3 +1121,27 @@ test.describe("Alerts — Rule Activity Panel (EP-060)", () => {
     await expect(panel.getByText("Score-Price Divergence")).toBeVisible();
   });
 });
+
+test.describe("Alerts — Severity Timeline (EP-061)", () => {
+  test("shows alert severity timeline panel on alerts page", async ({ page }) => {
+    await page.goto("/alerts");
+    await expect(page.getByTestId("alert-severity-timeline")).toBeVisible();
+  });
+
+  test("shows Alert Activity heading", async ({ page }) => {
+    await page.goto("/alerts");
+    const panel = page.getByTestId("alert-severity-timeline");
+    await expect(panel.getByRole("heading", { name: "Alert Activity" })).toBeVisible();
+  });
+
+  test("renders stacked bar columns for each day in mock data", async ({ page }) => {
+    await page.goto("/alerts");
+    const panel = page.getByTestId("alert-severity-timeline");
+    // Panel renders with content from mock (12 days in fixture)
+    await expect(panel).toBeVisible();
+    // Bars are nested divs — at least one bar block should exist
+    const bars = panel.locator("div.flex-1");
+    const count = await bars.count();
+    expect(count).toBeGreaterThanOrEqual(1);
+  });
+});

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { fetchAlerts, acknowledgeAlert, bulkDismissAlerts, fetchAlertRules, setAlertRuleEnabled, AlertsResponse, AlertDto, AlertRuleDto } from "@/lib/api";
 import AlertRuleActivityPanel from "@/components/AlertRuleActivityPanel";
+import AlertSeverityTimeline from "@/components/AlertSeverityTimeline";
 
 function parseSnapshot(raw: string | null): Record<string, unknown> | null {
   if (!raw) return null;
@@ -557,6 +558,7 @@ export default function AlertsPage() {
               );
             })()}
 
+            <AlertSeverityTimeline />
             <AlertRuleActivityPanel />
 
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sticky top-0">

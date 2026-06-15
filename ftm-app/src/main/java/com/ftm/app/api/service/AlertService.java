@@ -4,10 +4,14 @@ import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.alerts.repository.AlertRulesRepository;
 import com.ftm.app.api.dto.AlertDto;
 import com.ftm.app.api.dto.AlertRuleDto;
+import com.ftm.app.api.dto.AlertSeverityDayDto;
 import com.ftm.app.api.dto.AlertsResponse;
 import com.ftm.app.api.mapper.AlertMapper;
 import com.ftm.app.domain.Alert;
 import com.ftm.app.domain.AlertRule;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -93,6 +97,32 @@ public class AlertService {
   @Cacheable(value = "alert-rule-stats", key = "#days")
   public Map<String, Integer> getAlertRuleFireCounts(int days) {
     return alertRepository.findFireCountsByRuleSince(days);
+  }
+
+  @Cacheable(value = "alert-severity-history", key = "#days")
+  public List<AlertSeverityDayDto> getAlertSeverityHistory(int days) {
+    List<Map<String, Object>> rows = alertRepository.findDailySeverityCountsSince(days);
+    Map<LocalDate, int[]> byDate = new LinkedHashMap<>();
+    for (Map<String, Object> row : rows) {
+      LocalDate date = (LocalDate) row.get("date");
+      String severity = (String) row.get("severity");
+      int count = (Integer) row.get("count");
+      byDate.computeIfAbsent(date, d -> new int[4]);
+      int[] counts = byDate.get(date);
+      switch (severity) {
+        case "URGENT"  -> counts[0] += count;
+        case "ACTION"  -> counts[1] += count;
+        case "WARNING" -> counts[2] += count;
+        case "INFO"    -> counts[3] += count;
+        default -> {} // unknown severity — ignore
+      }
+    }
+    List<AlertSeverityDayDto> result = new ArrayList<>(byDate.size());
+    for (Map.Entry<LocalDate, int[]> entry : byDate.entrySet()) {
+      int[] c = entry.getValue();
+      result.add(new AlertSeverityDayDto(entry.getKey(), c[0], c[1], c[2], c[3]));
+    }
+    return result;
   }
 
   @Cacheable("recent-alerts")

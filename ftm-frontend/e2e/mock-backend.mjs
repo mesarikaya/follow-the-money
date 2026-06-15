@@ -92,7 +92,7 @@ const CATEGORIES_RESPONSE = {
       rank: 4,
       latestClose: 310.2,
       priceDate: "2026-05-15",
-      tradeSignal: "WATCH",
+      tradeSignal: "BUY",
       macroFit: 0.35,
       activeAlertCount: 0,
       scoreStreakDays: null,

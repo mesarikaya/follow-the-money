@@ -20,8 +20,23 @@ jest.mock("@/lib/api", () => ({
       fedFundsRate: 5.25,
       usdIndex: 104.5,
     },
+    previousIndicators: null,
     regimeHistory: [],
+    macroFitByCategory: null,
   }),
+  fetchRotation: jest.fn().mockResolvedValue({
+    asOfDate: "2026-05-16",
+    topLeaders: [],
+    bottomLaggards: [],
+    recentEvents: [],
+  }),
+  fetchCategoryScoreHistory: jest.fn().mockResolvedValue({}),
+  fetchSubSectors: jest.fn().mockResolvedValue([]),
+  fetchWinRates: jest.fn().mockResolvedValue([]),
+  fetchPriceLevels: jest.fn().mockResolvedValue([]),
+  fetchSignalTransitions: jest.fn().mockResolvedValue([]),
+  fetchThemes: jest.fn().mockResolvedValue([]),
+  fetchThemeHistory: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("next/navigation", () => ({
@@ -38,7 +53,7 @@ test("home page renders category and macro sections", async () => {
   await act(async () => {
     render(await Home(defaultProps));
   });
-  expect(screen.getByText("Sector Rotation")).toBeInTheDocument();
+  expect(screen.getByText("Rotation Signals")).toBeInTheDocument();
   expect(screen.getByText("Macro Environment")).toBeInTheDocument();
   expect(screen.getByText(/Categories/)).toBeInTheDocument();
 });

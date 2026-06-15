@@ -846,6 +846,22 @@ const server = http.createServer(async (req, res) => {
     res.setHeader("Content-Type", "text/csv");
     res.writeHead(200);
     res.end("ticker,name,currency,quantity,avg_cost_local\nAAPL,Apple Inc.,USD,10,175.00\n");
+  } else if (path === "/api/v1/alerts/severity-history" && req.method === "GET") {
+    res.writeHead(200);
+    res.end(JSON.stringify([
+      { date: "2026-05-17", urgentCount: 0, actionCount: 1, warningCount: 2, infoCount: 3 },
+      { date: "2026-05-18", urgentCount: 0, actionCount: 0, warningCount: 3, infoCount: 2 },
+      { date: "2026-05-19", urgentCount: 1, actionCount: 2, warningCount: 4, infoCount: 1 },
+      { date: "2026-05-20", urgentCount: 0, actionCount: 1, warningCount: 2, infoCount: 4 },
+      { date: "2026-05-21", urgentCount: 0, actionCount: 0, warningCount: 1, infoCount: 2 },
+      { date: "2026-05-22", urgentCount: 0, actionCount: 2, warningCount: 3, infoCount: 1 },
+      { date: "2026-05-23", urgentCount: 0, actionCount: 1, warningCount: 2, infoCount: 3 },
+      { date: "2026-05-24", urgentCount: 0, actionCount: 0, warningCount: 4, infoCount: 2 },
+      { date: "2026-05-25", urgentCount: 2, actionCount: 3, warningCount: 5, infoCount: 0 },
+      { date: "2026-06-10", urgentCount: 0, actionCount: 1, warningCount: 3, infoCount: 2 },
+      { date: "2026-06-11", urgentCount: 1, actionCount: 2, warningCount: 4, infoCount: 1 },
+      { date: "2026-06-12", urgentCount: 0, actionCount: 1, warningCount: 5, infoCount: 3 },
+    ]));
   } else if (path === "/api/v1/alerts/recent" && req.method === "GET") {
     const recentEvents = [
       ...ALERTS_RESPONSE.alerts,

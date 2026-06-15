@@ -120,7 +120,9 @@ export default async function Home({ searchParams }: Props) {
           </div>
         )}
 
-        {priorityActions.length > 0 && <TodaysPriorityPanel actions={priorityActions} />}
+        {priorityActions.length > 0 && (
+          <TodaysPriorityPanel actions={priorityActions} scoreHistory={scoreHistory} />
+        )}
 
         {categories.length > 0 && <StaleDataBanner categories={categories} />}
 

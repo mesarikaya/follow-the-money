@@ -14,7 +14,57 @@ const URGENCY_CONFIG: Record<Urgency, { label: string; dotCls: string }> = {
   MONITOR:     { label: "MONITOR",   dotCls: "bg-slate-500" },
 };
 
-function PriorityRow({ action }: { action: PriorityAction }) {
+function ScoreSparkline({ scores, verb }: { scores: number[]; verb: ActionVerb }) {
+  if (scores.length < 2) return null;
+
+  const W = 56;
+  const H = 20;
+  const min = Math.min(...scores);
+  const max = Math.max(...scores);
+  const range = max - min || 0.001;
+  const xs = scores.map((_, i) => (i / (scores.length - 1)) * W);
+  const ys = scores.map(v => H - ((v - min) / range) * (H - 2) - 1);
+  const points = xs.map((x, i) => `${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
+
+  const rising = scores[scores.length - 1] > scores[0];
+  const strokeColor =
+    (verb === "ENTRY" || verb === "ADD") && rising  ? "#34d399" :  // emerald
+    (verb === "TRIM"  || verb === "AVOID") && !rising ? "#f87171" :  // red
+    "#64748b";                                                         // slate
+
+  return (
+    <svg
+      width={W}
+      height={H}
+      viewBox={`0 0 ${W} ${H}`}
+      className="shrink-0 opacity-70"
+      aria-hidden="true"
+    >
+      <polyline
+        points={points}
+        fill="none"
+        stroke={strokeColor}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Last point dot */}
+      <circle
+        cx={xs[xs.length - 1]}
+        cy={ys[ys.length - 1]}
+        r="2"
+        fill={strokeColor}
+      />
+    </svg>
+  );
+}
+
+type RowProps = {
+  action: PriorityAction;
+  scores: number[];
+};
+
+function PriorityRow({ action, scores }: RowProps) {
   const verb = VERB_CONFIG[action.verb];
   const urgency = URGENCY_CONFIG[action.urgency];
 
@@ -44,10 +94,17 @@ function PriorityRow({ action }: { action: PriorityAction }) {
           {action.rationale}
           {action.winRatePct !== null && (
             <span className="ml-1.5 text-emerald-600/70">
-              · {action.winRatePct}% BUY win rate
+              · {action.winRatePct}% win rate
             </span>
           )}
         </p>
+
+        {/* 30-day sparkline */}
+        {scores.length >= 2 && (
+          <div className="shrink-0 mt-0.5" title="30-day composite score trend">
+            <ScoreSparkline scores={scores} verb={action.verb} />
+          </div>
+        )}
 
         {/* Urgency */}
         <div className="shrink-0 flex items-center gap-1.5 mt-0.5">
@@ -77,9 +134,10 @@ function PriorityRow({ action }: { action: PriorityAction }) {
 
 type Props = {
   actions: PriorityAction[];
+  scoreHistory: Record<string, number[]>;
 };
 
-export default function TodaysPriorityPanel({ actions }: Props) {
+export default function TodaysPriorityPanel({ actions, scoreHistory }: Props) {
   if (actions.length === 0) return null;
 
   const nowCount = actions.filter(a => a.urgency === "NOW").length;
@@ -99,7 +157,7 @@ export default function TodaysPriorityPanel({ actions }: Props) {
           </h2>
           <span
             className="text-[10px] text-slate-600 cursor-help"
-            title="Synthesis of approaching signal transitions, fresh crossovers, and momentum confirmations. Ranked by urgency and conviction."
+            title="Synthesis of approaching signal transitions, fresh crossovers, and momentum confirmations. Ranked by urgency and conviction. Sparkline = 30-day composite score."
           >
             (?)
           </span>
@@ -120,12 +178,16 @@ export default function TodaysPriorityPanel({ actions }: Props) {
       </div>
 
       <div className="text-[9px] text-slate-600 mb-3">
-        Verb · ETF / Sector · Rationale · Urgency
+        Rank · Verb · ETF / Sector · Rationale · Sparkline (30d) · Urgency
       </div>
 
       <div>
         {actions.map(a => (
-          <PriorityRow key={a.categoryId} action={a} />
+          <PriorityRow
+            key={a.categoryId}
+            action={a}
+            scores={scoreHistory[a.categoryId] ?? []}
+          />
         ))}
       </div>
 

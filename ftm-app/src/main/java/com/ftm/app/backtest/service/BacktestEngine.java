@@ -13,7 +13,15 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
@@ -30,10 +38,13 @@ public class BacktestEngine {
 
   private final SignalRepository signalRepository;
   private final DSLContext dsl;
+  private final AllocationComputer allocationComputer;
 
-  public BacktestEngine(SignalRepository signalRepository, DSLContext dsl) {
+  public BacktestEngine(
+      SignalRepository signalRepository, DSLContext dsl, AllocationComputer allocationComputer) {
     this.signalRepository = signalRepository;
     this.dsl = dsl;
+    this.allocationComputer = allocationComputer;
   }
 
   public BacktestResult run(BacktestRequest request) {
@@ -69,7 +80,7 @@ public class BacktestEngine {
     List<LocalDate> rebalanceDates =
         computeRebalanceDates(tradingDates, request.rebalanceFrequency());
     Map<LocalDate, List<String>> allocationsByRebalanceDate =
-        computeAllocations(
+        allocationComputer.computeAllocations(
             rebalanceDates,
             compositesByDate,
             request.topN(),
@@ -193,53 +204,6 @@ public class BacktestEngine {
       }
     }
     return rebalanceDates;
-  }
-
-  private Map<LocalDate, List<String>> computeAllocations(
-      List<LocalDate> rebalanceDates,
-      Map<LocalDate, Map<String, BigDecimal>> compositesByDate,
-      int topN,
-      BigDecimal signalThreshold,
-      Set<String> categoriesWithPriceData) {
-
-    Map<LocalDate, List<String>> allocations = new LinkedHashMap<>();
-    List<String> lastAllocation = List.of();
-
-    for (LocalDate rebalanceDate : rebalanceDates) {
-      Map<String, BigDecimal> composites = findClosestComposites(rebalanceDate, compositesByDate);
-      if (composites.isEmpty()) {
-        allocations.put(rebalanceDate, lastAllocation);
-        continue;
-      }
-
-      List<String> topCategories =
-          composites.entrySet().stream()
-              .filter(e -> e.getValue() != null)
-              // Only allocate to categories that have price data — sub-sector ETFs that haven't
-              // been ingested would otherwise make the portfolio flatline with 0% returns.
-              .filter(e -> categoriesWithPriceData.contains(e.getKey()))
-              .filter(e -> signalThreshold == null || e.getValue().compareTo(signalThreshold) >= 0)
-              .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
-              .limit(topN)
-              .map(Map.Entry::getKey)
-              .toList();
-
-      if (!topCategories.isEmpty()) {
-        lastAllocation = topCategories;
-      }
-      allocations.put(rebalanceDate, lastAllocation);
-    }
-    return allocations;
-  }
-
-  private Map<String, BigDecimal> findClosestComposites(
-      LocalDate targetDate, Map<LocalDate, Map<String, BigDecimal>> compositesByDate) {
-    // Find the most recent composite date on or before targetDate
-    return compositesByDate.entrySet().stream()
-        .filter(e -> !e.getKey().isAfter(targetDate))
-        .max(Map.Entry.comparingByKey())
-        .map(Map.Entry::getValue)
-        .orElse(Map.of());
   }
 
   private List<EquityCurvePoint> simulatePortfolio(

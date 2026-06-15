@@ -9,6 +9,7 @@ import com.ftm.app.api.mapper.AlertMapper;
 import com.ftm.app.domain.Alert;
 import com.ftm.app.domain.AlertRule;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,6 +81,10 @@ public class AlertService {
     return alertRepository.findRecentByThemeId(themeId.toUpperCase(), RECENT_ALERTS_LIMIT).stream()
         .map(alertMapper::toDto)
         .toList();
+  }
+
+  public Map<String, Integer> getActiveAlertCountsByCategory() {
+    return alertRepository.findActiveAlertCountsByCategory();
   }
 
   public List<AlertDto> getRecentAlerts() {

@@ -9,8 +9,10 @@ import com.ftm.app.domain.Severity;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
 import org.jooq.DSLContext;
 import org.jooq.JSONB;
+import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -142,6 +144,16 @@ public class AlertRepository {
                 .and(ALERTS.STATUS.eq(AlertStatus.ACTIVE.name()))
                 .and(ALERTS.THEME_ID.eq(themeId)))
         .execute();
+  }
+
+  public Map<String, Integer> findActiveAlertCountsByCategory() {
+    var countField = DSL.count();
+    return dsl.select(ALERTS.CATEGORY_ID, countField)
+        .from(ALERTS)
+        .where(ALERTS.STATUS.eq(AlertStatus.ACTIVE.name()))
+        .and(ALERTS.CATEGORY_ID.isNotNull())
+        .groupBy(ALERTS.CATEGORY_ID)
+        .fetchMap(ALERTS.CATEGORY_ID, countField);
   }
 
   private Alert mapRecord(org.jooq.Record record) {

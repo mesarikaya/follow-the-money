@@ -35,14 +35,17 @@ public class CategoryService {
   private final CategoryRepository categoryRepository;
   private final SignalRepository signalRepository;
   private final CategoryMapper categoryMapper;
+  private final AlertService alertService;
 
   public CategoryService(
       CategoryRepository categoryRepository,
       SignalRepository signalRepository,
-      CategoryMapper categoryMapper) {
+      CategoryMapper categoryMapper,
+      AlertService alertService) {
     this.categoryRepository = categoryRepository;
     this.signalRepository = signalRepository;
     this.categoryMapper = categoryMapper;
+    this.alertService = alertService;
   }
 
   @Cacheable(value = "signals-latest", key = "#timeframe")
@@ -100,6 +103,8 @@ public class CategoryService {
         signalRepository.findRealizedVolatility20d();
     Map<String, BigDecimal> scorePercentile252dByCategoryId =
         signalRepository.findScorePercentile252d();
+    Map<String, Integer> activeAlertCountByCategoryId =
+        alertService.getActiveAlertCountsByCategory();
 
     // Primary sort: timeframe RS signal; secondary: composite score (tiebreaker)
     var sortedRows =
@@ -139,7 +144,8 @@ public class CategoryService {
                         momentumByCategoryId,
                         signalDaysActiveByCategoryId,
                         realizedVol20dByCategoryId,
-                        scorePercentile252dByCategoryId))
+                        scorePercentile252dByCategoryId,
+                        activeAlertCountByCategoryId))
             .toList();
 
     LocalDate asOfDate =

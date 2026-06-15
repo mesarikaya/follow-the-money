@@ -78,7 +78,7 @@ function CategoryRow({ cat, scoreHistory5d }: { cat: CategorySummary; scoreHisto
       </span>
       <ScorePill score={cat.compositeScore} />
       <DeltaBadge delta={delta5d} />
-      {cat.themePhase == null && cat.rrgQuadrant != null && (
+      {cat.rrgQuadrant != null && (
         <span className="text-[9px] font-mono text-slate-600 ml-auto shrink-0">Q{cat.rrgQuadrant}</span>
       )}
       <span className="text-[11px] text-slate-300 flex-1 truncate ml-1">{cat.name}</span>

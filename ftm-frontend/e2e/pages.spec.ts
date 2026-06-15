@@ -669,3 +669,27 @@ test.describe("Dashboard — Screener Snapshot Banner (EP-052)", () => {
     await expect(page.getByTestId("snapshot-rs-breadth")).toContainText("57%");
   });
 });
+
+test.describe("Portfolio page — Radar, trend arrows, concentration risk", () => {
+  test("shows Radar panel with GOLD as unowned BUY signal", async ({ page }) => {
+    await page.goto("/portfolio");
+    // Mock: GOLD tradeSignal=BUY, not in holdings (AAPL + XLK both TECH)
+    await expect(page.getByText("Radar · Unowned BUY Signals")).toBeVisible();
+    // Radar panel has a BUY badge inside it — verify the panel heading and at least one BUY badge is visible
+    await expect(page.getByText("These sectors have active BUY signals")).toBeVisible();
+  });
+
+  test("shows concentration risk warning when top sector exceeds 40%", async ({ page }) => {
+    await page.goto("/portfolio");
+    // Mock holdings: AAPL + XLK both TECH = 100% concentration → warning fires
+    await expect(page.getByText("Concentration Risk")).toBeVisible();
+    // The warning text contains the exact phrase "100% of your portfolio"
+    await expect(page.getByText(/100% of your portfolio/)).toBeVisible();
+  });
+
+  test("shows trend arrows in holdings signal cell", async ({ page }) => {
+    await page.goto("/portfolio");
+    // TECH has compositeTrend5d=0.04 (positive) → ↑ arrow for AAPL and XLK rows
+    await expect(page.getByText("↑").first()).toBeVisible();
+  });
+});

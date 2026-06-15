@@ -37,6 +37,8 @@ jest.mock("@/lib/api", () => ({
   fetchSignalTransitions: jest.fn().mockResolvedValue([]),
   fetchThemes: jest.fn().mockResolvedValue([]),
   fetchThemeHistory: jest.fn().mockResolvedValue([]),
+  fetchApproachingSignals: jest.fn().mockResolvedValue([]),
+  fetchPortfolioActions: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("@/components/ScreenerSnapshotBanner", () => {

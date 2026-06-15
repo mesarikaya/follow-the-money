@@ -1595,6 +1595,8 @@ class AlertRulesEngineTest {
         .thenReturn(Optional.of(disabled("theme_strong_breakout_confirmation")));
     when(alertRulesRepository.findById("theme_peer_divergence"))
         .thenReturn(Optional.of(disabled("theme_peer_divergence")));
+    when(alertRulesRepository.findById("theme_score_price_divergence"))
+        .thenReturn(Optional.of(disabled("theme_score_price_divergence")));
   }
 
   private void stubAllRulesDisabledExceptFlowSurge() {
@@ -4185,5 +4187,170 @@ class AlertRulesEngineTest {
 
     verify(alertRepository, never())
         .insert(argThat(a -> a.ruleId().equals("theme_peer_divergence")));
+  }
+
+  private void stubAllRulesDisabledExceptThemeScorePriceDivergence() {
+    stubAllOtherRulesDisabled();
+    when(alertRulesRepository.findById("flow_surge"))
+        .thenReturn(Optional.of(disabled("flow_surge")));
+    when(alertRulesRepository.findById("rs_aligned_bull"))
+        .thenReturn(Optional.of(disabled("rs_aligned_bull")));
+    when(alertRulesRepository.findById("theme_phase_breakout_entry"))
+        .thenReturn(Optional.of(disabled("theme_phase_breakout_entry")));
+    when(alertRulesRepository.findById("theme_failed_breakout"))
+        .thenReturn(Optional.of(disabled("theme_failed_breakout")));
+    when(alertRulesRepository.findById("theme_setup_acceleration"))
+        .thenReturn(Optional.of(disabled("theme_setup_acceleration")));
+    when(alertRulesRepository.findById("theme_phase_fading"))
+        .thenReturn(Optional.of(disabled("theme_phase_fading")));
+    when(alertRulesRepository.findById("theme_momentum_exhaustion"))
+        .thenReturn(Optional.of(disabled("theme_momentum_exhaustion")));
+    when(alertRulesRepository.findById("theme_recovery_signal"))
+        .thenReturn(Optional.of(disabled("theme_recovery_signal")));
+    when(alertRulesRepository.findById("theme_strong_breakout_confirmation"))
+        .thenReturn(Optional.of(disabled("theme_strong_breakout_confirmation")));
+    when(alertRulesRepository.findById("theme_peer_divergence"))
+        .thenReturn(Optional.of(disabled("theme_peer_divergence")));
+  }
+
+  @Test
+  @DisplayName(
+      "theme_score_price_divergence: fires WARNING when avg composite is bullish and avg RS20 is"
+          + " negative with ≥2 constituents")
+  void shouldCreateThemeScorePriceDivergenceWhenBullishScoreButNegativeRs20() {
+    stubAllRulesDisabledExceptThemeScorePriceDivergence();
+    when(alertRulesRepository.findById("theme_score_price_divergence"))
+        .thenReturn(Optional.of(enabled("theme_score_price_divergence", Severity.WARNING)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("TECH", "INDU")));
+    // avg composite = (0.72 + 0.65) / 2 = 0.685 — above 0.62 fire threshold
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.72"), "INDU", new BigDecimal("0.65")));
+    // avg RS20 = (-0.02 + -0.01) / 2 = -0.015 — below -0.005 fire threshold
+    when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.02"), "INDU", new BigDecimal("-0.01")));
+    when(alertRepository.existsActiveAlertForTheme("theme_score_price_divergence", "AI_INFRA"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    ArgumentCaptor<Alert> captor = ArgumentCaptor.forClass(Alert.class);
+    verify(alertRepository).insert(captor.capture());
+    Alert inserted = captor.getValue();
+    assertThat(inserted.ruleId()).isEqualTo("theme_score_price_divergence");
+    assertThat(inserted.themeId()).isEqualTo("AI_INFRA");
+    assertThat(inserted.severity()).isEqualTo(Severity.WARNING);
+    assertThat(inserted.status()).isEqualTo(AlertStatus.ACTIVE);
+    assertThat(inserted.message()).contains("score-price divergence");
+    assertThat(inserted.message()).contains("bullish");
+    assertThat(inserted.message()).contains("RS20");
+  }
+
+  @Test
+  @DisplayName(
+      "theme_score_price_divergence: no alert when score is below BUY threshold even with negative"
+          + " RS20")
+  void shouldNotCreateThemeScorePriceDivergenceWhenScoreNotBullish() {
+    stubAllRulesDisabledExceptThemeScorePriceDivergence();
+    when(alertRulesRepository.findById("theme_score_price_divergence"))
+        .thenReturn(Optional.of(enabled("theme_score_price_divergence", Severity.WARNING)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("TECH", "INDU")));
+    // avg composite = (0.55 + 0.50) / 2 = 0.525 — below 0.62 fire threshold
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.55"), "INDU", new BigDecimal("0.50")));
+    when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.03"), "INDU", new BigDecimal("-0.02")));
+    when(alertRepository.existsActiveAlertForTheme("theme_score_price_divergence", "AI_INFRA"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_score_price_divergence")));
+  }
+
+  @Test
+  @DisplayName(
+      "theme_score_price_divergence: no alert when RS20 is positive (no price divergence)")
+  void shouldNotCreateThemeScorePriceDivergenceWhenRs20IsPositive() {
+    stubAllRulesDisabledExceptThemeScorePriceDivergence();
+    when(alertRulesRepository.findById("theme_score_price_divergence"))
+        .thenReturn(Optional.of(enabled("theme_score_price_divergence", Severity.WARNING)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("TECH", "INDU")));
+    // avg composite = 0.68 — above fire threshold
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.72"), "INDU", new BigDecimal("0.64")));
+    // avg RS20 = +0.01 — positive, so no divergence
+    when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.02"), "INDU", new BigDecimal("0.00")));
+    when(alertRepository.existsActiveAlertForTheme("theme_score_price_divergence", "AI_INFRA"))
+        .thenReturn(false);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_score_price_divergence")));
+  }
+
+  @Test
+  @DisplayName(
+      "theme_score_price_divergence: resolves when score drops below 0.55 even if RS20 still"
+          + " negative")
+  void shouldResolveThemeScorePriceDivergenceWhenScoreDropsBelowResolveThreshold() {
+    stubAllRulesDisabledExceptThemeScorePriceDivergence();
+    when(alertRulesRepository.findById("theme_score_price_divergence"))
+        .thenReturn(Optional.of(enabled("theme_score_price_divergence", Severity.WARNING)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("TECH", "INDU")));
+    // avg composite = (0.52 + 0.50) / 2 = 0.51 — below 0.55 resolve threshold
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.52"), "INDU", new BigDecimal("0.50")));
+    when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.02"), "INDU", new BigDecimal("-0.01")));
+    when(alertRepository.existsActiveAlertForTheme("theme_score_price_divergence", "AI_INFRA"))
+        .thenReturn(true);
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository)
+        .resolveAlertsByRuleAndTheme("theme_score_price_divergence", "AI_INFRA");
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_score_price_divergence")));
+  }
+
+  @Test
+  @DisplayName(
+      "theme_score_price_divergence: no alert when fewer than 2 constituents have both signals")
+  void shouldNotCreateThemeScorePriceDivergenceWhenInsufficientConstituents() {
+    stubAllRulesDisabledExceptThemeScorePriceDivergence();
+    when(alertRulesRepository.findById("theme_score_price_divergence"))
+        .thenReturn(Optional.of(enabled("theme_score_price_divergence", Severity.WARNING)));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("TECH")));
+    // Only one constituent — below 2-constituent minimum
+    when(signalRepository.findByTypeAndDate(SignalType.COMPOSITE, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.72")));
+    when(signalRepository.findByTypeAndDate(SignalType.RS_20, DATE))
+        .thenReturn(Map.of("TECH", new BigDecimal("-0.02")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_score_price_divergence")));
+  }
+
+  @Test
+  @DisplayName("theme_score_price_divergence: no alert when rule is disabled")
+  void shouldNotCreateThemeScorePriceDivergenceWhenRuleDisabled() {
+    stubAllRulesDisabledExceptThemeScorePriceDivergence();
+    when(alertRulesRepository.findById("theme_score_price_divergence"))
+        .thenReturn(Optional.of(disabled("theme_score_price_divergence")));
+
+    engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
+
+    verify(alertRepository, never())
+        .insert(argThat(a -> a.ruleId().equals("theme_score_price_divergence")));
   }
 }

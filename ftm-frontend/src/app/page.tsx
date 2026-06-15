@@ -31,6 +31,11 @@ import ApproachingSignalsPanel from "@/components/ApproachingSignalsPanel";
 import TodaysPriorityPanel from "@/components/TodaysPriorityPanel";
 import DailySignalDiff from "@/components/DailySignalDiff";
 import { derivePriorityActions } from "@/lib/prioritySynthesizer";
+import SignalStreakPanel from "@/components/SignalStreakPanel";
+import ScoreComponentHeatmap from "@/components/ScoreComponentHeatmap";
+import ScoreTimelineGrid from "@/components/ScoreTimelineGrid";
+import MomentumVelocityRadar from "@/components/MomentumVelocityRadar";
+import ThemeRotationHeatmap from "@/components/ThemeRotationHeatmap";
 
 export const dynamic = "force-dynamic";
 
@@ -149,6 +154,10 @@ export default async function Home({ searchParams }: Props) {
           <ThemeSignalWidget themes={themes} historiesByThemeId={historiesByThemeId} />
         )}
 
+        {themes.length > 0 && Object.keys(historiesByThemeId).length > 0 && (
+          <ThemeRotationHeatmap themes={themes} historiesByThemeId={historiesByThemeId} />
+        )}
+
         {categories.length > 0 && (
           <DailyPlaybookPanel
             categories={categories}
@@ -162,6 +171,18 @@ export default async function Home({ searchParams }: Props) {
         {categories.length > 0 && <PortfolioGapAlert categories={categories} />}
 
         {categories.length > 0 && <ScoreMoversPanel categories={categories} />}
+
+        {categories.length > 0 && <MomentumVelocityRadar categories={categories} />}
+
+        {categories.length > 0 && <SignalStreakPanel categories={categories} />}
+
+        {categories.length > 0 && Object.keys(scoreHistory).length > 0 && (
+          <ScoreTimelineGrid categories={categories} scoreHistory={scoreHistory} />
+        )}
+
+        {categories.length > 0 && Object.keys(scoreComponentsByCategory).length > 0 && (
+          <ScoreComponentHeatmap categories={categories} scoreComponents={scoreComponentsByCategory} />
+        )}
 
         <SignalTransitionsPanel transitions={signalTransitions} days={7} />
 

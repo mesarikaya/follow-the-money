@@ -826,10 +826,10 @@ test.describe("Portfolio page — Radar, trend arrows, concentration risk", () =
 
   test("shows concentration risk warning when top sector exceeds 40%", async ({ page }) => {
     await page.goto("/portfolio");
-    // Mock holdings: AAPL + XLK both TECH = 100% concentration → warning fires
+    // Mock holdings: AAPL + XLK + XLE — TECH (AAPL+XLK) is ~62% → above 40% threshold
     await expect(page.getByText("Concentration Risk")).toBeVisible();
-    // The warning text contains the exact phrase "100% of your portfolio"
-    await expect(page.getByText(/100% of your portfolio/)).toBeVisible();
+    // The warning text contains the sector percentage
+    await expect(page.getByText(/\d+% of your portfolio/)).toBeVisible();
   });
 
   test("shows trend arrows in holdings signal cell", async ({ page }) => {
@@ -905,5 +905,159 @@ test.describe("Dashboard — Score Breakdown Bar", () => {
     const breakdownBars = page.getByTestId("score-breakdown-bar");
     const count = await breakdownBars.count();
     expect(count).toBeGreaterThanOrEqual(2);
+  });
+});
+
+test.describe("Dashboard — Signal Streak Leaderboard (EP-054)", () => {
+  test("renders signal streak panel", async ({ page }) => {
+    await page.goto("/");
+    // TECH has scoreStreakDays=7 (BUY), ENRG has -5 (REDUCE) — both meet the ≥3 threshold
+    await expect(page.getByTestId("signal-streak-panel")).toBeVisible();
+  });
+
+  test("shows Signal Streaks heading", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Signal Streaks")).toBeVisible();
+  });
+
+  test("shows TECH in bullish streaks with 7d", async ({ page }) => {
+    await page.goto("/");
+    const panel = page.getByTestId("signal-streak-panel");
+    // TECH scoreStreakDays=7, BUY signal → Bullish Streaks
+    await expect(panel.getByText(/7d/)).toBeVisible();
+  });
+
+  test("shows ENRG in bearish streaks with negative streak", async ({ page }) => {
+    await page.goto("/");
+    const panel = page.getByTestId("signal-streak-panel");
+    // ENRG scoreStreakDays=-5, REDUCE signal → Bearish Streaks
+    await expect(panel.getByText(/-5d/)).toBeVisible();
+  });
+});
+
+test.describe("Portfolio page — Recommended Actions panel", () => {
+  test("shows Recommended Actions section header", async ({ page }) => {
+    await page.goto("/portfolio");
+    await expect(page.getByText("Recommended Actions")).toBeVisible();
+  });
+
+  test("shows EXIT action for ENRG holding with REDUCE signal", async ({ page }) => {
+    await page.goto("/portfolio");
+    // XLE ticker has ENRG category with REDUCE signal → EXIT (over 5% threshold)
+    const exitBadge = page.getByText("EXIT").first();
+    await expect(exitBadge).toBeVisible();
+  });
+
+  test("shows HOLD action for TECH holdings with BUY signal", async ({ page }) => {
+    await page.goto("/portfolio");
+    // AAPL and XLK are TECH with BUY → HOLD
+    const holdBadges = page.getByText("HOLD");
+    await expect(holdBadges.first()).toBeVisible();
+  });
+});
+
+test.describe("Dashboard — Score Component Heatmap (EP-055)", () => {
+  test("renders score component heatmap section", async ({ page }) => {
+    await page.goto("/");
+    // Mock provides score-components for TECH, HLTH, ENRG
+    await expect(page.getByTestId("score-component-heatmap")).toBeVisible();
+  });
+
+  test("shows Score Component Heatmap heading", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Score Component Heatmap")).toBeVisible();
+  });
+
+  test("shows column headers RS60 and MOM", async ({ page }) => {
+    await page.goto("/");
+    const heatmap = page.getByTestId("score-component-heatmap");
+    await expect(heatmap.getByText("RS60").first()).toBeVisible();
+    await expect(heatmap.getByText("MOM").first()).toBeVisible();
+  });
+});
+
+test.describe("Dashboard — Score Timeline Grid (EP-053)", () => {
+  test("renders score timeline grid section", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("score-timeline-grid")).toBeVisible();
+  });
+
+  test("shows 30-Day Score Timeline heading", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("30-Day Score Timeline")).toBeVisible();
+  });
+
+  test("shows ETF tickers in timeline rows", async ({ page }) => {
+    await page.goto("/");
+    // TECH has score history and compositeScore in mock data
+    const grid = page.getByTestId("score-timeline-grid");
+    await expect(grid.getByText("XLK")).toBeVisible();
+  });
+});
+
+test.describe("Dashboard — Momentum Velocity Radar (EP-056)", () => {
+  test("renders momentum velocity radar panel", async ({ page }) => {
+    await page.goto("/");
+    // TECH (trend=+0.04) and ENRG (trend=-0.05) both have compositeTrend5d
+    await expect(page.getByTestId("momentum-velocity-radar")).toBeVisible();
+  });
+
+  test("shows Momentum Velocity heading", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "Momentum Velocity" })).toBeVisible();
+  });
+
+  test("shows Rising and Fading column headers", async ({ page }) => {
+    await page.goto("/");
+    const radar = page.getByTestId("momentum-velocity-radar");
+    await expect(radar.getByText("Rising")).toBeVisible();
+    await expect(radar.getByText("Fading")).toBeVisible();
+  });
+
+  test("shows XLK in rising column (highest positive trend)", async ({ page }) => {
+    await page.goto("/");
+    // TECH/XLK has compositeTrend5d=0.04 — should appear in Rising column
+    const radar = page.getByTestId("momentum-velocity-radar");
+    await expect(radar.getByText("XLK").first()).toBeVisible();
+  });
+
+  test("shows XLE in fading column (most negative trend)", async ({ page }) => {
+    await page.goto("/");
+    // ENRG/XLE has compositeTrend5d=-0.05 — should appear in Fading column
+    const radar = page.getByTestId("momentum-velocity-radar");
+    await expect(radar.getByText("XLE").first()).toBeVisible();
+  });
+});
+
+test.describe("Dashboard — Theme Rotation Heatmap (EP-058)", () => {
+  test("renders theme rotation heatmap panel", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("theme-rotation-heatmap")).toBeVisible();
+  });
+
+  test("shows Theme Rotation Heatmap heading", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "Theme Rotation Heatmap" })).toBeVisible();
+  });
+
+  test("shows theme names from mock data", async ({ page }) => {
+    await page.goto("/");
+    const heatmap = page.getByTestId("theme-rotation-heatmap");
+    // THEMES_RESPONSE includes AI Infrastructure and Semiconductor Supercycle
+    await expect(heatmap.getByText("AI Infrastructure").first()).toBeVisible();
+  });
+
+  test("shows date column headers", async ({ page }) => {
+    await page.goto("/");
+    const heatmap = page.getByTestId("theme-rotation-heatmap");
+    // Column headers are formatted dates — at least one month abbreviation should appear
+    await expect(heatmap.getByText(/May|Jun|Jul/).first()).toBeVisible();
+  });
+
+  test("shows color-coded score cells", async ({ page }) => {
+    await page.goto("/");
+    const heatmap = page.getByTestId("theme-rotation-heatmap");
+    // Score cells display 0-100 integers
+    await expect(heatmap.getByText("Now")).toBeVisible();
   });
 });

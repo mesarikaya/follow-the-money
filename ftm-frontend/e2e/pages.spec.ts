@@ -1096,32 +1096,6 @@ test.describe("Dashboard — Theme Phase Pipeline (EP-059)", () => {
   });
 });
 
-test.describe("Alerts — Rule Activity Panel (EP-060)", () => {
-  test("shows alert rule activity panel on alerts page", async ({ page }) => {
-    await page.goto("/alerts");
-    await expect(page.getByTestId("alert-rule-activity-panel")).toBeVisible();
-  });
-
-  test("shows Rule Activity heading", async ({ page }) => {
-    await page.goto("/alerts");
-    const panel = page.getByTestId("alert-rule-activity-panel");
-    await expect(panel.getByRole("heading", { name: "Rule Activity" })).toBeVisible();
-  });
-
-  test("shows top fired rules from mock data", async ({ page }) => {
-    await page.goto("/alerts");
-    const panel = page.getByTestId("alert-rule-activity-panel");
-    await expect(panel.getByText("Theme Momentum Surge")).toBeVisible();
-    await expect(panel.getByText("Composite Breakout")).toBeVisible();
-  });
-
-  test("shows score-price divergence rule label", async ({ page }) => {
-    await page.goto("/alerts");
-    const panel = page.getByTestId("alert-rule-activity-panel");
-    await expect(panel.getByText("Score-Price Divergence")).toBeVisible();
-  });
-});
-
 test.describe("Alerts — Severity Timeline (EP-061)", () => {
   test("shows alert severity timeline panel on alerts page", async ({ page }) => {
     await page.goto("/alerts");

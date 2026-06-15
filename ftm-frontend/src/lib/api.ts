@@ -31,6 +31,7 @@ export type CategorySummary = {
   convictionScore: number | null;
   activeAlertCount: number | null;
   parentId: string | null;
+  scoreStreakDays: number | null;
 };
 
 export type CategoriesResponse = {

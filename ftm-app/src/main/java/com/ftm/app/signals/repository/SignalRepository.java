@@ -499,6 +499,48 @@ public class SignalRepository {
   public record DateHistory(
       LocalDate date, double averageComposite, Double averageTrend5d, Double averageTrend20d) {}
 
+  @Cacheable("score-streak-90d")
+  public Map<String, Integer> findScoreStreakDays() {
+    return dsl.resultQuery(
+            """
+        WITH ordered AS (
+          SELECT category_id, signal_date, value,
+            value - LAG(value) OVER (PARTITION BY category_id ORDER BY signal_date ASC) AS delta,
+            ROW_NUMBER() OVER (PARTITION BY category_id ORDER BY signal_date DESC) AS rn_from_end
+          FROM signals
+          WHERE signal_type = 'COMPOSITE'
+            AND signal_date >= CURRENT_DATE - INTERVAL '90 days'
+        ),
+        directions AS (
+          SELECT category_id, rn_from_end,
+            SIGN(delta)::int AS dir
+          FROM ordered
+          WHERE delta IS NOT NULL
+        ),
+        current_direction AS (
+          SELECT category_id, dir AS latest_dir
+          FROM directions
+          WHERE rn_from_end = 1
+        ),
+        streak_bounds AS (
+          SELECT d.category_id,
+            cd.latest_dir,
+            MIN(CASE WHEN d.dir != cd.latest_dir THEN d.rn_from_end END) AS first_break_rn,
+            MAX(d.rn_from_end) AS max_rn
+          FROM directions d
+          JOIN current_direction cd ON d.category_id = cd.category_id
+          GROUP BY d.category_id, cd.latest_dir
+        )
+        SELECT category_id,
+          (latest_dir * COALESCE(first_break_rn - 1, max_rn))::int AS score_streak_days
+        FROM streak_bounds
+        WHERE latest_dir != 0
+        """)
+        .fetchMap(
+            r -> r.get("category_id", String.class),
+            r -> r.get("score_streak_days", Integer.class));
+  }
+
   @Cacheable("score-percentile-252d")
   public Map<String, BigDecimal> findScorePercentile252d() {
     return dsl.resultQuery(

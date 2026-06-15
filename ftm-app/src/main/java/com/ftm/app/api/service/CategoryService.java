@@ -105,6 +105,7 @@ public class CategoryService {
         signalRepository.findScorePercentile252d();
     Map<String, Integer> activeAlertCountByCategoryId =
         alertService.getActiveAlertCountsByCategory();
+    Map<String, Integer> scoreStreakDaysByCategoryId = signalRepository.findScoreStreakDays();
 
     // Primary sort: timeframe RS signal; secondary: composite score (tiebreaker)
     var sortedRows =
@@ -145,7 +146,8 @@ public class CategoryService {
                         signalDaysActiveByCategoryId,
                         realizedVol20dByCategoryId,
                         scorePercentile252dByCategoryId,
-                        activeAlertCountByCategoryId))
+                        activeAlertCountByCategoryId,
+                        scoreStreakDaysByCategoryId))
             .toList();
 
     LocalDate asOfDate =

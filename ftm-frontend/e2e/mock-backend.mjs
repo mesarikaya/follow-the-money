@@ -451,6 +451,33 @@ const APPROACHING_SIGNALS_RESPONSE = [
   },
 ];
 
+const PORTFOLIO_ACTIONS_RESPONSE = [
+  {
+    ticker: "XLE",
+    name: "Energy Select Sector SPDR",
+    categoryId: "ENRG",
+    categoryName: "Energy",
+    signal: "REDUCE",
+    convictionScore: 0.72,
+    action: "EXIT",
+    rationale: "REDUCE signal with >5% portfolio weight",
+    portfolioPct: 6.5,
+    urgency: 1,
+  },
+  {
+    ticker: "XLK",
+    name: "Technology Select Sector SPDR",
+    categoryId: "TECH",
+    categoryName: "Information Technology",
+    signal: "BUY",
+    convictionScore: 0.88,
+    action: "HOLD",
+    rationale: "BUY signal — hold for continuation",
+    portfolioPct: 18.2,
+    urgency: 4,
+  },
+];
+
 const INGEST_RESPONSE = {
   runIds: ["00000000-0000-0000-0000-000000000001"],
   status: "queued",
@@ -685,6 +712,9 @@ const server = http.createServer(async (req, res) => {
   } else if (path === "/api/v1/categories/approaching") {
     res.writeHead(200);
     res.end(JSON.stringify(APPROACHING_SIGNALS_RESPONSE));
+  } else if (path === "/api/v1/portfolio/actions") {
+    res.writeHead(200);
+    res.end(JSON.stringify(PORTFOLIO_ACTIONS_RESPONSE));
   } else if (path === "/api/v1/macro/history") {
     const days = parseInt(url.searchParams.get("days") ?? "90", 10);
     res.writeHead(200);

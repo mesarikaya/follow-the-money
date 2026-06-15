@@ -1,4 +1,4 @@
-import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, fetchWinRates, fetchPriceLevels, fetchSignalTransitions, fetchScreenerSnapshot, fetchThemes, fetchThemeHistory, fetchApproachingSignals, SignalWinRateDto, PriceLevelDto, SubSectorSummary, SignalTransitionDto, ThemeSummary, ThemeHistoryPoint, ApproachingSignalDto } from "@/lib/api";
+import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, fetchWinRates, fetchPriceLevels, fetchSignalTransitions, fetchScreenerSnapshot, fetchThemes, fetchThemeHistory, fetchApproachingSignals, fetchPortfolioActions, SignalWinRateDto, PriceLevelDto, SubSectorSummary, SignalTransitionDto, ThemeSummary, ThemeHistoryPoint, ApproachingSignalDto, HoldingActionDto } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import CategoryTable from "@/components/CategoryTable";
 import MacroPanel from "@/components/MacroPanel";
@@ -91,6 +91,7 @@ export default async function Home({ searchParams }: Props) {
     scoreHistoryResult.status === "fulfilled" ? scoreHistoryResult.value : {};
 
   const approachingSignals: ApproachingSignalDto[] = await fetchApproachingSignals().catch(() => []);
+  const portfolioActions: HoldingActionDto[] = await fetchPortfolioActions().catch(() => []);
 
   const priorityActions = derivePriorityActions(
     categories,
@@ -98,6 +99,7 @@ export default async function Home({ searchParams }: Props) {
     signalTransitions,
     winRateByCategory,
     priceLevelByCategory,
+    portfolioActions,
   );
 
   const themes: ThemeSummary[] = await fetchThemes().catch(() => []);

@@ -661,3 +661,19 @@ export type ApproachingSignalDto = {
 
 export const fetchApproachingSignals = (timeframe = "60d") =>
   get<ApproachingSignalDto[]>(`/api/v1/categories/approaching?timeframe=${timeframe}`);
+
+export type HoldingActionDto = {
+  ticker: string;
+  name: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  signal: string | null;
+  convictionScore: number | null;
+  action: "EXIT" | "TRIM" | "WATCH" | "HOLD" | "UNCLASSIFIED";
+  rationale: string;
+  portfolioPct: number;
+  urgency: number;
+};
+
+export const fetchPortfolioActions = (timeframe = "60d") =>
+  get<HoldingActionDto[]>(`/api/v1/portfolio/actions?timeframe=${timeframe}`);

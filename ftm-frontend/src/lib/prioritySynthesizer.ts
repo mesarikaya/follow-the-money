@@ -1,4 +1,4 @@
-import { ApproachingSignalDto, CategorySummary, PriceLevelDto, SignalTransitionDto, SignalWinRateDto } from "./api";
+import { ApproachingSignalDto, CategorySummary, HoldingActionDto, PriceLevelDto, SignalTransitionDto, SignalWinRateDto } from "./api";
 
 export type Urgency = "NOW" | "THIS WEEK" | "MONITOR";
 export type ActionVerb = "ENTRY" | "ADD" | "TRIM" | "AVOID" | "WATCH";
@@ -21,6 +21,7 @@ export type PriorityAction = {
   sizingHint: string;
 };
 
+// EXIT (0) ranks above all other verbs — user holds a deteriorating position
 const VERB_PRIORITY: Record<ActionVerb, number> = {
   ENTRY: 1,
   TRIM:  2,
@@ -122,6 +123,7 @@ export function derivePriorityActions(
   signalTransitions: SignalTransitionDto[],
   winRateByCategory: Record<string, SignalWinRateDto>,
   priceLevelByCategory: Record<string, PriceLevelDto> = {},
+  portfolioActions: HoldingActionDto[] = [],
 ): PriorityAction[] {
   const seen = new Set<string>();
   const candidates: Omit<PriorityAction, "rank">[] = [];
@@ -138,6 +140,29 @@ export function derivePriorityActions(
     buildRiskNote(verb, priceLevelByCategory[id], catById[id]);
   const conv = (verb: ActionVerb, id: string, wp: number | null) =>
     computeConviction(verb, catById[id], wp);
+
+  // 0 — Portfolio EXIT actions: user holds a deteriorating position (highest priority)
+  for (const pa of portfolioActions) {
+    if (pa.action !== "EXIT" || !pa.categoryId) continue;
+    if (seen.has(pa.categoryId)) continue;
+    seen.add(pa.categoryId);
+    const cat = catById[pa.categoryId];
+    candidates.push({
+      verb: "TRIM",
+      etfTicker: pa.ticker,
+      categoryName: pa.categoryName ?? pa.ticker,
+      categoryId: pa.categoryId,
+      signal: pa.signal ?? "REDUCE",
+      rationale: `Portfolio EXIT — ${pa.rationale} (${pa.portfolioPct.toFixed(1)}% of portfolio)`,
+      urgency: "NOW",
+      winRatePct: null,
+      priceContext: priceCtx(pa.categoryId),
+      riskNote: risk("TRIM", pa.categoryId),
+      ...conv("TRIM", pa.categoryId, null),
+    });
+    // Block the category from appearing again in TRIM tier below
+    if (cat) { /* already added */ }
+  }
 
   // 1 — HIGH confidence approaching BUY (≤7d) — entry window is open NOW
   for (const s of approachingSignals) {

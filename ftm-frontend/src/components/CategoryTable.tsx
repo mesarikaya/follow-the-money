@@ -635,11 +635,22 @@ export default function CategoryTable({
                     </div>
                   </td>
                   <td className="px-4 py-2.5 font-medium">
-                    {SECTOR_DRILLDOWN_IDS.has(cat.id) ? (
-                      <Link href={`/sectors/${cat.id}`} className="hover:text-cyan-300 transition-colors">
-                        {cat.name}
-                      </Link>
-                    ) : cat.name}
+                    <span className="inline-flex items-center gap-1.5">
+                      {SECTOR_DRILLDOWN_IDS.has(cat.id) ? (
+                        <Link href={`/sectors/${cat.id}`} className="hover:text-cyan-300 transition-colors">
+                          {cat.name}
+                        </Link>
+                      ) : cat.name}
+                      {(cat.activeAlertCount ?? 0) > 0 && (
+                        <span
+                          data-testid="alert-badge"
+                          className="inline-flex items-center gap-0.5 px-1 py-0 rounded text-[8px] font-mono font-semibold bg-red-900/40 text-red-400 border border-red-700/50"
+                          title={`${cat.activeAlertCount} active alert${cat.activeAlertCount === 1 ? "" : "s"}`}
+                        >
+                          ⚠{cat.activeAlertCount}
+                        </span>
+                      )}
+                    </span>
                   </td>
                   <td className="px-4 py-2.5">
                     <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${typeConfig.className}`}>

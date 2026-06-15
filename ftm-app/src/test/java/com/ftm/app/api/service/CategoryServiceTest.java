@@ -46,6 +46,7 @@ class CategoryServiceTest {
   @Mock CategoryRepository categoryRepository;
   @Mock SignalRepository signalRepository;
   @Mock CategoryMapper categoryMapper;
+  @Mock AlertService alertService;
   @InjectMocks CategoryService categoryService;
 
   @Test
@@ -138,6 +139,7 @@ class CategoryServiceTest {
   void shouldFetchRs20ForWeekTimeframe() {
     when(categoryRepository.findAllWithLatestPrice()).thenReturn(List.of());
     when(signalRepository.findLatestByTypes(any())).thenReturn(Map.of());
+    when(alertService.getActiveAlertCountsByCategory()).thenReturn(Map.of());
 
     categoryService.getCategoriesResponse("WEEK");
 
@@ -153,6 +155,7 @@ class CategoryServiceTest {
   void shouldFetchRs120AsPrimaryForYearTimeframe() {
     when(categoryRepository.findAllWithLatestPrice()).thenReturn(List.of());
     when(signalRepository.findLatestByTypes(any())).thenReturn(Map.of());
+    when(alertService.getActiveAlertCountsByCategory()).thenReturn(Map.of());
 
     categoryService.getCategoriesResponse("YEAR");
 
@@ -172,6 +175,7 @@ class CategoryServiceTest {
   void shouldFetchRs60ForMonthTimeframe() {
     when(categoryRepository.findAllWithLatestPrice()).thenReturn(List.of());
     when(signalRepository.findLatestByTypes(any())).thenReturn(Map.of());
+    when(alertService.getActiveAlertCountsByCategory()).thenReturn(Map.of());
 
     categoryService.getCategoriesResponse("MONTH");
 
@@ -187,6 +191,7 @@ class CategoryServiceTest {
   void shouldAlwaysIncludeMacroFitInFetchedSignalTypes() {
     when(categoryRepository.findAllWithLatestPrice()).thenReturn(List.of());
     when(signalRepository.findLatestByTypes(any())).thenReturn(Map.of());
+    when(alertService.getActiveAlertCountsByCategory()).thenReturn(Map.of());
 
     categoryService.getCategoriesResponse("MONTH");
 
@@ -201,6 +206,7 @@ class CategoryServiceTest {
   void shouldReturnEmptyCategoriesWhenNoRowsExist() {
     when(categoryRepository.findAllWithLatestPrice()).thenReturn(List.of());
     when(signalRepository.findLatestByTypes(any())).thenReturn(Map.of());
+    when(alertService.getActiveAlertCountsByCategory()).thenReturn(Map.of());
 
     CategoriesResponse result = categoryService.getCategoriesResponse("MONTH");
 
@@ -213,6 +219,7 @@ class CategoryServiceTest {
   void shouldTreatNullTimeframeAsMonth() {
     when(categoryRepository.findAllWithLatestPrice()).thenReturn(List.of());
     when(signalRepository.findLatestByTypes(any())).thenReturn(Map.of());
+    when(alertService.getActiveAlertCountsByCategory()).thenReturn(Map.of());
 
     categoryService.getCategoriesResponse(null);
 
@@ -251,13 +258,14 @@ class CategoryServiceTest {
     when(signalRepository.findSignalDaysActive(any())).thenReturn(Map.of());
     when(signalRepository.findRealizedVolatility20d()).thenReturn(Map.of());
     when(signalRepository.findScorePercentile252d()).thenReturn(Map.of());
+    when(alertService.getActiveAlertCountsByCategory()).thenReturn(Map.of());
     when(categoryMapper.toDto(
             eq(row1), eq(1), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
-            any(), any(), any(), any(), any(), any()))
+            any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(dto1);
     when(categoryMapper.toDto(
             eq(row2), eq(2), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
-            any(), any(), any(), any(), any(), any()))
+            any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(dto2);
 
     CategoriesResponse result = categoryService.getCategoriesResponse("MONTH");

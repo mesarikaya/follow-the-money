@@ -68,5 +68,9 @@ public record CategorySummaryDto(
         Integer convictionScore,
     @Schema(
             description =
+                "Count of currently active alerts for this category; 0 when no active alerts")
+        Integer activeAlertCount,
+    @Schema(
+            description =
                 "Parent category ID for sub-sectors (e.g. 'TECH' for 'SOFT'); null for top-level categories")
         String parentId) {}

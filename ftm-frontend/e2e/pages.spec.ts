@@ -342,7 +342,7 @@ test.describe("Alerts page — Alert Rules", () => {
     await page.goto("/alerts");
     await expect(page.getByText("RRG Transition")).toBeVisible();
     await expect(page.getByText("Composite Breakout").first()).toBeVisible();
-    await expect(page.getByText("Macro Regime Shift")).toBeVisible();
+    await expect(page.getByText("Macro Regime Shift").first()).toBeVisible();
   });
 
   test("toggle buttons are present for each rule", async ({ page }) => {
@@ -533,7 +533,7 @@ test.describe("Alerts page — new theme alert rules", () => {
 
   test("shows Phase Fading and Momentum Exhaustion rules", async ({ page }) => {
     await page.goto("/alerts");
-    await expect(page.getByText("Phase Fading")).toBeVisible();
+    await expect(page.getByText("Phase Fading").first()).toBeVisible();
     await expect(page.getByText("Momentum Exhaustion").first()).toBeVisible();
   });
 
@@ -717,7 +717,7 @@ test.describe("Alerts page — Strong Breakout Confirmation rule", () => {
   test("shows Strong Breakout Confirmation rule in Alert Rules panel", async ({ page }) => {
     await page.goto("/alerts");
     // BUILTIN_RULES label for theme_strong_breakout_confirmation
-    await expect(page.getByText("Strong Breakout Confirmed")).toBeVisible();
+    await expect(page.getByText("Strong Breakout Confirmed").first()).toBeVisible();
   });
 
   test("shows strong breakout active alert for AI_INFRA", async ({ page }) => {

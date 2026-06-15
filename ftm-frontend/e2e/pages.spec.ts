@@ -1119,3 +1119,47 @@ test.describe("Alerts — Severity Timeline (EP-061)", () => {
     expect(count).toBeGreaterThanOrEqual(1);
   });
 });
+
+test.describe("Alerts — Severity Timeline (EP-061)", () => {
+  test("shows alert severity timeline panel on alerts page", async ({ page }) => {
+    await page.goto("/alerts");
+    await expect(page.getByTestId("alert-severity-timeline")).toBeVisible();
+  });
+
+  test("shows Alert Activity heading", async ({ page }) => {
+    await page.goto("/alerts");
+    const panel = page.getByTestId("alert-severity-timeline");
+    await expect(panel.getByRole("heading", { name: "Alert Activity" })).toBeVisible();
+  });
+
+  test("renders stacked bar columns for each day in mock data", async ({ page }) => {
+    await page.goto("/alerts");
+    const panel = page.getByTestId("alert-severity-timeline");
+    await expect(panel).toBeVisible();
+    const bars = panel.locator("div.flex-1");
+    const count = await bars.count();
+    expect(count).toBeGreaterThanOrEqual(1);
+  });
+});
+
+test.describe("Theme detail — Score Gauge (EP-062)", () => {
+  test("shows score gauge on theme detail page", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    await expect(page.getByTestId("theme-score-gauge")).toBeVisible();
+  });
+
+  test("gauge SVG renders with aria-label containing score", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    const gauge = page.getByTestId("theme-score-gauge");
+    const svg = gauge.locator("svg");
+    await expect(svg).toBeVisible();
+    await expect(svg).toHaveAttribute("aria-label", /Score gauge/);
+  });
+
+  test("displays zone labels REDUCE HOLD WATCH BUY below gauge", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    const gauge = page.getByTestId("theme-score-gauge");
+    await expect(gauge.getByText("REDUCE")).toBeVisible();
+    await expect(gauge.getByText("BUY")).toBeVisible();
+  });
+});

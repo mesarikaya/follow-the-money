@@ -18,6 +18,7 @@ import com.ftm.app.api.mapper.TickerMappingMapper;
 import com.ftm.app.portfolio.domain.TickerMapping;
 import com.ftm.app.portfolio.repository.TickerMappingRepository;
 import com.ftm.app.portfolio.service.HoldingClassificationService;
+import com.ftm.app.portfolio.service.HoldingUploadService;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.instancio.Instancio;
@@ -37,6 +38,7 @@ class TickerMappingControllerTest {
   private static final OffsetDateTime UPDATED_AT = OffsetDateTime.parse("2025-01-01T00:00:00Z");
   @Mock TickerMappingRepository tickerMappingRepository;
   @Mock HoldingClassificationService holdingClassificationService;
+  @Mock HoldingUploadService holdingUploadService;
   @Mock TickerMappingMapper tickerMappingMapper;
   MockMvc mockMvc;
   ObjectMapper objectMapper = new ObjectMapper();
@@ -46,7 +48,10 @@ class TickerMappingControllerTest {
     mockMvc =
         MockMvcBuilders.standaloneSetup(
                 new TickerMappingController(
-                    tickerMappingRepository, holdingClassificationService, tickerMappingMapper))
+                    tickerMappingRepository,
+                    holdingClassificationService,
+                    holdingUploadService,
+                    tickerMappingMapper))
             .setControllerAdvice(new GlobalExceptionHandler())
             .build();
   }
@@ -95,6 +100,7 @@ class TickerMappingControllerTest {
     TickerMappingDto savedDto = new TickerMappingDto("AAPL", "TECH", "Apple Inc.", UPDATED_AT);
     when(tickerMappingRepository.findByTicker("AAPL")).thenReturn(java.util.Optional.of(saved));
     when(tickerMappingMapper.toDto(any(TickerMapping.class))).thenReturn(savedDto);
+    when(holdingUploadService.reclassifyUnmappedHoldings()).thenReturn(0);
 
     mockMvc
         .perform(
@@ -107,6 +113,7 @@ class TickerMappingControllerTest {
 
     verify(tickerMappingRepository).upsert("AAPL", "TECH", "Apple Inc.");
     verify(holdingClassificationService).refreshCache();
+    verify(holdingUploadService).reclassifyUnmappedHoldings();
   }
 
   @Test

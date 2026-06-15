@@ -34,6 +34,7 @@ import { derivePriorityActions } from "@/lib/prioritySynthesizer";
 import SignalStreakPanel from "@/components/SignalStreakPanel";
 import ScoreComponentHeatmap from "@/components/ScoreComponentHeatmap";
 import ScoreTimelineGrid from "@/components/ScoreTimelineGrid";
+import MomentumVelocityRadar from "@/components/MomentumVelocityRadar";
 
 export const dynamic = "force-dynamic";
 
@@ -165,6 +166,8 @@ export default async function Home({ searchParams }: Props) {
         {categories.length > 0 && <PortfolioGapAlert categories={categories} />}
 
         {categories.length > 0 && <ScoreMoversPanel categories={categories} />}
+
+        {categories.length > 0 && <MomentumVelocityRadar categories={categories} />}
 
         {categories.length > 0 && <SignalStreakPanel categories={categories} />}
 

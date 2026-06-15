@@ -606,6 +606,28 @@ test.describe("Alerts page — Strong Breakout Confirmation rule", () => {
   });
 });
 
+test.describe("Dashboard — Alert count badges (EP-051)", () => {
+  test("shows alert badge for category with active alerts", async ({ page }) => {
+    await page.goto("/");
+    // TECH has activeAlertCount=2 in mock backend — badge should appear in its row
+    const techRow = page.getByRole("row").filter({ hasText: "Information Technology" });
+    await expect(techRow.getByTestId("alert-badge")).toBeVisible();
+  });
+
+  test("alert badge shows the correct count", async ({ page }) => {
+    await page.goto("/");
+    const techRow = page.getByRole("row").filter({ hasText: "Information Technology" });
+    await expect(techRow.getByTestId("alert-badge")).toContainText("2");
+  });
+
+  test("no alert badge for category with zero active alerts", async ({ page }) => {
+    await page.goto("/");
+    // HLTH has activeAlertCount=0 — no badge should appear in its row
+    const hlthRow = page.getByRole("row").filter({ hasText: "Health Care" });
+    await expect(hlthRow.getByTestId("alert-badge")).not.toBeVisible();
+  });
+});
+
 test.describe("Dashboard — Screener Snapshot Banner (EP-052)", () => {
   test("screener snapshot banner renders on the dashboard", async ({ page }) => {
     await page.goto("/");

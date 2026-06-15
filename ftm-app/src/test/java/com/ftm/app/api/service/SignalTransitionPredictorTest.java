@@ -30,7 +30,7 @@ class SignalTransitionPredictorTest {
         rrgQuadrant, null, null, null, null,
         null, null, 1, null, LocalDate.now(),
         tradeSignal, null, null, null, null, null,
-        null, null);
+        null, null, null);
   }
 
   // ------------------------------------------------------------------ approaching BUY

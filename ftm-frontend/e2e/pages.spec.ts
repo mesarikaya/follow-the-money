@@ -955,3 +955,23 @@ test.describe("Portfolio page — Recommended Actions panel", () => {
     await expect(holdBadges.first()).toBeVisible();
   });
 });
+
+test.describe("Dashboard — Score Component Heatmap (EP-055)", () => {
+  test("renders score component heatmap section", async ({ page }) => {
+    await page.goto("/");
+    // Mock provides score-components for TECH, HLTH, ENRG
+    await expect(page.getByTestId("score-component-heatmap")).toBeVisible();
+  });
+
+  test("shows Score Component Heatmap heading", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Score Component Heatmap")).toBeVisible();
+  });
+
+  test("shows column headers RS60 and MOM", async ({ page }) => {
+    await page.goto("/");
+    const heatmap = page.getByTestId("score-component-heatmap");
+    await expect(heatmap.getByText("RS60").first()).toBeVisible();
+    await expect(heatmap.getByText("MOM").first()).toBeVisible();
+  });
+});

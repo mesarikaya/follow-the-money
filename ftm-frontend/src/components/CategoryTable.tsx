@@ -536,6 +536,35 @@ export default function CategoryTable({
     }
   }
 
+  function exportToCSV() {
+    const headers = [
+      "Rank", "ETF", "Name", "Type", "Price", "Score",
+      `RS-${rsLabel}`, "MacroFit%", "RRG", "Signal", "Conviction", "DaysActive",
+    ];
+    const rows = sorted.map((cat, idx) => [
+      idx + 1,
+      cat.etfTicker,
+      `"${cat.name.replace(/"/g, '""')}"`,
+      cat.type,
+      cat.latestClose != null ? Number(cat.latestClose).toFixed(2) : "",
+      cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : "",
+      cat.rs60 != null ? (cat.rs60 * 100).toFixed(1) : "",
+      cat.macroFit != null ? Math.round(cat.macroFit * 100) : "",
+      cat.rrgQuadrant ?? "",
+      cat.tradeSignal ?? "",
+      cat.convictionScore ?? "",
+      cat.signalDaysActive ?? "",
+    ]);
+    const csv = [headers, ...rows].map(row => row.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `categories-${new Date().toISOString().split("T")[0]}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   function SortTh({ children, sortK, className = "" }: { children: React.ReactNode; sortK: SortKey; className?: string }) {
     return (
       <th
@@ -812,9 +841,18 @@ export default function CategoryTable({
             </span>
           </span>
         ))}
-        <span className="ml-auto text-[10px]" title="Click any column header to sort. Click again to reverse. Click a third time to reset.">
+        <span className="text-[10px]" title="Click any column header to sort. Click again to reverse. Click a third time to reset.">
           Click headers to sort · S/R/T = BUY conditions · WR = 30d win rate · ⇅ = sortable
         </span>
+        <button
+          className="ml-auto text-[10px] px-2 py-0.5 rounded border border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-400 transition-colors"
+          onClick={exportToCSV}
+          title="Export current table data as CSV (respects current sort order)"
+          aria-label="Export CSV"
+          data-testid="export-csv-button"
+        >
+          ↓ CSV
+        </button>
       </div>
     </div>
   );

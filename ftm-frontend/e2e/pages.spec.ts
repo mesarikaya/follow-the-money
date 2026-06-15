@@ -717,3 +717,23 @@ test.describe("Dashboard — Win Rate badges", () => {
     await expect(page.getByText(/\+3\.8%/).first()).toBeVisible();
   });
 });
+
+test.describe("Dashboard — CSV Export", () => {
+  test("shows Export CSV button in CategoryTable footer", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("export-csv-button")).toBeVisible();
+  });
+
+  test("CSV download contains category data with correct filename format", async ({ page }) => {
+    await page.goto("/");
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByTestId("export-csv-button").click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/^categories-\d{4}-\d{2}-\d{2}\.csv$/);
+  });
+
+  test("CSV button has correct accessible label", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: "Export CSV" })).toBeVisible();
+  });
+});

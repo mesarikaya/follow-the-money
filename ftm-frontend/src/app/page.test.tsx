@@ -39,6 +39,12 @@ jest.mock("@/lib/api", () => ({
   fetchThemeHistory: jest.fn().mockResolvedValue([]),
 }));
 
+jest.mock("@/components/ScreenerSnapshotBanner", () => {
+  return function MockScreenerSnapshotBanner() {
+    return null;
+  };
+});
+
 jest.mock("next/navigation", () => ({
   useRouter: jest.fn(() => ({ push: jest.fn() })),
   usePathname: jest.fn(() => "/"),

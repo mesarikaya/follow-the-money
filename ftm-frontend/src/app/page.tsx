@@ -29,6 +29,7 @@ import ThemeSignalWidget from "@/components/ThemeSignalWidget";
 import ScreenerSnapshotBanner from "@/components/ScreenerSnapshotBanner";
 import ApproachingSignalsPanel from "@/components/ApproachingSignalsPanel";
 import TodaysPriorityPanel from "@/components/TodaysPriorityPanel";
+import DailySignalDiff from "@/components/DailySignalDiff";
 import { derivePriorityActions } from "@/lib/prioritySynthesizer";
 
 export const dynamic = "force-dynamic";
@@ -125,6 +126,8 @@ export default async function Home({ searchParams }: Props) {
         {priorityActions.length > 0 && (
           <TodaysPriorityPanel actions={priorityActions} scoreHistory={scoreHistory} />
         )}
+
+        <DailySignalDiff transitions={signalTransitions} />
 
         {categories.length > 0 && <StaleDataBanner categories={categories} />}
 

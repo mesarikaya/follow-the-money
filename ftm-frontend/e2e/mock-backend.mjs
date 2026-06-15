@@ -502,6 +502,7 @@ const PRICE_LEVELS_RESPONSE = [
 ];
 
 const TRANSITIONS_RESPONSE = [
+  { categoryId: "GOLD", categoryName: "Gold",                   etfTicker: "GLD", previousSignal: "HOLD",  currentSignal: "WATCH",  currentScore: 0.53, comparisonDate: "2026-05-15", daysAgo: 0, scorePercentile252d: 0.61, macroFit: 0.72, signalDaysActive: 1, convictionScore: 74 },
   { categoryId: "TECH", categoryName: "Information Technology", etfTicker: "XLK", previousSignal: "WATCH", currentSignal: "BUY",    currentScore: 0.82, comparisonDate: "2026-05-08", daysAgo: 7, scorePercentile252d: 0.88, macroFit: 0.78, signalDaysActive: 7, convictionScore: 85 },
   { categoryId: "ENRG", categoryName: "Energy",                 etfTicker: "XLE", previousSignal: "HOLD",  currentSignal: "REDUCE", currentScore: 0.31, comparisonDate: "2026-05-12", daysAgo: 3, scorePercentile252d: 0.18, macroFit: 0.48, signalDaysActive: 3, convictionScore: null },
 ];

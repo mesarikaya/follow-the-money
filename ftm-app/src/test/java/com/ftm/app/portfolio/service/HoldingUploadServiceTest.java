@@ -13,7 +13,6 @@ import com.ftm.app.api.dto.HoldingsUploadResponse;
 import com.ftm.app.domain.Holding;
 import com.ftm.app.portfolio.repository.HoldingRepository;
 import com.ftm.app.portfolio.repository.PortfolioRepository;
-import com.ftm.app.portfolio.service.PortfolioSnapshotService;
 import java.math.BigDecimal;
 import java.util.List;
 import org.instancio.Instancio;
@@ -164,20 +163,22 @@ class HoldingUploadServiceTest {
   void shouldConvertGbxPenceToPoundsForEurValue() throws Exception {
     // BA.L at 1900 pence (GBX) with 200 shares; GBP/USD=1.27, USD/EUR=1.085
     // Expected EUR value: 200 * (1900/100) * 1.27 / 1.085 = 200 * 19 * 1.27 / 1.085 ≈ €4,442
-    String gbxCsv = """
+    String gbxCsv =
+        """
         ticker,name,quantity,currency,avg_cost
         BA.L,BAE Systems,200.0,GBX,1900.00
         """;
 
-    Holding gbxHolding = Instancio.of(Holding.class)
-        .set(field(Holding::ticker), "BA.L")
-        .set(field(Holding::categoryId), "INDU_ADEF")
-        .set(field(Holding::currency), "GBX")
-        .set(field(Holding::quantity), new BigDecimal("200"))
-        .set(field(Holding::avgCostLocal), new BigDecimal("1900.00"))
-        .set(field(Holding::currentPriceLocal), null)
-        .set(field(Holding::usdFxRate), null)
-        .create();
+    Holding gbxHolding =
+        Instancio.of(Holding.class)
+            .set(field(Holding::ticker), "BA.L")
+            .set(field(Holding::categoryId), "INDU_ADEF")
+            .set(field(Holding::currency), "GBX")
+            .set(field(Holding::quantity), new BigDecimal("200"))
+            .set(field(Holding::avgCostLocal), new BigDecimal("1900.00"))
+            .set(field(Holding::currentPriceLocal), null)
+            .set(field(Holding::usdFxRate), null)
+            .create();
 
     when(classificationService.classifyOrUnknown("BA.L")).thenReturn("INDU_ADEF");
     doNothing().when(holdingPriceService).refreshPricesForAllHoldings();
@@ -202,20 +203,22 @@ class HoldingUploadServiceTest {
   void shouldConvertSekToEur() throws Exception {
     // SAAB at 360 SEK with 100 shares; SEK/USD=0.092, USD/EUR=1.085
     // Expected EUR value: 100 * 360 * 0.092 / 1.085 ≈ €3,055
-    String sekCsv = """
+    String sekCsv =
+        """
         ticker,name,quantity,currency,avg_cost
         SAAB-B.ST,Saab AB,100.0,SEK,360.00
         """;
 
-    Holding sekHolding = Instancio.of(Holding.class)
-        .set(field(Holding::ticker), "SAAB-B.ST")
-        .set(field(Holding::categoryId), "INDU_ADEF")
-        .set(field(Holding::currency), "SEK")
-        .set(field(Holding::quantity), new BigDecimal("100"))
-        .set(field(Holding::avgCostLocal), new BigDecimal("360.00"))
-        .set(field(Holding::currentPriceLocal), null)
-        .set(field(Holding::usdFxRate), null)
-        .create();
+    Holding sekHolding =
+        Instancio.of(Holding.class)
+            .set(field(Holding::ticker), "SAAB-B.ST")
+            .set(field(Holding::categoryId), "INDU_ADEF")
+            .set(field(Holding::currency), "SEK")
+            .set(field(Holding::quantity), new BigDecimal("100"))
+            .set(field(Holding::avgCostLocal), new BigDecimal("360.00"))
+            .set(field(Holding::currentPriceLocal), null)
+            .set(field(Holding::usdFxRate), null)
+            .create();
 
     when(classificationService.classifyOrUnknown("SAAB-B.ST")).thenReturn("INDU_ADEF");
     doNothing().when(holdingPriceService).refreshPricesForAllHoldings();

@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.ftm.app.api.dto.CategoriesResponse;
 import com.ftm.app.api.dto.CategorySummaryDto;
 import com.ftm.app.api.dto.PriceLevelDto;
+import com.ftm.app.api.dto.ScreenerSnapshotDto;
 import com.ftm.app.api.dto.SeasonalReturnDto;
 import com.ftm.app.api.dto.SignalWinRateDto;
 import com.ftm.app.api.mapper.CategoryMapper;
@@ -364,5 +365,94 @@ class CategoryServiceTest {
     List<SeasonalReturnDto> result = categoryService.getSeasonalReturns();
 
     assertThat(result).isEmpty();
+  }
+
+  // ===== getScreenerSnapshot =====
+
+  @Test
+  @DisplayName("getScreenerSnapshot returns all zeros when no top-level categories exist")
+  void shouldReturnAllZerosWhenNoTopLevelCategoriesExist() {
+    when(categoryRepository.findTopLevelActiveCategoryIds()).thenReturn(Set.of());
+
+    ScreenerSnapshotDto result = categoryService.getScreenerSnapshot();
+
+    assertThat(result.buyCount()).isZero();
+    assertThat(result.watchCount()).isZero();
+    assertThat(result.holdCount()).isZero();
+    assertThat(result.reduceCount()).isZero();
+    assertThat(result.totalCategories()).isZero();
+    assertThat(result.avgCompositeScore()).isZero();
+  }
+
+  @Test
+  @DisplayName("getScreenerSnapshot returns all zeros when top-level categories have no composite signal")
+  void shouldReturnAllZerosWhenNoCompositeSignalData() {
+    when(categoryRepository.findTopLevelActiveCategoryIds()).thenReturn(Set.of("TECH", "FINL"));
+    when(signalRepository.findLatestByTypes(any())).thenReturn(Map.of());
+
+    ScreenerSnapshotDto result = categoryService.getScreenerSnapshot();
+
+    assertThat(result.totalCategories()).isZero();
+    assertThat(result.buyCount()).isZero();
+  }
+
+  @Test
+  @DisplayName("getScreenerSnapshot computes correct BUY/WATCH/HOLD/REDUCE distribution and breadth metrics")
+  void shouldComputeCorrectSignalDistributionAndBreadthMetrics() {
+    // TECH: score=0.80, RRG=4(Leading),   trend=+0.05 → BUY;  rs60=0.10>0, rs20=0.15>rs60 → RS✓ MOM✓ RiskOn✓
+    // FINL: score=0.55, RRG=3(Improving), trend=+0.03 → WATCH; rs60=0.05>0, rs20=0.02<rs60 → RS✓ MOM✗ RiskOn✓
+    // HLTH: score=0.45, RRG=2(Weakening), trend=-0.02 → HOLD;  rs60=-0.02<0               → RS✗ MOM✗ RiskOn✗
+    // ENRG: score=0.28, RRG=1(Lagging),   trend=-0.05 → REDUCE; rs60=-0.08<0, rs20=-0.10<rs60 → RS✗ MOM✗ RiskOn✗
+    when(categoryRepository.findTopLevelActiveCategoryIds())
+        .thenReturn(Set.of("TECH", "FINL", "HLTH", "ENRG"));
+    when(signalRepository.findLatestByTypes(any()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE,
+                    Map.of(
+                        "TECH", new BigDecimal("0.80"),
+                        "FINL", new BigDecimal("0.55"),
+                        "HLTH", new BigDecimal("0.45"),
+                        "ENRG", new BigDecimal("0.28")),
+                SignalType.RRG_QUADRANT,
+                    Map.of(
+                        "TECH", new BigDecimal("4"),
+                        "FINL", new BigDecimal("3"),
+                        "HLTH", new BigDecimal("2"),
+                        "ENRG", new BigDecimal("1")),
+                SignalType.COMPOSITE_TREND_20D,
+                    Map.of(
+                        "TECH", new BigDecimal("0.05"),
+                        "FINL", new BigDecimal("0.03"),
+                        "HLTH", new BigDecimal("-0.02"),
+                        "ENRG", new BigDecimal("-0.05")),
+                SignalType.RS_60,
+                    Map.of(
+                        "TECH", new BigDecimal("0.10"),
+                        "FINL", new BigDecimal("0.05"),
+                        "HLTH", new BigDecimal("-0.02"),
+                        "ENRG", new BigDecimal("-0.08")),
+                SignalType.RS_20,
+                    Map.of(
+                        "TECH", new BigDecimal("0.15"),
+                        "FINL", new BigDecimal("0.02"),
+                        "HLTH", new BigDecimal("-0.03"),
+                        "ENRG", new BigDecimal("-0.10"))));
+
+    ScreenerSnapshotDto result = categoryService.getScreenerSnapshot();
+
+    assertThat(result.buyCount()).isEqualTo(1);
+    assertThat(result.watchCount()).isEqualTo(1);
+    assertThat(result.holdCount()).isEqualTo(1);
+    assertThat(result.reduceCount()).isEqualTo(1);
+    assertThat(result.totalCategories()).isEqualTo(4);
+    // avgCompositeScore = (0.80+0.55+0.45+0.28)/4 = 0.52
+    assertThat(result.avgCompositeScore()).isEqualTo(0.52);
+    // 2 of 4 categories have rs60 > 0
+    assertThat(result.rsBreadthPct()).isEqualTo(50.0);
+    // 1 of 4 has rs20 > rs60 (only TECH: 0.15 > 0.10)
+    assertThat(result.momentumBreadthPct()).isEqualTo(25.0);
+    // 2 of 4 in Leading/Improving quadrant (TECH=4, FINL=3)
+    assertThat(result.riskOnPct()).isEqualTo(50.0);
   }
 }

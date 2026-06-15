@@ -2,6 +2,7 @@ package com.ftm.app.api.service;
 
 import com.ftm.app.api.dto.CategoriesResponse;
 import com.ftm.app.api.dto.PriceLevelDto;
+import com.ftm.app.api.dto.ScreenerSnapshotDto;
 import com.ftm.app.api.dto.SeasonalReturnDto;
 import com.ftm.app.api.dto.SignalTransitionDto;
 import com.ftm.app.api.dto.SignalWinRateDto;
@@ -262,6 +263,74 @@ public class CategoryService {
         .sorted(
             Comparator.comparing(t -> signalPriority(t.currentSignal()), Comparator.naturalOrder()))
         .toList();
+  }
+
+  public ScreenerSnapshotDto getScreenerSnapshot() {
+    Set<String> topLevelIds = categoryRepository.findTopLevelActiveCategoryIds();
+    if (topLevelIds.isEmpty()) {
+      return new ScreenerSnapshotDto(0, 0, 0, 0, 0, 0.0, 0.0, 0.0, 0.0);
+    }
+    Map<SignalType, Map<String, BigDecimal>> signals =
+        signalRepository.findLatestByTypes(
+            List.of(
+                SignalType.COMPOSITE,
+                SignalType.RRG_QUADRANT,
+                SignalType.COMPOSITE_TREND_20D,
+                SignalType.RS_60,
+                SignalType.RS_20));
+    Map<String, BigDecimal> compositeMap =
+        signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap());
+    Map<String, BigDecimal> rrgMap =
+        signals.getOrDefault(SignalType.RRG_QUADRANT, Collections.emptyMap());
+    Map<String, BigDecimal> trend20dMap =
+        signals.getOrDefault(SignalType.COMPOSITE_TREND_20D, Collections.emptyMap());
+    Map<String, BigDecimal> rs60Map =
+        signals.getOrDefault(SignalType.RS_60, Collections.emptyMap());
+    Map<String, BigDecimal> rs20Map =
+        signals.getOrDefault(SignalType.RS_20, Collections.emptyMap());
+
+    int buyCount = 0, watchCount = 0, holdCount = 0, reduceCount = 0;
+    int withData = 0;
+    double scoreSum = 0.0;
+    int rsBreadthCount = 0, momentumBreadthCount = 0, riskOnCount = 0;
+
+    for (String categoryId : topLevelIds) {
+      BigDecimal score = compositeMap.get(categoryId);
+      if (score == null) continue;
+      withData++;
+      scoreSum += score.doubleValue();
+
+      BigDecimal rrgVal = rrgMap.get(categoryId);
+      String rrgStr = rrgVal != null ? String.valueOf(rrgVal.intValue()) : null;
+      String signal = TradeSignalDeriver.derive(score, rrgStr, trend20dMap.get(categoryId));
+      switch (signal != null ? signal : "HOLD") {
+        case "BUY" -> buyCount++;
+        case "WATCH" -> watchCount++;
+        case "REDUCE" -> reduceCount++;
+        default -> holdCount++;
+      }
+
+      BigDecimal rs60 = rs60Map.get(categoryId);
+      BigDecimal rs20 = rs20Map.get(categoryId);
+      if (rs60 != null && rs60.compareTo(BigDecimal.ZERO) > 0) rsBreadthCount++;
+      if (rs60 != null && rs20 != null && rs20.compareTo(rs60) > 0) momentumBreadthCount++;
+      if (rrgVal != null && (rrgVal.intValue() == 3 || rrgVal.intValue() == 4)) riskOnCount++;
+    }
+
+    if (withData == 0) {
+      return new ScreenerSnapshotDto(0, 0, 0, 0, 0, 0.0, 0.0, 0.0, 0.0);
+    }
+
+    return new ScreenerSnapshotDto(
+        buyCount,
+        watchCount,
+        holdCount,
+        reduceCount,
+        withData,
+        Math.round(scoreSum / withData * 1000.0) / 1000.0,
+        Math.round((double) rsBreadthCount / withData * 1000.0) / 10.0,
+        Math.round((double) momentumBreadthCount / withData * 1000.0) / 10.0,
+        Math.round((double) riskOnCount / withData * 1000.0) / 10.0);
   }
 
   @Cacheable("seasonal-returns")

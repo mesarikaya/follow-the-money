@@ -46,7 +46,8 @@ class HoldingControllerTest {
   @BeforeEach
   void setUp() {
     mockMvc =
-        MockMvcBuilders.standaloneSetup(new HoldingController(holdingUploadService, portfolioSnapshotService))
+        MockMvcBuilders.standaloneSetup(
+                new HoldingController(holdingUploadService, portfolioSnapshotService))
             .setControllerAdvice(new GlobalExceptionHandler())
             .build();
   }

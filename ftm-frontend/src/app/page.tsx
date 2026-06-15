@@ -1,4 +1,4 @@
-import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, fetchWinRates, fetchPriceLevels, fetchSignalTransitions, fetchThemes, fetchThemeHistory, SignalWinRateDto, PriceLevelDto, SubSectorSummary, SignalTransitionDto, ThemeSummary, ThemeHistoryPoint } from "@/lib/api";
+import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, fetchWinRates, fetchPriceLevels, fetchSignalTransitions, fetchScreenerSnapshot, fetchThemes, fetchThemeHistory, SignalWinRateDto, PriceLevelDto, SubSectorSummary, SignalTransitionDto, ThemeSummary, ThemeHistoryPoint } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import CategoryTable from "@/components/CategoryTable";
 import MacroPanel from "@/components/MacroPanel";
@@ -26,6 +26,7 @@ import DailyPlaybookPanel from "@/components/DailyPlaybookPanel";
 import MarketRegimeBanner from "@/components/MarketRegimeBanner";
 import SectorRotationWheel from "@/components/SectorRotationWheel";
 import ThemeSignalWidget from "@/components/ThemeSignalWidget";
+import ScreenerSnapshotBanner from "@/components/ScreenerSnapshotBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -107,6 +108,8 @@ export default async function Home({ searchParams }: Props) {
         )}
 
         {categories.length > 0 && <StaleDataBanner categories={categories} />}
+
+        <ScreenerSnapshotBanner />
 
         {categories.length > 0 && <MarketPulseStrip categories={categories} />}
 

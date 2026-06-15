@@ -902,6 +902,19 @@ const server = http.createServer(async (req, res) => {
         { date: "2025-04-01", categoryIds: ["TECH", "HLTH", "COMM"], portfolioValue: 10580 },
       ],
     }));
+  } else if (path === "/api/v1/categories/screener-snapshot") {
+    res.writeHead(200);
+    res.end(JSON.stringify({
+      buyCount: 3,
+      watchCount: 4,
+      holdCount: 5,
+      reduceCount: 2,
+      totalCategories: 14,
+      avgCompositeScore: 0.548,
+      rsBreadthPct: 57.1,
+      momentumBreadthPct: 42.9,
+      riskOnPct: 50.0,
+    }));
   } else {
     res.writeHead(404);
     res.end(JSON.stringify({ error: "Not found", path }));

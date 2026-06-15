@@ -229,24 +229,27 @@ public class HoldingUploadService {
     return holdingDtos;
   }
 
-  private void syncMissingCategoryIds() {
+  public int reclassifyUnmappedHoldings() {
+    int[] count = {0};
     holdingRepository.findAll().stream()
         .filter(h -> h.categoryId() == null)
         .forEach(
-            h -> {
-              classificationService
-                  .classify(h.ticker())
-                  .ifPresent(
-                      categoryId -> {
-                        int updated = holdingRepository.updateCategoryId(h.ticker(), categoryId);
-                        if (updated > 0) {
-                          log.info(
-                              "category re-synced for holding ticker={} → {}",
-                              h.ticker(),
-                              categoryId);
-                        }
-                      });
-            });
+            h ->
+                classificationService
+                    .classify(h.ticker())
+                    .ifPresent(
+                        categoryId -> {
+                          int updated = holdingRepository.updateCategoryId(h.ticker(), categoryId);
+                          if (updated > 0) {
+                            log.info("category re-synced for holding ticker={} → {}", h.ticker(), categoryId);
+                            count[0]++;
+                          }
+                        }));
+    return count[0];
+  }
+
+  private void syncMissingCategoryIds() {
+    reclassifyUnmappedHoldings();
   }
 
   public String generateCsvTemplate() {

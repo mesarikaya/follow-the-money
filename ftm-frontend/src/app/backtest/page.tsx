@@ -1854,9 +1854,10 @@ export default function BacktesterPage() {
                         <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">vs SPY Outcome</div>
                         <div className={`text-base font-bold ${color}`}>{isWin ? "Outperforms" : "Underperforms"}</div>
                       </div>
-                      <div>
-                        <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Excess Return</div>
+                      <div title={`Strategy total return (${result.totalReturnPct?.toFixed(2)}%) minus SPY total return (${result.spyTotalReturnPct?.toFixed(2)}%) over the same period`}>
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Cumulative Alpha (vs SPY)</div>
                         <div className={`text-xl font-bold font-mono ${color}`}>{excessReturn >= 0 ? "+" : ""}{excessReturn.toFixed(2)}%</div>
+                        <div className="text-[9px] text-slate-500">{result.totalReturnPct?.toFixed(1)}% − {result.spyTotalReturnPct?.toFixed(1)}%</div>
                       </div>
                       <div>
                         <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Ann. Alpha</div>

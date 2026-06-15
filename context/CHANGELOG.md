@@ -14,6 +14,25 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 
 ---
 
+## 2026-06-15 (session 32 — backtester SPY data fix + auto-reclassify on ticker mapping)
+
+- `RESOLVED` Backtester showing -140% excess return — root cause: SPY benchmark_prices seeded
+  with placeholder adj_close=200.0 for Feb–Jun 2024 (130 rows). Real SPY was ~$495 in Feb 2024.
+  This made SPY appear to return 270% (200→741) instead of ~50%, inflating the "Excess Return"
+  metric by ~220 percentage points.
+  - V67 migration: DELETE all SPY rows from benchmark_prices; next ingest backfills 7 years.
+  - ⚠️ User must run POST /api/v1/ingest/trigger once after deploy to restore SPY history.
+
+- `RESOLVED` SAP.DE segment not appearing in portfolio after adding ticker mapping
+  - Adding a ticker mapping refreshed the in-memory cache but did NOT update existing holdings.
+  - TickerMappingController.upsert() now calls holdingUploadService.reclassifyUnmappedHoldings()
+    after refreshCache(), automatically re-classifying any holdings with null category_id.
+  - HoldingUploadService.reclassifyUnmappedHoldings() is now public (was: private syncMissingCategoryIds).
+
+- `UPDATED` backtest/page.tsx — "Excess Return" label renamed to "Cumulative Alpha (vs SPY)"
+  - Shows breakdown: "strategy_total% − spy_total%" below the value for clarity.
+  - Tooltip added explaining the metric is strategy total return minus SPY total return.
+
 ## 2026-06-14 (session 31 — GBX/SEK currency support, ticker seeds, portfolio history)
 
 - `NEW` V64: `rotation_events_event_type_check` constraint fix — added `COMPOSITE_BREAKDOWN`

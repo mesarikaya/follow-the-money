@@ -61,11 +61,20 @@ public class BacktestEngine {
           "No composite scores found for the date range. Run signal computation first.");
     }
 
+    // Only allocate to categories that have at least one price in the range — sub-sector ETFs
+    // (KBE, XBI, etc.) may not have been ingested, causing the portfolio to flatline if selected.
+    Set<String> categoriesWithPriceData = new HashSet<>();
+    pricesByDate.values().forEach(m -> categoriesWithPriceData.addAll(m.keySet()));
+
     List<LocalDate> rebalanceDates =
         computeRebalanceDates(tradingDates, request.rebalanceFrequency());
     Map<LocalDate, List<String>> allocationsByRebalanceDate =
         computeAllocations(
-            rebalanceDates, compositesByDate, request.topN(), request.signalThreshold());
+            rebalanceDates,
+            compositesByDate,
+            request.topN(),
+            request.signalThreshold(),
+            categoriesWithPriceData);
 
     List<EquityCurvePoint> equityCurve =
         simulatePortfolio(tradingDates, allocationsByRebalanceDate, pricesByDate, spyPricesByDate);
@@ -190,7 +199,8 @@ public class BacktestEngine {
       List<LocalDate> rebalanceDates,
       Map<LocalDate, Map<String, BigDecimal>> compositesByDate,
       int topN,
-      BigDecimal signalThreshold) {
+      BigDecimal signalThreshold,
+      Set<String> categoriesWithPriceData) {
 
     Map<LocalDate, List<String>> allocations = new LinkedHashMap<>();
     List<String> lastAllocation = List.of();
@@ -205,6 +215,9 @@ public class BacktestEngine {
       List<String> topCategories =
           composites.entrySet().stream()
               .filter(e -> e.getValue() != null)
+              // Only allocate to categories that have price data — sub-sector ETFs that haven't
+              // been ingested would otherwise make the portfolio flatline with 0% returns.
+              .filter(e -> categoriesWithPriceData.contains(e.getKey()))
               .filter(e -> signalThreshold == null || e.getValue().compareTo(signalThreshold) >= 0)
               .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
               .limit(topN)

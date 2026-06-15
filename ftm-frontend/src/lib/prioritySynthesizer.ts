@@ -1,7 +1,7 @@
 import { ApproachingSignalDto, CategorySummary, HoldingActionDto, PriceLevelDto, SignalTransitionDto, SignalWinRateDto } from "./api";
 
 export type Urgency = "NOW" | "THIS WEEK" | "MONITOR";
-export type ActionVerb = "ENTRY" | "ADD" | "TRIM" | "AVOID" | "WATCH";
+export type ActionVerb = "EXIT" | "ENTRY" | "ADD" | "TRIM" | "AVOID" | "WATCH";
 
 export type ConvictionTier = "HIGH" | "MEDIUM" | "LOW";
 
@@ -21,8 +21,8 @@ export type PriorityAction = {
   sizingHint: string;
 };
 
-// EXIT (0) ranks above all other verbs — user holds a deteriorating position
 const VERB_PRIORITY: Record<ActionVerb, number> = {
+  EXIT:  0,
   ENTRY: 1,
   TRIM:  2,
   AVOID: 3,
@@ -71,9 +71,12 @@ function computeConviction(
     return { conviction: "LOW", sizingHint: "Starter (1–2%), add on confirmation" };
   }
 
-  if (verb === "TRIM" || verb === "AVOID") {
+  if (verb === "EXIT" || verb === "TRIM" || verb === "AVOID") {
     const lowPct = pct != null && pct < 0.25;
     const weakMacro = macroFit != null && macroFit < 0.40;
+    if (verb === "EXIT") {
+      return { conviction: "HIGH", sizingHint: "Exit position fully — you hold this" };
+    }
     if (lowPct && weakMacro) {
       return { conviction: "HIGH", sizingHint: "Exit position fully" };
     }
@@ -103,7 +106,7 @@ function buildRiskNote(
       return "At low end of 52w range — strong momentum required before sizing up.";
     }
   }
-  if (verb === "TRIM" || verb === "AVOID") {
+  if (verb === "EXIT" || verb === "TRIM" || verb === "AVOID") {
     if (cat?.macroFit != null && cat.macroFit > 0.6) {
       return "Macro regime still broadly supportive — consider partial trim rather than full exit.";
     }
@@ -132,7 +135,7 @@ export function derivePriorityActions(
 
   const winPct = (id: string) => {
     const wr = winRateByCategory[id];
-    return wr ? Math.round(wr.buyWinRate * 100) : null;
+    return wr?.winRate != null ? Math.round(wr.winRate * 100) : null;
   };
 
   const priceCtx = (id: string) => buildPriceContext(priceLevelByCategory[id]);
@@ -146,22 +149,19 @@ export function derivePriorityActions(
     if (pa.action !== "EXIT" || !pa.categoryId) continue;
     if (seen.has(pa.categoryId)) continue;
     seen.add(pa.categoryId);
-    const cat = catById[pa.categoryId];
     candidates.push({
-      verb: "TRIM",
+      verb: "EXIT",
       etfTicker: pa.ticker,
       categoryName: pa.categoryName ?? pa.ticker,
       categoryId: pa.categoryId,
       signal: pa.signal ?? "REDUCE",
-      rationale: `Portfolio EXIT — ${pa.rationale} (${pa.portfolioPct.toFixed(1)}% of portfolio)`,
+      rationale: `Portfolio position ${pa.portfolioPct.toFixed(1)}% — ${pa.rationale}`,
       urgency: "NOW",
       winRatePct: null,
       priceContext: priceCtx(pa.categoryId),
-      riskNote: risk("TRIM", pa.categoryId),
-      ...conv("TRIM", pa.categoryId, null),
+      riskNote: risk("EXIT", pa.categoryId),
+      ...conv("EXIT", pa.categoryId, null),
     });
-    // Block the category from appearing again in TRIM tier below
-    if (cat) { /* already added */ }
   }
 
   // 1 — HIGH confidence approaching BUY (≤7d) — entry window is open NOW

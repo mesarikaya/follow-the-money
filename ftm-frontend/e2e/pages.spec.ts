@@ -625,10 +625,12 @@ test.describe("Dashboard — Today's Priorities panel", () => {
     await expect(page.getByText("GLD").first()).toBeVisible();
   });
 
-  test("shows TRIM action for ENRG in Lagging quadrant with REDUCE signal", async ({ page }) => {
+  test("shows EXIT action for XLE portfolio position ranked #1 (highest priority)", async ({ page }) => {
     await page.goto("/");
-    // TRIM from ENRG: REDUCE + quadrant 1 + falling momentum
-    await expect(page.getByText("TRIM").first()).toBeVisible();
+    // EXIT from portfolio: XLE has action=EXIT in portfolio/actions mock (6.5% of portfolio)
+    // EXIT verb (priority 0) outranks ENTRY (1) — so it must be rank 1
+    await expect(page.getByText("EXIT").first()).toBeVisible();
+    await expect(page.getByText("XLE").first()).toBeVisible();
   });
 
   test("shows ADD action for XLK with BUY + Leading quadrant momentum", async ({ page }) => {
@@ -639,7 +641,7 @@ test.describe("Dashboard — Today's Priorities panel", () => {
 
   test("shows NOW urgency counter in panel header for time-sensitive actions", async ({ page }) => {
     await page.goto("/");
-    // 2 NOW items: ENTRY (GOLD) + TRIM (ENRG); the header badge shows "2 NOW"
+    // 2 NOW items: EXIT (XLE/ENRG portfolio) + ENTRY (GOLD approaching BUY in 4d)
     await expect(page.getByText("2 NOW")).toBeVisible();
   });
 });

@@ -1,6 +1,7 @@
 import { PriorityAction, ActionVerb, Urgency, ConvictionTier } from "@/lib/prioritySynthesizer";
 
 const VERB_CONFIG: Record<ActionVerb, { label: string; cls: string }> = {
+  EXIT:  { label: "EXIT",   cls: "bg-red-500/30 text-red-200 border-red-500/50"             },
   ENTRY: { label: "ENTRY",  cls: "bg-emerald-500/25 text-emerald-200 border-emerald-500/40" },
   ADD:   { label: "ADD",    cls: "bg-emerald-500/15 text-emerald-300 border-emerald-600/30" },
   WATCH: { label: "WATCH",  cls: "bg-cyan-500/15 text-cyan-300 border-cyan-600/30"          },
@@ -34,9 +35,9 @@ function ScoreSparkline({ scores, verb }: { scores: number[]; verb: ActionVerb }
 
   const rising = scores[scores.length - 1] > scores[0];
   const strokeColor =
-    (verb === "ENTRY" || verb === "ADD") && rising  ? "#34d399" :  // emerald
-    (verb === "TRIM"  || verb === "AVOID") && !rising ? "#f87171" :  // red
-    "#64748b";                                                         // slate
+    (verb === "ENTRY" || verb === "ADD") && rising          ? "#34d399" :  // emerald
+    (verb === "EXIT" || verb === "TRIM" || verb === "AVOID") ? "#f87171" :  // red
+    "#64748b";                                                               // slate
 
   return (
     <svg
@@ -152,8 +153,8 @@ export default function TodaysPriorityPanel({ actions, scoreHistory }: Props) {
   if (actions.length === 0) return null;
 
   const nowCount = actions.filter(a => a.urgency === "NOW").length;
-  const entryCount = actions.filter(a => a.verb === "ENTRY").length;
-  const trimCount = actions.filter(a => a.verb === "TRIM" || a.verb === "AVOID").length;
+  const entryCount = actions.filter(a => a.verb === "ENTRY" || a.verb === "ADD").length;
+  const exitCount = actions.filter(a => a.verb === "EXIT" || a.verb === "TRIM" || a.verb === "AVOID").length;
 
   return (
     <section className="bg-slate-800/60 border border-slate-600/40 rounded-xl p-4 shadow-lg">
@@ -182,8 +183,8 @@ export default function TodaysPriorityPanel({ actions, scoreHistory }: Props) {
           {entryCount > 0 && (
             <span className="text-emerald-500/70">↑{entryCount} entry</span>
           )}
-          {trimCount > 0 && (
-            <span className="text-amber-500/70">↓{trimCount} exit</span>
+          {exitCount > 0 && (
+            <span className="text-red-500/70">↓{exitCount} exit</span>
           )}
         </div>
       </div>

@@ -33,6 +33,7 @@ import DailySignalDiff from "@/components/DailySignalDiff";
 import { derivePriorityActions } from "@/lib/prioritySynthesizer";
 import SignalStreakPanel from "@/components/SignalStreakPanel";
 import ScoreComponentHeatmap from "@/components/ScoreComponentHeatmap";
+import ScoreTimelineGrid from "@/components/ScoreTimelineGrid";
 
 export const dynamic = "force-dynamic";
 
@@ -166,6 +167,10 @@ export default async function Home({ searchParams }: Props) {
         {categories.length > 0 && <ScoreMoversPanel categories={categories} />}
 
         {categories.length > 0 && <SignalStreakPanel categories={categories} />}
+
+        {categories.length > 0 && Object.keys(scoreHistory).length > 0 && (
+          <ScoreTimelineGrid categories={categories} scoreHistory={scoreHistory} />
+        )}
 
         {categories.length > 0 && Object.keys(scoreComponentsByCategory).length > 0 && (
           <ScoreComponentHeatmap categories={categories} scoreComponents={scoreComponentsByCategory} />

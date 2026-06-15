@@ -975,3 +975,22 @@ test.describe("Dashboard — Score Component Heatmap (EP-055)", () => {
     await expect(heatmap.getByText("MOM").first()).toBeVisible();
   });
 });
+
+test.describe("Dashboard — Score Timeline Grid (EP-053)", () => {
+  test("renders score timeline grid section", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("score-timeline-grid")).toBeVisible();
+  });
+
+  test("shows 30-Day Score Timeline heading", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("30-Day Score Timeline")).toBeVisible();
+  });
+
+  test("shows ETF tickers in timeline rows", async ({ page }) => {
+    await page.goto("/");
+    // TECH has score history and compositeScore in mock data
+    const grid = page.getByTestId("score-timeline-grid");
+    await expect(grid.getByText("XLK")).toBeVisible();
+  });
+});

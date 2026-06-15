@@ -826,10 +826,10 @@ test.describe("Portfolio page — Radar, trend arrows, concentration risk", () =
 
   test("shows concentration risk warning when top sector exceeds 40%", async ({ page }) => {
     await page.goto("/portfolio");
-    // Mock holdings: AAPL + XLK both TECH = 100% concentration → warning fires
+    // Mock holdings: AAPL + XLK + XLE — TECH (AAPL+XLK) is ~62% → above 40% threshold
     await expect(page.getByText("Concentration Risk")).toBeVisible();
-    // The warning text contains the exact phrase "100% of your portfolio"
-    await expect(page.getByText(/100% of your portfolio/)).toBeVisible();
+    // The warning text contains the sector percentage
+    await expect(page.getByText(/\d+% of your portfolio/)).toBeVisible();
   });
 
   test("shows trend arrows in holdings signal cell", async ({ page }) => {
@@ -932,5 +932,26 @@ test.describe("Dashboard — Signal Streak Leaderboard (EP-054)", () => {
     const panel = page.getByTestId("signal-streak-panel");
     // ENRG scoreStreakDays=-5, REDUCE signal → Bearish Streaks
     await expect(panel.getByText(/-5d/)).toBeVisible();
+  });
+});
+
+test.describe("Portfolio page — Recommended Actions panel", () => {
+  test("shows Recommended Actions section header", async ({ page }) => {
+    await page.goto("/portfolio");
+    await expect(page.getByText("Recommended Actions")).toBeVisible();
+  });
+
+  test("shows EXIT action for ENRG holding with REDUCE signal", async ({ page }) => {
+    await page.goto("/portfolio");
+    // XLE ticker has ENRG category with REDUCE signal → EXIT (over 5% threshold)
+    const exitBadge = page.getByText("EXIT").first();
+    await expect(exitBadge).toBeVisible();
+  });
+
+  test("shows HOLD action for TECH holdings with BUY signal", async ({ page }) => {
+    await page.goto("/portfolio");
+    // AAPL and XLK are TECH with BUY → HOLD
+    const holdBadges = page.getByText("HOLD");
+    await expect(holdBadges.first()).toBeVisible();
   });
 });

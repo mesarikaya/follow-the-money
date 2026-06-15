@@ -155,7 +155,7 @@ export function derivePriorityActions(
       categoryName: pa.categoryName ?? pa.ticker,
       categoryId: pa.categoryId,
       signal: pa.signal ?? "REDUCE",
-      rationale: `Portfolio position ${pa.portfolioPct.toFixed(1)}% — ${pa.rationale}`,
+      rationale: `Portfolio position ${(pa.portfolioPct ?? 0).toFixed(1)}% — ${pa.rationale}`,
       urgency: "NOW",
       winRatePct: null,
       priceContext: priceCtx(pa.categoryId),

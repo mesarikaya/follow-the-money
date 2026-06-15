@@ -7,6 +7,7 @@ import {
   HoldingDto, HoldingsUploadResponse, updateHolding, deleteHolding, createHolding,
   fetchPriceLevels, PriceLevelDto, fetchWinRates, SignalWinRateDto,
   fetchCategories, CategorySummary, fetchPortfolioSnapshots, PortfolioSnapshot,
+  fetchPortfolioActions, HoldingActionDto,
 } from "@/lib/api";
 import PortfolioValueChart from "@/components/PortfolioValueChart";
 import AllocationDonutChart from "@/components/AllocationDonutChart";
@@ -107,6 +108,7 @@ export default function PortfolioPage() {
   const [sortField, setSortField] = useState<SortField>("marketValueEur");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [portfolioSnapshots, setPortfolioSnapshots] = useState<PortfolioSnapshot[] | null>(null);
+  const [portfolioActions, setPortfolioActions] = useState<HoldingActionDto[] | null>(null);
   const [editingTicker, setEditingTicker] = useState<string | null>(null);
   const [editQty, setEditQty] = useState("");
   const [editPrice, setEditPrice] = useState("");
@@ -158,6 +160,7 @@ export default function PortfolioPage() {
       setCategoryById(map);
     }).catch(() => {});
     fetchPortfolioSnapshots(90).then(setPortfolioSnapshots).catch(() => {});
+    fetchPortfolioActions().then(setPortfolioActions).catch(() => {});
   }, [loadPortfolio]);
 
   const handleAllocationChange = (categoryId: string, value: string) => {
@@ -913,6 +916,78 @@ export default function PortfolioPage() {
               </span>
             </div>
           </div>
+        )}
+
+        {/* Recommended Actions */}
+        {portfolioActions && portfolioActions.length > 0 && (
+          <section className="space-y-2">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Recommended Actions</h2>
+              <span
+                className="text-[10px] text-slate-600 cursor-help"
+                title="Signal-driven recommendations for each holding. EXIT = REDUCE signal + position >5% of portfolio. TRIM = REDUCE signal, smaller position. WATCH = WATCH signal. HOLD = BUY or neutral signal. UNCLASSIFIED = no FTM sector mapping. Sorted by urgency."
+              >(?)
+              </span>
+            </div>
+            <div className="overflow-x-auto rounded-xl border border-slate-700/60">
+              <table className="w-full text-xs text-left">
+                <thead>
+                  <tr className="border-b border-slate-700/60 bg-slate-800/60 text-slate-500 uppercase tracking-wider text-[10px]">
+                    <th className="px-3 py-2">Action</th>
+                    <th className="px-3 py-2">Ticker</th>
+                    <th className="px-3 py-2">Sector</th>
+                    <th className="px-3 py-2 text-center">Signal</th>
+                    <th className="px-3 py-2 text-center">Conv.</th>
+                    <th className="px-3 py-2 text-right">Weight</th>
+                    <th className="px-3 py-2">Rationale</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {portfolioActions.map((a) => {
+                    const actionConfig: Record<string, { label: string; className: string }> = {
+                      EXIT:         { label: "EXIT",         className: "bg-red-500/20 text-red-300 border border-red-500/40" },
+                      TRIM:         { label: "TRIM",         className: "bg-orange-500/15 text-orange-300 border border-orange-500/30" },
+                      WATCH:        { label: "WATCH",        className: "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30" },
+                      HOLD:         { label: "HOLD",         className: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" },
+                      UNCLASSIFIED: { label: "?",            className: "bg-slate-700/30 text-slate-400 border border-slate-600/30" },
+                    };
+                    const cfg = actionConfig[a.action] ?? actionConfig.UNCLASSIFIED;
+                    const signalColor: Record<string, string> = {
+                      BUY:    "text-green-400",
+                      WATCH:  "text-cyan-400",
+                      HOLD:   "text-slate-500",
+                      REDUCE: "text-red-400",
+                    };
+                    return (
+                      <tr key={a.ticker} className={`hover:bg-slate-800/30 transition-colors ${a.action === "EXIT" ? "bg-red-950/10" : a.action === "TRIM" ? "bg-orange-950/10" : ""}`}>
+                        <td className="px-3 py-2">
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${cfg.className}`}>
+                            {cfg.label}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 font-mono font-semibold text-slate-200">{a.ticker}</td>
+                        <td className="px-3 py-2 text-slate-400 max-w-[120px] truncate">{a.categoryName ?? "—"}</td>
+                        <td className="px-3 py-2 text-center">
+                          {a.signal ? (
+                            <span className={`text-[9px] font-bold ${signalColor[a.signal] ?? "text-slate-500"}`}>{a.signal}</span>
+                          ) : (
+                            <span className="text-slate-700">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-center font-mono text-slate-400">
+                          {a.convictionScore != null ? a.convictionScore : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono tabular-nums text-slate-300">
+                          {a.portfolioPct != null ? `${Number(a.portfolioPct).toFixed(1)}%` : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-slate-500 text-[10px] max-w-[240px]">{a.rationale}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
         )}
 
         <section className="space-y-3">

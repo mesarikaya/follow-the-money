@@ -856,6 +856,25 @@ const server = http.createServer(async (req, res) => {
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 30);
     res.writeHead(200);
     res.end(JSON.stringify(recentEvents));
+  } else if (path === "/api/v1/alerts/rule-stats" && req.method === "GET") {
+    res.writeHead(200);
+    res.end(JSON.stringify({
+      theme_momentum_surge: 18,
+      theme_phase_breakout_entry: 14,
+      composite_breakout: 12,
+      theme_strong_breakout_confirmation: 11,
+      theme_score_price_divergence: 9,
+      theme_peer_divergence: 8,
+      rs_aligned_bull: 7,
+      theme_failed_breakout: 6,
+      theme_phase_fading: 6,
+      high_conviction_buy: 5,
+      theme_5d_acceleration: 4,
+      score_velocity: 4,
+      theme_recovery_signal: 3,
+      macro_regime_shift: 2,
+      theme_momentum_exhaustion: 2,
+    }));
   } else if (path === "/api/v1/alerts" && req.method === "GET") {
     res.writeHead(200);
     res.end(JSON.stringify(ALERTS_RESPONSE));

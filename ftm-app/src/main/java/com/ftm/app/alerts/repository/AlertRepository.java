@@ -156,6 +156,17 @@ public class AlertRepository {
         .fetchMap(ALERTS.CATEGORY_ID, countField);
   }
 
+  public Map<String, Integer> findFireCountsByRuleSince(int days) {
+    var countField = DSL.count();
+    OffsetDateTime since = OffsetDateTime.now().minusDays(days);
+    return dsl.select(ALERTS.RULE_ID, countField)
+        .from(ALERTS)
+        .where(ALERTS.CREATED_AT.ge(since))
+        .groupBy(ALERTS.RULE_ID)
+        .orderBy(countField.desc())
+        .fetchMap(ALERTS.RULE_ID, countField);
+  }
+
   private Alert mapRecord(org.jooq.Record record) {
     var r = (com.ftm.app.jooq.tables.records.AlertsRecord) record;
     CategoryId categoryId = null;

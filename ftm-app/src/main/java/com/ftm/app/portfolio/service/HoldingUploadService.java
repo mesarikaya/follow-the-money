@@ -61,7 +61,8 @@ public class HoldingUploadService {
 
       // Normalize GBX (pence) → GBP so the DB stores a consistent currency code.
       // Prices remain in pence; the pence→GBP division is applied during value computation.
-      String currency = "GBX".equalsIgnoreCase(row.currency()) ? "GBX" : row.currency().toUpperCase();
+      String currency =
+          "GBX".equalsIgnoreCase(row.currency()) ? "GBX" : row.currency().toUpperCase();
       String categoryId = classificationService.classifyOrUnknown(ticker);
 
       if (categoryId == null) {
@@ -98,7 +99,9 @@ public class HoldingUploadService {
     BigDecimal sekUsdRate = holdingPriceService.fetchSekUsdRate();
     List<Holding> enrichedHoldings = holdingRepository.findAll();
     List<HoldingDto> holdingDtos =
-        enrichedHoldings.stream().map(h -> toDto(h, usdPerEurRate, gbpUsdRate, sekUsdRate)).toList();
+        enrichedHoldings.stream()
+            .map(h -> toDto(h, usdPerEurRate, gbpUsdRate, sekUsdRate))
+            .toList();
 
     syncPortfolioAllocations(holdingDtos);
 
@@ -166,7 +169,9 @@ public class HoldingUploadService {
     BigDecimal gbpUsdRate = holdingPriceService.fetchGbpUsdRate();
     BigDecimal sekUsdRate = holdingPriceService.fetchSekUsdRate();
     List<HoldingDto> remainingDtos =
-        holdingRepository.findAll().stream().map(h -> toDto(h, usdPerEurRate, gbpUsdRate, sekUsdRate)).toList();
+        holdingRepository.findAll().stream()
+            .map(h -> toDto(h, usdPerEurRate, gbpUsdRate, sekUsdRate))
+            .toList();
     syncPortfolioAllocations(remainingDtos);
   }
 
@@ -210,7 +215,9 @@ public class HoldingUploadService {
     BigDecimal gbpUsdRate = holdingPriceService.fetchGbpUsdRate();
     BigDecimal sekUsdRate = holdingPriceService.fetchSekUsdRate();
     List<HoldingDto> allDtos =
-        holdingRepository.findAll().stream().map(h -> toDto(h, usdPerEurRate, gbpUsdRate, sekUsdRate)).toList();
+        holdingRepository.findAll().stream()
+            .map(h -> toDto(h, usdPerEurRate, gbpUsdRate, sekUsdRate))
+            .toList();
     syncPortfolioAllocations(allDtos);
 
     return allDtos.stream().filter(h -> h.ticker().equals(ticker)).findFirst().orElseThrow();
@@ -223,7 +230,9 @@ public class HoldingUploadService {
     BigDecimal gbpUsdRate = holdingPriceService.fetchGbpUsdRate();
     BigDecimal sekUsdRate = holdingPriceService.fetchSekUsdRate();
     List<HoldingDto> holdingDtos =
-        holdingRepository.findAll().stream().map(h -> toDto(h, usdPerEurRate, gbpUsdRate, sekUsdRate)).toList();
+        holdingRepository.findAll().stream()
+            .map(h -> toDto(h, usdPerEurRate, gbpUsdRate, sekUsdRate))
+            .toList();
     syncPortfolioAllocations(holdingDtos);
     portfolioSnapshotService.captureSnapshot(holdingDtos);
     return holdingDtos;

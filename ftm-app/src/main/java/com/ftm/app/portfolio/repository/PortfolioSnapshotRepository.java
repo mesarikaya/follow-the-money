@@ -15,10 +15,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class PortfolioSnapshotRepository {
 
-  private static final org.jooq.Table<?> SNAPSHOTS =
-      table(name("portfolio_value_snapshots"));
-  private static final org.jooq.Table<?> FX_HISTORY =
-      table(name("fx_rates_history"));
+  private static final org.jooq.Table<?> SNAPSHOTS = table(name("portfolio_value_snapshots"));
+  private static final org.jooq.Table<?> FX_HISTORY = table(name("fx_rates_history"));
 
   private final DSLContext dsl;
 
@@ -73,9 +71,7 @@ public class PortfolioSnapshotRepository {
             field(name("total_cost_eur")),
             field(name("holding_count")))
         .from(SNAPSHOTS)
-        .where(
-            field(name("snapshot_date"))
-                .greaterOrEqual(LocalDate.now().minusDays(days)))
+        .where(field(name("snapshot_date")).greaterOrEqual(LocalDate.now().minusDays(days)))
         .orderBy(field(name("snapshot_date")).asc())
         .fetch()
         .map(

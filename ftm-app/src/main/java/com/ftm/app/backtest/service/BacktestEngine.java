@@ -206,7 +206,7 @@ public class BacktestEngine {
     return rebalanceDates;
   }
 
-  private List<EquityCurvePoint> simulatePortfolio(
+  List<EquityCurvePoint> simulatePortfolio(
       List<LocalDate> tradingDates,
       Map<LocalDate, List<String>> allocationsByRebalanceDate,
       Map<LocalDate, Map<String, BigDecimal>> pricesByDate,
@@ -243,7 +243,7 @@ public class BacktestEngine {
           entryPrices.clear();
           for (String categoryId : newAllocation) {
             BigDecimal price = prices.get(categoryId);
-            if (price != null) {
+            if (price != null && price.signum() > 0) {
               entryPrices.put(categoryId, price.doubleValue());
             }
           }
@@ -261,7 +261,7 @@ public class BacktestEngine {
           for (String categoryId : currentAllocation) {
             BigDecimal currentPrice = currentPrices.get(categoryId);
             Double entryPrice = entryPrices.get(categoryId);
-            if (currentPrice != null && entryPrice != null && entryPrice > 0) {
+            if (currentPrice != null && currentPrice.signum() > 0 && entryPrice != null && entryPrice > 0) {
               portfolioDayReturn += (currentPrice.doubleValue() / entryPrice) / totalWeight;
               validPositions++;
             }

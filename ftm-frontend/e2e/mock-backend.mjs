@@ -419,11 +419,11 @@ const INGEST_RESPONSE = {
 };
 
 const WIN_RATES_RESPONSE = [
-  { categoryId: "TECH", signalCount: 42, winRate: 0.74, avgReturn30d: 0.038 },
-  { categoryId: "HLTH", signalCount: 31, winRate: 0.68, avgReturn30d: 0.021 },
-  { categoryId: "ENRG", signalCount: 18, winRate: 0.44, avgReturn30d: -0.012 },
-  { categoryId: "GOLD", signalCount: 24, winRate: 0.58, avgReturn30d: 0.015 },
-  { categoryId: "TLTD", signalCount: 12, winRate: 0.50, avgReturn30d: 0.004 },
+  { categoryId: "TECH", signalCount: 42, winRate: 0.74, avgReturn30d: 0.038, avgReturn90d: 0.092 },
+  { categoryId: "HLTH", signalCount: 31, winRate: 0.68, avgReturn30d: 0.021, avgReturn90d: 0.057 },
+  { categoryId: "ENRG", signalCount: 18, winRate: 0.44, avgReturn30d: -0.012, avgReturn90d: -0.031 },
+  { categoryId: "GOLD", signalCount: 24, winRate: 0.58, avgReturn30d: 0.015, avgReturn90d: 0.041 },
+  { categoryId: "TLTD", signalCount: 12, winRate: 0.50, avgReturn30d: 0.004, avgReturn90d: null },
 ];
 
 const PRICE_LEVELS_RESPONSE = [

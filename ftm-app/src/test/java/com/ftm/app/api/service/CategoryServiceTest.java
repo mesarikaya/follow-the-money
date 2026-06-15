@@ -317,10 +317,11 @@ class CategoryServiceTest {
   // ===== getBuySignalWinRates =====
 
   @Test
-  @DisplayName("getBuySignalWinRates maps repository rows to SignalWinRateDto")
+  @DisplayName("getBuySignalWinRates maps repository rows to SignalWinRateDto including 90d return")
   void shouldMapWinRateRowsToDto() {
     BuySignalWinRateRow row =
-        new BuySignalWinRateRow("TECH", 42, new BigDecimal("0.74"), new BigDecimal("0.038"));
+        new BuySignalWinRateRow(
+            "TECH", 42, new BigDecimal("0.74"), new BigDecimal("0.038"), new BigDecimal("0.092"));
 
     when(signalRepository.findBuySignalWinRates(365)).thenReturn(List.of(row));
 
@@ -332,6 +333,20 @@ class CategoryServiceTest {
     assertThat(dto.signalCount()).isEqualTo(42);
     assertThat(dto.winRate()).isEqualByComparingTo("0.74");
     assertThat(dto.avgReturn30d()).isEqualByComparingTo("0.038");
+    assertThat(dto.avgReturn90d()).isEqualByComparingTo("0.092");
+  }
+
+  @Test
+  @DisplayName("getBuySignalWinRates maps null avgReturn90d when 90d data is unavailable")
+  void shouldHandleNullAvgReturn90d() {
+    BuySignalWinRateRow row =
+        new BuySignalWinRateRow("TLTD", 12, new BigDecimal("0.50"), new BigDecimal("0.004"), null);
+
+    when(signalRepository.findBuySignalWinRates(365)).thenReturn(List.of(row));
+
+    List<SignalWinRateDto> result = categoryService.getBuySignalWinRates(365);
+
+    assertThat(result.get(0).avgReturn90d()).isNull();
   }
 
   @Test

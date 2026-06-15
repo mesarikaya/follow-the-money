@@ -586,6 +586,30 @@ test.describe("Dashboard — ThemeSignalWidget Near Entry section", () => {
   });
 });
 
+test.describe("Dashboard — Score Streak badges", () => {
+  test("shows up-streak badge for TECH (7-day server-side streak)", async ({ page }) => {
+    await page.goto("/");
+    // TECH mock has scoreStreakDays=7 → StreakBadge renders "↑7d" (threshold: abs >= 3)
+    await expect(page.getByText("↑7d").first()).toBeVisible();
+  });
+
+  test("shows down-streak badge for ENRG (5-day down streak)", async ({ page }) => {
+    await page.goto("/");
+    // ENRG mock has scoreStreakDays=-5 → StreakBadge renders "↓5d"
+    await expect(page.getByText("↓5d").first()).toBeVisible();
+  });
+
+  test("streak badge tooltip describes the streak direction", async ({ page }) => {
+    await page.goto("/");
+    // ↑7d badge has a title attribute explaining the streak
+    const badge = page.getByText("↑7d").first();
+    await expect(badge).toBeVisible();
+    const title = await badge.getAttribute("title");
+    expect(title).toMatch(/7 consecutive day/);
+    expect(title).toMatch(/improving/);
+  });
+});
+
 test.describe("Alerts page — Strong Breakout Confirmation rule", () => {
   test("shows Strong Breakout Confirmation rule in Alert Rules panel", async ({ page }) => {
     await page.goto("/alerts");

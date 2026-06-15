@@ -99,6 +99,7 @@ public class CategoryService {
         signalRepository.findRealizedVolatility20d();
     Map<String, BigDecimal> scorePercentile252dByCategoryId =
         signalRepository.findScorePercentile252d();
+    Map<String, Integer> scoreStreakDaysByCategoryId = signalRepository.findScoreStreakDays();
 
     // Primary sort: timeframe RS signal; secondary: composite score (tiebreaker)
     var sortedRows =
@@ -138,7 +139,8 @@ public class CategoryService {
                         momentumByCategoryId,
                         signalDaysActiveByCategoryId,
                         realizedVol20dByCategoryId,
-                        scorePercentile252dByCategoryId))
+                        scorePercentile252dByCategoryId,
+                        scoreStreakDaysByCategoryId))
             .toList();
 
     LocalDate asOfDate =

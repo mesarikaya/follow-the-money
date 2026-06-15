@@ -87,6 +87,9 @@ public interface CategoryMapper {
               + "flow20dByCategoryId.get(row.category().id().name()), "
               + "rs20ByCategoryId.get(row.category().id().name())))")
   @Mapping(target = "parentId", source = "row.category.parentId")
+  @Mapping(
+      target = "scoreStreakDays",
+      expression = "java(scoreStreakDaysByCategoryId.get(row.category().id().name()))")
   CategorySummaryDto toDto(
       CategoryRepository.CategoryPriceRow row,
       int rank,
@@ -105,5 +108,6 @@ public interface CategoryMapper {
       Map<String, BigDecimal> momentumByCategoryId,
       Map<String, Integer> signalDaysActiveByCategoryId,
       Map<String, BigDecimal> realizedVol20dByCategoryId,
-      Map<String, BigDecimal> scorePercentile252dByCategoryId);
+      Map<String, BigDecimal> scorePercentile252dByCategoryId,
+      Map<String, Integer> scoreStreakDaysByCategoryId);
 }

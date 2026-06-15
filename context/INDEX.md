@@ -1,5 +1,5 @@
 ---
-last-updated: 2026-06-14 (session 31)
+last-updated: 2026-06-15 (session 36)
 ---
 
 # Follow the Money — AI Context
@@ -21,7 +21,7 @@ A local-first investment dashboard that tracks capital flows across 19 investabl
 
 ## Current phase
 
-**All 12 milestones delivered.** 540 backend tests + 74 E2E tests pass. Session 31 added GBX/SEK currency support, ticker seeds (V65), COMPOSITE_BREAKDOWN fix (V64), Daily Brief page, and portfolio value history (V66).
+**All 12 milestones delivered.** 542 backend tests + 91 E2E tests pass. Session 36 added server-side score streak computation (EP-048).
 
 | Area | Status |
 |------|--------|

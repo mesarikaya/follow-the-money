@@ -28,6 +28,7 @@ const CATEGORIES_RESPONSE = {
       priceDate: "2026-05-15",
       tradeSignal: "BUY",
       macroFit: 0.78,
+      scoreStreakDays: 7,
     },
     {
       id: "HLTH",
@@ -48,6 +49,7 @@ const CATEGORIES_RESPONSE = {
       priceDate: "2026-05-15",
       tradeSignal: "WATCH",
       macroFit: 0.63,
+      scoreStreakDays: 3,
     },
     {
       id: "ENRG",
@@ -68,6 +70,7 @@ const CATEGORIES_RESPONSE = {
       priceDate: "2026-05-15",
       tradeSignal: "REDUCE",
       macroFit: 0.48,
+      scoreStreakDays: -5,
     },
     {
       id: "GOLD",
@@ -88,6 +91,7 @@ const CATEGORIES_RESPONSE = {
       priceDate: "2026-05-15",
       tradeSignal: "WATCH",
       macroFit: 0.35,
+      scoreStreakDays: null,
     },
     {
       id: "TLTD",
@@ -108,6 +112,7 @@ const CATEGORIES_RESPONSE = {
       priceDate: "2026-05-15",
       tradeSignal: "HOLD",
       macroFit: 0.28,
+      scoreStreakDays: -3,
     },
     {
       id: "CASH",
@@ -128,6 +133,7 @@ const CATEGORIES_RESPONSE = {
       priceDate: "2026-05-15",
       tradeSignal: null,
       macroFit: null,
+      scoreStreakDays: null,
     },
   ],
 };

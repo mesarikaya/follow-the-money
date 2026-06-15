@@ -14,6 +14,23 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 
 ---
 
+## 2026-06-15 (session 36 — EP-048 server-side score streak)
+
+- `NEW` EP-048: Server-side `scoreStreakDays` in `CategorySummaryDto`
+  - SQL: `findScoreStreakDays()` in `SignalRepository` — LAG window function over COMPOSITE signals
+    (90-day window); gaps-and-islands approach: count consecutive days from today with same direction
+  - Positive = N days up, negative = N days down, null = flat or < 2 data points
+  - `@Cacheable("score-streak-90d")` — resets on next ingest cycle
+  - `CategoryMapper` gains `scoreStreakDaysByCategoryId` parameter; map lookup in `@Mapping`
+  - `CategoryService` calls `findScoreStreakDays()` and passes to mapper
+  - Frontend: `scoreStreakDays: number | null` added to `CategorySummary` type
+  - `CategoryTable`: `StreakBadge` now reads `cat.scoreStreakDays` (server-side, full 90-day history)
+    with `computeStreak(history)` as fallback when server value is null
+  - Mock backend updated with `scoreStreakDays` on all 6 categories
+  - New test: `shouldCallFindScoreStreakDays` in `CategoryServiceTest`
+  - 3 new E2E tests: up-streak badge, down-streak badge, tooltip content
+  - Result: 542 backend tests + 91 E2E tests (up from 542 + 88)
+
 ## 2026-06-14 (session 31 — GBX/SEK currency support, ticker seeds, portfolio history)
 
 - `NEW` V64: `rotation_events_event_type_check` constraint fix — added `COMPOSITE_BREAKDOWN`

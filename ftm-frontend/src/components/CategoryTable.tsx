@@ -689,7 +689,7 @@ export default function CategoryTable({
                     <td className="px-3 py-2.5">
                       <div className="flex flex-col items-center gap-0.5">
                         <Sparkline values={history} />
-                        <StreakBadge streak={computeStreak(history)} />
+                        <StreakBadge streak={cat.scoreStreakDays ?? computeStreak(history)} />
                         {(() => {
                           // Prefer 252-day backend percentile; fall back to 30-day computed
                           if (cat.scorePercentile252d != null) {

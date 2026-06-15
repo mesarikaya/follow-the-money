@@ -259,13 +259,14 @@ class CategoryServiceTest {
     when(signalRepository.findRealizedVolatility20d()).thenReturn(Map.of());
     when(signalRepository.findScorePercentile252d()).thenReturn(Map.of());
     when(alertService.getActiveAlertCountsByCategory()).thenReturn(Map.of());
+    when(signalRepository.findScoreStreakDays()).thenReturn(Map.of());
     when(categoryMapper.toDto(
             eq(row1), eq(1), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
-            any(), any(), any(), any(), any(), any(), any()))
+            any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(dto1);
     when(categoryMapper.toDto(
             eq(row2), eq(2), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
-            any(), any(), any(), any(), any(), any(), any()))
+            any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(dto2);
 
     CategoriesResponse result = categoryService.getCategoriesResponse("MONTH");
@@ -344,6 +345,17 @@ class CategoryServiceTest {
 
     categoryService.getBuySignalWinRates(999);
     verify(signalRepository).findBuySignalWinRates(730);
+  }
+
+  @Test
+  @DisplayName("getCategoriesResponse calls findScoreStreakDays to populate server-side streak")
+  void shouldCallFindScoreStreakDays() {
+    when(categoryRepository.findAllWithLatestPrice()).thenReturn(List.of());
+    when(signalRepository.findLatestByTypes(any())).thenReturn(Map.of());
+
+    categoryService.getCategoriesResponse("MONTH");
+
+    verify(signalRepository).findScoreStreakDays();
   }
 
   // ===== getSeasonalReturns =====

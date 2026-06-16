@@ -1141,3 +1141,30 @@ test.describe("Theme detail — Score Gauge (EP-062)", () => {
     await expect(gauge.getByText("BUY")).toBeVisible();
   });
 });
+
+test.describe("Dashboard — Theme Leaderboard (EP-063)", () => {
+  test("renders theme leaderboard panel on dashboard", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("theme-leaderboard")).toBeVisible();
+  });
+
+  test("shows Theme Leaderboard heading", async ({ page }) => {
+    await page.goto("/");
+    const leaderboard = page.getByTestId("theme-leaderboard");
+    await expect(leaderboard.getByRole("heading", { name: "Theme Leaderboard" })).toBeVisible();
+  });
+
+  test("shows Top Themes and Rising sections", async ({ page }) => {
+    await page.goto("/");
+    const leaderboard = page.getByTestId("theme-leaderboard");
+    await expect(leaderboard.getByText("Top Themes")).toBeVisible();
+    await expect(leaderboard.getByText(/Rising/)).toBeVisible();
+    await expect(leaderboard.getByText(/Falling/)).toBeVisible();
+  });
+
+  test("shows AI Infrastructure as top theme from mock data", async ({ page }) => {
+    await page.goto("/");
+    const leaderboard = page.getByTestId("theme-leaderboard");
+    await expect(leaderboard.getByText("AI Infrastructure").first()).toBeVisible();
+  });
+});

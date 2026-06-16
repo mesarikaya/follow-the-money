@@ -303,10 +303,12 @@ class ThemeServiceTest {
             Map.of(
                 SignalType.COMPOSITE,
                     Map.of("SEMI", new BigDecimal("0.80"), "AIRO", new BigDecimal("0.78")),
+                SignalType.RRG_QUADRANT,
+                    Map.of("SEMI", new BigDecimal("4"), "AIRO", new BigDecimal("4")),
+                SignalType.COMPOSITE_TREND_20D,
+                    Map.of("SEMI", new BigDecimal("0.02"), "AIRO", new BigDecimal("0.01")),
                 SignalType.RS_60, Collections.emptyMap(),
                 SignalType.FLOW_20D, Collections.emptyMap(),
-                SignalType.COMPOSITE_TREND_20D, Collections.emptyMap(),
-                SignalType.RRG_QUADRANT, Collections.emptyMap(),
                 SignalType.MACRO_FIT, Collections.emptyMap(),
                 SignalType.RS_120, Collections.emptyMap(),
                 SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));

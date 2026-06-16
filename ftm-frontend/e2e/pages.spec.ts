@@ -1255,3 +1255,28 @@ test.describe("Dashboard — Theme Alert Activity Strip (EP-066)", () => {
     await expect(strip.getByText("hot").first()).toBeVisible();
   });
 });
+
+test.describe("Themes — Alert Risk Map (EP-067)", () => {
+  test("shows alert risk map on themes page", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("theme-alert-risk-map")).toBeVisible();
+  });
+
+  test("alert risk map shows axis label for alert activity", async ({ page }) => {
+    await page.goto("/themes");
+    const map = page.getByTestId("theme-alert-risk-map");
+    await expect(map.getByText(/alert activity/i).first()).toBeVisible();
+  });
+
+  test("alert risk map shows Rising Quietly quadrant label", async ({ page }) => {
+    await page.goto("/themes");
+    const map = page.getByTestId("theme-alert-risk-map");
+    await expect(map.getByText(/Rising Quietly/)).toBeVisible();
+  });
+
+  test("alert risk map shows Alarm Zone quadrant label", async ({ page }) => {
+    await page.goto("/themes");
+    const map = page.getByTestId("theme-alert-risk-map");
+    await expect(map.getByText(/Alarm Zone/)).toBeVisible();
+  });
+});

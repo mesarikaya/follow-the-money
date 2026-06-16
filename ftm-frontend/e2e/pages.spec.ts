@@ -1180,3 +1180,30 @@ test.describe("Themes API — alertCount30d field (EP-064)", () => {
     await expect(page.getByRole("heading", { name: /Themes|AI Infrastructure/ }).first()).toBeVisible();
   });
 });
+
+test.describe("Theme detail — Score Calendar (EP-065)", () => {
+  test("shows score calendar heatmap on theme detail page", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    await expect(page.getByTestId("theme-score-calendar")).toBeVisible();
+  });
+
+  test("score calendar shows 13 Weeks label", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    const calendar = page.getByTestId("theme-score-calendar");
+    await expect(calendar.getByText(/13 Weeks/)).toBeVisible();
+  });
+
+  test("score calendar renders day-of-week labels", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    const calendar = page.getByTestId("theme-score-calendar");
+    await expect(calendar.getByText("Mon")).toBeVisible();
+    await expect(calendar.getByText("Fri")).toBeVisible();
+  });
+
+  test("score calendar renders zone legend", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    const calendar = page.getByTestId("theme-score-calendar");
+    await expect(calendar.getByText("BUY")).toBeVisible();
+    await expect(calendar.getByText("REDUCE")).toBeVisible();
+  });
+});

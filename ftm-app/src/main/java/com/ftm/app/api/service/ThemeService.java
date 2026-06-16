@@ -158,7 +158,8 @@ public class ThemeService {
         alertCount,
         summary.signalStreakDays(),
         summary.volatility30d(),
-        summary.scorePercentile30d());
+        summary.scorePercentile30d(),
+        summary.concentrationRisk());
   }
 
   private void assertThemeExists(String themeId) {
@@ -328,6 +329,7 @@ public class ThemeService {
     int signalStreakDays = computeSignalStreak(history, dominantSignal);
     Double volatility30d = computeVolatility(history);
     Double scorePercentile30d = computeScorePercentile(history, scoreVal);
+    Double concentrationRisk = computeConcentrationRisk(allConstituents);
 
     return new ThemeSummaryDto(
         theme.id(),
@@ -347,7 +349,8 @@ public class ThemeService {
         alertCount30d,
         signalStreakDays,
         volatility30d,
-        scorePercentile30d);
+        scorePercentile30d,
+        concentrationRisk);
   }
 
   private static int computeSignalStreak(List<DateHistory> history, String currentSignal) {
@@ -362,6 +365,18 @@ public class ThemeService {
       }
     }
     return streak;
+  }
+
+  private static Double computeConcentrationRisk(List<ThemeConstituentDto> constituents) {
+    if (constituents.isEmpty()) return null;
+    Map<String, Long> countByParent =
+        constituents.stream()
+            .collect(
+                Collectors.groupingBy(
+                    c -> c.parentCategoryId() != null ? c.parentCategoryId() : c.categoryId(),
+                    Collectors.counting()));
+    long maxCount = countByParent.values().stream().mapToLong(Long::longValue).max().orElse(0);
+    return (double) maxCount / constituents.size();
   }
 
   private static Double computeScorePercentile(List<DateHistory> history, Double currentScore) {

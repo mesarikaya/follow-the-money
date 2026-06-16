@@ -20,4 +20,5 @@ public record ThemeDetailDto(
     int alertCount30d,
     int signalStreakDays,
     Double volatility30d,
-    Double scorePercentile30d) {}
+    Double scorePercentile30d,
+    Double concentrationRisk) {}

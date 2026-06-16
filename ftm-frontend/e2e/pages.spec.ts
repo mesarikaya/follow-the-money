@@ -1307,3 +1307,28 @@ test.describe("Themes — Alert Risk Map (EP-067)", () => {
     await expect(map.getByText(/Alarm Zone/)).toBeVisible();
   });
 });
+
+test.describe("Dashboard — Theme Health Gauge (EP-069)", () => {
+  test("shows theme health gauge on dashboard", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("theme-health-gauge")).toBeVisible();
+  });
+
+  test("health gauge shows signal counts with BUY label", async ({ page }) => {
+    await page.goto("/");
+    const gauge = page.getByTestId("theme-health-gauge");
+    await expect(gauge.getByText(/BUY/).first()).toBeVisible();
+  });
+
+  test("health gauge shows Theme Signals heading", async ({ page }) => {
+    await page.goto("/");
+    const gauge = page.getByTestId("theme-health-gauge");
+    await expect(gauge.getByText(/Theme Signals/i)).toBeVisible();
+  });
+
+  test("health gauge shows Phase Breakdown section", async ({ page }) => {
+    await page.goto("/");
+    const gauge = page.getByTestId("theme-health-gauge");
+    await expect(gauge.getByText(/Phase Breakdown/i)).toBeVisible();
+  });
+});

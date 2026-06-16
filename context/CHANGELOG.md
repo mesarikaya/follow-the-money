@@ -14,6 +14,45 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 
 ---
 
+## 2026-06-16 (session 38 — EP-065 through EP-069 UI feature wave)
+
+- `NEW` EP-065: `ThemeScoreCalendar` — GitHub-style 13-week × 7-day score heatmap on theme detail page
+  - Props: `{ history: ThemeHistoryPoint[] }`; pads to 91 cells; 13 columns (weeks) × 7 rows (days)
+  - Zone-aware colour intensity: BUY=emerald, WATCH=cyan, HOLD=amber, REDUCE=red
+  - Day labels Mon–Sun on left; BUY/WATCH/HOLD/REDUCE zone legend in header
+  - Uses `fetchThemeHistory(id, 91)` in parallel in themes/[id]/page.tsx
+  - 4 E2E tests; 91 → 95 E2E total
+
+- `NEW` EP-066: `ThemeAlertActivityStrip` — 30-day alert heat map on dashboard
+  - Shows top 8 themes by `alertCount30d`; grid of 4 columns; links to `/themes/${id}`
+  - Heat labels: "hot" (≥75% of max), "active" (≥50%), "warm" (≥25%), "low" (<25%)
+  - Animated red pulse dot for "hot" themes; total fire count in header
+  - 4 E2E tests; 95 → 99 E2E total
+
+- `RESOLVED` EP-060 tests permanently lost in pages.spec.ts — restored via PR #47
+  - EP-061 merge had clobbered the EP-060 `alert-rule-activity-panel` test describe block
+  - Identified and re-added 3 tests; now at 102 E2E total after this fix + EP-065 + EP-066
+
+- `NEW` EP-067: `ThemeAlertRiskMap` — 2D scatter on /themes: alert activity vs 5d momentum
+  - X = alertCount30d (quiet→noisy); Y = compositeTrend5d (fading→rising)
+  - 4 quadrant labels: Rising Quietly / Alert-Confirmed Rise / Fading Quietly / Alarm Zone
+  - Dot size = compositeScore; dot colour = dominantSignal
+  - 4 E2E tests; 103 → 107 E2E total (including EP-067 tests after EP-060 fix)
+
+- `NEW` EP-068: `ThemeBuyCountdown` — days-to-BUY countdown on /themes page
+  - Filters score 0.50–0.65 with positive trend; computes `ceil((0.65 - score) / trend5d)`
+  - Urgency colour: green ≤5d, cyan 5–14d, amber 15–30d; shows ⬆ accel badge
+  - Also adds `~Nd` inline badge to `NearEntryRow` in `ThemeSignalWidget`
+  - 4 E2E tests
+
+- `NEW` EP-069: `ThemeHealthGauge` — SVG semi-circular arc gauge on dashboard
+  - Synthesises all theme signals: BUY=+2, WATCH=+1, HOLD=0, REDUCE=-1 → 0–100 score
+  - Four zones: RISK OFF / CAUTION / NEUTRAL / RISK ON; needle + active arc fill
+  - Side panel: signal count badges, bullish vs fading phase counts, avg 5d trend
+  - 4 E2E tests
+
+---
+
 ## 2026-06-15 (session 32 — backtester SPY data fix + auto-reclassify on ticker mapping)
 
 - `RESOLVED` Backtester showing -140% excess return — root cause: SPY benchmark_prices seeded

@@ -1228,3 +1228,30 @@ test.describe("Theme detail — Score Calendar (EP-065)", () => {
     await expect(calendar.getByText("REDUCE")).toBeVisible();
   });
 });
+
+test.describe("Dashboard — Theme Alert Activity Strip (EP-066)", () => {
+  test("shows alert activity strip on dashboard", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("theme-alert-activity-strip")).toBeVisible();
+  });
+
+  test("alert activity strip shows Alert Activity heading", async ({ page }) => {
+    await page.goto("/");
+    const strip = page.getByTestId("theme-alert-activity-strip");
+    await expect(strip.getByText(/Alert Activity/)).toBeVisible();
+  });
+
+  test("alert activity strip shows AI Infrastructure as most active theme", async ({ page }) => {
+    await page.goto("/");
+    const strip = page.getByTestId("theme-alert-activity-strip");
+    // AI_INFRA has alertCount30d: 12 — highest in mock data
+    await expect(strip.getByText("AI Infrastructure")).toBeVisible();
+  });
+
+  test("alert activity strip shows heat labels for high-activity themes", async ({ page }) => {
+    await page.goto("/");
+    const strip = page.getByTestId("theme-alert-activity-strip");
+    // AI_INFRA has 12 fires — should show "hot" label
+    await expect(strip.getByText("hot").first()).toBeVisible();
+  });
+});

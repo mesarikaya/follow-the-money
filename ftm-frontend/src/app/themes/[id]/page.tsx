@@ -355,6 +355,7 @@ const RULE_LABELS: Record<string, string> = {
   theme_recovery_signal:            "Recovery Signal",
   theme_strong_breakout_confirmation: "Strong Breakout Confirmed",
   theme_peer_divergence:            "Peer Divergence",
+  theme_score_price_divergence:     "Score-Price Divergence",
   pre_buy_flow_surge:               "Pre-Buy Flow Surge",
 };
 

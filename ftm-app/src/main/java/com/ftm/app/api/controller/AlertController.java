@@ -2,6 +2,7 @@ package com.ftm.app.api.controller;
 
 import com.ftm.app.api.dto.AlertDto;
 import com.ftm.app.api.dto.AlertRuleDto;
+import com.ftm.app.api.dto.AlertSeverityDayDto;
 import com.ftm.app.api.dto.AlertsResponse;
 import com.ftm.app.api.service.AlertService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -78,5 +79,19 @@ public class AlertController {
           "Recent alert events across all categories and themes (all statuses, most recent first, limit 30)")
   public List<AlertDto> getRecentAlerts() {
     return alertService.getRecentAlerts();
+  }
+
+  @GetMapping("/rule-stats")
+  @Operation(summary = "Alert fire counts per rule over the last N days (default 30)")
+  public Map<String, Integer> getRuleStats(
+      @RequestParam(defaultValue = "30") int days) {
+    return alertService.getAlertRuleFireCounts(days);
+  }
+
+  @GetMapping("/severity-history")
+  @Operation(summary = "Daily alert fire counts by severity for the last N days (default 30)")
+  public List<AlertSeverityDayDto> getSeverityHistory(
+      @RequestParam(defaultValue = "30") int days) {
+    return alertService.getAlertSeverityHistory(days);
   }
 }

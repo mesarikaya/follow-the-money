@@ -303,6 +303,8 @@ export const fetchAlerts = () => get<AlertsResponse>("/api/v1/alerts");
 export const fetchThemeAlertHistory = (themeId: string) =>
   get<AlertDto[]>(`/api/v1/alerts/theme/${themeId}`);
 export const fetchRecentAlerts = () => get<AlertDto[]>("/api/v1/alerts/recent");
+export const fetchAlertRuleStats = (days = 30) =>
+  get<Record<string, number>>(`/api/v1/alerts/rule-stats?days=${days}`);
 
 export type AlertRuleDto = {
   ruleId: string;
@@ -313,6 +315,17 @@ export type AlertRuleDto = {
 };
 
 export const fetchAlertRules = () => get<AlertRuleDto[]>("/api/v1/alerts/rules");
+
+export type AlertSeverityDayDto = {
+  date: string;
+  urgentCount: number;
+  actionCount: number;
+  warningCount: number;
+  infoCount: number;
+};
+
+export const fetchAlertSeverityHistory = (days = 30) =>
+  get<AlertSeverityDayDto[]>(`/api/v1/alerts/severity-history?days=${days}`);
 
 export const setAlertRuleEnabled = (ruleId: string, enabled: boolean) =>
   fetch(`${BACKEND}/api/v1/alerts/rules/${encodeURIComponent(ruleId)}/enabled?enabled=${enabled}`, {

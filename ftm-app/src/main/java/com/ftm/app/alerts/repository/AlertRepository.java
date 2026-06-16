@@ -6,13 +6,17 @@ import com.ftm.app.domain.Alert;
 import com.ftm.app.domain.AlertStatus;
 import com.ftm.app.domain.CategoryId;
 import com.ftm.app.domain.Severity;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Optional;
 import java.util.Map;
+import java.util.Optional;
 import org.jooq.DSLContext;
 import org.jooq.JSONB;
 import org.jooq.impl.DSL;
+import org.jooq.impl.SQLDataType;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -146,6 +150,23 @@ public class AlertRepository {
         .execute();
   }
 
+  public List<Map<String, Object>> findDailySeverityCountsSince(int days) {
+    var dateField = ALERTS.CREATED_AT.cast(SQLDataType.LOCALDATE).as("alert_date");
+    var since = OffsetDateTime.now().minusDays(days);
+    return dsl.select(dateField, ALERTS.SEVERITY, DSL.count().as("cnt"))
+        .from(ALERTS)
+        .where(ALERTS.CREATED_AT.ge(since))
+        .groupBy(dateField, ALERTS.SEVERITY)
+        .orderBy(dateField)
+        .fetch(r -> {
+          Map<String, Object> row = new LinkedHashMap<>();
+          row.put("date", r.get("alert_date", LocalDate.class));
+          row.put("severity", r.get(ALERTS.SEVERITY));
+          row.put("count", r.get("cnt", Integer.class));
+          return row;
+        });
+  }
+
   public Map<String, Integer> findActiveAlertCountsByCategory() {
     var countField = DSL.count();
     return dsl.select(ALERTS.CATEGORY_ID, countField)
@@ -154,6 +175,17 @@ public class AlertRepository {
         .and(ALERTS.CATEGORY_ID.isNotNull())
         .groupBy(ALERTS.CATEGORY_ID)
         .fetchMap(ALERTS.CATEGORY_ID, countField);
+  }
+
+  public Map<String, Integer> findFireCountsByRuleSince(int days) {
+    var countField = DSL.count();
+    OffsetDateTime since = OffsetDateTime.now().minusDays(days);
+    return dsl.select(ALERTS.RULE_ID, countField)
+        .from(ALERTS)
+        .where(ALERTS.CREATED_AT.ge(since))
+        .groupBy(ALERTS.RULE_ID)
+        .orderBy(countField.desc())
+        .fetchMap(ALERTS.RULE_ID, countField);
   }
 
   private Alert mapRecord(org.jooq.Record record) {

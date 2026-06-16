@@ -4,6 +4,7 @@ import ThemeAlertRiskMap from "@/components/ThemeAlertRiskMap";
 import ThemeBuyCountdown from "@/components/ThemeBuyCountdown";
 import ThemeScoreZPanel from "@/components/ThemeScoreZPanel";
 import ThemeSignalStreakPanel from "@/components/ThemeSignalStreakPanel";
+import ScreenerFilterBar from "@/components/ScreenerFilterBar";
 import { SECTOR_SHORT_NAMES, getParentSectorId } from "@/lib/sectors";
 
 const SIGNAL_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -1282,21 +1283,34 @@ function ThemeScreener({
   historiesByThemeId,
   alertsByThemeId,
   sort,
+  signalFilter,
+  phaseFilter,
+  minStreakFilter,
 }: {
   themes: ThemeSummary[];
   historiesByThemeId: Record<string, ThemeHistoryPoint[]>;
   alertsByThemeId: Record<string, number>;
   sort: string;
+  signalFilter: string[];
+  phaseFilter: string | null;
+  minStreakFilter: number | null;
 }) {
   if (themes.length === 0) return null;
 
-  const sortedByScore = [...themes].sort((a, b) => (b.compositeScore ?? -1) - (a.compositeScore ?? -1));
+  const filteredThemes = themes.filter(t => {
+    if (signalFilter.length > 0 && !signalFilter.includes(t.dominantSignal ?? "")) return false;
+    if (phaseFilter != null && t.themePhase !== phaseFilter) return false;
+    if (minStreakFilter != null && t.signalStreakDays < minStreakFilter) return false;
+    return true;
+  });
+
+  const sortedByScore = [...filteredThemes].sort((a, b) => (b.compositeScore ?? -1) - (a.compositeScore ?? -1));
   const scoreRankById: Record<string, number> = {};
   sortedByScore.forEach((t, i) => { scoreRankById[t.id] = i + 1; });
 
   const sorted: ThemeSummary[] = (() => {
     if (sort === "delta5d") {
-      return [...themes].sort((a, b) => {
+      return [...filteredThemes].sort((a, b) => {
         const histA = historiesByThemeId[a.id] ?? [];
         const histB = historiesByThemeId[b.id] ?? [];
         const dA = histA.length >= 6 ? histA[histA.length - 1].compositeScore - histA[histA.length - 6].compositeScore : -Infinity;
@@ -1305,16 +1319,16 @@ function ThemeScreener({
       });
     }
     if (sort === "alerts") {
-      return [...themes].sort((a, b) => (alertsByThemeId[b.id] ?? 0) - (alertsByThemeId[a.id] ?? 0) || (b.compositeScore ?? -1) - (a.compositeScore ?? -1));
+      return [...filteredThemes].sort((a, b) => (alertsByThemeId[b.id] ?? 0) - (alertsByThemeId[a.id] ?? 0) || (b.compositeScore ?? -1) - (a.compositeScore ?? -1));
     }
     if (sort === "rs60") {
-      return [...themes].sort((a, b) => (b.rs60 ?? -Infinity) - (a.rs60 ?? -Infinity));
+      return [...filteredThemes].sort((a, b) => (b.rs60 ?? -Infinity) - (a.rs60 ?? -Infinity));
     }
     if (sort === "velocity") {
       const accel = (t: ThemeSummary) =>
         t.compositeTrend5d != null && t.compositeTrend20d != null
           ? t.compositeTrend5d - t.compositeTrend20d : -Infinity;
-      return [...themes].sort((a, b) => accel(b) - accel(a));
+      return [...filteredThemes].sort((a, b) => accel(b) - accel(a));
     }
     if (sort === "percentile") {
       return [...themes].sort((a, b) => (a.scorePercentile30d ?? 1) - (b.scorePercentile30d ?? 1));
@@ -1328,7 +1342,7 @@ function ThemeScreener({
   // Rank from 5 days ago: sort by score at history[length - 6] (index 0 = oldest when 30 fetched)
   const LOOKBACK = 5;
   const priorRankById: Record<string, number> = {};
-  const priorSorted = [...themes]
+  const priorSorted = [...filteredThemes]
     .map(t => {
       const hist = historiesByThemeId[t.id] ?? [];
       const idx = hist.length - 1 - LOOKBACK;
@@ -1339,12 +1353,17 @@ function ThemeScreener({
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   priorSorted.forEach((x, rank) => { priorRankById[x.id] = rank + 1; });
 
+  const isFiltered = signalFilter.length > 0 || phaseFilter != null || minStreakFilter != null;
+
   return (
     <div className="bg-slate-800/40 border border-slate-700/60 rounded-lg overflow-hidden mb-4">
       <div className="px-3 py-2 border-b border-slate-700/40 flex items-center justify-between">
         <span className="text-[10px] text-slate-500 uppercase tracking-wider font-mono">Theme Screener · Live Rankings</span>
-        <span className="text-[10px] font-mono text-slate-600">{themes.length} rows</span>
+        <span className="text-[10px] font-mono text-slate-600" data-testid="screener-row-count">
+          {isFiltered ? `${filteredThemes.length} of ${themes.length}` : `${themes.length}`} rows
+        </span>
       </div>
+      <ScreenerFilterBar activeSignals={signalFilter} activePhase={phaseFilter} minStreak={minStreakFilter} />
       <div className="overflow-x-auto">
         <table className="w-full text-left min-w-[800px]">
           <thead>
@@ -1840,10 +1859,13 @@ function ThemeRaceChart({
 export default async function ThemesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string }>;
+  searchParams: Promise<{ sort?: string; signal?: string; phase?: string; minStreak?: string }>;
 }) {
-  const { sort: sortParam } = await searchParams;
+  const { sort: sortParam, signal: signalParam, phase: phaseParam, minStreak: minStreakParam } = await searchParams;
   const screenerSort = ["score", "delta5d", "alerts", "rs60", "velocity", "percentile", "iq"].includes(sortParam ?? "") ? sortParam as string : "score";
+  const signalFilter = (signalParam ?? "").split(",").filter(s => ["BUY", "WATCH", "HOLD", "REDUCE"].includes(s));
+  const phaseFilter = ["BREAKOUT", "MOMENTUM", "SETUP", "FADING", "WEAK"].includes(phaseParam ?? "") ? (phaseParam as string) : null;
+  const minStreakFilter = ["5", "10", "15"].includes(minStreakParam ?? "") ? parseInt(minStreakParam!) : null;
 
   const [themes, alertsResponse, recentAlerts] = await Promise.all([
     fetchThemes(),
@@ -1949,7 +1971,17 @@ export default async function ThemesPage({
         {themes.length > 1 && <ThemeRaceChart themes={themes} historiesByThemeId={historyByThemeId} />}
         {themes.length > 1 && <ThemeAlertRiskMap themes={themes} />}
         {themes.length > 0 && <SmartMoneyPicksPanel themes={themes} />}
-        {themes.length > 0 && <ThemeScreener themes={themes} historiesByThemeId={historyByThemeId} alertsByThemeId={alertsByThemeId} sort={screenerSort} />}
+        {themes.length > 0 && (
+          <ThemeScreener
+            themes={themes}
+            historiesByThemeId={historyByThemeId}
+            alertsByThemeId={alertsByThemeId}
+            sort={screenerSort}
+            signalFilter={signalFilter}
+            phaseFilter={phaseFilter}
+            minStreakFilter={minStreakFilter}
+          />
+        )}
         {themes.length > 1 && <ThemeScoreHeatmap themes={themes} historiesByThemeId={historyByThemeId} />}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">

@@ -1527,3 +1527,37 @@ test.describe("Theme Screener — Investment Quality Score (EP-076)", () => {
     expect(firstScore).toBeGreaterThanOrEqual(secondScore);
   });
 });
+
+test.describe("Theme Screener — Filter Bar (EP-077)", () => {
+  test("filter bar is visible on themes page", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("screener-filter-bar")).toBeVisible();
+  });
+
+  test("BUY signal filter button is visible and navigates to filtered view", async ({ page }) => {
+    await page.goto("/themes");
+    const buyButton = page.getByTestId("filter-signal-buy");
+    await expect(buyButton).toBeVisible();
+    await buyButton.click();
+    // After click, URL should contain signal=BUY
+    await expect(page).toHaveURL(/signal=BUY/);
+  });
+
+  test("BUY filter shows only BUY themes — row count reflects filtering", async ({ page }) => {
+    // 3 BUY themes in mock: AI_INFRA, HARD_ASSETS_GOLD, RESHORING_CYCLE
+    await page.goto("/themes?signal=BUY");
+    const rowCount = page.getByTestId("screener-row-count");
+    await expect(rowCount).toBeVisible();
+    await expect(rowCount).toContainText("3 of 12");
+  });
+
+  test("clear filter button restores all 12 themes", async ({ page }) => {
+    await page.goto("/themes?signal=BUY");
+    const clearButton = page.getByTestId("filter-clear");
+    await expect(clearButton).toBeVisible();
+    await clearButton.click();
+    // After clearing, URL should not have signal param and row count is back to 12
+    await expect(page).toHaveURL(/\/themes($|\?(?!.*signal=))/);
+    await expect(page.getByTestId("screener-row-count")).toContainText("12");
+  });
+});

@@ -37,6 +37,7 @@ import ScoreTimelineGrid from "@/components/ScoreTimelineGrid";
 import MomentumVelocityRadar from "@/components/MomentumVelocityRadar";
 import ThemeRotationHeatmap from "@/components/ThemeRotationHeatmap";
 import ThemePhasePipeline from "@/components/ThemePhasePipeline";
+import ThemeLeaderboard from "@/components/ThemeLeaderboard";
 
 export const dynamic = "force-dynamic";
 
@@ -160,6 +161,8 @@ export default async function Home({ searchParams }: Props) {
         )}
 
         {themes.length > 0 && <ThemePhasePipeline themes={themes} />}
+
+        {themes.length > 0 && <ThemeLeaderboard themes={themes} />}
 
         {categories.length > 0 && (
           <DailyPlaybookPanel

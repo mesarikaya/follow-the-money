@@ -1412,3 +1412,30 @@ test.describe("Dashboard — Theme Momentum Forecast (EP-072)", () => {
     await expect(panel.getByText(/now \d+/).first()).toBeVisible();
   });
 });
+
+test.describe("Dashboard — Theme Signal Quality Panel (EP-073)", () => {
+  test("renders signal quality panel on dashboard", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("theme-signal-quality-panel")).toBeVisible();
+  });
+
+  test("shows Signal Quality Ranking heading", async ({ page }) => {
+    await page.goto("/");
+    const panel = page.getByTestId("theme-signal-quality-panel");
+    await expect(panel.getByText("Signal Quality Ranking")).toBeVisible();
+  });
+
+  test("shows Grade A badge for high-conviction themes", async ({ page }) => {
+    await page.goto("/");
+    const panel = page.getByTestId("theme-signal-quality-panel");
+    // AI_INFRA streak=30, vol=0.022 → quality=0.78 → Grade A; HARD_ASSETS_GOLD streak=25, vol=0.012 → quality=0.88 → Grade A
+    await expect(panel.getByTestId("quality-grade").first()).toHaveText("A");
+  });
+
+  test("shows streak day count labels in quality panel", async ({ page }) => {
+    await page.goto("/");
+    const panel = page.getByTestId("theme-signal-quality-panel");
+    // Should show streak labels like "25d streak" or "30d streak"
+    await expect(panel.getByTestId("streak-days-label").first()).toBeVisible();
+  });
+});

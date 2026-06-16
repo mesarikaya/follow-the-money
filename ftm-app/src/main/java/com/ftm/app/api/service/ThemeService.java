@@ -22,6 +22,7 @@ import java.util.OptionalDouble;
 import java.util.stream.Collectors;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import com.ftm.app.signals.repository.SignalRepository.DateHistory;
 
 @Service
 public class ThemeService {
@@ -71,9 +72,13 @@ public class ThemeService {
               int alertCount =
                   alertRepository.countRecentByCategoryIds(ids, 30)
                       + alertRepository.countRecentByThemeId(theme.id(), 30);
+              List<DateHistory> history =
+                  ids.isEmpty()
+                      ? List.of()
+                      : signalRepository.findAverageHistoryByDate(ids, 30);
               return toSummary(
                   theme, allConstituents, top3, categoriesById, compositeMap, trend5dMap,
-                  alertCount);
+                  alertCount, history);
             })
         .toList();
   }
@@ -123,6 +128,8 @@ public class ThemeService {
     int alertCount =
         alertRepository.countRecentByCategoryIds(ids, 30)
             + alertRepository.countRecentByThemeId(themeId, 30);
+    List<DateHistory> history =
+        ids.isEmpty() ? List.of() : signalRepository.findAverageHistoryByDate(ids, 30);
     ThemeSummaryDto summary =
         toSummary(
             theme,
@@ -131,7 +138,8 @@ public class ThemeService {
             categoriesById,
             compositeMap,
             trend5dMap,
-            alertCount);
+            alertCount,
+            history);
     return new ThemeDetailDto(
         summary.id(),
         summary.name(),
@@ -147,7 +155,9 @@ public class ThemeService {
         summary.divergenceFromParentSectors(),
         summary.themePhase(),
         sorted,
-        alertCount);
+        alertCount,
+        summary.signalStreakDays(),
+        summary.volatility30d());
   }
 
   private void assertThemeExists(String themeId) {
@@ -244,7 +254,8 @@ public class ThemeService {
       Map<String, Category> categoriesById,
       Map<String, BigDecimal> compositeByCategory,
       Map<String, BigDecimal> trend5dByCategory,
-      int alertCount30d) {
+      int alertCount30d,
+      List<DateHistory> history) {
 
     OptionalDouble avgComposite =
         allConstituents.stream()
@@ -313,6 +324,8 @@ public class ThemeService {
     Double trend20dVal = avgTrend.isPresent() ? avgTrend.getAsDouble() : null;
     Double flowVal = avgFlow.isPresent() ? avgFlow.getAsDouble() : null;
     String themePhase = computeThemePhase(scoreVal, trend5dVal, trend20dVal, flowVal);
+    int signalStreakDays = computeSignalStreak(history, dominantSignal);
+    Double volatility30d = computeVolatility(history);
 
     return new ThemeSummaryDto(
         theme.id(),
@@ -329,7 +342,41 @@ public class ThemeService {
         divergence,
         themePhase,
         topConstituents,
-        alertCount30d);
+        alertCount30d,
+        signalStreakDays,
+        volatility30d);
+  }
+
+  private static int computeSignalStreak(List<DateHistory> history, String currentSignal) {
+    if (history.isEmpty()) return 0;
+    List<DateHistory> reversed = history.reversed();
+    int streak = 0;
+    for (DateHistory point : reversed) {
+      if (inferSignalFromScore(point.averageComposite()).equals(currentSignal)) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  private static Double computeVolatility(List<DateHistory> history) {
+    if (history.size() < 2) return null;
+    double mean = history.stream().mapToDouble(DateHistory::averageComposite).average().orElse(0);
+    double variance =
+        history.stream()
+            .mapToDouble(p -> Math.pow(p.averageComposite() - mean, 2))
+            .average()
+            .orElse(0);
+    return Math.sqrt(variance);
+  }
+
+  private static String inferSignalFromScore(double score) {
+    if (score >= 0.65) return "BUY";
+    if (score >= 0.50) return "WATCH";
+    if (score >= 0.35) return "HOLD";
+    return "REDUCE";
   }
 
   private static String computeThemePhase(

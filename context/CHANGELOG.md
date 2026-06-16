@@ -14,6 +14,25 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 
 ---
 
+## 2026-06-16 (session 40 — EP-073 Signal Quality Ranking — backend streak+volatility + dashboard panel)
+
+- `NEW` EP-073: Backend `signalStreakDays` + `volatility30d` fields on `ThemeSummaryDto` + `ThemeDetailDto`
+  - `ThemeService`: for each theme, fetches 30d score history via `findAverageHistoryByDate` at summary-build time
+  - `signalStreakDays`: consecutive calendar days (backward from most recent) where inferred signal matches current dominantSignal
+  - `volatility30d`: standard deviation of compositeScore over 30 days (population std dev)
+  - Signal inference: score ≥0.65→BUY, ≥0.50→WATCH, ≥0.35→HOLD, else REDUCE (same thresholds as frontend)
+  - 3 new unit tests in `ThemeServiceTest`; all existing tests updated to stub `findAverageHistoryByDate`
+
+- `NEW` EP-073: `ThemeSignalQualityPanel` — dashboard widget grading themes A–D by signal reliability
+  - Quality score = `streakFactor × stabilityFactor` where `streakFactor = min(1, streak/20)` and `stabilityFactor = max(0, 1 − vol×10)`
+  - Grade A ≥ 0.70, B ≥ 0.45, C ≥ 0.20, D < 0.20
+  - Shows: rank number, grade badge, theme name, signal badge, quality bar, streak days, volatility σ
+  - "Elite conviction" badge when top entry is Grade A with ≥ 15-day streak
+  - Placed after `ThemeHealthGauge`, before `ThemeMomentumForecast` on dashboard
+  - 4 E2E tests; 119 → 127 E2E total (4 EP-072 + 4 EP-073 tests added from EP-072 merge)
+
+---
+
 ## 2026-06-16 (session 39 — EP-070 through EP-072 UI feature wave)
 
 - `NEW` EP-070: `ThemeScoreZPanel` — statistical deviation panel on /themes page

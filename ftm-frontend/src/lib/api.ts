@@ -657,6 +657,8 @@ export type ThemeSummary = {
   themePhase: string | null;
   topConstituents: ThemeConstituent[];
   alertCount30d: number;
+  signalStreakDays: number;
+  volatility30d: number | null;
 };
 
 export type ThemeDetail = ThemeSummary & {

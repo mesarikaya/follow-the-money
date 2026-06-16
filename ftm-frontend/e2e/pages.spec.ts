@@ -1256,6 +1256,33 @@ test.describe("Dashboard — Theme Alert Activity Strip (EP-066)", () => {
   });
 });
 
+test.describe("Themes — Buy Countdown (EP-068)", () => {
+  test("shows buy countdown panel on themes page", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("theme-buy-countdown")).toBeVisible();
+  });
+
+  test("buy countdown panel shows Near Entry heading", async ({ page }) => {
+    await page.goto("/themes");
+    const panel = page.getByTestId("theme-buy-countdown");
+    await expect(panel.getByText(/Near Entry/i)).toBeVisible();
+  });
+
+  test("buy countdown shows days-to-BUY estimate", async ({ page }) => {
+    await page.goto("/themes");
+    const panel = page.getByTestId("theme-buy-countdown");
+    // should show "~Nd" and "to BUY" for near-entry themes
+    await expect(panel.getByText(/to BUY/).first()).toBeVisible();
+  });
+
+  test("buy countdown shows a near-entry theme name", async ({ page }) => {
+    await page.goto("/themes");
+    const panel = page.getByTestId("theme-buy-countdown");
+    // Commodity Supercycle: score=0.61, trend=0.016 → ~3d to BUY
+    await expect(panel.getByText(/Commodity Supercycle/)).toBeVisible();
+  });
+});
+
 test.describe("Themes — Alert Risk Map (EP-067)", () => {
   test("shows alert risk map on themes page", async ({ page }) => {
     await page.goto("/themes");

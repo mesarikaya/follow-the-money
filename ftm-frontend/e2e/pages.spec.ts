@@ -1307,3 +1307,29 @@ test.describe("Themes — Alert Risk Map (EP-067)", () => {
     await expect(map.getByText(/Alarm Zone/)).toBeVisible();
   });
 });
+
+test.describe("Themes — Score Z-Score Panel (EP-070)", () => {
+  test("shows score z-score panel on themes page", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("theme-score-z-panel")).toBeVisible();
+  });
+
+  test("z-score panel shows Score Z-Score heading", async ({ page }) => {
+    await page.goto("/themes");
+    const panel = page.getByTestId("theme-score-z-panel");
+    await expect(panel.getByText(/Score Z-Score/i)).toBeVisible();
+  });
+
+  test("z-score panel shows Elevated section", async ({ page }) => {
+    await page.goto("/themes");
+    const panel = page.getByTestId("theme-score-z-panel");
+    await expect(panel.getByText(/Elevated/)).toBeVisible();
+  });
+
+  test("z-score panel shows a sigma value", async ({ page }) => {
+    await page.goto("/themes");
+    const panel = page.getByTestId("theme-score-z-panel");
+    // Should show a sigma value like "+1.23σ" or "↑ 1.2σ"
+    await expect(panel.getByText(/σ/).first()).toBeVisible();
+  });
+});

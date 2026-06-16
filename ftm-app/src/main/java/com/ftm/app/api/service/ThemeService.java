@@ -1,5 +1,6 @@
 package com.ftm.app.api.service;
 
+import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.api.dto.ThemeConstituentDto;
 import com.ftm.app.api.dto.ThemeDetailDto;
 import com.ftm.app.api.dto.ThemeHistoryPointDto;
@@ -28,14 +29,17 @@ public class ThemeService {
   private final ThemeRepository themeRepository;
   private final CategoryRepository categoryRepository;
   private final SignalRepository signalRepository;
+  private final AlertRepository alertRepository;
 
   public ThemeService(
       ThemeRepository themeRepository,
       CategoryRepository categoryRepository,
-      SignalRepository signalRepository) {
+      SignalRepository signalRepository,
+      AlertRepository alertRepository) {
     this.themeRepository = themeRepository;
     this.categoryRepository = categoryRepository;
     this.signalRepository = signalRepository;
+    this.alertRepository = alertRepository;
   }
 
   @Cacheable("themes-latest")
@@ -64,8 +68,12 @@ public class ThemeService {
                               ThemeConstituentDto::compositeScore, Comparator.reverseOrder()))
                       .limit(3)
                       .toList();
+              int alertCount =
+                  alertRepository.countRecentByCategoryIds(ids, 30)
+                      + alertRepository.countRecentByThemeId(theme.id(), 30);
               return toSummary(
-                  theme, allConstituents, top3, categoriesById, compositeMap, trend5dMap);
+                  theme, allConstituents, top3, categoriesById, compositeMap, trend5dMap,
+                  alertCount);
             })
         .toList();
   }
@@ -112,6 +120,9 @@ public class ThemeService {
         signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap());
     Map<String, BigDecimal> trend5dMap =
         signals.getOrDefault(SignalType.COMPOSITE_TREND_5D, Collections.emptyMap());
+    int alertCount =
+        alertRepository.countRecentByCategoryIds(ids, 30)
+            + alertRepository.countRecentByThemeId(themeId, 30);
     ThemeSummaryDto summary =
         toSummary(
             theme,
@@ -119,7 +130,8 @@ public class ThemeService {
             sorted.stream().limit(3).toList(),
             categoriesById,
             compositeMap,
-            trend5dMap);
+            trend5dMap,
+            alertCount);
     return new ThemeDetailDto(
         summary.id(),
         summary.name(),
@@ -134,7 +146,8 @@ public class ThemeService {
         summary.dominantSignal(),
         summary.divergenceFromParentSectors(),
         summary.themePhase(),
-        sorted);
+        sorted,
+        alertCount);
   }
 
   private void assertThemeExists(String themeId) {
@@ -230,7 +243,8 @@ public class ThemeService {
       List<ThemeConstituentDto> topConstituents,
       Map<String, Category> categoriesById,
       Map<String, BigDecimal> compositeByCategory,
-      Map<String, BigDecimal> trend5dByCategory) {
+      Map<String, BigDecimal> trend5dByCategory,
+      int alertCount30d) {
 
     OptionalDouble avgComposite =
         allConstituents.stream()
@@ -314,7 +328,8 @@ public class ThemeService {
         dominantSignal,
         divergence,
         themePhase,
-        topConstituents);
+        topConstituents,
+        alertCount30d);
   }
 
   private static String computeThemePhase(

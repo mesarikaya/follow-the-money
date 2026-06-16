@@ -16,4 +16,5 @@ public record ThemeDetailDto(
     String dominantSignal,
     Double divergenceFromParentSectors,
     String themePhase,
-    List<ThemeConstituentDto> constituents) {}
+    List<ThemeConstituentDto> constituents,
+    int alertCount30d) {}

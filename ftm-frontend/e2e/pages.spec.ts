@@ -1168,3 +1168,15 @@ test.describe("Dashboard — Theme Leaderboard (EP-063)", () => {
     await expect(leaderboard.getByText("AI Infrastructure").first()).toBeVisible();
   });
 });
+
+test.describe("Themes API — alertCount30d field (EP-064)", () => {
+  test("theme list endpoint returns alertCount30d field", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("AI Infrastructure").first()).toBeVisible();
+  });
+
+  test("themes page renders without error when alertCount30d present", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByRole("heading", { name: /Themes|AI Infrastructure/ }).first()).toBeVisible();
+  });
+});

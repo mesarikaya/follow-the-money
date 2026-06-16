@@ -656,6 +656,7 @@ export type ThemeSummary = {
   divergenceFromParentSectors: number | null;
   themePhase: string | null;
   topConstituents: ThemeConstituent[];
+  alertCount30d: number;
 };
 
 export type ThemeDetail = ThemeSummary & {

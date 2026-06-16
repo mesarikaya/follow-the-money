@@ -1740,7 +1740,7 @@ export default async function ThemesPage({
   searchParams: Promise<{ sort?: string }>;
 }) {
   const { sort: sortParam } = await searchParams;
-  const screenerSort = ["score", "delta5d", "alerts", "rs60", "velocity"].includes(sortParam ?? "") ? sortParam as string : "score";
+  const screenerSort = ["score", "delta5d", "alerts", "rs60", "velocity", "percentile"].includes(sortParam ?? "") ? sortParam as string : "score";
 
   const [themes, alertsResponse, recentAlerts] = await Promise.all([
     fetchThemes(),

@@ -1096,6 +1096,27 @@ test.describe("Dashboard — Theme Phase Pipeline (EP-059)", () => {
   });
 });
 
+test.describe("Alerts — Rule Activity Panel (EP-060)", () => {
+  test("shows rule activity panel on alerts page", async ({ page }) => {
+    await page.goto("/alerts");
+    await expect(page.getByTestId("alert-rule-activity-panel")).toBeVisible();
+  });
+
+  test("shows Rule Activity heading", async ({ page }) => {
+    await page.goto("/alerts");
+    const panel = page.getByTestId("alert-rule-activity-panel");
+    await expect(panel.getByRole("heading", { name: "Rule Activity" })).toBeVisible();
+  });
+
+  test("renders alert rule bars from mock data", async ({ page }) => {
+    await page.goto("/alerts");
+    const panel = page.getByTestId("alert-rule-activity-panel");
+    await expect(panel).toBeVisible();
+    // Mock returns theme_momentum_surge: 18 as top rule — label: "Theme Momentum Surge"
+    await expect(panel.getByText("Theme Momentum Surge")).toBeVisible();
+  });
+});
+
 test.describe("Alerts — Severity Timeline (EP-061)", () => {
   test("shows alert severity timeline panel on alerts page", async ({ page }) => {
     await page.goto("/alerts");

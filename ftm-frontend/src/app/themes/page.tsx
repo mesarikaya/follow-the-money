@@ -2,6 +2,7 @@ import Link from "next/link";
 import { fetchThemes, fetchThemeHistory, fetchAlerts, fetchRecentAlerts, AlertDto, ThemeSummary, ThemeConstituent, ThemeHistoryPoint } from "@/lib/api";
 import ThemeAlertRiskMap from "@/components/ThemeAlertRiskMap";
 import ThemeBuyCountdown from "@/components/ThemeBuyCountdown";
+import ThemeScoreZPanel from "@/components/ThemeScoreZPanel";
 import ThemeSignalStreakPanel from "@/components/ThemeSignalStreakPanel";
 import { SECTOR_SHORT_NAMES, getParentSectorId } from "@/lib/sectors";
 
@@ -1791,6 +1792,9 @@ export default async function ThemesPage({
         {themes.length > 0 && <ThemeNarrative themes={themes} />}
         {themes.length > 0 && <ActiveRotationBanner themes={themes} historiesByThemeId={historyByThemeId} />}
         {themes.length > 0 && <ThemeBuyCountdown themes={themes} />}
+        {themes.length > 1 && Object.keys(historyByThemeId).length > 0 && (
+          <ThemeScoreZPanel themes={themes} historiesByThemeId={historyByThemeId} />
+        )}
         {themes.length > 1 && Object.keys(historyByThemeId).length > 0 && (
           <ThemeSignalStreakPanel themes={themes} historiesByThemeId={historyByThemeId} />
         )}

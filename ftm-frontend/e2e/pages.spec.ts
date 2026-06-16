@@ -455,8 +455,8 @@ test.describe("Investment Themes page (/themes)", () => {
 
   test("shows summary stats bar with theme and ETF count", async ({ page }) => {
     await page.goto("/themes");
-    // Mock now has 12 themes
-    await expect(page.getByText(/12 themes/)).toBeVisible();
+    // Mock now has 12 themes — use .first() to avoid strict mode with Z-panel "σ = 12 themes"
+    await expect(page.getByText(/12 themes/).first()).toBeVisible();
     // constituentCount sum: 7+5+3+4+5+5+6+5+5+5+4+4=58
     await expect(page.getByText(/58 ETFs tracked/)).toBeVisible();
   });
@@ -1305,6 +1305,32 @@ test.describe("Themes — Alert Risk Map (EP-067)", () => {
     await page.goto("/themes");
     const map = page.getByTestId("theme-alert-risk-map");
     await expect(map.getByText(/Alarm Zone/)).toBeVisible();
+  });
+});
+
+test.describe("Themes — Score Z-Score Panel (EP-070)", () => {
+  test("shows score z-score panel on themes page", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("theme-score-z-panel")).toBeVisible();
+  });
+
+  test("z-score panel shows Score Z-Score heading", async ({ page }) => {
+    await page.goto("/themes");
+    const panel = page.getByTestId("theme-score-z-panel");
+    await expect(panel.getByText(/Score Z-Score/i)).toBeVisible();
+  });
+
+  test("z-score panel shows Elevated section", async ({ page }) => {
+    await page.goto("/themes");
+    const panel = page.getByTestId("theme-score-z-panel");
+    await expect(panel.getByText(/Elevated/)).toBeVisible();
+  });
+
+  test("z-score panel shows a sigma value", async ({ page }) => {
+    await page.goto("/themes");
+    const panel = page.getByTestId("theme-score-z-panel");
+    // Should show a sigma value like "+1.23σ" or "↑ 1.2σ"
+    await expect(panel.getByText(/σ/).first()).toBeVisible();
   });
 });
 

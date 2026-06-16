@@ -455,8 +455,8 @@ test.describe("Investment Themes page (/themes)", () => {
 
   test("shows summary stats bar with theme and ETF count", async ({ page }) => {
     await page.goto("/themes");
-    // Mock now has 12 themes
-    await expect(page.getByText(/12 themes/)).toBeVisible();
+    // Mock now has 12 themes — use .first() to avoid strict mode with Z-panel "σ = 12 themes"
+    await expect(page.getByText(/12 themes/).first()).toBeVisible();
     // constituentCount sum: 7+5+3+4+5+5+6+5+5+5+4+4=58
     await expect(page.getByText(/58 ETFs tracked/)).toBeVisible();
   });

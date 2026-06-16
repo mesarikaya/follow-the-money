@@ -422,4 +422,38 @@ class ThemeServiceTest {
     assertThat(result.get(0).scorePercentile30d())
         .isCloseTo(0.75, org.assertj.core.data.Offset.offset(0.001));
   }
+
+  @Test
+  @DisplayName("getThemes computes concentrationRisk as max parent-sector fraction")
+  void shouldComputeConcentrationRisk() {
+    when(themeRepository.findAll()).thenReturn(List.of(theme("AI_INFRA", "AI Infrastructure")));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("SEMI", "AIRO")));
+    // Both SEMI and AIRO have parentId="TECH" (from category() helper → "TECH")
+    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
+        .thenReturn(
+            List.of(
+                category(CategoryId.SEMI, "Semiconductors", "SMH"),
+                category(CategoryId.AIRO, "AI & Robotics", "BOTZ")));
+    when(signalRepository.findLatestByTypes(org.mockito.ArgumentMatchers.anyList()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE,
+                    Map.of("SEMI", new BigDecimal("0.80"), "AIRO", new BigDecimal("0.75")),
+                SignalType.RS_60, Collections.emptyMap(),
+                SignalType.FLOW_20D, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_20D, Collections.emptyMap(),
+                SignalType.RRG_QUADRANT, Collections.emptyMap(),
+                SignalType.MACRO_FIT, Collections.emptyMap(),
+                SignalType.RS_120, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+    stubHistoryEmpty();
+
+    List<ThemeSummaryDto> result = themeService.getThemes();
+
+    // SEMI→TECH, AIRO→TECH: 2/2 = 1.0 concentration
+    assertThat(result.get(0).concentrationRisk()).isNotNull();
+    assertThat(result.get(0).concentrationRisk())
+        .isCloseTo(1.0, org.assertj.core.data.Offset.offset(0.001));
+  }
 }

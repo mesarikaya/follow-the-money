@@ -1246,6 +1246,9 @@ function ThemeScreener({
           ? t.compositeTrend5d - t.compositeTrend20d : -Infinity;
       return [...themes].sort((a, b) => accel(b) - accel(a));
     }
+    if (sort === "percentile") {
+      return [...themes].sort((a, b) => (a.scorePercentile30d ?? 1) - (b.scorePercentile30d ?? 1));
+    }
     return sortedByScore;
   })();
 
@@ -1286,6 +1289,8 @@ function ThemeScreener({
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Phase</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Bullish</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Trend" sortKey="velocity" currentSort={sort} title="Sort by momentum acceleration (5d trend vs 20d)" /></th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Pct" sortKey="percentile" currentSort={sort} title="Sort by 30-day score percentile (ascending = cheapest vs recent history)" /></th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Sector concentration risk: fraction of constituents in dominant parent sector">Conc</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Alerts" sortKey="alerts" currentSort={sort} title="Sort by active alert count" /></th>
             </tr>
           </thead>
@@ -1467,6 +1472,43 @@ function ThemeScreener({
                         </span>
                       )}
                     </span>
+                  </td>
+                  <td className="py-2 px-3">
+                    {t.scorePercentile30d != null ? (
+                      <span
+                        data-testid="screener-percentile-badge"
+                        className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
+                          t.scorePercentile30d < 0.30
+                            ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
+                            : t.scorePercentile30d < 0.60
+                            ? "bg-slate-700/60 text-slate-400 border-slate-600/40"
+                            : "bg-red-500/10 text-red-400 border-red-500/20"
+                        }`}
+                        title={`Score at ${Math.round(t.scorePercentile30d * 100)}th percentile of last 30 days — ${t.scorePercentile30d < 0.40 ? "historically cheap" : t.scorePercentile30d > 0.80 ? "near 30d high" : "mid-range"}`}
+                      >
+                        P{Math.round(t.scorePercentile30d * 100)}
+                      </span>
+                    ) : (
+                      <span className="text-slate-700 text-[10px]">—</span>
+                    )}
+                  </td>
+                  <td className="py-2 px-3" data-testid="screener-concentration-cell">
+                    {t.concentrationRisk != null ? (
+                      <span
+                        className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
+                          t.concentrationRisk > 0.80
+                            ? "bg-red-500/10 text-red-400 border-red-500/20"
+                            : t.concentrationRisk > 0.50
+                            ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                            : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                        }`}
+                        title={`Sector concentration: ${Math.round(t.concentrationRisk * 100)}% of constituents in dominant parent sector. >80% = single-sector risk`}
+                      >
+                        {t.concentrationRisk > 0.80 ? "CONC" : t.concentrationRisk > 0.50 ? "MOD" : "DIV"}
+                      </span>
+                    ) : (
+                      <span className="text-slate-700 text-[10px]">—</span>
+                    )}
                   </td>
                   <td className="py-2 px-3">
                     {alertCount > 0 ? (

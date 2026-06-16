@@ -1467,3 +1467,34 @@ test.describe("Dashboard — Theme Leaderboard Value Zone (EP-074)", () => {
     await expect(valueSection.getByTestId("percentile-badge").first()).toBeVisible();
   });
 });
+
+test.describe("Theme Screener — Concentration Risk & Percentile (EP-075)", () => {
+  test("shows percentile badge in theme screener rows", async ({ page }) => {
+    await page.goto("/themes");
+    // At least one screener-percentile-badge should appear (e.g., P78 for AI_INFRA)
+    await expect(page.getByTestId("screener-percentile-badge").first()).toBeVisible();
+  });
+
+  test("shows concentration risk cell in theme screener rows", async ({ page }) => {
+    await page.goto("/themes");
+    // Concentration risk column present (CONC/MOD/DIV labels)
+    await expect(page.getByTestId("screener-concentration-cell").first()).toBeVisible();
+  });
+
+  test("percentile sort shows cheapest themes first", async ({ page }) => {
+    await page.goto("/themes?sort=percentile");
+    // First percentile badge should be the lowest percentile (P15 for SAAS_AT_RISK, P25 for BIOTECH)
+    const firstBadge = page.getByTestId("screener-percentile-badge").first();
+    await expect(firstBadge).toBeVisible();
+    const text = await firstBadge.textContent();
+    // Lowest percentile in mock data is P15 (SAAS_AT_RISK) — must be ≤ P30
+    const numericValue = parseInt((text ?? "P99").replace("P", ""), 10);
+    expect(numericValue).toBeLessThanOrEqual(30);
+  });
+
+  test("concentration risk shows CONC for single-sector themes", async ({ page }) => {
+    await page.goto("/themes?sort=percentile");
+    // Themes with concentrationRisk=1.0 show "CONC" badge (AI_INFRA, PHYSICAL_AI, BIOTECH, FINANCIAL, RESHORING)
+    await expect(page.getByText("CONC").first()).toBeVisible();
+  });
+});

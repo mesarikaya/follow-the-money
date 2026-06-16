@@ -3,6 +3,7 @@ import { fetchTheme, fetchThemeHistory, fetchThemes, fetchAlerts, fetchThemeAler
 import { notFound } from "next/navigation";
 import { SECTOR_DRILLDOWN_IDS, SECTOR_SHORT_NAMES, getParentSectorId } from "@/lib/sectors";
 import ThemeScoreGauge from "@/components/ThemeScoreGauge";
+import ThemeScoreCalendar from "@/components/ThemeScoreCalendar";
 
 const SIGNAL_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   BUY:    { label: "BUY",    color: "text-emerald-400", bg: "bg-emerald-500/15 border border-emerald-500/30" },
@@ -708,8 +709,9 @@ export default async function ThemeDetailPage({
     notFound();
   }
 
-  const [history, allThemes, alertsResponse, alertHistory] = await Promise.all([
+  const [history, calendarHistory, allThemes, alertsResponse, alertHistory] = await Promise.all([
     fetchThemeHistory(id.toUpperCase(), days).catch(() => []),
+    fetchThemeHistory(id.toUpperCase(), 91).catch(() => []),
     fetchThemes().catch(() => []),
     fetchAlerts().catch(() => ({ activeCount: 0, alerts: [] })),
     fetchThemeAlertHistory(id.toUpperCase()).catch(() => []),
@@ -854,6 +856,7 @@ export default async function ThemeDetailPage({
 
         <HistoryChartSection history={history} days={days} themeId={id.toUpperCase()} />
         <PhaseTimelineStrip history={history} />
+        <ThemeScoreCalendar history={calendarHistory} />
 
         {allThemes.length > 1 && (
           <RelatedThemesPanel

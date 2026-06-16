@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { fetchThemes, fetchThemeHistory, fetchAlerts, fetchRecentAlerts, AlertDto, ThemeSummary, ThemeConstituent, ThemeHistoryPoint } from "@/lib/api";
+import ThemeAlertRiskMap from "@/components/ThemeAlertRiskMap";
 import { SECTOR_SHORT_NAMES, getParentSectorId } from "@/lib/sectors";
 
 const SIGNAL_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -1791,6 +1792,7 @@ export default async function ThemesPage({
         {themes.length > 1 && <ThemeRelativeStrengthPlot themes={themes} />}
         {themes.length > 1 && <ThemePositioningMatrix themes={themes} />}
         {themes.length > 1 && <ThemeRaceChart themes={themes} historiesByThemeId={historyByThemeId} />}
+        {themes.length > 1 && <ThemeAlertRiskMap themes={themes} />}
         {themes.length > 0 && <ThemeScreener themes={themes} historiesByThemeId={historyByThemeId} alertsByThemeId={alertsByThemeId} sort={screenerSort} />}
         {themes.length > 1 && <ThemeScoreHeatmap themes={themes} historiesByThemeId={historyByThemeId} />}
 

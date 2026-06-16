@@ -1332,3 +1332,30 @@ test.describe("Dashboard — Theme Health Gauge (EP-069)", () => {
     await expect(gauge.getByText(/Phase Breakdown/i)).toBeVisible();
   });
 });
+
+test.describe("Themes — Signal Conviction Tracker (EP-071)", () => {
+  test("renders signal streak panel", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("theme-signal-streak-panel")).toBeVisible();
+  });
+
+  test("shows Signal Conviction Tracker heading", async ({ page }) => {
+    await page.goto("/themes");
+    const panel = page.getByTestId("theme-signal-streak-panel");
+    await expect(panel.getByText("Signal Conviction Tracker")).toBeVisible();
+  });
+
+  test("shows BUY signal badge in streak panel", async ({ page }) => {
+    await page.goto("/themes");
+    const panel = page.getByTestId("theme-signal-streak-panel");
+    // AI_INFRA baseScore=0.78 — all 30 history points infer BUY
+    await expect(panel.getByText("BUY").first()).toBeVisible();
+  });
+
+  test("shows streak day count labels", async ({ page }) => {
+    await page.goto("/themes");
+    const panel = page.getByTestId("theme-signal-streak-panel");
+    // At least one streak row should show a day count like "30d"
+    await expect(panel.getByText(/\d+d/).first()).toBeVisible();
+  });
+});

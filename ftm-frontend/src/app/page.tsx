@@ -40,6 +40,7 @@ import ThemePhasePipeline from "@/components/ThemePhasePipeline";
 import ThemeLeaderboard from "@/components/ThemeLeaderboard";
 import ThemeAlertActivityStrip from "@/components/ThemeAlertActivityStrip";
 import ThemeHealthGauge from "@/components/ThemeHealthGauge";
+import ThemeMomentumForecast from "@/components/ThemeMomentumForecast";
 
 export const dynamic = "force-dynamic";
 
@@ -155,6 +156,8 @@ export default async function Home({ searchParams }: Props) {
         {approachingSignals.length > 0 && <ApproachingSignalsPanel signals={approachingSignals} />}
 
         {themes.length > 0 && <ThemeHealthGauge themes={themes} />}
+
+        {themes.length > 0 && <ThemeMomentumForecast themes={themes} />}
 
         {themes.length > 0 && (
           <ThemeSignalWidget themes={themes} historiesByThemeId={historiesByThemeId} />

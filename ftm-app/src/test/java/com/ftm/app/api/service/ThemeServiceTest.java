@@ -18,6 +18,8 @@ import com.ftm.app.domain.SignalType;
 import com.ftm.app.domain.Theme;
 import com.ftm.app.signals.repository.SignalRepository;
 import com.ftm.app.themes.repository.ThemeRepository;
+import com.ftm.app.themes.scoring.ThemeQualityScorer;
+import com.ftm.app.themes.scoring.ThemeScoreContext;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collections;
@@ -38,6 +40,7 @@ class ThemeServiceTest {
   @Mock CategoryRepository categoryRepository;
   @Mock SignalRepository signalRepository;
   @Mock AlertRepository alertRepository;
+  @Mock ThemeQualityScorer qualityScorer;
   @InjectMocks ThemeService themeService;
 
   private Theme theme(String id, String name) {
@@ -384,6 +387,36 @@ class ThemeServiceTest {
     assertThat(result.get(0).signalStreakDays()).isEqualTo(0);
     assertThat(result.get(0).volatility30d()).isNull();
     assertThat(result.get(0).scorePercentile30d()).isNull();
+  }
+
+  @Test
+  @DisplayName("getThemes delegates investmentQualityScore computation to ThemeQualityScorer")
+  void shouldDelegateInvestmentQualityScoreToScorer() {
+    when(themeRepository.findAll()).thenReturn(List.of(theme("AI_INFRA", "AI Infrastructure")));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("SEMI")));
+    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
+        .thenReturn(List.of(category(CategoryId.SEMI, "Semiconductors", "SMH")));
+    when(signalRepository.findLatestByTypes(org.mockito.ArgumentMatchers.anyList()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE, Map.of("SEMI", new BigDecimal("0.75")),
+                SignalType.RS_60, Collections.emptyMap(),
+                SignalType.FLOW_20D, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_20D, Collections.emptyMap(),
+                SignalType.RRG_QUADRANT, Collections.emptyMap(),
+                SignalType.MACRO_FIT, Collections.emptyMap(),
+                SignalType.RS_120, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+    stubHistoryEmpty();
+    when(qualityScorer.computeScore(org.mockito.ArgumentMatchers.any(ThemeScoreContext.class)))
+        .thenReturn(0.82);
+
+    List<ThemeSummaryDto> result = themeService.getThemes();
+
+    assertThat(result.get(0).investmentQualityScore()).isNotNull();
+    assertThat(result.get(0).investmentQualityScore())
+        .isCloseTo(0.82, org.assertj.core.data.Offset.offset(0.001));
   }
 
   @Test

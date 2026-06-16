@@ -11,6 +11,8 @@ import com.ftm.app.domain.SignalType;
 import com.ftm.app.domain.Theme;
 import com.ftm.app.signals.repository.SignalRepository;
 import com.ftm.app.themes.repository.ThemeRepository;
+import com.ftm.app.themes.scoring.ThemeQualityScorer;
+import com.ftm.app.themes.scoring.ThemeScoreContext;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.Comparator;
@@ -31,16 +33,19 @@ public class ThemeService {
   private final CategoryRepository categoryRepository;
   private final SignalRepository signalRepository;
   private final AlertRepository alertRepository;
+  private final ThemeQualityScorer qualityScorer;
 
   public ThemeService(
       ThemeRepository themeRepository,
       CategoryRepository categoryRepository,
       SignalRepository signalRepository,
-      AlertRepository alertRepository) {
+      AlertRepository alertRepository,
+      ThemeQualityScorer qualityScorer) {
     this.themeRepository = themeRepository;
     this.categoryRepository = categoryRepository;
     this.signalRepository = signalRepository;
     this.alertRepository = alertRepository;
+    this.qualityScorer = qualityScorer;
   }
 
   @Cacheable("themes-latest")
@@ -159,7 +164,8 @@ public class ThemeService {
         summary.signalStreakDays(),
         summary.volatility30d(),
         summary.scorePercentile30d(),
-        summary.concentrationRisk());
+        summary.concentrationRisk(),
+        summary.investmentQualityScore());
   }
 
   private void assertThemeExists(String themeId) {
@@ -330,6 +336,9 @@ public class ThemeService {
     Double volatility30d = computeVolatility(history);
     Double scorePercentile30d = computeScorePercentile(history, scoreVal);
     Double concentrationRisk = computeConcentrationRisk(allConstituents);
+    ThemeScoreContext scoreContext =
+        new ThemeScoreContext(scoreVal, signalStreakDays, volatility30d, trend20dVal, flowVal);
+    Double investmentQualityScore = qualityScorer.computeScore(scoreContext);
 
     return new ThemeSummaryDto(
         theme.id(),
@@ -350,7 +359,8 @@ public class ThemeService {
         signalStreakDays,
         volatility30d,
         scorePercentile30d,
-        concentrationRisk);
+        concentrationRisk,
+        investmentQualityScore);
   }
 
   private static int computeSignalStreak(List<DateHistory> history, String currentSignal) {

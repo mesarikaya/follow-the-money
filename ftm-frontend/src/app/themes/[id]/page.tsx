@@ -2,6 +2,7 @@ import Link from "next/link";
 import { fetchTheme, fetchThemeHistory, fetchThemes, fetchAlerts, fetchThemeAlertHistory, AlertDto, ThemeConstituent, ThemeHistoryPoint, ThemeSummary } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { SECTOR_DRILLDOWN_IDS, SECTOR_SHORT_NAMES, getParentSectorId } from "@/lib/sectors";
+import ThemeScoreGauge from "@/components/ThemeScoreGauge";
 
 const SIGNAL_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   BUY:    { label: "BUY",    color: "text-emerald-400", bg: "bg-emerald-500/15 border border-emerald-500/30" },
@@ -746,6 +747,7 @@ export default async function ThemeDetailPage({
               <p className="text-slate-400 text-sm leading-relaxed max-w-2xl">{theme.thesis}</p>
             </div>
             <div className="flex flex-col items-end gap-1.5 shrink-0">
+              <ThemeScoreGauge score={theme.compositeScore} signal={theme.dominantSignal} />
               <span className={`text-xs font-semibold px-2.5 py-1 rounded ${signal.bg} ${signal.color}`}>
                 {signal.label}
               </span>

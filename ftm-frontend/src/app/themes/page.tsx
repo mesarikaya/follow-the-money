@@ -1317,10 +1317,10 @@ function ThemeScreener({
       return [...themes].sort((a, b) => accel(b) - accel(a));
     }
     if (sort === "percentile") {
-      return [...filteredThemes].sort((a, b) => (a.scorePercentile30d ?? 1) - (b.scorePercentile30d ?? 1));
+      return [...themes].sort((a, b) => (a.scorePercentile30d ?? 1) - (b.scorePercentile30d ?? 1));
     }
     if (sort === "iq") {
-      return [...filteredThemes].sort((a, b) => (b.investmentQualityScore ?? -1) - (a.investmentQualityScore ?? -1));
+      return [...themes].sort((a, b) => (b.investmentQualityScore ?? -1) - (a.investmentQualityScore ?? -1));
     }
     return sortedByScore;
   })();

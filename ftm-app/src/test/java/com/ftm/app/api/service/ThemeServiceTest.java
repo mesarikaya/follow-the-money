@@ -2,6 +2,8 @@ package com.ftm.app.api.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
 import com.ftm.app.api.dto.ThemeDetailDto;
@@ -60,6 +62,11 @@ class ThemeServiceTest {
     assertThat(result).isEmpty();
   }
 
+  private void stubHistoryEmpty() {
+    when(signalRepository.findAverageHistoryByDate(anyCollection(), anyInt()))
+        .thenReturn(List.of());
+  }
+
   @Test
   @DisplayName("getThemes aggregates composite score as average of constituent scores")
   void shouldAggregateCompositeScoreAsAverage() {
@@ -83,6 +90,7 @@ class ThemeServiceTest {
                 SignalType.MACRO_FIT, Collections.emptyMap(),
                 SignalType.RS_120, Collections.emptyMap(),
                 SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+    stubHistoryEmpty();
 
     List<ThemeSummaryDto> result = themeService.getThemes();
 
@@ -118,6 +126,7 @@ class ThemeServiceTest {
                 SignalType.MACRO_FIT, Collections.emptyMap(),
                 SignalType.RS_120, Collections.emptyMap(),
                 SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+    stubHistoryEmpty();
 
     List<ThemeSummaryDto> result = themeService.getThemes();
 
@@ -207,6 +216,7 @@ class ThemeServiceTest {
                 SignalType.MACRO_FIT, Collections.emptyMap(),
                 SignalType.RS_120, Collections.emptyMap(),
                 SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+    stubHistoryEmpty();
 
     ThemeDetailDto detail = themeService.getTheme("AI_INFRA");
 
@@ -239,6 +249,7 @@ class ThemeServiceTest {
                 SignalType.RS_120, Collections.emptyMap(),
                 SignalType.COMPOSITE_TREND_5D,
                     Map.of("SEMI", new BigDecimal("0.030"), "AIRO", new BigDecimal("0.010"))));
+    stubHistoryEmpty();
 
     List<ThemeSummaryDto> result = themeService.getThemes();
 
@@ -267,10 +278,108 @@ class ThemeServiceTest {
                 SignalType.MACRO_FIT, Collections.emptyMap(),
                 SignalType.RS_120, Collections.emptyMap(),
                 SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+    stubHistoryEmpty();
 
     List<ThemeSummaryDto> result = themeService.getThemes();
 
     assertThat(result.get(0).topConstituents()).hasSize(1);
     assertThat(result.get(0).topConstituents().get(0).parentCategoryId()).isEqualTo("TECH");
+  }
+
+  @Test
+  @DisplayName("getThemes computes signalStreakDays as consecutive days at current signal")
+  void shouldComputeSignalStreakDays() {
+    LocalDate base = LocalDate.of(2025, 6, 1);
+    when(themeRepository.findAll()).thenReturn(List.of(theme("AI_INFRA", "AI Infrastructure")));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("SEMI", "AIRO")));
+    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
+        .thenReturn(
+            List.of(
+                category(CategoryId.SEMI, "Semiconductors", "SMH"),
+                category(CategoryId.AIRO, "AI & Robotics", "BOTZ")));
+    when(signalRepository.findLatestByTypes(org.mockito.ArgumentMatchers.anyList()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE,
+                    Map.of("SEMI", new BigDecimal("0.80"), "AIRO", new BigDecimal("0.78")),
+                SignalType.RS_60, Collections.emptyMap(),
+                SignalType.FLOW_20D, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_20D, Collections.emptyMap(),
+                SignalType.RRG_QUADRANT, Collections.emptyMap(),
+                SignalType.MACRO_FIT, Collections.emptyMap(),
+                SignalType.RS_120, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+    when(signalRepository.findAverageHistoryByDate(anyCollection(), anyInt()))
+        .thenReturn(
+            List.of(
+                new SignalRepository.DateHistory(base.minusDays(2), 0.50, null, null),
+                new SignalRepository.DateHistory(base.minusDays(1), 0.72, null, null),
+                new SignalRepository.DateHistory(base, 0.78, null, null)));
+
+    List<ThemeSummaryDto> result = themeService.getThemes();
+
+    assertThat(result.get(0).dominantSignal()).isEqualTo("BUY");
+    assertThat(result.get(0).signalStreakDays()).isEqualTo(2);
+  }
+
+  @Test
+  @DisplayName("getThemes computes volatility30d as standard deviation of composite scores")
+  void shouldComputeVolatility30d() {
+    LocalDate base = LocalDate.of(2025, 6, 1);
+    when(themeRepository.findAll()).thenReturn(List.of(theme("AI_INFRA", "AI Infrastructure")));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("SEMI")));
+    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
+        .thenReturn(List.of(category(CategoryId.SEMI, "Semiconductors", "SMH")));
+    when(signalRepository.findLatestByTypes(org.mockito.ArgumentMatchers.anyList()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE, Map.of("SEMI", new BigDecimal("0.70")),
+                SignalType.RS_60, Collections.emptyMap(),
+                SignalType.FLOW_20D, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_20D, Collections.emptyMap(),
+                SignalType.RRG_QUADRANT, Collections.emptyMap(),
+                SignalType.MACRO_FIT, Collections.emptyMap(),
+                SignalType.RS_120, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+    when(signalRepository.findAverageHistoryByDate(anyCollection(), anyInt()))
+        .thenReturn(
+            List.of(
+                new SignalRepository.DateHistory(base.minusDays(1), 0.60, null, null),
+                new SignalRepository.DateHistory(base, 0.80, null, null)));
+
+    List<ThemeSummaryDto> result = themeService.getThemes();
+
+    assertThat(result.get(0).volatility30d()).isNotNull();
+    assertThat(result.get(0).volatility30d())
+        .isCloseTo(0.10, org.assertj.core.data.Offset.offset(0.001));
+  }
+
+  @Test
+  @DisplayName("getThemes sets signalStreakDays to 0 when history is empty")
+  void shouldSetZeroStreakWhenNoHistory() {
+    when(themeRepository.findAll()).thenReturn(List.of(theme("AI_INFRA", "AI Infrastructure")));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("SEMI")));
+    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
+        .thenReturn(List.of(category(CategoryId.SEMI, "Semiconductors", "SMH")));
+    when(signalRepository.findLatestByTypes(org.mockito.ArgumentMatchers.anyList()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE, Map.of("SEMI", new BigDecimal("0.70")),
+                SignalType.RS_60, Collections.emptyMap(),
+                SignalType.FLOW_20D, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_20D, Collections.emptyMap(),
+                SignalType.RRG_QUADRANT, Collections.emptyMap(),
+                SignalType.MACRO_FIT, Collections.emptyMap(),
+                SignalType.RS_120, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+    stubHistoryEmpty();
+
+    List<ThemeSummaryDto> result = themeService.getThemes();
+
+    assertThat(result.get(0).signalStreakDays()).isEqualTo(0);
+    assertThat(result.get(0).volatility30d()).isNull();
   }
 }

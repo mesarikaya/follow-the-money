@@ -17,4 +17,6 @@ public record ThemeSummaryDto(
     Double divergenceFromParentSectors,
     String themePhase,
     List<ThemeConstituentDto> topConstituents,
-    int alertCount30d) {}
+    int alertCount30d,
+    int signalStreakDays,
+    Double volatility30d) {}

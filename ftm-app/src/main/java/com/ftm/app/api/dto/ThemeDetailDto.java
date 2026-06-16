@@ -19,4 +19,5 @@ public record ThemeDetailDto(
     List<ThemeConstituentDto> constituents,
     int alertCount30d,
     int signalStreakDays,
-    Double volatility30d) {}
+    Double volatility30d,
+    Double scorePercentile30d) {}

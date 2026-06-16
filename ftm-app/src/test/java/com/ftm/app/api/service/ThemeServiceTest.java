@@ -383,5 +383,43 @@ class ThemeServiceTest {
 
     assertThat(result.get(0).signalStreakDays()).isEqualTo(0);
     assertThat(result.get(0).volatility30d()).isNull();
+    assertThat(result.get(0).scorePercentile30d()).isNull();
+  }
+
+  @Test
+  @DisplayName("getThemes computes scorePercentile30d as fraction of history below current score")
+  void shouldComputeScorePercentile30d() {
+    LocalDate base = LocalDate.of(2025, 6, 1);
+    when(themeRepository.findAll()).thenReturn(List.of(theme("AI_INFRA", "AI Infrastructure")));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("SEMI")));
+    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
+        .thenReturn(List.of(category(CategoryId.SEMI, "Semiconductors", "SMH")));
+    when(signalRepository.findLatestByTypes(org.mockito.ArgumentMatchers.anyList()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE, Map.of("SEMI", new BigDecimal("0.75")),
+                SignalType.RS_60, Collections.emptyMap(),
+                SignalType.FLOW_20D, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_20D, Collections.emptyMap(),
+                SignalType.RRG_QUADRANT, Collections.emptyMap(),
+                SignalType.MACRO_FIT, Collections.emptyMap(),
+                SignalType.RS_120, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+    // history: 3 of 4 points are below current score of 0.75
+    when(signalRepository.findAverageHistoryByDate(anyCollection(), anyInt()))
+        .thenReturn(
+            List.of(
+                new SignalRepository.DateHistory(base.minusDays(3), 0.60, null, null),
+                new SignalRepository.DateHistory(base.minusDays(2), 0.65, null, null),
+                new SignalRepository.DateHistory(base.minusDays(1), 0.70, null, null),
+                new SignalRepository.DateHistory(base, 0.80, null, null)));
+
+    List<ThemeSummaryDto> result = themeService.getThemes();
+
+    // score=0.75; history=[0.60, 0.65, 0.70, 0.80]; 3 of 4 below → percentile=0.75
+    assertThat(result.get(0).scorePercentile30d()).isNotNull();
+    assertThat(result.get(0).scorePercentile30d())
+        .isCloseTo(0.75, org.assertj.core.data.Offset.offset(0.001));
   }
 }

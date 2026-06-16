@@ -157,7 +157,8 @@ public class ThemeService {
         sorted,
         alertCount,
         summary.signalStreakDays(),
-        summary.volatility30d());
+        summary.volatility30d(),
+        summary.scorePercentile30d());
   }
 
   private void assertThemeExists(String themeId) {
@@ -326,6 +327,7 @@ public class ThemeService {
     String themePhase = computeThemePhase(scoreVal, trend5dVal, trend20dVal, flowVal);
     int signalStreakDays = computeSignalStreak(history, dominantSignal);
     Double volatility30d = computeVolatility(history);
+    Double scorePercentile30d = computeScorePercentile(history, scoreVal);
 
     return new ThemeSummaryDto(
         theme.id(),
@@ -344,7 +346,8 @@ public class ThemeService {
         topConstituents,
         alertCount30d,
         signalStreakDays,
-        volatility30d);
+        volatility30d,
+        scorePercentile30d);
   }
 
   private static int computeSignalStreak(List<DateHistory> history, String currentSignal) {
@@ -359,6 +362,16 @@ public class ThemeService {
       }
     }
     return streak;
+  }
+
+  private static Double computeScorePercentile(List<DateHistory> history, Double currentScore) {
+    if (history.isEmpty() || currentScore == null) return null;
+    long belowCount =
+        history.stream()
+            .mapToDouble(DateHistory::averageComposite)
+            .filter(s -> s < currentScore)
+            .count();
+    return (double) belowCount / history.size();
   }
 
   private static Double computeVolatility(List<DateHistory> history) {

@@ -15,14 +15,27 @@ const SIGNAL_COLORS: Record<string, string> = {
 type ThemeRowProps = {
   theme: ThemeSummary;
   showTrend?: boolean;
+  showPercentile?: boolean;
 };
 
-function ThemeRow({ theme, showTrend }: ThemeRowProps) {
+function percentileLabel(pct: number | null): string | null {
+  if (pct == null) return null;
+  return `P${Math.round(pct * 100)}`;
+}
+
+function percentileColor(pct: number): string {
+  if (pct >= 0.80) return "text-rose-400";
+  if (pct >= 0.60) return "text-slate-400";
+  return "text-emerald-400";
+}
+
+function ThemeRow({ theme, showTrend, showPercentile }: ThemeRowProps) {
   const score = theme.compositeScore != null ? Math.round(theme.compositeScore * 100) : null;
   const trend = theme.compositeTrend5d;
   const trendPct = trend != null ? (trend * 100).toFixed(1) : null;
   const isRising = trend != null && trend > 0;
   const signalClass = SIGNAL_COLORS[theme.dominantSignal] ?? SIGNAL_COLORS.HOLD;
+  const pctLabel = percentileLabel(theme.scorePercentile30d);
 
   return (
     <Link
@@ -32,6 +45,15 @@ function ThemeRow({ theme, showTrend }: ThemeRowProps) {
       <span className="flex-1 text-sm text-slate-200 truncate group-hover:text-white">
         {theme.name}
       </span>
+
+      {showPercentile && pctLabel != null && (
+        <span
+          data-testid="percentile-badge"
+          className={`text-[9px] font-mono font-semibold w-8 text-right ${percentileColor(theme.scorePercentile30d!)}`}
+        >
+          {pctLabel}
+        </span>
+      )}
 
       {showTrend && trendPct != null && (
         <span className={`text-xs font-mono font-semibold ${isRising ? "text-emerald-400" : "text-red-400"}`}>
@@ -68,6 +90,16 @@ export default function ThemeLeaderboard({ themes }: Props) {
     .filter(t => (t.compositeTrend5d ?? 0) < 0)
     .slice(0, 5);
 
+  // Value Zone: historically cheap (bottom 40th pct) but recovering (positive 5d trend)
+  const valueZone = themes
+    .filter(t =>
+      t.scorePercentile30d != null &&
+      t.scorePercentile30d < 0.40 &&
+      (t.compositeTrend5d ?? 0) > 0
+    )
+    .sort((a, b) => (a.scorePercentile30d ?? 1) - (b.scorePercentile30d ?? 1))
+    .slice(0, 4);
+
   return (
     <div
       data-testid="theme-leaderboard"
@@ -75,7 +107,7 @@ export default function ThemeLeaderboard({ themes }: Props) {
     >
       <h2 className="text-sm font-semibold text-slate-200 mb-3">Theme Leaderboard</h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div>
           <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 px-3">
             Top Themes
@@ -84,7 +116,7 @@ export default function ThemeLeaderboard({ themes }: Props) {
             {leaders.length === 0 ? (
               <p className="text-xs text-slate-500 px-3">No data</p>
             ) : (
-              leaders.map(t => <ThemeRow key={t.id} theme={t} />)
+              leaders.map(t => <ThemeRow key={t.id} theme={t} showPercentile />)
             )}
           </div>
         </div>
@@ -111,6 +143,25 @@ export default function ThemeLeaderboard({ themes }: Props) {
               <p className="text-xs text-slate-500 px-3">No laggards</p>
             ) : (
               falling.map(t => <ThemeRow key={t.id} theme={t} showTrend />)
+            )}
+          </div>
+        </div>
+
+        <div data-testid="value-zone-section">
+          <h3
+            data-testid="value-zone-heading"
+            className="text-xs font-semibold text-violet-400 uppercase tracking-wider mb-2 px-3"
+          >
+            Value Zone
+          </h3>
+          <p className="text-[10px] text-slate-500 px-3 mb-1.5">
+            Below 40th pct · recovering
+          </p>
+          <div className="space-y-0.5">
+            {valueZone.length === 0 ? (
+              <p className="text-xs text-slate-500 px-3">No candidates</p>
+            ) : (
+              valueZone.map(t => <ThemeRow key={t.id} theme={t} showPercentile />)
             )}
           </div>
         </div>

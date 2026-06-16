@@ -1439,3 +1439,31 @@ test.describe("Dashboard — Theme Signal Quality Panel (EP-073)", () => {
     await expect(panel.getByTestId("streak-days-label").first()).toBeVisible();
   });
 });
+
+test.describe("Dashboard — Theme Leaderboard Value Zone (EP-074)", () => {
+  test("renders theme leaderboard on dashboard", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("theme-leaderboard")).toBeVisible();
+  });
+
+  test("shows Value Zone heading in leaderboard", async ({ page }) => {
+    await page.goto("/");
+    const leaderboard = page.getByTestId("theme-leaderboard");
+    await expect(leaderboard.getByTestId("value-zone-heading")).toBeVisible();
+  });
+
+  test("shows percentile badge in Top Themes column", async ({ page }) => {
+    await page.goto("/");
+    const leaderboard = page.getByTestId("theme-leaderboard");
+    // Top themes show percentile badges like "P78", "P88", etc.
+    await expect(leaderboard.getByTestId("percentile-badge").first()).toBeVisible();
+  });
+
+  test("value zone shows historically cheap recovering themes", async ({ page }) => {
+    await page.goto("/");
+    const leaderboard = page.getByTestId("theme-leaderboard");
+    // BIOTECH_WAVE (pct=0.25, trend+), RATE_DURATION (pct=0.30, trend+), CLEAN_POWER (pct=0.38, trend+)
+    const valueSection = leaderboard.getByTestId("value-zone-section");
+    await expect(valueSection.getByTestId("percentile-badge").first()).toBeVisible();
+  });
+});

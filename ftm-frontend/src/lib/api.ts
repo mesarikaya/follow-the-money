@@ -659,6 +659,7 @@ export type ThemeSummary = {
   alertCount30d: number;
   signalStreakDays: number;
   volatility30d: number | null;
+  scorePercentile30d: number | null;
 };
 
 export type ThemeDetail = ThemeSummary & {

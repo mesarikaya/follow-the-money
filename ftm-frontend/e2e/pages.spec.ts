@@ -1385,3 +1385,30 @@ test.describe("Themes — Signal Conviction Tracker (EP-071)", () => {
     await expect(panel.getByText(/\d+d/).first()).toBeVisible();
   });
 });
+
+test.describe("Dashboard — Theme Momentum Forecast (EP-072)", () => {
+  test("renders momentum forecast panel on dashboard", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("theme-momentum-forecast")).toBeVisible();
+  });
+
+  test("shows Momentum Forecast heading", async ({ page }) => {
+    await page.goto("/");
+    const panel = page.getByTestId("theme-momentum-forecast");
+    await expect(panel.getByText("Momentum Forecast")).toBeVisible();
+  });
+
+  test("shows Approaching BUY label for near-entry themes", async ({ page }) => {
+    await page.goto("/");
+    const panel = page.getByTestId("theme-momentum-forecast");
+    // COMMODITY_ELECTRIFICATION (score=0.61, trend5d=0.016): projected5d=0.69 → "Approaching BUY"
+    await expect(panel.getByText("Approaching BUY").first()).toBeVisible();
+  });
+
+  test("shows score projection values", async ({ page }) => {
+    await page.goto("/");
+    const panel = page.getByTestId("theme-momentum-forecast");
+    // "now XX" labels appear for each entry
+    await expect(panel.getByText(/now \d+/).first()).toBeVisible();
+  });
+});

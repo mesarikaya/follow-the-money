@@ -14,6 +14,31 @@ Types: `NEW` `UPDATED` `ACCEPTED` `RESOLVED` `DEPRECATED`
 
 ---
 
+## 2026-06-16 (session 39 — EP-070 through EP-072 UI feature wave)
+
+- `NEW` EP-070: `ThemeScoreZPanel` — statistical deviation panel on /themes page
+  - Computes z-score per theme from 30-day history: `(current − mean) / stddev`
+  - Guards: history.length < 6 → null; stddev < 0.005 → null (flat history)
+  - Top 3 "Elevated" and bottom 2 "Depressed" entries
+  - Color bands: z≥2 emerald, z≥1 cyan, z≥0 slate, z≥-1 amber, z<-1 red
+  - 4 E2E tests
+
+- `NEW` EP-071: `ThemeSignalStreakPanel` — signal conviction tracker on /themes page
+  - Infers daily signal from compositeScore: ≥0.65 BUY, ≥0.50 WATCH, ≥0.35 HOLD, else REDUCE
+  - Counts consecutive trailing days at current inferred signal from 30-day history
+  - Shows top 6 themes by streak, signal-colored horizontal progress bars
+  - High-conviction message when top streak ≥ 20 days
+  - 4 E2E tests
+
+- `NEW` EP-072: `ThemeMomentumForecast` — 5–10d score projection panel on dashboard
+  - Filters sub-BUY themes (score 0.40–0.64) with positive compositeTrend5d
+  - Projects score: `projected5d = compositeScore + trend5d * 5`
+  - Labels: APPROACHING_BUY (p5d ≥ 0.65), BUILDING (p10d ≥ 0.65), SLOW_CLIMB
+  - Visual dual-fill progress bars: solid=current, translucent=projected
+  - 4 E2E tests
+
+---
+
 ## 2026-06-16 (session 38 — EP-065 through EP-069 UI feature wave)
 
 - `NEW` EP-065: `ThemeScoreCalendar` — GitHub-style 13-week × 7-day score heatmap on theme detail page

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { fetchThemes, fetchThemeHistory, fetchAlerts, fetchRecentAlerts, AlertDto, ThemeSummary, ThemeConstituent, ThemeHistoryPoint } from "@/lib/api";
 import ThemeAlertRiskMap from "@/components/ThemeAlertRiskMap";
+import ThemeBuyCountdown from "@/components/ThemeBuyCountdown";
 import { SECTOR_SHORT_NAMES, getParentSectorId } from "@/lib/sectors";
 
 const SIGNAL_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -1788,6 +1789,7 @@ export default async function ThemesPage({
         {themes.length > 0 && <PreBuySetupPanel themes={themes} />}
         {themes.length > 0 && <ThemeNarrative themes={themes} />}
         {themes.length > 0 && <ActiveRotationBanner themes={themes} historiesByThemeId={historyByThemeId} />}
+        {themes.length > 0 && <ThemeBuyCountdown themes={themes} />}
         {themes.length > 0 && <RotationMomentumStrip themes={themes} />}
         {themes.length > 1 && <ThemeRelativeStrengthPlot themes={themes} />}
         {themes.length > 1 && <ThemePositioningMatrix themes={themes} />}

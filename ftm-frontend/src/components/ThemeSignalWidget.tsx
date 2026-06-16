@@ -162,6 +162,7 @@ function NearEntryRow({ theme }: { theme: ThemeSummary }) {
   const progressWidth = Math.min(100, Math.max(0, Math.round(((score - 0.55) / 0.10) * 100)));
   const trend5d = theme.compositeTrend5d ?? 0;
   const trendLabel = `+${(trend5d * 100).toFixed(1)}pt/d`;
+  const daysToEntry = trend5d > 0 ? Math.min(99, Math.ceil((0.65 - score) / trend5d)) : null;
   const phaseMeta = theme.themePhase ? PHASE_MINI[theme.themePhase] : null;
 
   return (
@@ -192,6 +193,11 @@ function NearEntryRow({ theme }: { theme: ThemeSummary }) {
           </div>
           <span className="text-[9px] font-mono text-slate-500">{scorePct}/100</span>
           <span className="text-[9px] text-slate-600">{gapToBuy}pt to BUY</span>
+          {daysToEntry != null && daysToEntry <= 30 && (
+            <span className="text-[9px] font-mono text-sky-400 bg-sky-500/10 px-1 py-0.5 rounded">
+              ~{daysToEntry}d
+            </span>
+          )}
         </div>
       </div>
     </Link>

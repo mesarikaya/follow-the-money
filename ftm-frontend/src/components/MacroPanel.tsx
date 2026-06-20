@@ -149,7 +149,7 @@ type RegimeImplication = {
 const REGIME_IMPLICATIONS: Record<string, RegimeImplication> = {
   RISK_ON_GROWTH: {
     headline: "Economy expanding, volatility low — growth assets leading.",
-    favor: ["Tech (XLK / IUFS.DE)", "Consumer Disc. (XLY)", "Industrials (XLI / EXV6.DE)", "Financials (XLF / EXV1.DE)"],
+    favor: ["Tech (XLK)", "Consumer Disc. (XLY)", "Industrials (XLI / EXV6.DE)", "Financials (XLF / EXV1.DE)"],
     avoid: ["Long-duration bonds (TLT / IEGA)", "Utilities (XLU)", "Gold (GLD / SGLD.DE)"],
   },
   RISK_ON_DEFENSIVE: {
@@ -164,7 +164,7 @@ const REGIME_IMPLICATIONS: Record<string, RegimeImplication> = {
   },
   STAGFLATION: {
     headline: "High inflation + slowing growth — real assets and energy outperform.",
-    favor: ["Energy (XLE / IUES.DE)", "Materials (XLB)", "Gold (GLD / SGLD.DE)", "Commodities (DBC)"],
+    favor: ["Energy (XLE)", "Materials (XLB)", "Gold (GLD / SGLD.DE)", "Commodities (DBC)"],
     avoid: ["Long-duration bonds (TLT / IEGA) — especially with USD debasement risk", "High-multiple tech growth"],
   },
 };

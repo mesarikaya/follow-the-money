@@ -22,4 +22,5 @@ public record ThemeDetailDto(
     Double volatility30d,
     Double scorePercentile30d,
     Double concentrationRisk,
-    String phaseTransitionSignal) {}
+    String phaseTransitionSignal,
+    String riskLevel) {}

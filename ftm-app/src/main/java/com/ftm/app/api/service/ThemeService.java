@@ -12,6 +12,8 @@ import com.ftm.app.domain.Theme;
 import com.ftm.app.signals.repository.SignalRepository;
 import com.ftm.app.signals.repository.SignalRepository.DateHistory;
 import com.ftm.app.themes.repository.ThemeRepository;
+import com.ftm.app.themes.risk.ThemeRiskAggregator;
+import com.ftm.app.themes.risk.ThemeRiskContext;
 import com.ftm.app.themes.transition.PhaseTransitionContext;
 import com.ftm.app.themes.transition.PhaseTransitionDetector;
 import java.math.BigDecimal;
@@ -34,18 +36,21 @@ public class ThemeService {
   private final SignalRepository signalRepository;
   private final AlertRepository alertRepository;
   private final PhaseTransitionDetector phaseTransitionDetector;
+  private final ThemeRiskAggregator themeRiskAggregator;
 
   public ThemeService(
       ThemeRepository themeRepository,
       CategoryRepository categoryRepository,
       SignalRepository signalRepository,
       AlertRepository alertRepository,
-      PhaseTransitionDetector phaseTransitionDetector) {
+      PhaseTransitionDetector phaseTransitionDetector,
+      ThemeRiskAggregator themeRiskAggregator) {
     this.themeRepository = themeRepository;
     this.categoryRepository = categoryRepository;
     this.signalRepository = signalRepository;
     this.alertRepository = alertRepository;
     this.phaseTransitionDetector = phaseTransitionDetector;
+    this.themeRiskAggregator = themeRiskAggregator;
   }
 
   @Cacheable("themes-latest")
@@ -169,7 +174,8 @@ public class ThemeService {
         summary.volatility30d(),
         summary.scorePercentile30d(),
         summary.concentrationRisk(),
-        summary.phaseTransitionSignal());
+        summary.phaseTransitionSignal(),
+        summary.riskLevel());
   }
 
   private void assertThemeExists(String themeId) {
@@ -351,6 +357,11 @@ public class ThemeService {
             volatility30d,
             alertCount30d);
     String phaseTransitionSignal = phaseTransitionDetector.detect(transitionContext).orElse(null);
+    ThemeRiskContext riskContext =
+        new ThemeRiskContext(
+            themePhase, scoreVal, volatility30d, trend5dVal, trend20dVal, alertCount30d,
+            signalStreakDays);
+    String riskLevel = themeRiskAggregator.aggregate(riskContext).name();
 
     return new ThemeSummaryDto(
         theme.id(),
@@ -372,7 +383,8 @@ public class ThemeService {
         volatility30d,
         scorePercentile30d,
         concentrationRisk,
-        phaseTransitionSignal);
+        phaseTransitionSignal,
+        riskLevel);
   }
 
   private static int computeSignalStreak(List<DateHistory> history, String currentSignal) {

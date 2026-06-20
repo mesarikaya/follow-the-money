@@ -662,6 +662,7 @@ export type ThemeSummary = {
   scorePercentile30d: number | null;
   concentrationRisk: number | null;
   phaseTransitionSignal: string | null;
+  riskLevel: string | null;
 };
 
 export type ThemeDetail = ThemeSummary & {

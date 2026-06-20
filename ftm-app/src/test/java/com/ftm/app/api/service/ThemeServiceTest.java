@@ -2,8 +2,10 @@ package com.ftm.app.api.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import com.ftm.app.alerts.repository.AlertRepository;
@@ -18,6 +20,9 @@ import com.ftm.app.domain.SignalType;
 import com.ftm.app.domain.Theme;
 import com.ftm.app.signals.repository.SignalRepository;
 import com.ftm.app.themes.repository.ThemeRepository;
+import com.ftm.app.themes.risk.ThemeRiskAggregator;
+import com.ftm.app.themes.risk.ThemeRiskContext;
+import com.ftm.app.themes.risk.ThemeRiskLevel;
 import com.ftm.app.themes.transition.PhaseTransitionContext;
 import com.ftm.app.themes.transition.PhaseTransitionDetector;
 import java.math.BigDecimal;
@@ -27,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,7 +48,14 @@ class ThemeServiceTest {
   @Mock SignalRepository signalRepository;
   @Mock AlertRepository alertRepository;
   @Mock PhaseTransitionDetector phaseTransitionDetector;
+  @Mock ThemeRiskAggregator themeRiskAggregator;
   @InjectMocks ThemeService themeService;
+
+  @BeforeEach
+  void defaultStubs() {
+    lenient().when(themeRiskAggregator.aggregate(any(ThemeRiskContext.class)))
+        .thenReturn(ThemeRiskLevel.MEDIUM);
+  }
 
   private Theme theme(String id, String name) {
     return new Theme(id, name, "Test thesis", 1);
@@ -489,5 +502,34 @@ class ThemeServiceTest {
     List<ThemeSummaryDto> result = themeService.getThemes();
 
     assertThat(result.get(0).phaseTransitionSignal()).isEqualTo("APPROACHING_BUY");
+  }
+
+  @Test
+  @DisplayName("getThemes delegates risk scoring to ThemeRiskAggregator and maps level to string")
+  void shouldDelegateRiskScoringToAggregator() {
+    when(themeRepository.findAll())
+        .thenReturn(List.of(theme("CHIP_COMPUTE", "Semiconductor Supercycle")));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("CHIP_COMPUTE", List.of("SEMI")));
+    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
+        .thenReturn(List.of(category(CategoryId.SEMI, "Semiconductors", "SMH")));
+    when(signalRepository.findLatestByTypes(org.mockito.ArgumentMatchers.anyList()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE, Map.of("SEMI", new BigDecimal("0.72")),
+                SignalType.RS_60, Collections.emptyMap(),
+                SignalType.FLOW_20D, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_20D, Collections.emptyMap(),
+                SignalType.RRG_QUADRANT, Collections.emptyMap(),
+                SignalType.MACRO_FIT, Collections.emptyMap(),
+                SignalType.RS_120, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+    stubHistoryEmpty();
+    when(themeRiskAggregator.aggregate(any(ThemeRiskContext.class)))
+        .thenReturn(ThemeRiskLevel.HIGH);
+
+    List<ThemeSummaryDto> result = themeService.getThemes();
+
+    assertThat(result.get(0).riskLevel()).isEqualTo("HIGH");
   }
 }

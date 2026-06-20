@@ -679,10 +679,21 @@ export type ThemeHistoryPoint = {
   trend20d: number | null;
 };
 
+export type CapitalRotationData = {
+  rotationScore: number;
+  intensityLabel: string;
+  scoreDispersion: number;
+  trendAlignment: number;
+  leadingThemeNames: string[];
+  laggingThemeNames: string[];
+};
+
 export const fetchThemes = () => get<ThemeSummary[]>("/api/v1/themes");
 export const fetchTheme = (themeId: string) => get<ThemeDetail>(`/api/v1/themes/${themeId}`);
 export const fetchThemeHistory = (themeId: string, days = 30) =>
   get<ThemeHistoryPoint[]>(`/api/v1/themes/${themeId}/history?days=${days}`);
+export const fetchRotationScore = () =>
+  get<CapitalRotationData>("/api/v1/themes/rotation-score");
 
 export type ApproachingSignalDto = {
   categoryId: string;

@@ -1,9 +1,12 @@
 package com.ftm.app.api.controller;
 
+import com.ftm.app.api.dto.CapitalRotationDto;
 import com.ftm.app.api.dto.ThemeDetailDto;
 import com.ftm.app.api.dto.ThemeHistoryPointDto;
 import com.ftm.app.api.dto.ThemeSummaryDto;
 import com.ftm.app.api.service.ThemeService;
+import com.ftm.app.themes.rotation.CapitalRotationResult;
+import com.ftm.app.themes.rotation.CapitalRotationScoreService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
@@ -26,9 +29,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class ThemeController {
 
   private final ThemeService themeService;
+  private final CapitalRotationScoreService capitalRotationScoreService;
 
-  public ThemeController(ThemeService themeService) {
+  public ThemeController(
+      ThemeService themeService, CapitalRotationScoreService capitalRotationScoreService) {
     this.themeService = themeService;
+    this.capitalRotationScoreService = capitalRotationScoreService;
   }
 
   @GetMapping
@@ -47,6 +53,22 @@ public class ThemeController {
               message = "themeId must be 1–30 alphanumeric characters")
           String themeId) {
     return themeService.getTheme(themeId.toUpperCase());
+  }
+
+  @GetMapping("/rotation-score")
+  @Operation(
+      summary =
+          "Capital rotation intensity across all themes: score dispersion + trend alignment weighted composite")
+  public CapitalRotationDto getRotationScore() {
+    List<ThemeSummaryDto> themes = themeService.getThemes();
+    CapitalRotationResult result = capitalRotationScoreService.compute(themes);
+    return new CapitalRotationDto(
+        result.rotationScore(),
+        result.intensityLabel(),
+        result.scoreDispersion(),
+        result.trendAlignment(),
+        result.leadingThemeNames(),
+        result.laggingThemeNames());
   }
 
   @GetMapping("/{themeId}/history")

@@ -6,7 +6,11 @@ import { runBacktest, runBacktestSweep, runBacktestFrequencySweep, fetchRecentBa
 import { CATEGORY_ETF_MAP } from "@/lib/sectors";
 import { deriveTradeSignal } from "@/lib/signals";
 
-const DEFAULT_START_DATE = "2021-01-04";
+const DEFAULT_START_DATE = (() => {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 2);
+  return d.toISOString().split("T")[0];
+})();
 const DEFAULT_END_DATE   = new Date().toISOString().split("T")[0];
 const DATA_START         = "2019-05-16";
 
@@ -1773,8 +1777,19 @@ export default function BacktesterPage() {
           {/* Right 3 columns: results */}
           <div className="col-span-3 flex flex-col gap-5">
             {runError && (
-              <div className="bg-red-900/40 border border-red-700 text-red-300 px-4 py-3 rounded-md text-sm">
-                {runError}
+              <div className="bg-red-900/40 border border-red-700 text-red-300 px-4 py-3 rounded-md text-sm space-y-1">
+                <div className="font-semibold">Backtest failed</div>
+                <div className="text-red-400/80 text-[11px]">{runError}</div>
+                {(runError.includes("price data") || runError.includes("benchmark")) && (
+                  <div className="text-red-400/60 text-[11px] mt-1">
+                    Tip: the backtest requires historical ETF price data and SPY benchmark history. Try a more recent start date (e.g., last 12–24 months), or ensure the ingestion pipeline has run.
+                  </div>
+                )}
+                {runError.includes("composite scores") && (
+                  <div className="text-red-400/60 text-[11px] mt-1">
+                    Tip: signal computation has not produced scores for this date range. Run signal computation first, or shorten the date window to the period with available data.
+                  </div>
+                )}
               </div>
             )}
 

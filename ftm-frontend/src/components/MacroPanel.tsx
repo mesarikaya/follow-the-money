@@ -149,23 +149,23 @@ type RegimeImplication = {
 const REGIME_IMPLICATIONS: Record<string, RegimeImplication> = {
   RISK_ON_GROWTH: {
     headline: "Economy expanding, volatility low — growth assets leading.",
-    favor: ["Tech (XLK)", "Consumer Disc. (XLY)", "Industrials (XLI)", "Financials (XLF)"],
-    avoid: ["Long bonds (TLT)", "Utilities (XLU)", "Gold (GLD)"],
+    favor: ["Tech (XLK / IUFS.DE)", "Consumer Disc. (XLY)", "Industrials (XLI / EXV6.DE)", "Financials (XLF / EXV1.DE)"],
+    avoid: ["Long-duration bonds (TLT / IEGA)", "Utilities (XLU)", "Gold (GLD / SGLD.DE)"],
   },
   RISK_ON_DEFENSIVE: {
     headline: "Growth moderating but still positive — quality and stability favored.",
-    favor: ["Healthcare (XLV)", "Consumer Staples (XLP)", "Financials (XLF)"],
+    favor: ["Healthcare (XLV / EXV4.DE)", "Consumer Staples (XLP)", "Financials (XLF / EXV1.DE)"],
     avoid: ["High-beta tech sub-sectors", "Speculative small-caps"],
   },
   RISK_OFF_FLIGHT: {
     headline: "Stress conditions — flight to safety, equities broadly under pressure.",
-    favor: ["Cash (BIL)", "Gold (GLD)", "Long bonds (TLT)", "Utilities (XLU)"],
+    favor: ["Cash / short-term govt bonds (BIL / XEON.DE)", "Gold (GLD / SGLD.DE)", "Eurozone govt bonds (IEGA) or US Treasuries (TLT — note: USD currency risk for EUR investors)", "Utilities (XLU)"],
     avoid: ["Most equity sectors", "High-yield bonds (HYG)"],
   },
   STAGFLATION: {
     headline: "High inflation + slowing growth — real assets and energy outperform.",
-    favor: ["Energy (XLE)", "Materials (XLB)", "Gold (GLD)", "Commodities (DBC)"],
-    avoid: ["Long-duration bonds (TLT)", "High-multiple tech growth"],
+    favor: ["Energy (XLE / IUES.DE)", "Materials (XLB)", "Gold (GLD / SGLD.DE)", "Commodities (DBC)"],
+    avoid: ["Long-duration bonds (TLT / IEGA) — especially with USD debasement risk", "High-multiple tech growth"],
   },
 };
 

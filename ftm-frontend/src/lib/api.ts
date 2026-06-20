@@ -663,6 +663,8 @@ export type ThemeSummary = {
   concentrationRisk: number | null;
   phaseTransitionSignal: string | null;
   riskLevel: string | null;
+  entryAction: string | null;
+  entryRationale: string | null;
 };
 
 export type ThemeDetail = ThemeSummary & {

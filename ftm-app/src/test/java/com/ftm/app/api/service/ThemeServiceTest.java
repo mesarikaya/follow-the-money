@@ -20,6 +20,10 @@ import com.ftm.app.domain.SignalType;
 import com.ftm.app.domain.Theme;
 import com.ftm.app.signals.repository.SignalRepository;
 import com.ftm.app.themes.repository.ThemeRepository;
+import com.ftm.app.themes.entry.EntryTimingAdvisor;
+import com.ftm.app.themes.entry.EntryTimingContext;
+import com.ftm.app.themes.entry.EntryAction;
+import com.ftm.app.themes.entry.EntryRecommendation;
 import com.ftm.app.themes.risk.ThemeRiskAggregator;
 import com.ftm.app.themes.risk.ThemeRiskContext;
 import com.ftm.app.themes.risk.ThemeRiskLevel;
@@ -49,12 +53,15 @@ class ThemeServiceTest {
   @Mock AlertRepository alertRepository;
   @Mock PhaseTransitionDetector phaseTransitionDetector;
   @Mock ThemeRiskAggregator themeRiskAggregator;
+  @Mock EntryTimingAdvisor entryTimingAdvisor;
   @InjectMocks ThemeService themeService;
 
   @BeforeEach
   void defaultStubs() {
     lenient().when(themeRiskAggregator.aggregate(any(ThemeRiskContext.class)))
         .thenReturn(ThemeRiskLevel.MEDIUM);
+    lenient().when(entryTimingAdvisor.advise(any(EntryTimingContext.class)))
+        .thenReturn(Optional.empty());
   }
 
   private Theme theme(String id, String name) {
@@ -533,5 +540,63 @@ class ThemeServiceTest {
     List<ThemeSummaryDto> result = themeService.getThemes();
 
     assertThat(result.get(0).riskLevel()).isEqualTo("HIGH");
+  }
+
+  @Test
+  @DisplayName("getThemes delegates entry timing to advisor and exposes action + rationale")
+  void shouldDelegateEntryTimingToAdvisor() {
+    when(themeRepository.findAll())
+        .thenReturn(List.of(theme("CHIP_COMPUTE", "Semiconductor Supercycle")));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("CHIP_COMPUTE", List.of("SEMI")));
+    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
+        .thenReturn(List.of(category(CategoryId.SEMI, "Semiconductors", "SMH")));
+    when(signalRepository.findLatestByTypes(org.mockito.ArgumentMatchers.anyList()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE, Map.of("SEMI", new BigDecimal("0.72")),
+                SignalType.RS_60, Collections.emptyMap(),
+                SignalType.FLOW_20D, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_20D, Collections.emptyMap(),
+                SignalType.RRG_QUADRANT, Collections.emptyMap(),
+                SignalType.MACRO_FIT, Collections.emptyMap(),
+                SignalType.RS_120, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+    stubHistoryEmpty();
+    when(entryTimingAdvisor.advise(any(EntryTimingContext.class)))
+        .thenReturn(Optional.of(new EntryRecommendation(EntryAction.ENTER, "Breakout momentum confirmed")));
+
+    List<ThemeSummaryDto> result = themeService.getThemes();
+
+    assertThat(result.get(0).entryAction()).isEqualTo("ENTER");
+    assertThat(result.get(0).entryRationale()).isEqualTo("Breakout momentum confirmed");
+  }
+
+  @Test
+  @DisplayName("getThemes returns null entry fields when advisor has no recommendation")
+  void shouldReturnNullEntryFieldsWhenAdvisorEmpty() {
+    when(themeRepository.findAll())
+        .thenReturn(List.of(theme("CHIP_COMPUTE", "Semiconductor Supercycle")));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("CHIP_COMPUTE", List.of("SEMI")));
+    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
+        .thenReturn(List.of(category(CategoryId.SEMI, "Semiconductors", "SMH")));
+    when(signalRepository.findLatestByTypes(org.mockito.ArgumentMatchers.anyList()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE, Map.of("SEMI", new BigDecimal("0.45")),
+                SignalType.RS_60, Collections.emptyMap(),
+                SignalType.FLOW_20D, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_20D, Collections.emptyMap(),
+                SignalType.RRG_QUADRANT, Collections.emptyMap(),
+                SignalType.MACRO_FIT, Collections.emptyMap(),
+                SignalType.RS_120, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+    stubHistoryEmpty();
+
+    List<ThemeSummaryDto> result = themeService.getThemes();
+
+    assertThat(result.get(0).entryAction()).isNull();
+    assertThat(result.get(0).entryRationale()).isNull();
   }
 }

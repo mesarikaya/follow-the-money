@@ -233,6 +233,34 @@ function RiskLevelBadge({ riskLevel }: { riskLevel: string | null }) {
   );
 }
 
+const ENTRY_CONFIG: Record<string, { label: string; className: string; icon: string }> = {
+  ENTER:    { label: "ENTER",    className: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/35", icon: "↗" },
+  SCALE_IN: { label: "SCALE IN", className: "bg-teal-500/20 text-teal-300 border border-teal-500/35",         icon: "↗" },
+  WATCH:    { label: "WATCH",    className: "bg-amber-500/15 text-amber-300 border border-amber-500/30",       icon: "◉" },
+  AVOID:    { label: "AVOID",    className: "bg-red-500/15 text-red-400 border border-red-500/25",             icon: "✕" },
+};
+
+function EntryActionBadge({
+  action,
+  rationale,
+}: {
+  action: string | null;
+  rationale: string | null;
+}) {
+  if (!action) return null;
+  const cfg = ENTRY_CONFIG[action];
+  if (!cfg) return null;
+  return (
+    <span
+      className={`text-[8px] font-mono px-1.5 py-0.5 rounded flex items-center gap-0.5 ${cfg.className}`}
+      title={rationale ?? action}
+    >
+      <span>{cfg.icon}</span>
+      <span>{cfg.label}</span>
+    </span>
+  );
+}
+
 function scoreTier(score: number | null): string {
   if (score == null) return "HOLD";
   if (score >= 0.65) return "BUY";
@@ -350,6 +378,7 @@ function ThemeCard({ theme, history }: { theme: ThemeSummary; history: ThemeHist
           <ThemePhaseBadge phase={theme.themePhase} />
           <PhaseTransitionBadge signal={theme.phaseTransitionSignal} />
           <RiskLevelBadge riskLevel={theme.riskLevel} />
+          <EntryActionBadge action={theme.entryAction} rationale={theme.entryRationale} />
           <SignalFreshnessBadge history={history} signal={theme.dominantSignal} />
           <ScoreDeltaBadge history={history} />
           <FlowChip flow={theme.flow20d} />
@@ -1344,6 +1373,7 @@ function ThemeScreener({
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Phase</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Server-side phase transition signal">Trans</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Multi-dimension risk score">Risk</th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Entry timing advisory — ENTER, SCALE IN, WATCH, or AVOID">Entry</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Bullish</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Trend" sortKey="velocity" currentSort={sort} title="Sort by momentum acceleration (5d trend vs 20d)" /></th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Pct" sortKey="percentile" currentSort={sort} title="Sort by 30-day score percentile (ascending = cheapest vs recent history)" /></th>
@@ -1508,6 +1538,9 @@ function ThemeScreener({
                   </td>
                   <td className="py-2 px-3">
                     <RiskLevelBadge riskLevel={t.riskLevel ?? null} />
+                  </td>
+                  <td className="py-2 px-3">
+                    <EntryActionBadge action={t.entryAction ?? null} rationale={t.entryRationale ?? null} />
                   </td>
                   <td className="py-2 px-3">
                     <div className="flex items-center gap-1.5" title={`${t.bullishCount}/${t.constituentCount} ETFs bullish (BUY or WATCH)`}>
@@ -1870,6 +1903,56 @@ function ThemeRiskMatrixPanel({ themes }: { themes: ThemeSummary[] }) {
   );
 }
 
+function ThemeEntryAdvisorPanel({ themes }: { themes: ThemeSummary[] }) {
+  const actionable = themes
+    .filter(t => t.entryAction === "ENTER" || t.entryAction === "SCALE_IN")
+    .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
+  const watches = themes
+    .filter(t => t.entryAction === "WATCH")
+    .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
+
+  if (actionable.length === 0 && watches.length === 0) return null;
+
+  return (
+    <div className="mb-4 bg-slate-800/40 border border-slate-700/40 rounded-lg overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-slate-700/30 flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Entry Timing Advisor</span>
+        <span className="text-[10px] text-slate-600 font-mono">chain-of-responsibility · {actionable.length} actionable</span>
+      </div>
+      <div className="divide-y divide-slate-700/20">
+        {actionable.map(t => (
+          <div key={t.id} className="px-4 py-2.5 flex items-center gap-3">
+            <EntryActionBadge action={t.entryAction} rationale={null} />
+            <span className="text-[11px] font-medium text-slate-200 min-w-0 flex-1 truncate">{t.name}</span>
+            <span className="text-[10px] font-mono text-slate-400 shrink-0">
+              {t.compositeScore != null ? Math.round(t.compositeScore * 100) : "—"}
+            </span>
+            <span className="text-[9px] text-slate-500 max-w-[260px] truncate hidden sm:block" title={t.entryRationale ?? ""}>
+              {t.entryRationale}
+            </span>
+          </div>
+        ))}
+        {watches.length > 0 && (
+          <div className="px-4 py-2 bg-slate-800/20">
+            <div className="text-[9px] font-mono text-slate-600 uppercase mb-1.5">Watchlist — approaching BUY zone</div>
+            <div className="flex flex-wrap gap-2">
+              {watches.map(t => (
+                <div key={t.id} className="flex items-center gap-1.5 bg-slate-700/30 rounded px-2 py-1">
+                  <span className="text-[10px] text-amber-300 font-mono">◉</span>
+                  <span className="text-[10px] text-slate-300">{t.name}</span>
+                  <span className="text-[9px] font-mono text-slate-500">
+                    {t.compositeScore != null ? Math.round(t.compositeScore * 100) : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default async function ThemesPage({
   searchParams,
 }: {
@@ -1968,6 +2051,7 @@ export default async function ThemesPage({
         {themes.length > 0 && <ThemePlaybook themes={themes} historiesByThemeId={historyByThemeId} />}
         {themes.length > 0 && <PreBuySetupPanel themes={themes} />}
         {themes.length > 1 && <ThemeRiskMatrixPanel themes={themes} />}
+        {themes.length > 0 && <ThemeEntryAdvisorPanel themes={themes} />}
         {themes.length > 0 && <ThemeNarrative themes={themes} />}
         {themes.length > 0 && <ActiveRotationBanner themes={themes} historiesByThemeId={historyByThemeId} />}
         {themes.length > 0 && <ThemeBuyCountdown themes={themes} />}

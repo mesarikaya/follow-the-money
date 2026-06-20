@@ -23,4 +23,6 @@ public record ThemeDetailDto(
     Double scorePercentile30d,
     Double concentrationRisk,
     String phaseTransitionSignal,
-    String riskLevel) {}
+    String riskLevel,
+    String entryAction,
+    String entryRationale) {}

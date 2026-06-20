@@ -7,6 +7,7 @@ import com.ftm.app.themes.entry.rules.AvoidExtremeRiskRule;
 import com.ftm.app.themes.entry.rules.BreakoutEntryRule;
 import com.ftm.app.themes.entry.rules.DipBuyRule;
 import com.ftm.app.themes.entry.rules.HighVolatilityScaleRule;
+import com.ftm.app.themes.entry.rules.SteadyUptrendRule;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -19,7 +20,7 @@ class EntryTimingRuleTest {
       String riskLevel,
       Double trend5d,
       Double trend20d) {
-    return new EntryTimingContext(phase, score, riskLevel, 0.008, trend5d, trend20d, 5);
+    return new EntryTimingContext(phase, score, riskLevel, trend5d, trend20d);
   }
 
   @Nested
@@ -171,6 +172,44 @@ class EntryTimingRuleTest {
     @DisplayName("negative 5d trend → no match")
     void negativeMomentumNoMatch() {
       assertThat(rule.evaluate(ctx("BUILDING", 0.60, "MEDIUM", -0.005, 0.003))).isEmpty();
+    }
+  }
+
+  @Nested
+  class SteadyUptrendRuleTests {
+
+    private final SteadyUptrendRule rule = new SteadyUptrendRule();
+
+    @Test
+    @DisplayName("BUY zone, calm positive 5d and 20d, safe risk → ENTER")
+    void calmBuyZoneReturnsEnter() {
+      var result = rule.evaluate(ctx("MOMENTUM", 0.70, "MEDIUM", 0.005, 0.003));
+      assertThat(result).isPresent();
+      assertThat(result.get().action()).isEqualTo(EntryAction.ENTER);
+    }
+
+    @Test
+    @DisplayName("score below BUY threshold → no match")
+    void belowBuyThresholdNoMatch() {
+      assertThat(rule.evaluate(ctx("BUILDING", 0.60, "LOW", 0.005, 0.003))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("HIGH risk → no match (only LOW/MEDIUM are safe)")
+    void highRiskNoMatch() {
+      assertThat(rule.evaluate(ctx("MOMENTUM", 0.70, "HIGH", 0.005, 0.003))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("negative 5d trend → no match (not calm)")
+    void negative5dTrendNoMatch() {
+      assertThat(rule.evaluate(ctx("MOMENTUM", 0.70, "MEDIUM", -0.002, 0.003))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("negative 20d trend → no match (not stable long-term)")
+    void negative20dTrendNoMatch() {
+      assertThat(rule.evaluate(ctx("MOMENTUM", 0.70, "MEDIUM", 0.005, -0.001))).isEmpty();
     }
   }
 }

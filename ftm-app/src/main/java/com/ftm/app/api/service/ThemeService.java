@@ -370,9 +370,7 @@ public class ThemeService {
             signalStreakDays);
     String riskLevel = themeRiskAggregator.aggregate(riskContext).name();
     EntryTimingContext entryContext =
-        new EntryTimingContext(
-            themePhase, scoreVal, riskLevel, volatility30d, trend5dVal, trend20dVal,
-            signalStreakDays);
+        new EntryTimingContext(themePhase, scoreVal, riskLevel, trend5dVal, trend20dVal);
     var entryRecommendation = entryTimingAdvisor.advise(entryContext);
     String entryAction = entryRecommendation.map(r -> r.action().name()).orElse(null);
     String entryRationale = entryRecommendation.map(r -> r.rationale()).orElse(null);

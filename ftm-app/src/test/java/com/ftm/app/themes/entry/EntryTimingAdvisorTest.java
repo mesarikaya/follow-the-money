@@ -7,6 +7,7 @@ import com.ftm.app.themes.entry.rules.AvoidExtremeRiskRule;
 import com.ftm.app.themes.entry.rules.BreakoutEntryRule;
 import com.ftm.app.themes.entry.rules.DipBuyRule;
 import com.ftm.app.themes.entry.rules.HighVolatilityScaleRule;
+import com.ftm.app.themes.entry.rules.SteadyUptrendRule;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -25,22 +26,37 @@ class EntryTimingAdvisorTest {
                 new BreakoutEntryRule(),
                 new DipBuyRule(),
                 new HighVolatilityScaleRule(),
+                new SteadyUptrendRule(),
                 new ApproachingBuyWatchRule()));
   }
 
   private EntryTimingContext context(
       String phase, double score, String riskLevel, Double trend5d, Double trend20d) {
-    return new EntryTimingContext(phase, score, riskLevel, 0.008, trend5d, trend20d, 5);
+    return new EntryTimingContext(phase, score, riskLevel, trend5d, trend20d);
   }
 
   @Test
-  @DisplayName("avoid rule wins over breakout when risk is EXTREME")
-  void avoidTakesPriorityOverBreakout() {
-    // EXTREME risk overrides even strong momentum
-    EntryTimingContext ctx = context("BREAKOUT", 0.75, "EXTREME", 0.020, 0.012);
+  @DisplayName("avoid rule priority=100 beats dip-buy priority=70 when both match")
+  void avoidOutranksMatchingDipBuyRule() {
+    // DISTRIBUTE phase → AvoidExtremeRiskRule fires (priority=100)
+    // trend5d<-0.005, trend20d>0, score≥0.65, risk=LOW → DipBuyRule also fires (priority=70)
+    // Both match; priority ordering must ensure AVOID wins, not SCALE_IN
+    EntryTimingContext ctx = context("DISTRIBUTE", 0.70, "LOW", -0.008, 0.006);
     var result = advisor.advise(ctx);
     assertThat(result).isPresent();
     assertThat(result.get().action()).isEqualTo(EntryAction.AVOID);
+  }
+
+  @Test
+  @DisplayName("steady uptrend fills gap for calm BUY-zone momentum (trend5d in [0, 0.01))")
+  void steadyUptrendFillsBuyZoneGap() {
+    // Previously: score=0.70, trend5d=0.005 (below Breakout=0.010), not a dip, risk MEDIUM
+    // → no rule matched, entryAction was null (silent gap)
+    // SteadyUptrendRule (priority=50) now catches this
+    EntryTimingContext ctx = context("MOMENTUM", 0.70, "MEDIUM", 0.005, 0.003);
+    var result = advisor.advise(ctx);
+    assertThat(result).isPresent();
+    assertThat(result.get().action()).isEqualTo(EntryAction.ENTER);
   }
 
   @Test

@@ -21,4 +21,5 @@ public record ThemeSummaryDto(
     int signalStreakDays,
     Double volatility30d,
     Double scorePercentile30d,
-    Double concentrationRisk) {}
+    Double concentrationRisk,
+    String phaseTransitionSignal) {}

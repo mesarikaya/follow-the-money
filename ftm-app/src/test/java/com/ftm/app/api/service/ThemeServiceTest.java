@@ -6,10 +6,10 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
+import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.api.dto.ThemeDetailDto;
 import com.ftm.app.api.dto.ThemeHistoryPointDto;
 import com.ftm.app.api.dto.ThemeSummaryDto;
-import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.CategoryId;
@@ -18,12 +18,15 @@ import com.ftm.app.domain.SignalType;
 import com.ftm.app.domain.Theme;
 import com.ftm.app.signals.repository.SignalRepository;
 import com.ftm.app.themes.repository.ThemeRepository;
+import com.ftm.app.themes.transition.PhaseTransitionContext;
+import com.ftm.app.themes.transition.PhaseTransitionDetector;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +41,7 @@ class ThemeServiceTest {
   @Mock CategoryRepository categoryRepository;
   @Mock SignalRepository signalRepository;
   @Mock AlertRepository alertRepository;
+  @Mock PhaseTransitionDetector phaseTransitionDetector;
   @InjectMocks ThemeService themeService;
 
   private Theme theme(String id, String name) {
@@ -455,5 +459,35 @@ class ThemeServiceTest {
     assertThat(result.get(0).concentrationRisk()).isNotNull();
     assertThat(result.get(0).concentrationRisk())
         .isCloseTo(1.0, org.assertj.core.data.Offset.offset(0.001));
+  }
+
+  @Test
+  @DisplayName("getThemes delegates phase transition detection to PhaseTransitionDetector")
+  void shouldDelegatePhaseTransitionToDetector() {
+    when(themeRepository.findAll())
+        .thenReturn(List.of(theme("CHIP_COMPUTE", "Semiconductor Supercycle")));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("CHIP_COMPUTE", List.of("SEMI")));
+    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
+        .thenReturn(List.of(category(CategoryId.SEMI, "Semiconductors", "SMH")));
+    when(signalRepository.findLatestByTypes(org.mockito.ArgumentMatchers.anyList()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE, Map.of("SEMI", new BigDecimal("0.60")),
+                SignalType.RS_60, Collections.emptyMap(),
+                SignalType.FLOW_20D, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_20D, Collections.emptyMap(),
+                SignalType.RRG_QUADRANT, Collections.emptyMap(),
+                SignalType.MACRO_FIT, Collections.emptyMap(),
+                SignalType.RS_120, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+    stubHistoryEmpty();
+    when(phaseTransitionDetector.detect(
+            org.mockito.ArgumentMatchers.any(PhaseTransitionContext.class)))
+        .thenReturn(Optional.of("APPROACHING_BUY"));
+
+    List<ThemeSummaryDto> result = themeService.getThemes();
+
+    assertThat(result.get(0).phaseTransitionSignal()).isEqualTo("APPROACHING_BUY");
   }
 }

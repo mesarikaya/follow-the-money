@@ -4271,8 +4271,7 @@ class AlertRulesEngineTest {
   }
 
   @Test
-  @DisplayName(
-      "theme_score_price_divergence: no alert when RS20 is positive (no price divergence)")
+  @DisplayName("theme_score_price_divergence: no alert when RS20 is positive (no price divergence)")
   void shouldNotCreateThemeScorePriceDivergenceWhenRs20IsPositive() {
     stubAllRulesDisabledExceptThemeScorePriceDivergence();
     when(alertRulesRepository.findById("theme_score_price_divergence"))
@@ -4314,8 +4313,7 @@ class AlertRulesEngineTest {
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
 
-    verify(alertRepository)
-        .resolveAlertsByRuleAndTheme("theme_score_price_divergence", "AI_INFRA");
+    verify(alertRepository).resolveAlertsByRuleAndTheme("theme_score_price_divergence", "AI_INFRA");
     verify(alertRepository, never())
         .insert(argThat(a -> a.ruleId().equals("theme_score_price_divergence")));
   }

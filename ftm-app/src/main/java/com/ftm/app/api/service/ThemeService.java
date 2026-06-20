@@ -10,7 +10,10 @@ import com.ftm.app.domain.Category;
 import com.ftm.app.domain.SignalType;
 import com.ftm.app.domain.Theme;
 import com.ftm.app.signals.repository.SignalRepository;
+import com.ftm.app.signals.repository.SignalRepository.DateHistory;
 import com.ftm.app.themes.repository.ThemeRepository;
+import com.ftm.app.themes.transition.PhaseTransitionContext;
+import com.ftm.app.themes.transition.PhaseTransitionDetector;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.Comparator;
@@ -22,7 +25,6 @@ import java.util.OptionalDouble;
 import java.util.stream.Collectors;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
-import com.ftm.app.signals.repository.SignalRepository.DateHistory;
 
 @Service
 public class ThemeService {
@@ -31,16 +33,19 @@ public class ThemeService {
   private final CategoryRepository categoryRepository;
   private final SignalRepository signalRepository;
   private final AlertRepository alertRepository;
+  private final PhaseTransitionDetector phaseTransitionDetector;
 
   public ThemeService(
       ThemeRepository themeRepository,
       CategoryRepository categoryRepository,
       SignalRepository signalRepository,
-      AlertRepository alertRepository) {
+      AlertRepository alertRepository,
+      PhaseTransitionDetector phaseTransitionDetector) {
     this.themeRepository = themeRepository;
     this.categoryRepository = categoryRepository;
     this.signalRepository = signalRepository;
     this.alertRepository = alertRepository;
+    this.phaseTransitionDetector = phaseTransitionDetector;
   }
 
   @Cacheable("themes-latest")
@@ -73,12 +78,16 @@ public class ThemeService {
                   alertRepository.countRecentByCategoryIds(ids, 30)
                       + alertRepository.countRecentByThemeId(theme.id(), 30);
               List<DateHistory> history =
-                  ids.isEmpty()
-                      ? List.of()
-                      : signalRepository.findAverageHistoryByDate(ids, 30);
+                  ids.isEmpty() ? List.of() : signalRepository.findAverageHistoryByDate(ids, 30);
               return toSummary(
-                  theme, allConstituents, top3, categoriesById, compositeMap, trend5dMap,
-                  alertCount, history);
+                  theme,
+                  allConstituents,
+                  top3,
+                  categoriesById,
+                  compositeMap,
+                  trend5dMap,
+                  alertCount,
+                  history);
             })
         .toList();
   }
@@ -159,7 +168,8 @@ public class ThemeService {
         summary.signalStreakDays(),
         summary.volatility30d(),
         summary.scorePercentile30d(),
-        summary.concentrationRisk());
+        summary.concentrationRisk(),
+        summary.phaseTransitionSignal());
   }
 
   private void assertThemeExists(String themeId) {
@@ -330,6 +340,17 @@ public class ThemeService {
     Double volatility30d = computeVolatility(history);
     Double scorePercentile30d = computeScorePercentile(history, scoreVal);
     Double concentrationRisk = computeConcentrationRisk(allConstituents);
+    PhaseTransitionContext transitionContext =
+        new PhaseTransitionContext(
+            themePhase,
+            scoreVal,
+            signalStreakDays,
+            trend5dVal,
+            trend20dVal,
+            flowVal,
+            volatility30d,
+            alertCount30d);
+    String phaseTransitionSignal = phaseTransitionDetector.detect(transitionContext).orElse(null);
 
     return new ThemeSummaryDto(
         theme.id(),
@@ -350,7 +371,8 @@ public class ThemeService {
         signalStreakDays,
         volatility30d,
         scorePercentile30d,
-        concentrationRisk);
+        concentrationRisk,
+        phaseTransitionSignal);
   }
 
   private static int computeSignalStreak(List<DateHistory> history, String currentSignal) {

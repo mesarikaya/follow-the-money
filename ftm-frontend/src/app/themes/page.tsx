@@ -191,6 +191,27 @@ function ThemePhaseBadge({ phase }: { phase: string | null }) {
   );
 }
 
+const TRANSITION_CONFIG: Record<string, { label: string; className: string; title: string }> = {
+  APPROACHING_BUY:  { label: "→ BUY",   className: "bg-emerald-500/25 text-emerald-300 border border-emerald-400/40", title: "Approaching BUY — rising momentum, streak holding" },
+  BREAKOUT_AT_RISK: { label: "⚠ RISK",  className: "bg-amber-500/25 text-amber-300 border border-amber-400/40",     title: "Breakout at risk — momentum fading with elevated alerts" },
+  EARLY_RECOVERY:   { label: "↑ RECOV", className: "bg-sky-500/20 text-sky-300 border border-sky-400/30",           title: "Early recovery — score rebuilding with accelerating 5d trend" },
+  DISTRIBUTION:     { label: "↘ DIST",  className: "bg-orange-500/20 text-orange-300 border border-orange-400/30",  title: "Distribution signal — high score with outflow and declining trend" },
+};
+
+function PhaseTransitionBadge({ signal }: { signal: string | null }) {
+  if (!signal) return null;
+  const cfg = TRANSITION_CONFIG[signal];
+  if (!cfg) return null;
+  return (
+    <span
+      className={`text-[8px] font-mono px-1.5 py-0.5 rounded ${cfg.className}`}
+      title={cfg.title}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
 function scoreTier(score: number | null): string {
   if (score == null) return "HOLD";
   if (score >= 0.65) return "BUY";
@@ -306,6 +327,7 @@ function ThemeCard({ theme, history }: { theme: ThemeSummary; history: ThemeHist
             {signal.label}
           </span>
           <ThemePhaseBadge phase={theme.themePhase} />
+          <PhaseTransitionBadge signal={theme.phaseTransitionSignal} />
           <SignalFreshnessBadge history={history} signal={theme.dominantSignal} />
           <ScoreDeltaBadge history={history} />
           <FlowChip flow={theme.flow20d} />
@@ -727,13 +749,15 @@ function ThemePlaybook({
 function PreBuySetupPanel({ themes }: { themes: ThemeSummary[] }) {
   const setups = themes.filter(
     t =>
-      t.compositeScore != null &&
-      t.compositeScore >= 0.50 &&
-      t.compositeScore < 0.65 &&
-      t.dominantSignal !== "BUY" &&
-      t.compositeTrend5d != null &&
-      t.compositeTrend20d != null &&
-      t.compositeTrend5d > t.compositeTrend20d
+      t.phaseTransitionSignal === "APPROACHING_BUY" ||
+      (t.phaseTransitionSignal == null &&
+        t.compositeScore != null &&
+        t.compositeScore >= 0.50 &&
+        t.compositeScore < 0.65 &&
+        t.dominantSignal !== "BUY" &&
+        t.compositeTrend5d != null &&
+        t.compositeTrend20d != null &&
+        t.compositeTrend5d > t.compositeTrend20d)
   );
   if (setups.length === 0) return null;
 
@@ -796,7 +820,14 @@ function ThemeTippingPoints({
       : null;
 
     const score = t.compositeScore;
-    if (score >= 0.58 && score < BUY_ZONE && (delta5d == null || delta5d >= -0.02)) {
+
+    if (t.phaseTransitionSignal === "APPROACHING_BUY") {
+      approaching.push({ theme: t, score, delta5d, gap: BUY_ZONE - score });
+    } else if (t.phaseTransitionSignal === "BREAKOUT_AT_RISK") {
+      atRisk.push({ theme: t, score, delta5d, margin: score - BUY_ZONE });
+    } else if (t.phaseTransitionSignal === "EARLY_RECOVERY" || t.phaseTransitionSignal === "DISTRIBUTION") {
+      recovering.push({ theme: t, score, delta5d, gap: Math.abs(score - HOLD_ZONE) });
+    } else if (score >= 0.58 && score < BUY_ZONE && (delta5d == null || delta5d >= -0.02)) {
       approaching.push({ theme: t, score, delta5d, gap: BUY_ZONE - score });
     } else if (score >= BUY_ZONE && score <= 0.72 && delta5d != null && delta5d < -0.02) {
       atRisk.push({ theme: t, score, delta5d, margin: score - BUY_ZONE });
@@ -1287,6 +1318,7 @@ function ThemeScreener({
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Flow</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">vs Sectors</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Phase</th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Server-side phase transition signal">Trans</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Bullish</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Trend" sortKey="velocity" currentSort={sort} title="Sort by momentum acceleration (5d trend vs 20d)" /></th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Pct" sortKey="percentile" currentSort={sort} title="Sort by 30-day score percentile (ascending = cheapest vs recent history)" /></th>
@@ -1445,6 +1477,9 @@ function ThemeScreener({
                         </span>
                       )}
                     </div>
+                  </td>
+                  <td className="py-2 px-3">
+                    <PhaseTransitionBadge signal={t.phaseTransitionSignal ?? null} />
                   </td>
                   <td className="py-2 px-3">
                     <div className="flex items-center gap-1.5" title={`${t.bullishCount}/${t.constituentCount} ETFs bullish (BUY or WATCH)`}>

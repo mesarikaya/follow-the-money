@@ -17,7 +17,6 @@ public record ScoreDecompositionDto(
         Double momentumContribution,
     @Schema(description = "MacroFit contribution — null when signal unavailable")
         Double macroFitContribution,
-    @Schema(description = "RRG contribution — null when signal unavailable")
-        Double rrgContribution,
+    @Schema(description = "RRG contribution — null when signal unavailable") Double rrgContribution,
     @Schema(description = "Total composite score (0.0–1.0); sum of non-null contributions")
         Double totalScore) {}

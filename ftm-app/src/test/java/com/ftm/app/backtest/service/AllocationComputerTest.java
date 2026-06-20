@@ -25,7 +25,10 @@ class AllocationComputerTest {
   void shouldExcludeCategoriesWithNoPriceData() {
     LocalDate date = LocalDate.of(2023, 1, 2);
     Map<LocalDate, Map<String, BigDecimal>> composites =
-        Map.of(date, Map.of("HIGH_NO_DATA", new BigDecimal("0.95"), "LOW_WITH_DATA", new BigDecimal("0.60")));
+        Map.of(
+            date,
+            Map.of(
+                "HIGH_NO_DATA", new BigDecimal("0.95"), "LOW_WITH_DATA", new BigDecimal("0.60")));
     Set<String> withPriceData = Set.of("LOW_WITH_DATA");
 
     Map<LocalDate, List<String>> result =
@@ -40,7 +43,15 @@ class AllocationComputerTest {
   void shouldSelectTopNByScore() {
     LocalDate date = LocalDate.of(2023, 1, 2);
     Map<LocalDate, Map<String, BigDecimal>> composites =
-        Map.of(date, Map.of("TECH", new BigDecimal("0.90"), "FINL", new BigDecimal("0.70"), "HLTH", new BigDecimal("0.80")));
+        Map.of(
+            date,
+            Map.of(
+                "TECH",
+                new BigDecimal("0.90"),
+                "FINL",
+                new BigDecimal("0.70"),
+                "HLTH",
+                new BigDecimal("0.80")));
     Set<String> withPriceData = Set.of("TECH", "FINL", "HLTH");
 
     Map<LocalDate, List<String>> result =
@@ -54,11 +65,20 @@ class AllocationComputerTest {
   void shouldApplySignalThreshold() {
     LocalDate date = LocalDate.of(2023, 1, 2);
     Map<LocalDate, Map<String, BigDecimal>> composites =
-        Map.of(date, Map.of("TECH", new BigDecimal("0.90"), "FINL", new BigDecimal("0.40"), "HLTH", new BigDecimal("0.80")));
+        Map.of(
+            date,
+            Map.of(
+                "TECH",
+                new BigDecimal("0.90"),
+                "FINL",
+                new BigDecimal("0.40"),
+                "HLTH",
+                new BigDecimal("0.80")));
     Set<String> withPriceData = Set.of("TECH", "FINL", "HLTH");
 
     Map<LocalDate, List<String>> result =
-        computer.computeAllocations(List.of(date), composites, 3, new BigDecimal("0.50"), withPriceData);
+        computer.computeAllocations(
+            List.of(date), composites, 3, new BigDecimal("0.50"), withPriceData);
 
     assertThat(result.get(date)).containsExactlyInAnyOrder("TECH", "HLTH");
     assertThat(result.get(date)).doesNotContain("FINL");
@@ -81,7 +101,8 @@ class AllocationComputerTest {
   }
 
   @Test
-  @DisplayName("returns empty allocation when no categories have price data and there is no prior allocation")
+  @DisplayName(
+      "returns empty allocation when no categories have price data and there is no prior allocation")
   void shouldReturnEmptyWhenNoCategoriesHavePriceData() {
     LocalDate date = LocalDate.of(2023, 1, 2);
     Map<LocalDate, Map<String, BigDecimal>> composites =

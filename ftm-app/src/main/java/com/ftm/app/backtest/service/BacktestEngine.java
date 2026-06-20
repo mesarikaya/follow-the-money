@@ -261,7 +261,10 @@ public class BacktestEngine {
           for (String categoryId : currentAllocation) {
             BigDecimal currentPrice = currentPrices.get(categoryId);
             Double entryPrice = entryPrices.get(categoryId);
-            if (currentPrice != null && currentPrice.signum() > 0 && entryPrice != null && entryPrice > 0) {
+            if (currentPrice != null
+                && currentPrice.signum() > 0
+                && entryPrice != null
+                && entryPrice > 0) {
               portfolioDayReturn += (currentPrice.doubleValue() / entryPrice) / totalWeight;
               validPositions++;
             }

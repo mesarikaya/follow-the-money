@@ -825,8 +825,10 @@ function ThemeTippingPoints({
       approaching.push({ theme: t, score, delta5d, gap: BUY_ZONE - score });
     } else if (t.phaseTransitionSignal === "BREAKOUT_AT_RISK") {
       atRisk.push({ theme: t, score, delta5d, margin: score - BUY_ZONE });
-    } else if (t.phaseTransitionSignal === "EARLY_RECOVERY" || t.phaseTransitionSignal === "DISTRIBUTION") {
-      recovering.push({ theme: t, score, delta5d, gap: Math.abs(score - HOLD_ZONE) });
+    } else if (t.phaseTransitionSignal === "EARLY_RECOVERY") {
+      recovering.push({ theme: t, score, delta5d, gap: HOLD_ZONE - score });
+    } else if (t.phaseTransitionSignal === "DISTRIBUTION") {
+      atRisk.push({ theme: t, score, delta5d, margin: score - BUY_ZONE });
     } else if (score >= 0.58 && score < BUY_ZONE && (delta5d == null || delta5d >= -0.02)) {
       approaching.push({ theme: t, score, delta5d, gap: BUY_ZONE - score });
     } else if (score >= BUY_ZONE && score <= 0.72 && delta5d != null && delta5d < -0.02) {

@@ -424,13 +424,18 @@ public class ThemeService {
   }
 
   private static Double computeVolatility(List<DateHistory> history) {
-    if (history.size() < 2) return null;
-    double mean = history.stream().mapToDouble(DateHistory::averageComposite).average().orElse(0);
-    double variance =
-        history.stream()
-            .mapToDouble(p -> Math.pow(p.averageComposite() - mean, 2))
-            .average()
-            .orElse(0);
+    if (history.size() < 3) return null;
+    double[] scores = history.stream().mapToDouble(DateHistory::averageComposite).toArray();
+    double[] changes = new double[scores.length - 1];
+    for (int i = 0; i < changes.length; i++) {
+      changes[i] = scores[i + 1] - scores[i];
+    }
+    double mean = 0;
+    for (double change : changes) mean += change;
+    mean /= changes.length;
+    double variance = 0;
+    for (double change : changes) variance += Math.pow(change - mean, 2);
+    variance /= changes.length;
     return Math.sqrt(variance);
   }
 

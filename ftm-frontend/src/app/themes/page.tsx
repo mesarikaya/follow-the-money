@@ -1812,7 +1812,7 @@ function ThemeRiskMatrixPanel({ themes }: { themes: ThemeSummary[] }) {
 
   const W = 540, H = 200, padX = 60, padY = 28, plotW = W - padX * 2, plotH = H - padY * 2;
   const scoreToX = (s: number) => padX + s * plotW;
-  const riskToY = (r: string) => padY + plotH - ((RISK_ORDINAL[r] ?? 1) / 3) * plotH;
+  const riskToY = (r: string) => padY + ((RISK_ORDINAL[r] ?? 1) / 3) * plotH;
 
   return (
     <div className="mb-4 bg-slate-800/40 border border-slate-700/40 rounded-lg overflow-hidden">
@@ -1834,7 +1834,7 @@ function ThemeRiskMatrixPanel({ themes }: { themes: ThemeSummary[] }) {
 
           {/* axes labels */}
           {RISK_LABELS.map((label, i) => (
-            <text key={label} x={padX - 4} y={padY + plotH - (i / 3) * plotH + 3}
+            <text key={label} x={padX - 4} y={padY + (i / 3) * plotH + 4}
               fill="#64748b" fontSize="7" fontFamily="monospace" textAnchor="end">
               {label.slice(0, 3)}
             </text>

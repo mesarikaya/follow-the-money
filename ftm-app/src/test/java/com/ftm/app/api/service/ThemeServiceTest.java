@@ -343,7 +343,7 @@ class ThemeServiceTest {
   }
 
   @Test
-  @DisplayName("getThemes computes volatility30d as standard deviation of composite scores")
+  @DisplayName("getThemes computes volatility30d as standard deviation of daily composite score changes")
   void shouldComputeVolatility30d() {
     LocalDate base = LocalDate.of(2025, 6, 1);
     when(themeRepository.findAll()).thenReturn(List.of(theme("AI_INFRA", "AI Infrastructure")));
@@ -362,17 +362,19 @@ class ThemeServiceTest {
                 SignalType.MACRO_FIT, Collections.emptyMap(),
                 SignalType.RS_120, Collections.emptyMap(),
                 SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+    // scores: [0.60, 0.62, 0.58] → changes: [+0.02, -0.04] → mean=-0.01, stdev=0.030
     when(signalRepository.findAverageHistoryByDate(anyCollection(), anyInt()))
         .thenReturn(
             List.of(
-                new SignalRepository.DateHistory(base.minusDays(1), 0.60, null, null),
-                new SignalRepository.DateHistory(base, 0.80, null, null)));
+                new SignalRepository.DateHistory(base.minusDays(2), 0.60, null, null),
+                new SignalRepository.DateHistory(base.minusDays(1), 0.62, null, null),
+                new SignalRepository.DateHistory(base, 0.58, null, null)));
 
     List<ThemeSummaryDto> result = themeService.getThemes();
 
     assertThat(result.get(0).volatility30d()).isNotNull();
     assertThat(result.get(0).volatility30d())
-        .isCloseTo(0.10, org.assertj.core.data.Offset.offset(0.001));
+        .isCloseTo(0.030, org.assertj.core.data.Offset.offset(0.001));
   }
 
   @Test

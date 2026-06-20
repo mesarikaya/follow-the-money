@@ -665,6 +665,7 @@ export type ThemeSummary = {
   riskLevel: string | null;
   entryAction: string | null;
   entryRationale: string | null;
+  momentumAlignment: string | null;
 };
 
 export type ThemeDetail = ThemeSummary & {

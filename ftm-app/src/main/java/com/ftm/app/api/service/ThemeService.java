@@ -14,6 +14,7 @@ import com.ftm.app.signals.repository.SignalRepository.DateHistory;
 import com.ftm.app.themes.repository.ThemeRepository;
 import com.ftm.app.themes.entry.EntryTimingAdvisor;
 import com.ftm.app.themes.entry.EntryTimingContext;
+import com.ftm.app.themes.momentum.MomentumDivergenceClassifier;
 import com.ftm.app.themes.risk.ThemeRiskAggregator;
 import com.ftm.app.themes.risk.ThemeRiskContext;
 import com.ftm.app.themes.transition.PhaseTransitionContext;
@@ -40,6 +41,7 @@ public class ThemeService {
   private final PhaseTransitionDetector phaseTransitionDetector;
   private final ThemeRiskAggregator themeRiskAggregator;
   private final EntryTimingAdvisor entryTimingAdvisor;
+  private final MomentumDivergenceClassifier momentumDivergenceClassifier;
 
   public ThemeService(
       ThemeRepository themeRepository,
@@ -48,7 +50,8 @@ public class ThemeService {
       AlertRepository alertRepository,
       PhaseTransitionDetector phaseTransitionDetector,
       ThemeRiskAggregator themeRiskAggregator,
-      EntryTimingAdvisor entryTimingAdvisor) {
+      EntryTimingAdvisor entryTimingAdvisor,
+      MomentumDivergenceClassifier momentumDivergenceClassifier) {
     this.themeRepository = themeRepository;
     this.categoryRepository = categoryRepository;
     this.signalRepository = signalRepository;
@@ -56,6 +59,7 @@ public class ThemeService {
     this.phaseTransitionDetector = phaseTransitionDetector;
     this.themeRiskAggregator = themeRiskAggregator;
     this.entryTimingAdvisor = entryTimingAdvisor;
+    this.momentumDivergenceClassifier = momentumDivergenceClassifier;
   }
 
   @Cacheable("themes-latest")
@@ -182,7 +186,8 @@ public class ThemeService {
         summary.phaseTransitionSignal(),
         summary.riskLevel(),
         summary.entryAction(),
-        summary.entryRationale());
+        summary.entryRationale(),
+        summary.momentumAlignment());
   }
 
   private void assertThemeExists(String themeId) {
@@ -374,6 +379,8 @@ public class ThemeService {
     var entryRecommendation = entryTimingAdvisor.advise(entryContext);
     String entryAction = entryRecommendation.map(r -> r.action().name()).orElse(null);
     String entryRationale = entryRecommendation.map(r -> r.rationale()).orElse(null);
+    String momentumAlignment =
+        momentumDivergenceClassifier.classify(trend5dVal, trend20dVal).map(Enum::name).orElse(null);
 
     return new ThemeSummaryDto(
         theme.id(),
@@ -398,7 +405,8 @@ public class ThemeService {
         phaseTransitionSignal,
         riskLevel,
         entryAction,
-        entryRationale);
+        entryRationale,
+        momentumAlignment);
   }
 
   private static int computeSignalStreak(List<DateHistory> history, String currentSignal) {

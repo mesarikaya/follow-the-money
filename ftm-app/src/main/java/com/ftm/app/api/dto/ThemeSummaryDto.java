@@ -25,4 +25,5 @@ public record ThemeSummaryDto(
     String phaseTransitionSignal,
     String riskLevel,
     String entryAction,
-    String entryRationale) {}
+    String entryRationale,
+    String momentumAlignment) {}

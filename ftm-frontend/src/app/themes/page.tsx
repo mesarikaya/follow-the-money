@@ -233,6 +233,28 @@ function RiskLevelBadge({ riskLevel }: { riskLevel: string | null }) {
   );
 }
 
+const ALIGNMENT_CONFIG: Record<string, { label: string; className: string; icon: string; tooltip: string }> = {
+  ALIGNED_BULLISH: { label: "↑↑", className: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/35", icon: "↑↑", tooltip: "5d and 20d momentum both positive — sustained uptrend" },
+  RECOVERING:      { label: "↪↑", className: "bg-teal-500/15 text-teal-300 border border-teal-500/30",         icon: "↪↑", tooltip: "Short-term dip in healthy long-term uptrend — potential buy-the-dip" },
+  FADING:          { label: "↗↓", className: "bg-amber-500/15 text-amber-300 border border-amber-500/30",       icon: "↗↓", tooltip: "Short-term bounce in declining long-term trend — momentum fading" },
+  ALIGNED_BEARISH: { label: "↓↓", className: "bg-red-500/15 text-red-400 border border-red-500/25",             icon: "↓↓", tooltip: "Both timeframes declining — sustained downward pressure" },
+  NEUTRAL:         { label: "→",  className: "bg-slate-700/60 text-slate-400 border border-slate-600/40",       icon: "→",  tooltip: "No clear momentum direction" },
+};
+
+function MomentumAlignmentBadge({ alignment }: { alignment: string | null }) {
+  if (!alignment) return null;
+  const cfg = ALIGNMENT_CONFIG[alignment];
+  if (!cfg) return null;
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold ${cfg.className}`}
+      title={cfg.tooltip}
+    >
+      {cfg.icon}
+    </span>
+  );
+}
+
 const ENTRY_CONFIG: Record<string, { label: string; className: string; icon: string }> = {
   ENTER:    { label: "ENTER",    className: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/35", icon: "↗" },
   SCALE_IN: { label: "SCALE IN", className: "bg-teal-500/20 text-teal-300 border border-teal-500/35",         icon: "↗" },
@@ -379,6 +401,7 @@ function ThemeCard({ theme, history }: { theme: ThemeSummary; history: ThemeHist
           <PhaseTransitionBadge signal={theme.phaseTransitionSignal} />
           <RiskLevelBadge riskLevel={theme.riskLevel} />
           <EntryActionBadge action={theme.entryAction} rationale={theme.entryRationale} />
+          <MomentumAlignmentBadge alignment={theme.momentumAlignment} />
           <SignalFreshnessBadge history={history} signal={theme.dominantSignal} />
           <ScoreDeltaBadge history={history} />
           <FlowChip flow={theme.flow20d} />
@@ -1374,6 +1397,7 @@ function ThemeScreener({
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Server-side phase transition signal">Trans</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Multi-dimension risk score">Risk</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Entry timing advisory — ENTER, SCALE IN, WATCH, or AVOID">Entry</th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="5d vs 20d momentum alignment">Mom</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Bullish</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Trend" sortKey="velocity" currentSort={sort} title="Sort by momentum acceleration (5d trend vs 20d)" /></th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Pct" sortKey="percentile" currentSort={sort} title="Sort by 30-day score percentile (ascending = cheapest vs recent history)" /></th>
@@ -1541,6 +1565,9 @@ function ThemeScreener({
                   </td>
                   <td className="py-2 px-3">
                     <EntryActionBadge action={t.entryAction ?? null} rationale={t.entryRationale ?? null} />
+                  </td>
+                  <td className="py-2 px-3">
+                    <MomentumAlignmentBadge alignment={t.momentumAlignment ?? null} />
                   </td>
                   <td className="py-2 px-3">
                     <div className="flex items-center gap-1.5" title={`${t.bullishCount}/${t.constituentCount} ETFs bullish (BUY or WATCH)`}>
@@ -1953,6 +1980,68 @@ function ThemeEntryAdvisorPanel({ themes }: { themes: ThemeSummary[] }) {
   );
 }
 
+function MomentumDivergencePanel({ themes }: { themes: ThemeSummary[] }) {
+  const fading = themes.filter(t => t.momentumAlignment === "FADING" && t.compositeScore != null)
+    .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
+  const recovering = themes.filter(t => t.momentumAlignment === "RECOVERING" && t.compositeScore != null)
+    .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
+  if (fading.length === 0 && recovering.length === 0) return null;
+  return (
+    <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-slate-700/40 flex items-center gap-2">
+        <span className="text-[10px] font-mono font-semibold text-slate-400 uppercase tracking-wider">Momentum Divergence</span>
+        <span className="text-[9px] text-slate-600">5d vs 20d trend misalignment signals</span>
+      </div>
+      <div className="divide-y divide-slate-700/30">
+        {recovering.length > 0 && (
+          <div className="px-4 py-2.5">
+            <div className="text-[9px] font-mono text-teal-600 uppercase mb-2">Recovering — dip in healthy uptrend</div>
+            <div className="flex flex-col gap-1.5">
+              {recovering.map(t => (
+                <div key={t.id} className="flex items-center gap-2.5">
+                  <MomentumAlignmentBadge alignment="RECOVERING" />
+                  <span className="text-[11px] font-medium text-slate-200 flex-1 truncate">{t.name}</span>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    score {Math.round((t.compositeScore ?? 0) * 100)}
+                  </span>
+                  <span className="text-[9px] font-mono text-teal-400">
+                    5d {t.compositeTrend5d != null ? `${t.compositeTrend5d > 0 ? "+" : ""}${(t.compositeTrend5d * 100).toFixed(1)}pt` : "—"}
+                  </span>
+                  <span className="text-[9px] font-mono text-emerald-400">
+                    20d {t.compositeTrend20d != null ? `+${(t.compositeTrend20d * 100).toFixed(1)}pt` : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {fading.length > 0 && (
+          <div className="px-4 py-2.5">
+            <div className="text-[9px] font-mono text-amber-600 uppercase mb-2">Fading — short bounce in declining trend</div>
+            <div className="flex flex-col gap-1.5">
+              {fading.map(t => (
+                <div key={t.id} className="flex items-center gap-2.5">
+                  <MomentumAlignmentBadge alignment="FADING" />
+                  <span className="text-[11px] font-medium text-slate-200 flex-1 truncate">{t.name}</span>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    score {Math.round((t.compositeScore ?? 0) * 100)}
+                  </span>
+                  <span className="text-[9px] font-mono text-amber-400">
+                    5d +{t.compositeTrend5d != null ? `${(t.compositeTrend5d * 100).toFixed(1)}pt` : "—"}
+                  </span>
+                  <span className="text-[9px] font-mono text-red-400">
+                    20d {t.compositeTrend20d != null ? `${(t.compositeTrend20d * 100).toFixed(1)}pt` : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default async function ThemesPage({
   searchParams,
 }: {
@@ -2052,6 +2141,7 @@ export default async function ThemesPage({
         {themes.length > 0 && <PreBuySetupPanel themes={themes} />}
         {themes.length > 1 && <ThemeRiskMatrixPanel themes={themes} />}
         {themes.length > 0 && <ThemeEntryAdvisorPanel themes={themes} />}
+        {themes.length > 0 && <MomentumDivergencePanel themes={themes} />}
         {themes.length > 0 && <ThemeNarrative themes={themes} />}
         {themes.length > 0 && <ActiveRotationBanner themes={themes} historiesByThemeId={historyByThemeId} />}
         {themes.length > 0 && <ThemeBuyCountdown themes={themes} />}

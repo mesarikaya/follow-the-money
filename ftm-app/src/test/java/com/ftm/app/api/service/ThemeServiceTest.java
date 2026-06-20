@@ -24,6 +24,8 @@ import com.ftm.app.themes.entry.EntryTimingAdvisor;
 import com.ftm.app.themes.entry.EntryTimingContext;
 import com.ftm.app.themes.entry.EntryAction;
 import com.ftm.app.themes.entry.EntryRecommendation;
+import com.ftm.app.themes.momentum.MomentumAlignment;
+import com.ftm.app.themes.momentum.MomentumDivergenceClassifier;
 import com.ftm.app.themes.risk.ThemeRiskAggregator;
 import com.ftm.app.themes.risk.ThemeRiskContext;
 import com.ftm.app.themes.risk.ThemeRiskLevel;
@@ -54,6 +56,7 @@ class ThemeServiceTest {
   @Mock PhaseTransitionDetector phaseTransitionDetector;
   @Mock ThemeRiskAggregator themeRiskAggregator;
   @Mock EntryTimingAdvisor entryTimingAdvisor;
+  @Mock MomentumDivergenceClassifier momentumDivergenceClassifier;
   @InjectMocks ThemeService themeService;
 
   @BeforeEach
@@ -61,6 +64,8 @@ class ThemeServiceTest {
     lenient().when(themeRiskAggregator.aggregate(any(ThemeRiskContext.class)))
         .thenReturn(ThemeRiskLevel.MEDIUM);
     lenient().when(entryTimingAdvisor.advise(any(EntryTimingContext.class)))
+        .thenReturn(Optional.empty());
+    lenient().when(momentumDivergenceClassifier.classify(any(), any()))
         .thenReturn(Optional.empty());
   }
 
@@ -598,5 +603,61 @@ class ThemeServiceTest {
 
     assertThat(result.get(0).entryAction()).isNull();
     assertThat(result.get(0).entryRationale()).isNull();
+  }
+
+  @Test
+  @DisplayName("getThemes delegates momentum alignment to MomentumDivergenceClassifier")
+  void shouldDelegateMomentumAlignmentToClassifier() {
+    when(themeRepository.findAll())
+        .thenReturn(List.of(theme("CHIP_COMPUTE", "Semiconductor Supercycle")));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("CHIP_COMPUTE", List.of("SEMI")));
+    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
+        .thenReturn(List.of(category(CategoryId.SEMI, "Semiconductors", "SMH")));
+    when(signalRepository.findLatestByTypes(org.mockito.ArgumentMatchers.anyList()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE, Map.of("SEMI", new BigDecimal("0.70")),
+                SignalType.RS_60, Collections.emptyMap(),
+                SignalType.FLOW_20D, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_20D, Collections.emptyMap(),
+                SignalType.RRG_QUADRANT, Collections.emptyMap(),
+                SignalType.MACRO_FIT, Collections.emptyMap(),
+                SignalType.RS_120, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+    stubHistoryEmpty();
+    when(momentumDivergenceClassifier.classify(any(), any()))
+        .thenReturn(Optional.of(MomentumAlignment.ALIGNED_BULLISH));
+
+    List<ThemeSummaryDto> result = themeService.getThemes();
+
+    assertThat(result.get(0).momentumAlignment()).isEqualTo("ALIGNED_BULLISH");
+  }
+
+  @Test
+  @DisplayName("getThemes returns null momentumAlignment when classifier has no data")
+  void shouldReturnNullMomentumAlignmentWhenClassifierEmpty() {
+    when(themeRepository.findAll())
+        .thenReturn(List.of(theme("CHIP_COMPUTE", "Semiconductor Supercycle")));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("CHIP_COMPUTE", List.of("SEMI")));
+    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
+        .thenReturn(List.of(category(CategoryId.SEMI, "Semiconductors", "SMH")));
+    when(signalRepository.findLatestByTypes(org.mockito.ArgumentMatchers.anyList()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE, Map.of("SEMI", new BigDecimal("0.50")),
+                SignalType.RS_60, Collections.emptyMap(),
+                SignalType.FLOW_20D, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_20D, Collections.emptyMap(),
+                SignalType.RRG_QUADRANT, Collections.emptyMap(),
+                SignalType.MACRO_FIT, Collections.emptyMap(),
+                SignalType.RS_120, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+    stubHistoryEmpty();
+
+    List<ThemeSummaryDto> result = themeService.getThemes();
+
+    assertThat(result.get(0).momentumAlignment()).isNull();
   }
 }

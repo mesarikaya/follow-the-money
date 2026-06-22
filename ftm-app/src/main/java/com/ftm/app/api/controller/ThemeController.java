@@ -1,10 +1,12 @@
 package com.ftm.app.api.controller;
 
 import com.ftm.app.api.dto.CapitalRotationDto;
+import com.ftm.app.api.dto.ThemeCorrelationDto;
 import com.ftm.app.api.dto.ThemeDetailDto;
 import com.ftm.app.api.dto.ThemeHistoryPointDto;
 import com.ftm.app.api.dto.ThemeSummaryDto;
 import com.ftm.app.api.service.ThemeService;
+import com.ftm.app.themes.correlation.ThemeSignalCorrelationService;
 import com.ftm.app.themes.rotation.CapitalRotationResult;
 import com.ftm.app.themes.rotation.CapitalRotationScoreService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -30,11 +32,15 @@ public class ThemeController {
 
   private final ThemeService themeService;
   private final CapitalRotationScoreService capitalRotationScoreService;
+  private final ThemeSignalCorrelationService themeSignalCorrelationService;
 
   public ThemeController(
-      ThemeService themeService, CapitalRotationScoreService capitalRotationScoreService) {
+      ThemeService themeService,
+      CapitalRotationScoreService capitalRotationScoreService,
+      ThemeSignalCorrelationService themeSignalCorrelationService) {
     this.themeService = themeService;
     this.capitalRotationScoreService = capitalRotationScoreService;
+    this.themeSignalCorrelationService = themeSignalCorrelationService;
   }
 
   @GetMapping
@@ -83,5 +89,14 @@ public class ThemeController {
           String themeId,
       @RequestParam(defaultValue = "30") @Min(1) @Max(252) int days) {
     return themeService.getThemeHistory(themeId.toUpperCase(), days);
+  }
+
+  @GetMapping("/signal-correlation")
+  @Operation(
+      summary =
+          "Pairwise Pearson correlation of daily score deltas across all themes — measures signal co-movement, not return correlation")
+  public ThemeCorrelationDto getSignalCorrelation(
+      @RequestParam(defaultValue = "60") @Min(20) @Max(252) int days) {
+    return themeSignalCorrelationService.compute(days);
   }
 }

@@ -840,6 +840,28 @@ const server = http.createServer(async (req, res) => {
   } else if (path === "/api/v1/rrg") {
     res.writeHead(200);
     res.end(JSON.stringify(RRG_RESPONSE));
+  } else if (path === "/api/v1/themes/signal-correlation") {
+    const themes = THEMES_RESPONSE.map(enrichTheme);
+    const n = themes.length;
+    const matrix = Array.from({ length: n }, (_, i) =>
+      Array.from({ length: n }, (_, j) => {
+        if (i === j) return 1.0;
+        // Deterministic mock: themes in same "phase family" are more correlated
+        const phaseA = themes[i].themePhase ?? "BUILDING";
+        const phaseB = themes[j].themePhase ?? "BUILDING";
+        if (phaseA === phaseB) return 0.72 + (((i * j) % 5) * 0.04 - 0.1);
+        const isABullish = ["BREAKOUT", "MOMENTUM"].includes(phaseA);
+        const isBBullish = ["BREAKOUT", "MOMENTUM"].includes(phaseB);
+        if (isABullish === isBBullish) return 0.45 + (((i + j) % 3) * 0.05 - 0.05);
+        return -0.15 + (((i * j) % 4) * 0.06 - 0.09);
+      })
+    );
+    res.writeHead(200);
+    res.end(JSON.stringify({
+      themeIds: themes.map(t => t.id),
+      themeNames: themes.map(t => t.name),
+      matrix,
+    }));
   } else if (path === "/api/v1/themes") {
     res.writeHead(200);
     res.end(JSON.stringify(THEMES_RESPONSE.map(enrichTheme)));

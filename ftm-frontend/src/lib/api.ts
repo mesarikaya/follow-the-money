@@ -703,6 +703,14 @@ export const fetchThemeHistory = (themeId: string, days = 30) =>
 export const fetchRotationScore = () =>
   get<CapitalRotationData>("/api/v1/themes/rotation-score");
 
+export type ThemeCorrelationMatrix = {
+  themeIds: string[];
+  themeNames: string[];
+  matrix: number[][];
+};
+export const fetchThemeCorrelation = (days = 60) =>
+  get<ThemeCorrelationMatrix>(`/api/v1/themes/signal-correlation?days=${days}`);
+
 export type ApproachingSignalDto = {
   categoryId: string;
   categoryName: string;

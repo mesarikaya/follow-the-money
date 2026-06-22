@@ -1717,3 +1717,54 @@ test.describe("Theme Comparison Page (EP-091)", () => {
     await expect(winLabels.first()).toBeVisible();
   });
 });
+
+test.describe("Theme Signal Co-Movement Matrix (EP-092)", () => {
+  test("correlation page loads with heading", async ({ page }) => {
+    await page.goto("/themes/correlation");
+    await expect(page.getByText("Signal Co-Movement Matrix")).toBeVisible();
+  });
+
+  test("shows correlation heatmap table", async ({ page }) => {
+    await page.goto("/themes/correlation");
+    await expect(page.getByTestId("correlation-heatmap")).toBeVisible();
+  });
+
+  test("shows insight summary panel", async ({ page }) => {
+    await page.goto("/themes/correlation");
+    await expect(page.getByTestId("correlation-insights")).toBeVisible();
+    await expect(page.getByText("Avg co-movement")).toBeVisible();
+    await expect(page.getByText("Most correlated")).toBeVisible();
+    await expect(page.getByText("Least correlated")).toBeVisible();
+  });
+
+  test("cells link to compare page for theme pairs", async ({ page }) => {
+    await page.goto("/themes/correlation");
+    const cell = page.getByTestId("corr-cell-AI_INFRA-CHIP_COMPUTE");
+    await expect(cell).toBeVisible();
+    await expect(cell).toHaveAttribute("href", "/themes/compare?a=AI_INFRA&b=CHIP_COMPUTE");
+  });
+
+  test("diagonal cells show 1.00 and are not links", async ({ page }) => {
+    await page.goto("/themes/correlation");
+    // Diagonal: AI_INFRA vs AI_INFRA — no link (just a div with 1.00)
+    await expect(page.getByText("1.00").first()).toBeVisible();
+  });
+
+  test("correlation nav link exists on screener page", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("correlation-nav-link")).toBeVisible();
+  });
+
+  test("nav link leads to correlation page", async ({ page }) => {
+    await page.goto("/themes");
+    await page.getByTestId("correlation-nav-link").click();
+    await expect(page).toHaveURL("/themes/correlation");
+    await expect(page.getByText("Signal Co-Movement Matrix")).toBeVisible();
+  });
+
+  test("back link from correlation page returns to themes", async ({ page }) => {
+    await page.goto("/themes/correlation");
+    await page.getByRole("link", { name: "← Themes" }).click();
+    await expect(page).toHaveURL("/themes");
+  });
+});

@@ -1586,7 +1586,17 @@ function ThemeScreener({
     <div className="bg-slate-800/40 border border-slate-700/60 rounded-lg overflow-hidden mb-4">
       <div className="px-3 py-2 border-b border-slate-700/40 flex items-center justify-between">
         <span className="text-[10px] text-slate-500 uppercase tracking-wider font-mono">Theme Screener · Live Rankings</span>
-        <ViewSwitcher view={view} allParams={allParams} />
+        <div className="flex items-center gap-3">
+          <Link
+            href="/themes/correlation"
+            className="text-[9px] font-mono text-slate-600 hover:text-slate-400 transition-colors border border-transparent hover:border-slate-700/40 px-2 py-0.5 rounded"
+            title="Signal co-movement matrix — see which themes move together"
+            data-testid="correlation-nav-link"
+          >
+            ⊞ Co-movement
+          </Link>
+          <ViewSwitcher view={view} allParams={allParams} />
+        </div>
       </div>
       <ThemeScreenerFilterBar allParams={allParams} totalCount={allThemes.length} filteredCount={themes.length} />
       <div className="overflow-x-auto">

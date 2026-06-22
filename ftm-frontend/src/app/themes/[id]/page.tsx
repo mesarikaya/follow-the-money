@@ -877,9 +877,16 @@ export default async function ThemeDetailPage({
   return (
     <main className="flex-1 min-h-0 overflow-y-auto bg-slate-900 p-4 md:p-6">
       <div className="max-w-5xl mx-auto">
-        <div className="mb-1">
+        <div className="mb-1 flex items-center justify-between">
           <Link href="/themes" className="text-slate-500 text-xs hover:text-slate-300 transition-colors">
             ← Themes
+          </Link>
+          <Link
+            href={`/themes/compare?a=${theme.id}`}
+            className="text-[10px] font-mono text-slate-600 hover:text-slate-400 transition-colors border border-slate-700/40 hover:border-slate-600/60 px-2 py-0.5 rounded"
+            data-testid="theme-detail-compare-link"
+          >
+            ↔ Compare
           </Link>
         </div>
 

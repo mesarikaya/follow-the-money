@@ -1648,3 +1648,72 @@ test.describe("Screener Column Presets (EP-090)", () => {
     expect(className).toContain("text-slate-300");
   });
 });
+
+test.describe("Theme Comparison Page (EP-091)", () => {
+  test("no params: shows theme picker list", async ({ page }) => {
+    await page.goto("/themes/compare");
+    await expect(page.getByText("Compare Themes")).toBeVisible();
+    await expect(page.getByTestId("picker-theme-AI_INFRA")).toBeVisible();
+    await expect(page.getByTestId("picker-theme-CHIP_COMPUTE")).toBeVisible();
+  });
+
+  test("one param: shows selected theme and pick-second list", async ({ page }) => {
+    await page.goto("/themes/compare?a=AI_INFRA");
+    await expect(page.getByText(/Compare.*AI Infrastructure/i)).toBeVisible();
+    // AI_INFRA should not appear in the second picker (can't compare with itself)
+    await expect(page.getByTestId("picker-theme-AI_INFRA")).not.toBeVisible();
+    await expect(page.getByTestId("picker-theme-CHIP_COMPUTE")).toBeVisible();
+  });
+
+  test("both params: shows comparison table with both theme names", async ({ page }) => {
+    await page.goto("/themes/compare?a=AI_INFRA&b=CHIP_COMPUTE");
+    await expect(page.getByTestId("compare-theme-name-a")).toBeVisible();
+    await expect(page.getByTestId("compare-theme-name-b")).toBeVisible();
+    const nameA = await page.getByTestId("compare-theme-name-a").textContent();
+    const nameB = await page.getByTestId("compare-theme-name-b").textContent();
+    expect(nameA).toContain("AI Infrastructure");
+    expect(nameB).toContain("Semiconductor Supercycle");
+  });
+
+  test("comparison table renders key metrics", async ({ page }) => {
+    await page.goto("/themes/compare?a=AI_INFRA&b=CHIP_COMPUTE");
+    const table = page.getByTestId("comparison-table");
+    await expect(table).toBeVisible();
+    // Use .first() since label text like "Score" also appears in subtitles ("score momentum")
+    await expect(table.getByText("Score").first()).toBeVisible();
+    await expect(table.getByText("Signal").first()).toBeVisible();
+    await expect(table.getByText("IQS").first()).toBeVisible();
+    await expect(table.getByText("Persist").first()).toBeVisible();
+    await expect(table.getByText("RS-60").first()).toBeVisible();
+  });
+
+  test("swap link reverses themes", async ({ page }) => {
+    await page.goto("/themes/compare?a=AI_INFRA&b=CHIP_COMPUTE");
+    await expect(page.getByTestId("compare-swap-link")).toBeVisible();
+    await page.click('[data-testid="compare-swap-link"]');
+    await expect(page).toHaveURL(/a=CHIP_COMPUTE/);
+    await expect(page).toHaveURL(/b=AI_INFRA/);
+  });
+
+  test("theme detail page has compare link", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    const compareLink = page.getByTestId("theme-detail-compare-link");
+    await expect(compareLink).toBeVisible();
+    const href = await compareLink.getAttribute("href");
+    expect(href).toContain("/themes/compare?a=AI_INFRA");
+  });
+
+  test("compare link on theme detail navigates to picker with first theme selected", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    await page.click('[data-testid="theme-detail-compare-link"]');
+    await expect(page).toHaveURL(/\/themes\/compare\?a=AI_INFRA/);
+    await expect(page.getByText(/Compare.*AI Infrastructure/i)).toBeVisible();
+  });
+
+  test("wins summary shows correct count for each theme", async ({ page }) => {
+    await page.goto("/themes/compare?a=AI_INFRA&b=SAAS_AT_RISK");
+    // AI_INFRA (BUY, high score) should win more metrics against SAAS_AT_RISK (REDUCE, low score)
+    const winLabels = page.getByText(/\d+ \/ 12 wins/);
+    await expect(winLabels.first()).toBeVisible();
+  });
+});

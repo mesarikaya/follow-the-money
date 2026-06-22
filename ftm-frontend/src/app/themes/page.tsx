@@ -1681,9 +1681,19 @@ function ThemeScreener({
                     )}
                   </td>
                   <td className="py-2 px-3">
-                    <Link href={`/themes/${t.id}`} className="text-[11px] font-semibold text-slate-200 hover:text-cyan-300 transition-colors">
-                      {t.name}
-                    </Link>
+                    <div className="flex items-center gap-1.5 group">
+                      <Link href={`/themes/${t.id}`} className="text-[11px] font-semibold text-slate-200 hover:text-cyan-300 transition-colors">
+                        {t.name}
+                      </Link>
+                      <Link
+                        href={`/themes/compare?a=${t.id}`}
+                        className="text-[9px] font-mono text-slate-700 hover:text-slate-500 transition-colors opacity-0 group-hover:opacity-100"
+                        title={`Compare ${t.name} with another theme`}
+                        data-testid={`screener-compare-link-${t.id}`}
+                      >
+                        ↔
+                      </Link>
+                    </div>
                   </td>
                   <td className="py-2 px-3">
                     <div className="flex items-center gap-1 flex-wrap">

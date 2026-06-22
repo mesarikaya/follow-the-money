@@ -25,6 +25,8 @@ import com.ftm.app.themes.signal.ThemePhaseClassifier;
 import com.ftm.app.themes.signal.ThemePhaseHistoryService;
 import com.ftm.app.themes.signal.ThemePersistenceService;
 import com.ftm.app.themes.signal.ThemeScorePercentileCalculator;
+import com.ftm.app.themes.quality.ThemeInvestmentQualityService;
+import com.ftm.app.themes.quality.ThemeQualityContext;
 import com.ftm.app.themes.signal.ThemeSignalStreakCounter;
 import com.ftm.app.themes.signal.ThemeVolatilityCalculator;
 import com.ftm.app.themes.transition.PhaseTransitionContext;
@@ -60,6 +62,7 @@ public class ThemeService {
   private final ThemeConcentrationRiskCalculator themeConcentrationRiskCalculator;
   private final ThemePhaseHistoryService themePhaseHistoryService;
   private final ThemePersistenceService themePersistenceService;
+  private final ThemeInvestmentQualityService themeInvestmentQualityService;
 
   public ThemeService(
       ThemeRepository themeRepository,
@@ -77,7 +80,8 @@ public class ThemeService {
       ThemeScorePercentileCalculator themeScorePercentileCalculator,
       ThemeConcentrationRiskCalculator themeConcentrationRiskCalculator,
       ThemePhaseHistoryService themePhaseHistoryService,
-      ThemePersistenceService themePersistenceService) {
+      ThemePersistenceService themePersistenceService,
+      ThemeInvestmentQualityService themeInvestmentQualityService) {
     this.themeRepository = themeRepository;
     this.categoryRepository = categoryRepository;
     this.signalRepository = signalRepository;
@@ -94,6 +98,7 @@ public class ThemeService {
     this.themeConcentrationRiskCalculator = themeConcentrationRiskCalculator;
     this.themePhaseHistoryService = themePhaseHistoryService;
     this.themePersistenceService = themePersistenceService;
+    this.themeInvestmentQualityService = themeInvestmentQualityService;
   }
 
   @Cacheable("themes-latest")
@@ -228,6 +233,8 @@ public class ThemeService {
         summary.confidenceLabel(),
         summary.persistenceScore(),
         summary.persistenceGrade(),
+        summary.investmentQualityScore(),
+        summary.investmentQualityGrade(),
         phaseHistory30d);
   }
 
@@ -428,6 +435,15 @@ public class ThemeService {
             new ConfluenceInput(entryAction, riskLevel, momentumAlignment, phaseTransitionSignal));
     ThemePersistenceService.ThemePersistence persistence =
         themePersistenceService.computePersistence(history);
+    ThemeInvestmentQualityService.ThemeQuality quality =
+        themeInvestmentQualityService.computeQuality(
+            new ThemeQualityContext(
+                confluence.confluenceScore(),
+                persistence.persistenceScore(),
+                signalStreakDays,
+                volatility30d,
+                concentrationRisk,
+                scorePercentile30d));
 
     return new ThemeSummaryDto(
         theme.id(),
@@ -458,7 +474,9 @@ public class ThemeService {
         confluence.confluenceScore(),
         confluence.confidenceLabel(),
         persistence.persistenceScore(),
-        persistence.persistenceGrade());
+        persistence.persistenceGrade(),
+        quality.investmentQualityScore(),
+        quality.investmentQualityGrade());
   }
 
 }

@@ -1516,6 +1516,9 @@ function ThemeScreener({
     if (sort === "persistence") {
       return [...themes].sort((a, b) => b.persistenceScore - a.persistenceScore);
     }
+    if (sort === "iqs") {
+      return [...themes].sort((a, b) => b.investmentQualityScore - a.investmentQualityScore);
+    }
     return sortedByScore;
   })();
 
@@ -1563,6 +1566,7 @@ function ThemeScreener({
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Pct" sortKey="percentile" currentSort={sort} title="Sort by 30-day score percentile (ascending = cheapest vs recent history)" allParams={allParams} /></th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Sector concentration risk: fraction of constituents in dominant parent sector">Conc</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Persist" sortKey="persistence" currentSort={sort} title="Sort by phase persistence grade — how consistently the theme has been in a strong phase over 30 days (A=best)" allParams={allParams} /></th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="IQS" sortKey="iqs" currentSort={sort} title="Sort by Investment Quality Score — composite of signal quality (50%), value zone (20%), diversification (15%), and volatility (15%)" allParams={allParams} /></th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Conf" sortKey="confluence" currentSort={sort} title="Sort by signal confluence score (0-100)" allParams={allParams} /></th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Alerts" sortKey="alerts" currentSort={sort} title="Sort by active alert count" allParams={allParams} /></th>
             </tr>
@@ -1570,7 +1574,7 @@ function ThemeScreener({
           <tbody>
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={22} className="py-8 text-center">
+                <td colSpan={23} className="py-8 text-center">
                   <p className="text-[11px] text-slate-500">No themes match the active filters.</p>
                   <Link
                     href={buildScreenerUrl(allParams, { signal: undefined, phase: undefined, entry: undefined })}
@@ -1824,6 +1828,24 @@ function ThemeScreener({
                       title={`Phase persistence: ${t.persistenceScore}% of last 30 days in a strong phase (BREAKOUT/MOMENTUM/SETUP)`}
                     >
                       {t.persistenceGrade}
+                    </span>
+                  </td>
+                  <td className="py-2 px-3" data-testid="screener-iqs-cell">
+                    <span
+                      className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                        t.investmentQualityGrade === "A"
+                          ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
+                          : t.investmentQualityGrade === "B"
+                          ? "bg-cyan-500/15 text-cyan-400 border-cyan-500/25"
+                          : t.investmentQualityGrade === "C"
+                          ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                          : t.investmentQualityGrade === "D"
+                          ? "bg-orange-500/10 text-orange-400 border-orange-500/20"
+                          : "bg-red-500/10 text-red-400 border-red-500/20"
+                      }`}
+                      title={`Investment Quality Score: ${t.investmentQualityScore}/100 — signal quality (50%), value zone (20%), diversification (15%), volatility (15%)`}
+                    >
+                      {t.investmentQualityGrade}
                     </span>
                   </td>
                   <td className="py-2 px-3">

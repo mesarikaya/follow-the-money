@@ -1558,3 +1558,36 @@ test.describe("Theme Persistence Score (EP-088)", () => {
     expect(href).toContain("sort=persistence");
   });
 });
+
+test.describe("Theme Investment Quality Score (EP-089)", () => {
+  test("screener shows IQS grade badge for each theme", async ({ page }) => {
+    await page.goto("/themes");
+    const cells = page.getByTestId("screener-iqs-cell");
+    await expect(cells.first()).toBeVisible();
+    await expect(page.getByTestId("screener-iqs-cell").filter({ hasText: "B" }).first()).toBeVisible();
+  });
+
+  test("theme detail shows IQS grade badge with correct grade", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    await expect(page.getByText("IQS").first()).toBeVisible();
+    await expect(page.getByTestId("iqs-grade-badge")).toBeVisible();
+    await expect(page.getByTestId("iqs-grade-badge")).toHaveText("B");
+  });
+
+  test("screener includes a grade F IQS badge for lowest-quality theme", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("screener-iqs-cell").first()).toBeVisible();
+    const allCells = await page.getByTestId("screener-iqs-cell").all();
+    const grades = await Promise.all(allCells.map(c => c.innerText()));
+    expect(grades.map(g => g.trim())).toContain("F");
+  });
+
+  test("IQS column header sort link points to sort=iqs URL", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("screener-iqs-cell").first()).toBeVisible();
+    const sortLink = page.getByRole("link", { name: "IQS" });
+    await expect(sortLink).toBeVisible();
+    const href = await sortLink.getAttribute("href");
+    expect(href).toContain("sort=iqs");
+  });
+});

@@ -32,4 +32,6 @@ public record ThemeDetailDto(
     String confidenceLabel,
     int persistenceScore,
     String persistenceGrade,
+    int investmentQualityScore,
+    String investmentQualityGrade,
     List<String> phaseHistory30d) {}

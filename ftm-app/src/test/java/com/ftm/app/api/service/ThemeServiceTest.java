@@ -38,6 +38,8 @@ import com.ftm.app.themes.signal.ThemePhaseHistoryService;
 import com.ftm.app.themes.signal.ThemePersistenceService;
 import com.ftm.app.themes.signal.ThemePersistenceService.ThemePersistence;
 import com.ftm.app.themes.signal.ThemeScorePercentileCalculator;
+import com.ftm.app.themes.quality.ThemeInvestmentQualityService;
+import com.ftm.app.themes.quality.ThemeInvestmentQualityService.ThemeQuality;
 import com.ftm.app.themes.signal.ThemeSignalStreakCounter;
 import com.ftm.app.themes.signal.ThemeVolatilityCalculator;
 import com.ftm.app.themes.transition.PhaseTransitionContext;
@@ -76,6 +78,7 @@ class ThemeServiceTest {
   @Mock ThemeConcentrationRiskCalculator themeConcentrationRiskCalculator;
   @Mock ThemePhaseHistoryService themePhaseHistoryService;
   @Mock ThemePersistenceService themePersistenceService;
+  @Mock ThemeInvestmentQualityService themeInvestmentQualityService;
   @InjectMocks ThemeService themeService;
 
   @BeforeEach
@@ -104,6 +107,8 @@ class ThemeServiceTest {
         .thenReturn(List.of());
     lenient().when(themePersistenceService.computePersistence(any()))
         .thenReturn(new ThemePersistence(50, "C"));
+    lenient().when(themeInvestmentQualityService.computeQuality(any()))
+        .thenReturn(new ThemeQuality(50, "C"));
   }
 
   private Theme theme(String id, String name) {

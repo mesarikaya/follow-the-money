@@ -31,4 +31,6 @@ public record ThemeSummaryDto(
     int confluenceScore,
     String confidenceLabel,
     int persistenceScore,
-    String persistenceGrade) {}
+    String persistenceGrade,
+    int investmentQualityScore,
+    String investmentQualityGrade) {}

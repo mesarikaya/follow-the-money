@@ -1048,6 +1048,21 @@ export default async function ThemeDetailPage({
                 {theme.persistenceGrade}
               </span>
             </AggMetric>
+            <AggMetric label="IQS">
+              <span
+                data-testid="iqs-grade-badge"
+                className={`text-base font-bold font-mono ${
+                  theme.investmentQualityGrade === "A" ? "text-emerald-400"
+                  : theme.investmentQualityGrade === "B" ? "text-cyan-400"
+                  : theme.investmentQualityGrade === "C" ? "text-amber-400"
+                  : theme.investmentQualityGrade === "D" ? "text-orange-400"
+                  : "text-red-400"
+                }`}
+                title={`Investment Quality Score: ${theme.investmentQualityScore}/100 — signal quality (50%), value zone (20%), diversification (15%), volatility (15%). Grade ${theme.investmentQualityGrade}`}
+              >
+                {theme.investmentQualityGrade}
+              </span>
+            </AggMetric>
           </div>
           <SignalDistributionBar constituents={theme.constituents} />
           <ConstituentScoreSpread constituents={theme.constituents} />

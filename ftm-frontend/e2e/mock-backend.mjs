@@ -531,7 +531,7 @@ const THEMES_RESPONSE = [
     id: "AI_INFRA", name: "AI Infrastructure", thesis: "Capital flooding into AI compute: chips, data centers, and the power grid to run them.",
     constituentCount: 7, compositeScore: 0.78, rs60: 0.062, flow20d: 1.4, compositeTrend5d: 0.025, compositeTrend20d: 0.018,
     bullishCount: 5, dominantSignal: "BUY", divergenceFromParentSectors: 0.14, themePhase: "BREAKOUT", alertCount30d: 12, signalStreakDays: 30, phaseStreakDays: 18, volatility30d: 0.022, scorePercentile30d: 0.78, concentrationRisk: 1.0,
-    phaseTransitionSignal: "BREAKOUT_CONFIRMED", riskLevel: "LOW", entryAction: "ADD", entryRationale: "Strong momentum with breakout confirmed", momentumAlignment: "ALIGNED", confluenceScore: 82, confidenceLabel: "HIGH", persistenceScore: 85, persistenceGrade: "A",
+    phaseTransitionSignal: "BREAKOUT_CONFIRMED", riskLevel: "LOW", entryAction: "ADD", entryRationale: "Strong momentum with breakout confirmed", momentumAlignment: "ALIGNED", confluenceScore: 82, confidenceLabel: "HIGH", persistenceScore: 85, persistenceGrade: "A", investmentQualityScore: 62, investmentQualityGrade: "B",
     topConstituents: [
       { categoryId: "SEMI", parentCategoryId: "TECH", name: "Semiconductors", etfTicker: "SMH", compositeScore: 0.88, rs60: 0.09, flow20d: 1.8, compositeTrend20d: 0.025, tradeSignal: "BUY", convictionScore: 90 },
       { categoryId: "AIRO", parentCategoryId: "TECH", name: "AI & Robotics", etfTicker: "BOTZ", compositeScore: 0.82, rs60: 0.07, flow20d: 1.5, compositeTrend20d: 0.020, tradeSignal: "BUY", convictionScore: 82 },
@@ -542,7 +542,7 @@ const THEMES_RESPONSE = [
     id: "CHIP_COMPUTE", name: "Semiconductor Supercycle", thesis: "Secular demand for advanced chips across AI, EVs, and defense driving a multi-year capex supercycle.",
     constituentCount: 5, compositeScore: 0.72, rs60: 0.048, flow20d: 1.1, compositeTrend5d: 0.009, compositeTrend20d: 0.012,
     bullishCount: 3, dominantSignal: "WATCH", divergenceFromParentSectors: 0.09, themePhase: "MOMENTUM", alertCount30d: 7, signalStreakDays: 14, phaseStreakDays: 14, volatility30d: 0.018, scorePercentile30d: 0.65, concentrationRisk: 0.67,
-    riskLevel: "LOW", confluenceScore: 68, confidenceLabel: "MODERATE", persistenceScore: 73, persistenceGrade: "B",
+    riskLevel: "LOW", confluenceScore: 68, confidenceLabel: "MODERATE", persistenceScore: 73, persistenceGrade: "B", investmentQualityScore: 60, investmentQualityGrade: "B",
     topConstituents: [
       { categoryId: "SEMI", parentCategoryId: "TECH", name: "Semiconductors", etfTicker: "SMH", compositeScore: 0.88, rs60: 0.09, flow20d: 1.8, compositeTrend20d: 0.025, tradeSignal: "BUY", convictionScore: 90 },
       { categoryId: "AIRO", parentCategoryId: "TECH", name: "AI & Robotics", etfTicker: "BOTZ", compositeScore: 0.82, rs60: 0.07, flow20d: 1.5, compositeTrend20d: 0.020, tradeSignal: "BUY", convictionScore: 82 },
@@ -553,7 +553,7 @@ const THEMES_RESPONSE = [
     id: "SAAS_AT_RISK", name: "SaaS at Risk", thesis: "Traditional SaaS models under pressure from AI-native disruptors. Watch for rotation away from legacy software.",
     constituentCount: 3, compositeScore: 0.41, rs60: -0.018, flow20d: -0.7, compositeTrend5d: -0.031, compositeTrend20d: -0.022,
     bullishCount: 0, dominantSignal: "REDUCE", divergenceFromParentSectors: -0.18, themePhase: "FADING", alertCount30d: 3, signalStreakDays: 8, phaseStreakDays: 8, volatility30d: 0.045, scorePercentile30d: 0.15, concentrationRisk: 0.67,
-    phaseTransitionSignal: "FADING_ACCELERATING", riskLevel: "HIGH", entryAction: "REDUCE", entryRationale: "Fading trend with increasing volatility", confluenceScore: 22, confidenceLabel: "LOW", persistenceScore: 12, persistenceGrade: "F",
+    phaseTransitionSignal: "FADING_ACCELERATING", riskLevel: "HIGH", entryAction: "REDUCE", entryRationale: "Fading trend with increasing volatility", confluenceScore: 22, confidenceLabel: "LOW", persistenceScore: 12, persistenceGrade: "F", investmentQualityScore: 18, investmentQualityGrade: "F",
     topConstituents: [
       { categoryId: "SOFT", parentCategoryId: "TECH", name: "Software", etfTicker: "IGV", compositeScore: 0.38, rs60: -0.03, flow20d: -0.9, compositeTrend20d: -0.028, tradeSignal: "REDUCE", convictionScore: null },
       { categoryId: "CLOD", parentCategoryId: "TECH", name: "Cloud Computing", etfTicker: "WCLD", compositeScore: 0.45, rs60: -0.01, flow20d: -0.5, compositeTrend20d: -0.018, tradeSignal: "HOLD", convictionScore: null },
@@ -564,7 +564,7 @@ const THEMES_RESPONSE = [
     id: "DEFENSE_REARM", name: "Defense Rearmament", thesis: "European rearmament plus elevated US defense budgets driving a multi-year supercycle in defense contractors.",
     constituentCount: 4, compositeScore: 0.68, rs60: 0.041, flow20d: 0.8, compositeTrend5d: 0.015, compositeTrend20d: 0.009,
     bullishCount: 2, dominantSignal: "WATCH", divergenceFromParentSectors: 0.06, themePhase: "BREAKOUT", alertCount30d: 5, signalStreakDays: 22, phaseStreakDays: 22, volatility30d: 0.015, scorePercentile30d: 0.82, concentrationRisk: 0.67,
-    riskLevel: "LOW", confluenceScore: 75, confidenceLabel: "HIGH", persistenceScore: 88, persistenceGrade: "A",
+    riskLevel: "LOW", confluenceScore: 75, confidenceLabel: "HIGH", persistenceScore: 88, persistenceGrade: "A", investmentQualityScore: 70, investmentQualityGrade: "B",
     topConstituents: [
       { categoryId: "INDU_ADEF", parentCategoryId: "INDU", name: "Aerospace & Defense", etfTicker: "ITA", compositeScore: 0.74, rs60: 0.055, flow20d: 1.0, compositeTrend20d: 0.015, tradeSignal: "BUY", convictionScore: 68 },
       { categoryId: "INDU_PAVE", parentCategoryId: "INDU", name: "US Infrastructure", etfTicker: "PAVE", compositeScore: 0.66, rs60: 0.038, flow20d: 0.6, compositeTrend20d: 0.008, tradeSignal: "WATCH", convictionScore: 52 },
@@ -575,7 +575,7 @@ const THEMES_RESPONSE = [
     id: "CLEAN_POWER", name: "Clean Power Renaissance", thesis: "AI data center power demand plus decarbonization mandates channeling capital into nuclear, solar, and grid infrastructure.",
     constituentCount: 5, compositeScore: 0.58, rs60: 0.022, flow20d: 0.5, compositeTrend5d: 0.004, compositeTrend20d: 0.006,
     bullishCount: 2, dominantSignal: "WATCH", divergenceFromParentSectors: 0.03, themePhase: "BUILDING", alertCount30d: 2, signalStreakDays: 12, phaseStreakDays: 5, volatility30d: 0.028, scorePercentile30d: 0.38, concentrationRisk: 0.67,
-    riskLevel: "MEDIUM", confluenceScore: 45, confidenceLabel: "MODERATE", persistenceScore: 43, persistenceGrade: "C",
+    riskLevel: "MEDIUM", confluenceScore: 45, confidenceLabel: "MODERATE", persistenceScore: 43, persistenceGrade: "C", investmentQualityScore: 48, investmentQualityGrade: "C",
     topConstituents: [
       { categoryId: "ENRG_NUCL", parentCategoryId: "ENRG", name: "Nuclear Energy", etfTicker: "NLR", compositeScore: 0.71, rs60: 0.048, flow20d: 0.9, compositeTrend20d: 0.014, tradeSignal: "BUY", convictionScore: 62 },
       { categoryId: "ENRG_SOLR", parentCategoryId: "ENRG", name: "Solar Energy", etfTicker: "TAN", compositeScore: 0.55, rs60: 0.018, flow20d: 0.3, compositeTrend20d: 0.004, tradeSignal: "WATCH", convictionScore: 35 },
@@ -586,7 +586,7 @@ const THEMES_RESPONSE = [
     id: "RATE_DURATION", name: "Rate Pivot & Duration Trade", thesis: "When the Fed signals easing, duration-sensitive assets front-run the rally. REITs, utilities, and investment-grade credit re-rate as real yields compress.",
     constituentCount: 5, compositeScore: 0.52, rs60: 0.008, flow20d: 0.3, compositeTrend5d: 0.006, compositeTrend20d: 0.004,
     bullishCount: 2, dominantSignal: "WATCH", divergenceFromParentSectors: 0.04, themePhase: "BUILDING", alertCount30d: 1, signalStreakDays: 9, phaseStreakDays: 4, volatility30d: 0.032, scorePercentile30d: 0.30, concentrationRisk: 0.33,
-    riskLevel: "MEDIUM", confluenceScore: 40, confidenceLabel: "LOW", persistenceScore: 28, persistenceGrade: "D",
+    riskLevel: "MEDIUM", confluenceScore: 40, confidenceLabel: "LOW", persistenceScore: 28, persistenceGrade: "D", investmentQualityScore: 42, investmentQualityGrade: "C",
     topConstituents: [
       { categoryId: "REIT", parentCategoryId: "REIT", name: "Real Estate", etfTicker: "XLRE", compositeScore: 0.59, rs60: 0.014, flow20d: 0.5, compositeTrend20d: 0.008, tradeSignal: "WATCH", convictionScore: 38 },
       { categoryId: "UTIL", parentCategoryId: "UTIL", name: "Utilities", etfTicker: "XLU", compositeScore: 0.52, rs60: 0.012, flow20d: 0.4, compositeTrend20d: 0.002, tradeSignal: "WATCH", convictionScore: 28 },
@@ -597,7 +597,7 @@ const THEMES_RESPONSE = [
     id: "COMMODITY_ELECTRIFICATION", name: "Commodity Supercycle & Electrification", thesis: "AI buildout, EV adoption, and de-globalization creating structural demand for copper, rare earths, and energy that supply cannot match.",
     constituentCount: 6, compositeScore: 0.61, rs60: 0.031, flow20d: 0.7, compositeTrend5d: 0.016, compositeTrend20d: 0.009,
     bullishCount: 3, dominantSignal: "WATCH", divergenceFromParentSectors: 0.07, themePhase: "SETUP", alertCount30d: 4, signalStreakDays: 18, phaseStreakDays: 7, volatility30d: 0.020, scorePercentile30d: 0.55, concentrationRisk: 0.67,
-    phaseTransitionSignal: "SETUP_CONFIRMED", riskLevel: "MEDIUM", entryAction: "WATCH", confluenceScore: 58, confidenceLabel: "MODERATE", persistenceScore: 55, persistenceGrade: "C",
+    phaseTransitionSignal: "SETUP_CONFIRMED", riskLevel: "MEDIUM", entryAction: "WATCH", confluenceScore: 58, confidenceLabel: "MODERATE", persistenceScore: 55, persistenceGrade: "C", investmentQualityScore: 56, investmentQualityGrade: "C",
     topConstituents: [
       { categoryId: "MATL_COPP", parentCategoryId: "MATL", name: "Copper Miners", etfTicker: "COPX", compositeScore: 0.68, rs60: 0.042, flow20d: 0.9, compositeTrend20d: 0.014, tradeSignal: "WATCH", convictionScore: 55 },
       { categoryId: "MATL_RARE", parentCategoryId: "MATL", name: "Rare Earth & Critical Minerals", etfTicker: "REMX", compositeScore: 0.65, rs60: 0.038, flow20d: 0.8, compositeTrend20d: 0.012, tradeSignal: "BUY", convictionScore: 51 },
@@ -608,7 +608,7 @@ const THEMES_RESPONSE = [
     id: "PHYSICAL_AI_ROBOTICS", name: "Physical AI & Robotics", thesis: "AI leaving the server room. The next capital wave flows into industrial automation, smart grids, and robotics — the hardware layer of the AI productivity cycle.",
     constituentCount: 5, compositeScore: 0.70, rs60: 0.044, flow20d: 1.0, compositeTrend5d: 0.018, compositeTrend20d: 0.013,
     bullishCount: 3, dominantSignal: "WATCH", divergenceFromParentSectors: 0.08, themePhase: "MOMENTUM", alertCount30d: 8, signalStreakDays: 16, phaseStreakDays: 16, volatility30d: 0.017, scorePercentile30d: 0.70, concentrationRisk: 1.0,
-    riskLevel: "LOW", confluenceScore: 70, confidenceLabel: "MODERATE", persistenceScore: 75, persistenceGrade: "B",
+    riskLevel: "LOW", confluenceScore: 70, confidenceLabel: "MODERATE", persistenceScore: 75, persistenceGrade: "B", investmentQualityScore: 58, investmentQualityGrade: "C",
     topConstituents: [
       { categoryId: "AIRO", parentCategoryId: "TECH", name: "AI & Robotics", etfTicker: "BOTZ", compositeScore: 0.82, rs60: 0.07, flow20d: 1.5, compositeTrend20d: 0.020, tradeSignal: "BUY", convictionScore: 82 },
       { categoryId: "TECH_SMH", parentCategoryId: "TECH", name: "Semiconductors (VanEck)", etfTicker: "SMH", compositeScore: 0.76, rs60: 0.055, flow20d: 1.2, compositeTrend20d: 0.016, tradeSignal: "BUY", convictionScore: 74 },
@@ -619,7 +619,7 @@ const THEMES_RESPONSE = [
     id: "HARD_ASSETS_GOLD", name: "Hard Assets & Precious Metals", thesis: "Central bank gold buying, de-dollarization pressure, and fiscal deficits have structurally re-priced gold. Miners provide leveraged exposure during geopolitical regime shifts.",
     constituentCount: 5, compositeScore: 0.74, rs60: 0.052, flow20d: 1.1, compositeTrend5d: 0.008, compositeTrend20d: 0.011,
     bullishCount: 4, dominantSignal: "BUY", divergenceFromParentSectors: 0.11, themePhase: "MOMENTUM", alertCount30d: 6, signalStreakDays: 25, phaseStreakDays: 25, volatility30d: 0.012, scorePercentile30d: 0.88, concentrationRisk: 0.67,
-    riskLevel: "LOW", entryAction: "ADD", entryRationale: "Sustained momentum with low volatility", confluenceScore: 88, confidenceLabel: "HIGH", persistenceScore: 92, persistenceGrade: "A",
+    riskLevel: "LOW", entryAction: "ADD", entryRationale: "Sustained momentum with low volatility", confluenceScore: 88, confidenceLabel: "HIGH", persistenceScore: 92, persistenceGrade: "A", investmentQualityScore: 72, investmentQualityGrade: "B",
     topConstituents: [
       { categoryId: "GOLD", parentCategoryId: null, name: "Gold", etfTicker: "GLD", compositeScore: 0.80, rs60: 0.065, flow20d: 1.3, compositeTrend20d: 0.015, tradeSignal: "BUY", convictionScore: 78 },
       { categoryId: "GDMN", parentCategoryId: null, name: "Gold Miners", etfTicker: "GDX", compositeScore: 0.76, rs60: 0.058, flow20d: 1.2, compositeTrend20d: 0.013, tradeSignal: "BUY", convictionScore: 72 },
@@ -630,7 +630,7 @@ const THEMES_RESPONSE = [
     id: "BIOTECH_WAVE", name: "Biotech Catalyst Cycle", thesis: "Rate normalization unlocks biotech funding. GLP-1 drug dominance, genomic medicine, and an FDA pipeline backlog are converging on a multi-year biotech upcycle. Capital flows back into speculative biopharma as the cost-of-capital tailwind returns.",
     constituentCount: 5, compositeScore: 0.58, rs60: 0.022, flow20d: 0.6, compositeTrend5d: 0.014, compositeTrend20d: 0.008,
     bullishCount: 3, dominantSignal: "WATCH", divergenceFromParentSectors: 0.06, themePhase: "SETUP", alertCount30d: 3, signalStreakDays: 10, phaseStreakDays: 6, volatility30d: 0.040, scorePercentile30d: 0.25, concentrationRisk: 1.0,
-    riskLevel: "MEDIUM", confluenceScore: 48, confidenceLabel: "MODERATE", persistenceScore: 40, persistenceGrade: "C",
+    riskLevel: "MEDIUM", confluenceScore: 48, confidenceLabel: "MODERATE", persistenceScore: 40, persistenceGrade: "C", investmentQualityScore: 32, investmentQualityGrade: "D",
     topConstituents: [
       { categoryId: "HLTH_BIOT", parentCategoryId: "HLTH", name: "Biotech SPDR", etfTicker: "XBI", compositeScore: 0.66, rs60: 0.035, flow20d: 0.9, compositeTrend20d: 0.012, tradeSignal: "BUY", convictionScore: 60 },
       { categoryId: "HLTH_BIOI", parentCategoryId: "HLTH", name: "Biotech iShares", etfTicker: "IBB", compositeScore: 0.62, rs60: 0.028, flow20d: 0.7, compositeTrend20d: 0.009, tradeSignal: "WATCH", convictionScore: 52 },
@@ -641,7 +641,7 @@ const THEMES_RESPONSE = [
     id: "FINANCIAL_ROTATION", name: "Financial Services Rotation", thesis: "Rate normalization expands bank net interest margins while fintech platforms capture fee revenue. The question is who benefits as yield curves normalize — traditional banks rebuilding NIM or fintechs absorbing displaced deposits.",
     constituentCount: 4, compositeScore: 0.62, rs60: 0.028, flow20d: 0.4, compositeTrend5d: 0.006, compositeTrend20d: 0.004,
     bullishCount: 3, dominantSignal: "WATCH", divergenceFromParentSectors: 0.04, themePhase: "BUILDING", alertCount30d: 2, signalStreakDays: 15, phaseStreakDays: 9, volatility30d: 0.025, scorePercentile30d: 0.48, concentrationRisk: 1.0,
-    riskLevel: "MEDIUM", confluenceScore: 52, confidenceLabel: "MODERATE", persistenceScore: 48, persistenceGrade: "C",
+    riskLevel: "MEDIUM", confluenceScore: 52, confidenceLabel: "MODERATE", persistenceScore: 48, persistenceGrade: "C", investmentQualityScore: 44, investmentQualityGrade: "C",
     topConstituents: [
       { categoryId: "FINL_BANK", parentCategoryId: "FINL", name: "Banks SPDR", etfTicker: "KBE", compositeScore: 0.68, rs60: 0.038, flow20d: 0.6, compositeTrend20d: 0.007, tradeSignal: "BUY", convictionScore: 58 },
       { categoryId: "FINL_KBWB", parentCategoryId: "FINL", name: "KBW Banking ETF", etfTicker: "KBWB", compositeScore: 0.64, rs60: 0.032, flow20d: 0.5, compositeTrend20d: 0.005, tradeSignal: "BUY", convictionScore: 54 },
@@ -652,7 +652,7 @@ const THEMES_RESPONSE = [
     id: "RESHORING_CYCLE", name: "US Manufacturing Renaissance", thesis: "IRA, CHIPS Act, and elevated defense budgets are funding the biggest domestic capital expenditure cycle in a generation. Industrial, infrastructure, and construction firms are the picks-and-shovels of American re-industrialization.",
     constituentCount: 4, compositeScore: 0.71, rs60: 0.040, flow20d: 0.8, compositeTrend5d: 0.010, compositeTrend20d: 0.007,
     bullishCount: 4, dominantSignal: "BUY", divergenceFromParentSectors: 0.09, themePhase: "MOMENTUM", alertCount30d: 4, signalStreakDays: 20, phaseStreakDays: 20, volatility30d: 0.016, scorePercentile30d: 0.75, concentrationRisk: 1.0,
-    riskLevel: "LOW", entryAction: "ADD", entryRationale: "Reshoring cycle in sustained momentum", confluenceScore: 78, confidenceLabel: "HIGH", persistenceScore: 82, persistenceGrade: "A",
+    riskLevel: "LOW", entryAction: "ADD", entryRationale: "Reshoring cycle in sustained momentum", confluenceScore: 78, confidenceLabel: "HIGH", persistenceScore: 82, persistenceGrade: "A", investmentQualityScore: 65, investmentQualityGrade: "B",
     topConstituents: [
       { categoryId: "INDU_AIRR", parentCategoryId: "INDU", name: "American Industrial Renaissance", etfTicker: "AIRR", compositeScore: 0.78, rs60: 0.055, flow20d: 1.1, compositeTrend20d: 0.011, tradeSignal: "BUY", convictionScore: 72 },
       { categoryId: "INDU_PAVE", parentCategoryId: "INDU", name: "US Infrastructure", etfTicker: "PAVE", compositeScore: 0.74, rs60: 0.046, flow20d: 0.9, compositeTrend20d: 0.008, tradeSignal: "BUY", convictionScore: 66 },
@@ -688,6 +688,8 @@ function enrichTheme(theme) {
     confidenceLabel: "MODERATE",
     persistenceScore: 50,
     persistenceGrade: "C",
+    investmentQualityScore: 50,
+    investmentQualityGrade: "C",
     ...theme,
   };
 }

@@ -15,7 +15,7 @@ class CapitalRotationMetricTest {
     return new ThemeSummaryDto(
         "ID", "Name", "Thesis", 3, score, null, null, null, trend20d,
         0, "BUY", null, "MOMENTUM", List.of(), 0, 0, 0, null, null, null,
-        null, "MEDIUM", null, null, null, 50, "MODERATE", 0, "F");
+        null, "MEDIUM", null, null, null, 50, "MODERATE", 0, "F", 0, "F");
   }
 
   @Nested

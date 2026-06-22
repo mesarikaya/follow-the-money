@@ -671,6 +671,8 @@ export type ThemeSummary = {
   confidenceLabel: string;
   persistenceScore: number;
   persistenceGrade: string;
+  investmentQualityScore: number;
+  investmentQualityGrade: string;
 };
 
 export type ThemeDetail = ThemeSummary & {

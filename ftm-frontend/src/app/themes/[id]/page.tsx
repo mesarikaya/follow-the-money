@@ -622,6 +622,29 @@ function PhaseTransitionBadge({ signal }: { signal: string | null }) {
   );
 }
 
+const DETAIL_CONFIDENCE_CONFIG: Record<string, { label: string; bar: string; text: string }> = {
+  HIGH_CONFIDENCE: { label: "HIGH CONFIDENCE", bar: "bg-emerald-500", text: "text-emerald-400" },
+  MODERATE:        { label: "MODERATE",         bar: "bg-cyan-500",    text: "text-cyan-400" },
+  CAUTIOUS:        { label: "CAUTIOUS",         bar: "bg-amber-500",   text: "text-amber-400" },
+  AVOID:           { label: "AVOID",            bar: "bg-red-500",     text: "text-red-400" },
+};
+
+function ConfluenceScoreBar({ confluenceScore, confidenceLabel }: { confluenceScore: number; confidenceLabel: string }) {
+  const cfg = DETAIL_CONFIDENCE_CONFIG[confidenceLabel];
+  if (!cfg) return null;
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full ${cfg.bar}`} style={{ width: `${confluenceScore}%` }} />
+      </div>
+      <span className={`text-[11px] font-mono font-semibold tabular-nums shrink-0 ${cfg.text}`}>
+        {confluenceScore}
+      </span>
+      <span className={`text-[9px] font-mono uppercase shrink-0 ${cfg.text}`}>{cfg.label}</span>
+    </div>
+  );
+}
+
 function IntelligencePanel({ theme }: {
   theme: {
     riskLevel: string | null;
@@ -629,13 +652,18 @@ function IntelligencePanel({ theme }: {
     entryRationale: string | null;
     momentumAlignment: string | null;
     phaseTransitionSignal: string | null;
+    confluenceScore: number;
+    confidenceLabel: string;
   };
 }) {
   const hasAnything = theme.riskLevel || theme.entryAction || theme.momentumAlignment || theme.phaseTransitionSignal;
   if (!hasAnything) return null;
   return (
     <div className="bg-slate-800/40 border border-slate-700/40 rounded-lg p-3 mb-4">
-      <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-3">Entry Intelligence</div>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[10px] text-slate-500 uppercase tracking-wider">Entry Intelligence</span>
+        <ConfluenceScoreBar confluenceScore={theme.confluenceScore} confidenceLabel={theme.confidenceLabel} />
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <EntryAdvisorCard entryAction={theme.entryAction} entryRationale={theme.entryRationale} />
         <div className="flex flex-col gap-2 justify-center">

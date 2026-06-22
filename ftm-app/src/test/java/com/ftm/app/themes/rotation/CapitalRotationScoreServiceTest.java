@@ -23,7 +23,7 @@ class CapitalRotationScoreServiceTest {
     return new ThemeSummaryDto(
         id, name, "Thesis", 3, score, null, null, null, trend20d,
         0, "BUY", null, "MOMENTUM", List.of(), 0, 0, null, null, null,
-        null, "MEDIUM", null, null, null);
+        null, "MEDIUM", null, null, null, 50, "MODERATE");
   }
 
   @Test

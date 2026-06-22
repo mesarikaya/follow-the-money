@@ -283,6 +283,32 @@ function EntryActionBadge({
   );
 }
 
+const CONFIDENCE_CONFIG: Record<string, { label: string; className: string }> = {
+  HIGH_CONFIDENCE: { label: "⬆ HIGH",    className: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/35" },
+  MODERATE:        { label: "◆ MOD",     className: "bg-slate-700/60 text-slate-300 border border-slate-600/40" },
+  CAUTIOUS:        { label: "▼ CAUT",    className: "bg-amber-500/15 text-amber-300 border border-amber-500/30" },
+  AVOID:           { label: "✕ AVOID",   className: "bg-red-500/15 text-red-400 border border-red-500/25" },
+};
+
+function ConfluenceBadge({
+  confluenceScore,
+  confidenceLabel,
+}: {
+  confluenceScore: number;
+  confidenceLabel: string;
+}) {
+  const cfg = CONFIDENCE_CONFIG[confidenceLabel];
+  if (!cfg) return null;
+  return (
+    <span
+      className={`text-[8px] font-mono px-1.5 py-0.5 rounded flex items-center gap-0.5 ${cfg.className}`}
+      title={`Signal confluence: ${confluenceScore}/100 — combines entry timing, risk level, momentum alignment, and phase transition signals`}
+    >
+      {cfg.label} {confluenceScore}
+    </span>
+  );
+}
+
 function scoreTier(score: number | null): string {
   if (score == null) return "HOLD";
   if (score >= 0.65) return "BUY";
@@ -401,6 +427,7 @@ function ThemeCard({ theme, history }: { theme: ThemeSummary; history: ThemeHist
           <PhaseTransitionBadge signal={theme.phaseTransitionSignal} />
           <RiskLevelBadge riskLevel={theme.riskLevel} />
           <EntryActionBadge action={theme.entryAction} rationale={theme.entryRationale} />
+          <ConfluenceBadge confluenceScore={theme.confluenceScore} confidenceLabel={theme.confidenceLabel} />
           <MomentumAlignmentBadge alignment={theme.momentumAlignment} />
           <SignalFreshnessBadge history={history} signal={theme.dominantSignal} />
           <ScoreDeltaBadge history={history} />
@@ -1301,7 +1328,7 @@ function getThemeUniqueSectors(theme: ThemeSummary): string[] {
   return [...seen].slice(0, 3);
 }
 
-type ScreenerParams = { sort?: string; signal?: string; phase?: string; entry?: string };
+type ScreenerParams = { sort?: string; signal?: string; phase?: string; entry?: string; confidence?: string };
 
 function buildScreenerUrl(current: ScreenerParams, overrides: Partial<ScreenerParams>): string {
   const merged = { ...current, ...overrides };
@@ -1359,7 +1386,7 @@ function ThemeScreenerFilterBar({
 }: {
   allParams: ScreenerParams; totalCount: number; filteredCount: number;
 }) {
-  const hasActiveFilter = allParams.signal != null || allParams.phase != null || allParams.entry != null;
+  const hasActiveFilter = allParams.signal != null || allParams.phase != null || allParams.entry != null || allParams.confidence != null;
   const filterGroups: { label: string; paramKey: keyof ScreenerParams; options: { label: string; value: string }[] }[] = [
     {
       label: "Signal",
@@ -1394,6 +1421,16 @@ function ThemeScreenerFilterBar({
         { label: "Avoid", value: "AVOID" },
       ],
     },
+    {
+      label: "Confidence",
+      paramKey: "confidence",
+      options: [
+        { label: "High", value: "HIGH_CONFIDENCE" },
+        { label: "Moderate", value: "MODERATE" },
+        { label: "Cautious", value: "CAUTIOUS" },
+        { label: "Avoid", value: "AVOID" },
+      ],
+    },
   ];
   return (
     <div className="px-3 py-2 border-b border-slate-700/40 bg-slate-800/20 flex flex-wrap items-center gap-3">
@@ -1414,7 +1451,7 @@ function ThemeScreenerFilterBar({
       ))}
       {hasActiveFilter && (
         <Link
-          href={buildScreenerUrl(allParams, { signal: undefined, phase: undefined, entry: undefined })}
+          href={buildScreenerUrl(allParams, { signal: undefined, phase: undefined, entry: undefined, confidence: undefined })}
           className="ml-auto text-[10px] font-mono text-slate-500 hover:text-slate-300 transition-colors"
         >
           Clear filters · {filteredCount}/{totalCount}
@@ -1473,6 +1510,9 @@ function ThemeScreener({
     if (sort === "percentile") {
       return [...themes].sort((a, b) => (a.scorePercentile30d ?? 1) - (b.scorePercentile30d ?? 1));
     }
+    if (sort === "confluence") {
+      return [...themes].sort((a, b) => b.confluenceScore - a.confluenceScore);
+    }
     return sortedByScore;
   })();
 
@@ -1519,13 +1559,14 @@ function ThemeScreener({
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Trend" sortKey="velocity" currentSort={sort} title="Sort by momentum acceleration (5d trend vs 20d)" allParams={allParams} /></th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Pct" sortKey="percentile" currentSort={sort} title="Sort by 30-day score percentile (ascending = cheapest vs recent history)" allParams={allParams} /></th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Sector concentration risk: fraction of constituents in dominant parent sector">Conc</th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Conf" sortKey="confluence" currentSort={sort} title="Sort by signal confluence score (0-100)" allParams={allParams} /></th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Alerts" sortKey="alerts" currentSort={sort} title="Sort by active alert count" allParams={allParams} /></th>
             </tr>
           </thead>
           <tbody>
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={20} className="py-8 text-center">
+                <td colSpan={21} className="py-8 text-center">
                   <p className="text-[11px] text-slate-500">No themes match the active filters.</p>
                   <Link
                     href={buildScreenerUrl(allParams, { signal: undefined, phase: undefined, entry: undefined })}
@@ -1762,6 +1803,9 @@ function ThemeScreener({
                     ) : (
                       <span className="text-slate-700 text-[10px]">—</span>
                     )}
+                  </td>
+                  <td className="py-2 px-3">
+                    <ConfluenceBadge confluenceScore={t.confluenceScore} confidenceLabel={t.confidenceLabel} />
                   </td>
                   <td className="py-2 px-3">
                     {alertCount > 0 ? (
@@ -2252,15 +2296,16 @@ function MomentumDivergencePanel({ themes }: { themes: ThemeSummary[] }) {
 export default async function ThemesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; signal?: string; phase?: string; entry?: string }>;
+  searchParams: Promise<{ sort?: string; signal?: string; phase?: string; entry?: string; confidence?: string }>;
 }) {
-  const { sort: sortParam, signal: signalFilter, phase: phaseFilter, entry: entryFilter } = await searchParams;
-  const screenerSort = ["score", "delta5d", "alerts", "rs60", "velocity", "percentile"].includes(sortParam ?? "") ? sortParam as string : "score";
+  const { sort: sortParam, signal: signalFilter, phase: phaseFilter, entry: entryFilter, confidence: confidenceFilter } = await searchParams;
+  const screenerSort = ["score", "delta5d", "alerts", "rs60", "velocity", "percentile", "confluence"].includes(sortParam ?? "") ? sortParam as string : "score";
   const allParams: ScreenerParams = {
     sort: sortParam,
     signal: signalFilter,
     phase: phaseFilter,
     entry: entryFilter,
+    confidence: confidenceFilter,
   };
 
   const [themes, alertsResponse, recentAlerts, rotationData] = await Promise.all([
@@ -2289,6 +2334,7 @@ export default async function ThemesPage({
     if (signalFilter && t.dominantSignal !== signalFilter) return false;
     if (phaseFilter && t.themePhase !== phaseFilter) return false;
     if (entryFilter && t.entryAction !== entryFilter) return false;
+    if (confidenceFilter && t.confidenceLabel !== confidenceFilter) return false;
     return true;
   });
 

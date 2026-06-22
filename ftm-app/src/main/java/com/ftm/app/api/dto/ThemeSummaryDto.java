@@ -26,4 +26,6 @@ public record ThemeSummaryDto(
     String riskLevel,
     String entryAction,
     String entryRationale,
-    String momentumAlignment) {}
+    String momentumAlignment,
+    int confluenceScore,
+    String confidenceLabel) {}

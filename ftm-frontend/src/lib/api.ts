@@ -666,6 +666,8 @@ export type ThemeSummary = {
   entryAction: string | null;
   entryRationale: string | null;
   momentumAlignment: string | null;
+  confluenceScore: number;
+  confidenceLabel: string;
 };
 
 export type ThemeDetail = ThemeSummary & {

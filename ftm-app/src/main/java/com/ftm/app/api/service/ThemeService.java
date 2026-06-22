@@ -12,6 +12,9 @@ import com.ftm.app.domain.Theme;
 import com.ftm.app.signals.repository.SignalRepository;
 import com.ftm.app.signals.repository.SignalRepository.DateHistory;
 import com.ftm.app.themes.repository.ThemeRepository;
+import com.ftm.app.themes.confluence.ConfluenceInput;
+import com.ftm.app.themes.confluence.ConfluenceResult;
+import com.ftm.app.themes.confluence.ConfluenceScoreService;
 import com.ftm.app.themes.entry.EntryTimingAdvisor;
 import com.ftm.app.themes.entry.EntryTimingContext;
 import com.ftm.app.themes.momentum.MomentumDivergenceClassifier;
@@ -42,6 +45,7 @@ public class ThemeService {
   private final ThemeRiskAggregator themeRiskAggregator;
   private final EntryTimingAdvisor entryTimingAdvisor;
   private final MomentumDivergenceClassifier momentumDivergenceClassifier;
+  private final ConfluenceScoreService confluenceScoreService;
 
   public ThemeService(
       ThemeRepository themeRepository,
@@ -51,7 +55,8 @@ public class ThemeService {
       PhaseTransitionDetector phaseTransitionDetector,
       ThemeRiskAggregator themeRiskAggregator,
       EntryTimingAdvisor entryTimingAdvisor,
-      MomentumDivergenceClassifier momentumDivergenceClassifier) {
+      MomentumDivergenceClassifier momentumDivergenceClassifier,
+      ConfluenceScoreService confluenceScoreService) {
     this.themeRepository = themeRepository;
     this.categoryRepository = categoryRepository;
     this.signalRepository = signalRepository;
@@ -60,6 +65,7 @@ public class ThemeService {
     this.themeRiskAggregator = themeRiskAggregator;
     this.entryTimingAdvisor = entryTimingAdvisor;
     this.momentumDivergenceClassifier = momentumDivergenceClassifier;
+    this.confluenceScoreService = confluenceScoreService;
   }
 
   @Cacheable("themes-latest")
@@ -187,7 +193,9 @@ public class ThemeService {
         summary.riskLevel(),
         summary.entryAction(),
         summary.entryRationale(),
-        summary.momentumAlignment());
+        summary.momentumAlignment(),
+        summary.confluenceScore(),
+        summary.confidenceLabel());
   }
 
   private void assertThemeExists(String themeId) {
@@ -381,6 +389,9 @@ public class ThemeService {
     String entryRationale = entryRecommendation.map(r -> r.rationale()).orElse(null);
     String momentumAlignment =
         momentumDivergenceClassifier.classify(trend5dVal, trend20dVal).map(Enum::name).orElse(null);
+    ConfluenceResult confluence =
+        confluenceScoreService.compute(
+            new ConfluenceInput(entryAction, riskLevel, momentumAlignment, phaseTransitionSignal));
 
     return new ThemeSummaryDto(
         theme.id(),
@@ -406,7 +417,9 @@ public class ThemeService {
         riskLevel,
         entryAction,
         entryRationale,
-        momentumAlignment);
+        momentumAlignment,
+        confluence.confluenceScore(),
+        confluence.confidenceLabel());
   }
 
   private static int computeSignalStreak(List<DateHistory> history, String currentSignal) {

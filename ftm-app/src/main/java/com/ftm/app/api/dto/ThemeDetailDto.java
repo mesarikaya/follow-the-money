@@ -19,6 +19,7 @@ public record ThemeDetailDto(
     List<ThemeConstituentDto> constituents,
     int alertCount30d,
     int signalStreakDays,
+    int phaseStreakDays,
     Double volatility30d,
     Double scorePercentile30d,
     Double concentrationRisk,
@@ -28,4 +29,5 @@ public record ThemeDetailDto(
     String entryRationale,
     String momentumAlignment,
     int confluenceScore,
-    String confidenceLabel) {}
+    String confidenceLabel,
+    List<String> phaseHistory30d) {}

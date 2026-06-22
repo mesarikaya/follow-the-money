@@ -658,6 +658,7 @@ export type ThemeSummary = {
   topConstituents: ThemeConstituent[];
   alertCount30d: number;
   signalStreakDays: number;
+  phaseStreakDays: number;
   volatility30d: number | null;
   scorePercentile30d: number | null;
   concentrationRisk: number | null;
@@ -672,6 +673,7 @@ export type ThemeSummary = {
 
 export type ThemeDetail = ThemeSummary & {
   constituents: ThemeConstituent[];
+  phaseHistory30d: string[];
 };
 
 export type ThemeHistoryPoint = {

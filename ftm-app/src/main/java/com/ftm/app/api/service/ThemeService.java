@@ -22,6 +22,7 @@ import com.ftm.app.themes.risk.ThemeRiskAggregator;
 import com.ftm.app.themes.risk.ThemeRiskContext;
 import com.ftm.app.themes.signal.ThemeConcentrationRiskCalculator;
 import com.ftm.app.themes.signal.ThemePhaseClassifier;
+import com.ftm.app.themes.signal.ThemePhaseHistoryService;
 import com.ftm.app.themes.signal.ThemeScorePercentileCalculator;
 import com.ftm.app.themes.signal.ThemeSignalStreakCounter;
 import com.ftm.app.themes.signal.ThemeVolatilityCalculator;
@@ -56,6 +57,7 @@ public class ThemeService {
   private final ThemeVolatilityCalculator themeVolatilityCalculator;
   private final ThemeScorePercentileCalculator themeScorePercentileCalculator;
   private final ThemeConcentrationRiskCalculator themeConcentrationRiskCalculator;
+  private final ThemePhaseHistoryService themePhaseHistoryService;
 
   public ThemeService(
       ThemeRepository themeRepository,
@@ -71,7 +73,8 @@ public class ThemeService {
       ThemeSignalStreakCounter themeSignalStreakCounter,
       ThemeVolatilityCalculator themeVolatilityCalculator,
       ThemeScorePercentileCalculator themeScorePercentileCalculator,
-      ThemeConcentrationRiskCalculator themeConcentrationRiskCalculator) {
+      ThemeConcentrationRiskCalculator themeConcentrationRiskCalculator,
+      ThemePhaseHistoryService themePhaseHistoryService) {
     this.themeRepository = themeRepository;
     this.categoryRepository = categoryRepository;
     this.signalRepository = signalRepository;
@@ -86,6 +89,7 @@ public class ThemeService {
     this.themeVolatilityCalculator = themeVolatilityCalculator;
     this.themeScorePercentileCalculator = themeScorePercentileCalculator;
     this.themeConcentrationRiskCalculator = themeConcentrationRiskCalculator;
+    this.themePhaseHistoryService = themePhaseHistoryService;
   }
 
   @Cacheable("themes-latest")
@@ -189,6 +193,7 @@ public class ThemeService {
             trend5dMap,
             alertCount,
             history);
+    List<String> phaseHistory30d = themePhaseHistoryService.computeHistory(history);
     return new ThemeDetailDto(
         summary.id(),
         summary.name(),
@@ -206,6 +211,7 @@ public class ThemeService {
         sorted,
         alertCount,
         summary.signalStreakDays(),
+        summary.phaseStreakDays(),
         summary.volatility30d(),
         summary.scorePercentile30d(),
         summary.concentrationRisk(),
@@ -215,7 +221,8 @@ public class ThemeService {
         summary.entryRationale(),
         summary.momentumAlignment(),
         summary.confluenceScore(),
-        summary.confidenceLabel());
+        summary.confidenceLabel(),
+        phaseHistory30d);
   }
 
   private void assertThemeExists(String themeId) {
@@ -383,6 +390,7 @@ public class ThemeService {
     Double flowVal = avgFlow.isPresent() ? avgFlow.getAsDouble() : null;
     String themePhase = themePhaseClassifier.classify(scoreVal, trend5dVal, trend20dVal, flowVal);
     int signalStreakDays = themeSignalStreakCounter.count(history, dominantSignal);
+    int phaseStreakDays = themePhaseHistoryService.computePhaseStreak(history, themePhase);
     Double volatility30d = themeVolatilityCalculator.calculate(history);
     Double scorePercentile30d = themeScorePercentileCalculator.calculate(history, scoreVal);
     Double concentrationRisk = themeConcentrationRiskCalculator.calculate(allConstituents);
@@ -430,6 +438,7 @@ public class ThemeService {
         topConstituents,
         alertCount30d,
         signalStreakDays,
+        phaseStreakDays,
         volatility30d,
         scorePercentile30d,
         concentrationRisk,

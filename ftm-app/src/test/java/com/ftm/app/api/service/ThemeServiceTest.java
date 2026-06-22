@@ -34,6 +34,7 @@ import com.ftm.app.themes.risk.ThemeRiskContext;
 import com.ftm.app.themes.risk.ThemeRiskLevel;
 import com.ftm.app.themes.signal.ThemeConcentrationRiskCalculator;
 import com.ftm.app.themes.signal.ThemePhaseClassifier;
+import com.ftm.app.themes.signal.ThemePhaseHistoryService;
 import com.ftm.app.themes.signal.ThemeScorePercentileCalculator;
 import com.ftm.app.themes.signal.ThemeSignalStreakCounter;
 import com.ftm.app.themes.signal.ThemeVolatilityCalculator;
@@ -71,6 +72,7 @@ class ThemeServiceTest {
   @Mock ThemeVolatilityCalculator themeVolatilityCalculator;
   @Mock ThemeScorePercentileCalculator themeScorePercentileCalculator;
   @Mock ThemeConcentrationRiskCalculator themeConcentrationRiskCalculator;
+  @Mock ThemePhaseHistoryService themePhaseHistoryService;
   @InjectMocks ThemeService themeService;
 
   @BeforeEach
@@ -93,6 +95,10 @@ class ThemeServiceTest {
         .thenReturn(null);
     lenient().when(themeConcentrationRiskCalculator.calculate(any()))
         .thenReturn(null);
+    lenient().when(themePhaseHistoryService.computePhaseStreak(any(), any()))
+        .thenReturn(0);
+    lenient().when(themePhaseHistoryService.computeHistory(any()))
+        .thenReturn(List.of());
   }
 
   private Theme theme(String id, String name) {
@@ -717,5 +723,60 @@ class ThemeServiceTest {
     // confluenceScoreService returns ConfluenceResult(50, "MODERATE") by default stub
     assertThat(result.get(0).confluenceScore()).isEqualTo(50);
     assertThat(result.get(0).confidenceLabel()).isEqualTo("MODERATE");
+  }
+
+  @Test
+  @DisplayName("getThemes delegates phaseStreakDays computation to ThemePhaseHistoryService")
+  void shouldDelegatePhaseStreakToHistoryService() {
+    when(themeRepository.findAll()).thenReturn(List.of(theme("AI_INFRA", "AI Infrastructure")));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("SEMI")));
+    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
+        .thenReturn(List.of(category(CategoryId.SEMI, "Semiconductors", "SMH")));
+    when(signalRepository.findLatestByTypes(org.mockito.ArgumentMatchers.anyList()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE, Map.of("SEMI", new BigDecimal("0.70")),
+                SignalType.RS_60, Collections.emptyMap(),
+                SignalType.FLOW_20D, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_20D, Collections.emptyMap(),
+                SignalType.RRG_QUADRANT, Collections.emptyMap(),
+                SignalType.MACRO_FIT, Collections.emptyMap(),
+                SignalType.RS_120, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+    stubHistoryEmpty();
+    when(themePhaseHistoryService.computePhaseStreak(any(), any())).thenReturn(12);
+
+    List<ThemeSummaryDto> result = themeService.getThemes();
+
+    assertThat(result.get(0).phaseStreakDays()).isEqualTo(12);
+  }
+
+  @Test
+  @DisplayName("getTheme includes phaseHistory30d from ThemePhaseHistoryService in detail response")
+  void shouldIncludePhaseHistoryInDetail() {
+    List<String> expectedHistory = List.of("MOMENTUM", "MOMENTUM", "HOLDING");
+    when(themeRepository.findAll()).thenReturn(List.of(theme("AI_INFRA", "AI Infrastructure")));
+    when(themeRepository.findAllConstituentsByTheme())
+        .thenReturn(Map.of("AI_INFRA", List.of("SEMI")));
+    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
+        .thenReturn(List.of(category(CategoryId.SEMI, "Semiconductors", "SMH")));
+    when(signalRepository.findLatestByTypes(org.mockito.ArgumentMatchers.anyList()))
+        .thenReturn(
+            Map.of(
+                SignalType.COMPOSITE, Map.of("SEMI", new BigDecimal("0.70")),
+                SignalType.RS_60, Collections.emptyMap(),
+                SignalType.FLOW_20D, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_20D, Collections.emptyMap(),
+                SignalType.RRG_QUADRANT, Collections.emptyMap(),
+                SignalType.MACRO_FIT, Collections.emptyMap(),
+                SignalType.RS_120, Collections.emptyMap(),
+                SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
+    stubHistoryEmpty();
+    when(themePhaseHistoryService.computeHistory(any())).thenReturn(expectedHistory);
+
+    ThemeDetailDto detail = themeService.getTheme("AI_INFRA");
+
+    assertThat(detail.phaseHistory30d()).isEqualTo(expectedHistory);
   }
 }

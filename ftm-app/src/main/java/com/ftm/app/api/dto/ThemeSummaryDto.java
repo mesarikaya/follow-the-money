@@ -19,6 +19,7 @@ public record ThemeSummaryDto(
     List<ThemeConstituentDto> topConstituents,
     int alertCount30d,
     int signalStreakDays,
+    int phaseStreakDays,
     Double volatility30d,
     Double scorePercentile30d,
     Double concentrationRisk,

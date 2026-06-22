@@ -191,6 +191,62 @@ class ThemeSignalCalculatorsTest {
   }
 
   @Nested
+  @DisplayName("ThemePhaseHistoryService")
+  class PhaseHistoryServiceTests {
+
+    private final ThemePhaseHistoryService service =
+        new ThemePhaseHistoryService(new ThemePhaseClassifier());
+    private final LocalDate base = LocalDate.of(2025, 6, 1);
+
+    @Test
+    @DisplayName("computeHistory returns empty list for empty history")
+    void returnsEmptyForNoHistory() {
+      assertThat(service.computeHistory(List.of())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("computeHistory classifies each day using ThemePhaseClassifier")
+    void classifiesEachDayIndependently() {
+      List<DateHistory> history = List.of(
+          new DateHistory(base.minusDays(1), 0.70, 0.008, 0.005),
+          new DateHistory(base, 0.30, null, null));
+      List<String> phases = service.computeHistory(history);
+      assertThat(phases).hasSize(2);
+      assertThat(phases.get(0)).isEqualTo("MOMENTUM");
+      assertThat(phases.get(1)).isEqualTo("WEAK");
+    }
+
+    @Test
+    @DisplayName("computePhaseStreak returns 0 for empty history")
+    void returnsZeroStreakForEmptyHistory() {
+      assertThat(service.computePhaseStreak(List.of(), "MOMENTUM")).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("computePhaseStreak counts consecutive matching phases from end")
+    void countsConsecutiveMatchingPhases() {
+      List<DateHistory> history = List.of(
+          new DateHistory(base.minusDays(3), 0.40, null, null),
+          new DateHistory(base.minusDays(2), 0.70, 0.008, 0.005),
+          new DateHistory(base.minusDays(1), 0.72, 0.009, 0.006),
+          new DateHistory(base, 0.71, 0.007, 0.005));
+      int streak = service.computePhaseStreak(history, "MOMENTUM");
+      assertThat(streak).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("computePhaseStreak breaks on phase change")
+    void breaksOnPhaseChange() {
+      List<DateHistory> history = List.of(
+          new DateHistory(base.minusDays(2), 0.70, 0.008, 0.005),
+          new DateHistory(base.minusDays(1), 0.30, null, null),
+          new DateHistory(base, 0.70, 0.008, 0.005));
+      int streak = service.computePhaseStreak(history, "MOMENTUM");
+      assertThat(streak).isEqualTo(1);
+    }
+  }
+
+  @Nested
   @DisplayName("ThemePhaseClassifier")
   class PhaseClassifierTests {
 

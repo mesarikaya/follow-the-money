@@ -755,22 +755,29 @@ function phaseFromHistory(score: number, trend5d: number, trend20d: number): str
   return "NEUTRAL";
 }
 
-function PhaseTimelineStrip({ history }: { history: ThemeHistoryPoint[] }) {
-  if (history.length < 22) return null;
-  const scores = history.map(h => h.compositeScore);
-  const phases: string[] = [];
-  for (let i = 0; i < scores.length; i++) {
-    if (i < 20) { phases.push("NEUTRAL"); continue; }
-    // Prefer actual backend trends; fall back to derived slopes if absent
-    const trend5d = history[i].trend5d ?? (scores[i] - scores[i - 5]) / 5;
-    const trend20d = history[i].trend20d ?? (scores[i] - scores[i - 20]) / 20;
-    phases.push(phaseFromHistory(scores[i], trend5d, trend20d));
-  }
+function PhaseTimelineStrip({
+  history,
+  backendPhases,
+}: {
+  history: ThemeHistoryPoint[];
+  backendPhases?: string[];
+}) {
+  const useBackend = backendPhases && backendPhases.length >= history.length && history.length >= 3;
+  if (!useBackend && history.length < 22) return null;
 
-  // Build contiguous segments from the valid range (index 20+)
+  const phases: string[] = useBackend
+    ? backendPhases!
+    : history.map((h, i) => {
+        if (i < 20) return "NEUTRAL";
+        const trend5d = h.trend5d ?? (h.compositeScore - history[i - 5].compositeScore) / 5;
+        const trend20d = h.trend20d ?? (h.compositeScore - history[i - 20].compositeScore) / 20;
+        return phaseFromHistory(h.compositeScore, trend5d, trend20d);
+      });
+
+  const startIndex = useBackend ? 0 : 20;
   const segments: { phase: string; start: number; end: number; date: string }[] = [];
-  let seg = { phase: phases[20], start: 20, end: 20, date: history[20].date };
-  for (let i = 21; i < phases.length; i++) {
+  let seg = { phase: phases[startIndex], start: startIndex, end: startIndex, date: history[startIndex]?.date ?? "" };
+  for (let i = startIndex + 1; i < phases.length; i++) {
     if (phases[i] === seg.phase) {
       seg.end = i;
     } else {
@@ -780,7 +787,7 @@ function PhaseTimelineStrip({ history }: { history: ThemeHistoryPoint[] }) {
   }
   segments.push({ ...seg });
 
-  const totalDays = phases.length - 20;
+  const totalDays = phases.length - startIndex;
   const lastThreeSegments = segments.slice(-4);
 
   return (
@@ -986,6 +993,16 @@ export default async function ThemeDetailPage({
                 </span>
               </AggMetric>
             )}
+            {theme.phaseStreakDays > 0 && (
+              <AggMetric label="Phase">
+                <span
+                  className={`text-base font-bold font-mono ${theme.phaseStreakDays >= 10 ? "text-violet-400" : theme.phaseStreakDays >= 5 ? "text-indigo-400" : "text-slate-400"}`}
+                  title={`${theme.phaseStreakDays} consecutive days in the same market phase`}
+                >
+                  {theme.phaseStreakDays}d
+                </span>
+              </AggMetric>
+            )}
             {theme.volatility30d != null && (
               <AggMetric label="Vol 30d">
                 <span
@@ -1033,7 +1050,7 @@ export default async function ThemeDetailPage({
         <ThemeAlertHistory alerts={alertHistory} />
 
         <HistoryChartSection history={history} days={days} themeId={id.toUpperCase()} />
-        <PhaseTimelineStrip history={history} />
+        <PhaseTimelineStrip history={history} backendPhases={theme.phaseHistory30d} />
         <ThemeScoreCalendar history={calendarHistory} />
 
         {allThemes.length > 1 && (

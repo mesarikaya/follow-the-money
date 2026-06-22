@@ -542,6 +542,114 @@ const PHASE_CONFIG_DETAIL: Record<string, { label: string; className: string }> 
   WEAK:      { label: "↓ WEAK",      className: "bg-red-500/15 text-red-400 border border-red-500/25" },
 };
 
+const RISK_LEVEL_CONFIG: Record<string, { label: string; className: string }> = {
+  LOW:     { label: "LOW RISK",     className: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" },
+  MEDIUM:  { label: "MEDIUM RISK",  className: "bg-cyan-500/15 text-cyan-400 border border-cyan-500/30" },
+  HIGH:    { label: "HIGH RISK",    className: "bg-amber-500/15 text-amber-400 border border-amber-500/30" },
+  EXTREME: { label: "EXTREME RISK", className: "bg-red-500/15 text-red-400 border border-red-500/30" },
+};
+
+const ENTRY_ACTION_CONFIG: Record<string, { icon: string; label: string; color: string; bg: string; border: string }> = {
+  ENTER: { icon: "↗", label: "ENTER", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30" },
+  WAIT:  { icon: "◎", label: "WAIT",  color: "text-amber-400",   bg: "bg-amber-500/10",   border: "border-amber-500/30" },
+  AVOID: { icon: "✕", label: "AVOID", color: "text-red-400",     bg: "bg-red-500/10",     border: "border-red-500/30" },
+};
+
+const ALIGNMENT_CONFIG_DETAIL: Record<string, { icon: string; label: string; className: string }> = {
+  ALIGNED_BULLISH: { icon: "↑↑", label: "Aligned Bullish", className: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" },
+  RECOVERING:      { icon: "↪↑", label: "Recovering",      className: "bg-cyan-500/15 text-cyan-400 border border-cyan-500/30" },
+  FADING:          { icon: "↗↓", label: "Fading",          className: "bg-amber-500/15 text-amber-400 border border-amber-500/30" },
+  ALIGNED_BEARISH: { icon: "↓↓", label: "Aligned Bearish", className: "bg-red-500/15 text-red-400 border border-red-500/30" },
+  NEUTRAL:         { icon: "→",  label: "Neutral",          className: "bg-slate-700/60 text-slate-400 border border-slate-600/40" },
+};
+
+const PHASE_TRANSITION_CONFIG: Record<string, { label: string; className: string }> = {
+  WATCH_FOR_ENTRY:  { label: "◉ Watch for Entry",  className: "bg-cyan-500/15 text-cyan-400 border border-cyan-500/30" },
+  APPROACHING_EXIT: { label: "⚠ Approaching Exit", className: "bg-orange-500/15 text-orange-400 border border-orange-500/30" },
+  CYCLE_RESET:      { label: "↺ Cycle Reset",      className: "bg-blue-500/15 text-blue-400 border border-blue-500/30" },
+};
+
+function RiskLevelBadge({ riskLevel }: { riskLevel: string | null }) {
+  if (!riskLevel) return null;
+  const cfg = RISK_LEVEL_CONFIG[riskLevel];
+  if (!cfg) return null;
+  return (
+    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${cfg.className}`}>
+      {cfg.label}
+    </span>
+  );
+}
+
+function EntryAdvisorCard({ entryAction, entryRationale }: { entryAction: string | null; entryRationale: string | null }) {
+  if (!entryAction) return null;
+  const cfg = ENTRY_ACTION_CONFIG[entryAction];
+  if (!cfg) return null;
+  return (
+    <div className={`rounded-lg border p-3 ${cfg.bg} ${cfg.border}`}>
+      <div className="flex items-center gap-2 mb-1">
+        <span className={`text-sm font-bold ${cfg.color}`}>{cfg.icon}</span>
+        <span className={`text-[10px] font-semibold uppercase tracking-wider ${cfg.color}`}>{cfg.label}</span>
+      </div>
+      {entryRationale && (
+        <p className="text-[11px] text-slate-300 leading-relaxed">{entryRationale}</p>
+      )}
+    </div>
+  );
+}
+
+function MomentumAlignmentRow({ momentumAlignment }: { momentumAlignment: string | null }) {
+  if (!momentumAlignment) return null;
+  const cfg = ALIGNMENT_CONFIG_DETAIL[momentumAlignment];
+  if (!cfg) return null;
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] text-slate-500 uppercase tracking-wider shrink-0">Momentum</span>
+      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${cfg.className}`} title={cfg.label}>
+        {cfg.icon} {cfg.label}
+      </span>
+    </div>
+  );
+}
+
+function PhaseTransitionBadge({ signal }: { signal: string | null }) {
+  if (!signal) return null;
+  const cfg = PHASE_TRANSITION_CONFIG[signal];
+  if (!cfg) return null;
+  return (
+    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${cfg.className}`}>
+      {cfg.label}
+    </span>
+  );
+}
+
+function IntelligencePanel({ theme }: {
+  theme: {
+    riskLevel: string | null;
+    entryAction: string | null;
+    entryRationale: string | null;
+    momentumAlignment: string | null;
+    phaseTransitionSignal: string | null;
+  };
+}) {
+  const hasAnything = theme.riskLevel || theme.entryAction || theme.momentumAlignment || theme.phaseTransitionSignal;
+  if (!hasAnything) return null;
+  return (
+    <div className="bg-slate-800/40 border border-slate-700/40 rounded-lg p-3 mb-4">
+      <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-3">Entry Intelligence</div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <EntryAdvisorCard entryAction={theme.entryAction} entryRationale={theme.entryRationale} />
+        <div className="flex flex-col gap-2 justify-center">
+          <div className="flex items-center gap-2 flex-wrap">
+            <RiskLevelBadge riskLevel={theme.riskLevel} />
+            <PhaseTransitionBadge signal={theme.phaseTransitionSignal} />
+          </div>
+          <MomentumAlignmentRow momentumAlignment={theme.momentumAlignment} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface ThemeData {
   compositeScore: number | null;
   flow20d: number | null;
@@ -840,6 +948,46 @@ export default async function ThemeDetailPage({
                 </span>
               </AggMetric>
             )}
+            {theme.signalStreakDays > 0 && (
+              <AggMetric label="Streak">
+                <span
+                  className={`text-base font-bold font-mono ${theme.signalStreakDays >= 10 ? "text-emerald-400" : theme.signalStreakDays >= 5 ? "text-cyan-400" : "text-slate-400"}`}
+                  title={`${theme.signalStreakDays} consecutive days on the same signal`}
+                >
+                  {theme.signalStreakDays}d
+                </span>
+              </AggMetric>
+            )}
+            {theme.volatility30d != null && (
+              <AggMetric label="Vol 30d">
+                <span
+                  className={`text-base font-bold font-mono ${theme.volatility30d > 0.20 ? "text-red-400" : theme.volatility30d > 0.12 ? "text-amber-400" : "text-emerald-400"}`}
+                  title="30-day annualized composite score volatility"
+                >
+                  {(theme.volatility30d * 100).toFixed(1)}%
+                </span>
+              </AggMetric>
+            )}
+            {theme.scorePercentile30d != null && (
+              <AggMetric label="Pctile">
+                <span
+                  className={`text-base font-bold font-mono ${theme.scorePercentile30d >= 80 ? "text-emerald-400" : theme.scorePercentile30d >= 50 ? "text-cyan-400" : theme.scorePercentile30d >= 25 ? "text-amber-400" : "text-red-400"}`}
+                  title="Score percentile rank over the last 30 days"
+                >
+                  {Math.round(theme.scorePercentile30d)}p
+                </span>
+              </AggMetric>
+            )}
+            {theme.concentrationRisk != null && (
+              <AggMetric label="Conc.Risk">
+                <span
+                  className={`text-base font-bold font-mono ${theme.concentrationRisk > 0.70 ? "text-red-400" : theme.concentrationRisk > 0.45 ? "text-amber-400" : "text-emerald-400"}`}
+                  title="Concentration risk: how much of the theme is driven by a single constituent"
+                >
+                  {Math.round(theme.concentrationRisk * 100)}
+                </span>
+              </AggMetric>
+            )}
           </div>
           <SignalDistributionBar constituents={theme.constituents} />
           <ConstituentScoreSpread constituents={theme.constituents} />
@@ -850,6 +998,8 @@ export default async function ThemeDetailPage({
             </div>
           )}
         </div>
+
+        <IntelligencePanel theme={theme} />
 
         {themeAlerts.length > 0 && <ThemeDetailAlerts alerts={themeAlerts} />}
         <ThemeAlertHistory alerts={alertHistory} />

@@ -1498,3 +1498,32 @@ test.describe("Theme Screener — Concentration Risk & Percentile (EP-075)", () 
     await expect(page.getByText("CONC").first()).toBeVisible();
   });
 });
+
+test.describe("Theme Screener — Investment Quality Score (EP-076)", () => {
+  test("shows Smart Money Picks panel on themes page", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("smart-money-picks-panel")).toBeVisible();
+  });
+
+  test("Smart Money Picks panel shows top 3 themes by IQ score", async ({ page }) => {
+    await page.goto("/themes");
+    const panel = page.getByTestId("smart-money-picks-panel");
+    // Panel should contain exactly 3 rows (rank 1, 2, 3)
+    const rows = panel.locator("a[href^='/themes/']");
+    await expect(rows).toHaveCount(3);
+  });
+
+  test("IQ score column is visible in theme screener rows", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("screener-iq-cell").first()).toBeVisible();
+  });
+
+  test("IQ sort shows highest-quality themes first", async ({ page }) => {
+    await page.goto("/themes?sort=iq");
+    const badges = page.getByTestId("screener-iq-badge");
+    await expect(badges.first()).toBeVisible();
+    const firstScore = parseInt((await badges.first().textContent()) ?? "0", 10);
+    const secondScore = parseInt((await badges.nth(1).textContent()) ?? "0", 10);
+    expect(firstScore).toBeGreaterThanOrEqual(secondScore);
+  });
+});

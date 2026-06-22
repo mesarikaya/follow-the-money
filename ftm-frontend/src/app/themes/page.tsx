@@ -1194,6 +1194,76 @@ function getThemeUniqueSectors(theme: ThemeSummary): string[] {
   return [...seen].slice(0, 3);
 }
 
+function SmartMoneyPicksPanel({ themes }: { themes: ThemeSummary[] }) {
+  const top3 = [...themes]
+    .filter(t => t.investmentQualityScore != null)
+    .sort((a, b) => (b.investmentQualityScore ?? 0) - (a.investmentQualityScore ?? 0))
+    .slice(0, 3);
+
+  if (top3.length === 0) return null;
+
+  return (
+    <div
+      data-testid="smart-money-picks-panel"
+      className="mb-4 bg-slate-800/40 border border-slate-700/40 rounded-lg overflow-hidden"
+    >
+      <div className="px-4 py-2.5 border-b border-slate-700/30 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
+            Smart Money Picks
+          </span>
+          <span className="text-[10px] font-mono text-slate-600">· highest investment quality score</span>
+        </div>
+        <Link
+          href="/themes?sort=iq"
+          className="text-[9px] font-mono text-slate-600 hover:text-cyan-400 transition-colors"
+        >
+          sort by IQ →
+        </Link>
+      </div>
+      <div className="divide-y divide-slate-700/20">
+        {top3.map((t, rank) => {
+          const iq = t.investmentQualityScore!;
+          const iqPct = Math.round(iq * 100);
+          const iqColor =
+            iq >= 0.75 ? "text-emerald-400"
+            : iq >= 0.60 ? "text-cyan-400"
+            : "text-amber-400";
+          const barColor =
+            iq >= 0.75 ? "bg-emerald-500"
+            : iq >= 0.60 ? "bg-cyan-500"
+            : "bg-amber-500";
+          const signal = SIGNAL_CONFIG[t.dominantSignal] ?? SIGNAL_CONFIG.HOLD;
+          return (
+            <div key={t.id} className="flex items-center gap-4 px-4 py-2.5">
+              <span className="text-[11px] font-mono text-slate-600 tabular-nums w-4 shrink-0">
+                {rank + 1}
+              </span>
+              <Link
+                href={`/themes/${t.id}`}
+                className="text-[11px] font-semibold text-slate-200 hover:text-cyan-300 transition-colors min-w-0 truncate flex-1"
+              >
+                {t.name}
+              </Link>
+              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded shrink-0 ${signal.bg} ${signal.color}`}>
+                {signal.label}
+              </span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full ${barColor}`} style={{ width: `${iqPct}%` }} />
+                </div>
+                <span className={`text-[11px] font-mono font-semibold tabular-nums ${iqColor}`}>
+                  {iqPct}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function SortLink({ label, sortKey, currentSort, title }: { label: string; sortKey: string; currentSort: string; title?: string }) {
   const isActive = currentSort === sortKey;
   return (
@@ -1249,6 +1319,9 @@ function ThemeScreener({
     if (sort === "percentile") {
       return [...themes].sort((a, b) => (a.scorePercentile30d ?? 1) - (b.scorePercentile30d ?? 1));
     }
+    if (sort === "iq") {
+      return [...themes].sort((a, b) => (b.investmentQualityScore ?? -1) - (a.investmentQualityScore ?? -1));
+    }
     return sortedByScore;
   })();
 
@@ -1292,6 +1365,7 @@ function ThemeScreener({
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Pct" sortKey="percentile" currentSort={sort} title="Sort by 30-day score percentile (ascending = cheapest vs recent history)" /></th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Sector concentration risk: fraction of constituents in dominant parent sector">Conc</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Alerts" sortKey="alerts" currentSort={sort} title="Sort by active alert count" /></th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider" title="Sort by multi-factor Investment Quality score (signal strength 40% · conviction 25% · stability 20% · momentum 10% · flow 5%)"><SortLink label="IQ" sortKey="iq" currentSort={sort} title="Sort by Investment Quality Score — composite of signal strength, conviction, stability, momentum, and flow" /></th>
             </tr>
           </thead>
           <tbody>
@@ -1522,6 +1596,35 @@ function ThemeScreener({
                       <span className="text-slate-700 text-[10px]">—</span>
                     )}
                   </td>
+                  <td className="py-2 px-3" data-testid="screener-iq-cell">
+                    {t.investmentQualityScore != null ? (
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-10 h-1 bg-slate-700 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${
+                              t.investmentQualityScore >= 0.75 ? "bg-emerald-500"
+                              : t.investmentQualityScore >= 0.60 ? "bg-cyan-500"
+                              : t.investmentQualityScore >= 0.45 ? "bg-amber-500"
+                              : "bg-red-500"
+                            }`}
+                            style={{ width: `${Math.round(t.investmentQualityScore * 100)}%` }}
+                          />
+                        </div>
+                        <span
+                          data-testid="screener-iq-badge"
+                          className={`text-[10px] font-mono tabular-nums ${
+                            t.investmentQualityScore >= 0.75 ? "text-emerald-400"
+                            : t.investmentQualityScore >= 0.60 ? "text-cyan-400"
+                            : t.investmentQualityScore >= 0.45 ? "text-amber-400"
+                            : "text-red-400"
+                          }`}
+                          title={`Investment Quality Score: ${Math.round(t.investmentQualityScore * 100)} — signal strength 40% · conviction 25% · stability 20% · momentum 10% · flow 5%`}
+                        >
+                          {Math.round(t.investmentQualityScore * 100)}
+                        </span>
+                      </div>
+                    ) : <span className="text-slate-700 text-[10px]">—</span>}
+                  </td>
                 </tr>
               );
             })}
@@ -1740,7 +1843,7 @@ export default async function ThemesPage({
   searchParams: Promise<{ sort?: string }>;
 }) {
   const { sort: sortParam } = await searchParams;
-  const screenerSort = ["score", "delta5d", "alerts", "rs60", "velocity", "percentile"].includes(sortParam ?? "") ? sortParam as string : "score";
+  const screenerSort = ["score", "delta5d", "alerts", "rs60", "velocity", "percentile", "iq"].includes(sortParam ?? "") ? sortParam as string : "score";
 
   const [themes, alertsResponse, recentAlerts] = await Promise.all([
     fetchThemes(),
@@ -1845,6 +1948,7 @@ export default async function ThemesPage({
         {themes.length > 1 && <ThemePositioningMatrix themes={themes} />}
         {themes.length > 1 && <ThemeRaceChart themes={themes} historiesByThemeId={historyByThemeId} />}
         {themes.length > 1 && <ThemeAlertRiskMap themes={themes} />}
+        {themes.length > 0 && <SmartMoneyPicksPanel themes={themes} />}
         {themes.length > 0 && <ThemeScreener themes={themes} historiesByThemeId={historyByThemeId} alertsByThemeId={alertsByThemeId} sort={screenerSort} />}
         {themes.length > 1 && <ThemeScoreHeatmap themes={themes} historiesByThemeId={historyByThemeId} />}
 

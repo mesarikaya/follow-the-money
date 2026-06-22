@@ -661,6 +661,7 @@ export type ThemeSummary = {
   volatility30d: number | null;
   scorePercentile30d: number | null;
   concentrationRisk: number | null;
+  investmentQualityScore: number | null;
 };
 
 export type ThemeDetail = ThemeSummary & {

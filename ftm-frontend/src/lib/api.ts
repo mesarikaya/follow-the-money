@@ -669,6 +669,8 @@ export type ThemeSummary = {
   momentumAlignment: string | null;
   confluenceScore: number;
   confidenceLabel: string;
+  persistenceScore: number;
+  persistenceGrade: string;
 };
 
 export type ThemeDetail = ThemeSummary & {

@@ -1033,6 +1033,21 @@ export default async function ThemeDetailPage({
                 </span>
               </AggMetric>
             )}
+            <AggMetric label="Persist">
+              <span
+                data-testid="persistence-grade-badge"
+                className={`text-base font-bold font-mono ${
+                  theme.persistenceGrade === "A" ? "text-emerald-400"
+                  : theme.persistenceGrade === "B" ? "text-cyan-400"
+                  : theme.persistenceGrade === "C" ? "text-amber-400"
+                  : theme.persistenceGrade === "D" ? "text-orange-400"
+                  : "text-red-400"
+                }`}
+                title={`Phase persistence: ${theme.persistenceScore}% of last 30 days in a strong phase (BREAKOUT/MOMENTUM/SETUP). Grade ${theme.persistenceGrade}`}
+              >
+                {theme.persistenceGrade}
+              </span>
+            </AggMetric>
           </div>
           <SignalDistributionBar constituents={theme.constituents} />
           <ConstituentScoreSpread constituents={theme.constituents} />

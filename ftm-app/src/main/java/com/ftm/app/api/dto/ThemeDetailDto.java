@@ -30,4 +30,6 @@ public record ThemeDetailDto(
     String momentumAlignment,
     int confluenceScore,
     String confidenceLabel,
+    int persistenceScore,
+    String persistenceGrade,
     List<String> phaseHistory30d) {}

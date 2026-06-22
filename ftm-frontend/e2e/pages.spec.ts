@@ -1523,3 +1523,38 @@ test.describe("Theme Detail — Phase Streak & History (EP-087)", () => {
     await expect(page.getByText("Phase Timeline")).toBeVisible();
   });
 });
+
+test.describe("Theme Persistence Score (EP-088)", () => {
+  test("screener shows persistence grade badge for each theme", async ({ page }) => {
+    await page.goto("/themes");
+    const cells = page.getByTestId("screener-persistence-cell");
+    await expect(cells.first()).toBeVisible();
+    // AI_INFRA has persistenceGrade A
+    await expect(page.getByTestId("screener-persistence-cell").filter({ hasText: "A" }).first()).toBeVisible();
+  });
+
+  test("theme detail shows persistence grade badge with correct grade", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    await expect(page.getByText("Persist").first()).toBeVisible();
+    await expect(page.getByTestId("persistence-grade-badge")).toBeVisible();
+    await expect(page.getByTestId("persistence-grade-badge")).toHaveText("A");
+  });
+
+  test("screener includes a grade F badge for low-persistence themes", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("screener-persistence-cell").first()).toBeVisible();
+    const allCells = await page.getByTestId("screener-persistence-cell").all();
+    const grades = await Promise.all(allCells.map(c => c.innerText()));
+    expect(grades.map(g => g.trim())).toContain("F");
+  });
+
+  test("persistence column header link is present in screener", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("screener-persistence-cell").first()).toBeVisible();
+    // Sort link for Persist column is present and points to sort=persistence URL
+    const sortLink = page.getByRole("link", { name: "Persist" });
+    await expect(sortLink).toBeVisible();
+    const href = await sortLink.getAttribute("href");
+    expect(href).toContain("sort=persistence");
+  });
+});

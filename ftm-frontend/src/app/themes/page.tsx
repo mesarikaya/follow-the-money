@@ -1328,7 +1328,25 @@ function getThemeUniqueSectors(theme: ThemeSummary): string[] {
   return [...seen].slice(0, 3);
 }
 
-type ScreenerParams = { sort?: string; signal?: string; phase?: string; entry?: string; confidence?: string };
+type ViewPreset = "essential" | "standard" | "full";
+
+type ScreenerParams = { sort?: string; signal?: string; phase?: string; entry?: string; confidence?: string; view?: string };
+
+const ESSENTIAL_COLS = new Set([
+  "rank", "rankDelta", "theme", "sector", "signal", "score",
+  "trend5d", "phase", "iqs", "bullish", "alerts",
+]);
+
+const STANDARD_COLS = new Set([
+  ...ESSENTIAL_COLS,
+  "rs60", "entry", "momentum", "trend", "persist", "conf",
+]);
+
+function isVisible(col: string, view: ViewPreset): boolean {
+  if (view === "full") return true;
+  if (view === "standard") return STANDARD_COLS.has(col);
+  return ESSENTIAL_COLS.has(col);
+}
 
 function buildScreenerUrl(current: ScreenerParams, overrides: Partial<ScreenerParams>): string {
   const merged = { ...current, ...overrides };
@@ -1378,6 +1396,30 @@ function FilterChip({
       {isActive && <span className="mr-0.5 text-cyan-400">✕</span>}
       {label}
     </Link>
+  );
+}
+
+function ViewSwitcher({ view, allParams }: { view: ViewPreset; allParams: ScreenerParams }) {
+  const colCount = view === "full" ? 23 : view === "standard" ? 17 : 11;
+  return (
+    <div className="flex items-center gap-1.5" data-testid="view-switcher">
+      <span className="text-[9px] font-mono text-slate-600 uppercase tracking-wider mr-0.5">Cols:</span>
+      {(["essential", "standard", "full"] as ViewPreset[]).map(v => (
+        <Link
+          key={v}
+          data-testid={`view-${v}`}
+          href={buildScreenerUrl(allParams, { view: v === "standard" ? undefined : v })}
+          className={`text-[9px] font-mono px-2 py-0.5 rounded border transition-colors ${
+            view === v
+              ? "bg-slate-700/60 text-slate-300 border-slate-600/50"
+              : "text-slate-600 border-transparent hover:text-slate-400 hover:border-slate-700/40"
+          }`}
+        >
+          {v}
+        </Link>
+      ))}
+      <span className="text-[9px] font-mono text-slate-700">{colCount}c</span>
+    </div>
   );
 }
 
@@ -1471,6 +1513,7 @@ function ThemeScreener({
   alertsByThemeId,
   sort,
   allParams,
+  view,
 }: {
   themes: ThemeSummary[];
   allThemes: ThemeSummary[];
@@ -1478,6 +1521,7 @@ function ThemeScreener({
   alertsByThemeId: Record<string, number>;
   sort: string;
   allParams: ScreenerParams;
+  view: ViewPreset;
 }) {
   if (allThemes.length === 0) return null;
 
@@ -1536,10 +1580,13 @@ function ThemeScreener({
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   priorSorted.forEach((x, rank) => { priorRankById[x.id] = rank + 1; });
 
+  const columnCount = view === "full" ? 23 : view === "standard" ? 17 : 11;
+
   return (
     <div className="bg-slate-800/40 border border-slate-700/60 rounded-lg overflow-hidden mb-4">
       <div className="px-3 py-2 border-b border-slate-700/40 flex items-center justify-between">
         <span className="text-[10px] text-slate-500 uppercase tracking-wider font-mono">Theme Screener · Live Rankings</span>
+        <ViewSwitcher view={view} allParams={allParams} />
       </div>
       <ThemeScreenerFilterBar allParams={allParams} totalCount={allThemes.length} filteredCount={themes.length} />
       <div className="overflow-x-auto">
@@ -1553,28 +1600,28 @@ function ThemeScreener({
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Signal</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Score" sortKey="score" currentSort={sort} title="Sort by composite score" allParams={allParams} /></th>
               <th className="py-1.5 px-2 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="5d Δ" sortKey="delta5d" currentSort={sort} title="Sort by 5-day score momentum" allParams={allParams} /></th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="RS-60" sortKey="rs60" currentSort={sort} title="Sort by 60-day relative strength vs SPY" allParams={allParams} /></th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Flow</th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">vs Sectors</th>
+              {isVisible("rs60", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="RS-60" sortKey="rs60" currentSort={sort} title="Sort by 60-day relative strength vs SPY" allParams={allParams} /></th>}
+              {isVisible("flow", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Flow</th>}
+              {isVisible("vsSectors", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">vs Sectors</th>}
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Phase</th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Server-side phase transition signal">Trans</th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Multi-dimension risk score">Risk</th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Entry timing advisory — ENTER, SCALE IN, WATCH, or AVOID">Entry</th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="5d vs 20d momentum alignment">Mom</th>
+              {isVisible("transition", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Server-side phase transition signal">Trans</th>}
+              {isVisible("risk", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Multi-dimension risk score">Risk</th>}
+              {isVisible("entry", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Entry timing advisory — ENTER, SCALE IN, WATCH, or AVOID">Entry</th>}
+              {isVisible("momentum", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="5d vs 20d momentum alignment">Mom</th>}
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Bullish</th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Trend" sortKey="velocity" currentSort={sort} title="Sort by momentum acceleration (5d trend vs 20d)" allParams={allParams} /></th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Pct" sortKey="percentile" currentSort={sort} title="Sort by 30-day score percentile (ascending = cheapest vs recent history)" allParams={allParams} /></th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Sector concentration risk: fraction of constituents in dominant parent sector">Conc</th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Persist" sortKey="persistence" currentSort={sort} title="Sort by phase persistence grade — how consistently the theme has been in a strong phase over 30 days (A=best)" allParams={allParams} /></th>
+              {isVisible("trend", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Trend" sortKey="velocity" currentSort={sort} title="Sort by momentum acceleration (5d trend vs 20d)" allParams={allParams} /></th>}
+              {isVisible("percentile", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Pct" sortKey="percentile" currentSort={sort} title="Sort by 30-day score percentile (ascending = cheapest vs recent history)" allParams={allParams} /></th>}
+              {isVisible("concentration", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Sector concentration risk: fraction of constituents in dominant parent sector">Conc</th>}
+              {isVisible("persist", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Persist" sortKey="persistence" currentSort={sort} title="Sort by phase persistence grade — how consistently the theme has been in a strong phase over 30 days (A=best)" allParams={allParams} /></th>}
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="IQS" sortKey="iqs" currentSort={sort} title="Sort by Investment Quality Score — composite of signal quality (50%), value zone (20%), diversification (15%), and volatility (15%)" allParams={allParams} /></th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Conf" sortKey="confluence" currentSort={sort} title="Sort by signal confluence score (0-100)" allParams={allParams} /></th>
+              {isVisible("conf", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Conf" sortKey="confluence" currentSort={sort} title="Sort by signal confluence score (0-100)" allParams={allParams} /></th>}
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Alerts" sortKey="alerts" currentSort={sort} title="Sort by active alert count" allParams={allParams} /></th>
             </tr>
           </thead>
           <tbody>
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={23} className="py-8 text-center">
+                <td colSpan={columnCount} className="py-8 text-center">
                   <p className="text-[11px] text-slate-500">No themes match the active filters.</p>
                   <Link
                     href={buildScreenerUrl(allParams, { signal: undefined, phase: undefined, entry: undefined })}
@@ -1702,23 +1749,23 @@ function ThemeScreener({
                       <span className="text-slate-700">0</span>
                     )}
                   </td>
-                  <td className="py-2 px-3">
+                  {isVisible("rs60", view) && <td className="py-2 px-3">
                     <span className={`text-[10px] font-mono tabular-nums ${rsClr}`}>
                       {t.rs60 != null ? `${t.rs60 > 0 ? "+" : ""}${(t.rs60 * 100).toFixed(1)}%` : "—"}
                     </span>
-                  </td>
-                  <td className="py-2 px-3">
+                  </td>}
+                  {isVisible("flow", view) && <td className="py-2 px-3">
                     <span className={`text-[10px] font-mono tabular-nums ${flowClr}`}>
                       {t.flow20d != null ? `${flowArrow} ${Math.abs(t.flow20d).toFixed(1)}σ` : "—"}
                     </span>
-                  </td>
-                  <td className="py-2 px-3">
+                  </td>}
+                  {isVisible("vsSectors", view) && <td className="py-2 px-3">
                     {divPts != null ? (
                       <span className={`text-[10px] font-mono tabular-nums ${divPts > 2 ? "text-emerald-400" : divPts < -2 ? "text-red-400" : "text-slate-400"}`}>
                         {divPts > 0 ? "+" : ""}{divPts}pt
                       </span>
                     ) : <span className="text-slate-600 text-[10px]">—</span>}
-                  </td>
+                  </td>}
                   <td className="py-2 px-3">
                     <div className="flex items-center gap-1">
                       <ThemePhaseBadge phase={t.themePhase ?? null} />
@@ -1736,18 +1783,18 @@ function ThemeScreener({
                       )}
                     </div>
                   </td>
-                  <td className="py-2 px-3">
+                  {isVisible("transition", view) && <td className="py-2 px-3">
                     <PhaseTransitionBadge signal={t.phaseTransitionSignal ?? null} />
-                  </td>
-                  <td className="py-2 px-3">
+                  </td>}
+                  {isVisible("risk", view) && <td className="py-2 px-3">
                     <RiskLevelBadge riskLevel={t.riskLevel ?? null} />
-                  </td>
-                  <td className="py-2 px-3">
+                  </td>}
+                  {isVisible("entry", view) && <td className="py-2 px-3">
                     <EntryActionBadge action={t.entryAction ?? null} rationale={t.entryRationale ?? null} />
-                  </td>
-                  <td className="py-2 px-3">
+                  </td>}
+                  {isVisible("momentum", view) && <td className="py-2 px-3">
                     <MomentumAlignmentBadge alignment={t.momentumAlignment ?? null} />
-                  </td>
+                  </td>}
                   <td className="py-2 px-3">
                     <div className="flex items-center gap-1.5" title={`${t.bullishCount}/${t.constituentCount} ETFs bullish (BUY or WATCH)`}>
                       <div className="flex h-2 w-10 rounded-full overflow-hidden bg-slate-700 gap-px">
@@ -1763,7 +1810,7 @@ function ThemeScreener({
                       </span>
                     </div>
                   </td>
-                  <td className="py-2 px-3">
+                  {isVisible("trend", view) && <td className="py-2 px-3">
                     <span className={`text-[10px] font-mono ${trendClr}`}>
                       {trendArrow}{t.compositeTrend20d != null ? ` ${t.compositeTrend20d > 0 ? "+" : ""}${(t.compositeTrend20d * 100).toFixed(1)}pt` : ""}
                       {accel != null && Math.abs(accel) > 0.002 && (
@@ -1774,8 +1821,8 @@ function ThemeScreener({
                         </span>
                       )}
                     </span>
-                  </td>
-                  <td className="py-2 px-3">
+                  </td>}
+                  {isVisible("percentile", view) && <td className="py-2 px-3">
                     {t.scorePercentile30d != null ? (
                       <span
                         data-testid="screener-percentile-badge"
@@ -1793,8 +1840,8 @@ function ThemeScreener({
                     ) : (
                       <span className="text-slate-700 text-[10px]">—</span>
                     )}
-                  </td>
-                  <td className="py-2 px-3" data-testid="screener-concentration-cell">
+                  </td>}
+                  {isVisible("concentration", view) && <td className="py-2 px-3" data-testid="screener-concentration-cell">
                     {t.concentrationRisk != null ? (
                       <span
                         className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
@@ -1811,8 +1858,8 @@ function ThemeScreener({
                     ) : (
                       <span className="text-slate-700 text-[10px]">—</span>
                     )}
-                  </td>
-                  <td className="py-2 px-3" data-testid="screener-persistence-cell">
+                  </td>}
+                  {isVisible("persist", view) && <td className="py-2 px-3" data-testid="screener-persistence-cell">
                     <span
                       className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${
                         t.persistenceGrade === "A"
@@ -1829,7 +1876,7 @@ function ThemeScreener({
                     >
                       {t.persistenceGrade}
                     </span>
-                  </td>
+                  </td>}
                   <td className="py-2 px-3" data-testid="screener-iqs-cell">
                     <span
                       className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${
@@ -1848,9 +1895,9 @@ function ThemeScreener({
                       {t.investmentQualityGrade}
                     </span>
                   </td>
-                  <td className="py-2 px-3">
+                  {isVisible("conf", view) && <td className="py-2 px-3">
                     <ConfluenceBadge confluenceScore={t.confluenceScore} confidenceLabel={t.confidenceLabel} />
-                  </td>
+                  </td>}
                   <td className="py-2 px-3">
                     {alertCount > 0 ? (
                       <span
@@ -2340,16 +2387,18 @@ function MomentumDivergencePanel({ themes }: { themes: ThemeSummary[] }) {
 export default async function ThemesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; signal?: string; phase?: string; entry?: string; confidence?: string }>;
+  searchParams: Promise<{ sort?: string; signal?: string; phase?: string; entry?: string; confidence?: string; view?: string }>;
 }) {
-  const { sort: sortParam, signal: signalFilter, phase: phaseFilter, entry: entryFilter, confidence: confidenceFilter } = await searchParams;
-  const screenerSort = ["score", "delta5d", "alerts", "rs60", "velocity", "percentile", "confluence"].includes(sortParam ?? "") ? sortParam as string : "score";
+  const { sort: sortParam, signal: signalFilter, phase: phaseFilter, entry: entryFilter, confidence: confidenceFilter, view: viewParam } = await searchParams;
+  const screenerSort = ["score", "delta5d", "alerts", "rs60", "velocity", "percentile", "confluence", "persistence", "iqs"].includes(sortParam ?? "") ? sortParam as string : "score";
+  const view: ViewPreset = viewParam === "essential" ? "essential" : viewParam === "full" ? "full" : "standard";
   const allParams: ScreenerParams = {
     sort: sortParam,
     signal: signalFilter,
     phase: phaseFilter,
     entry: entryFilter,
     confidence: confidenceFilter,
+    view: view === "standard" ? undefined : view,
   };
 
   const [themes, alertsResponse, recentAlerts, rotationData] = await Promise.all([
@@ -2469,7 +2518,7 @@ export default async function ThemesPage({
         {themes.length > 1 && <ThemePositioningMatrix themes={themes} />}
         {themes.length > 1 && <ThemeRaceChart themes={themes} historiesByThemeId={historyByThemeId} />}
         {themes.length > 1 && <ThemeAlertRiskMap themes={themes} />}
-        {themes.length > 0 && <ThemeScreener themes={filteredThemes} allThemes={themes} historiesByThemeId={historyByThemeId} alertsByThemeId={alertsByThemeId} sort={screenerSort} allParams={allParams} />}
+        {themes.length > 0 && <ThemeScreener themes={filteredThemes} allThemes={themes} historiesByThemeId={historyByThemeId} alertsByThemeId={alertsByThemeId} sort={screenerSort} allParams={allParams} view={view} />}
         {themes.length > 1 && <ThemeScoreHeatmap themes={themes} historiesByThemeId={historyByThemeId} />}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">

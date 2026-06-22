@@ -1470,19 +1470,19 @@ test.describe("Dashboard — Theme Leaderboard Value Zone (EP-074)", () => {
 
 test.describe("Theme Screener — Concentration Risk & Percentile (EP-075)", () => {
   test("shows percentile badge in theme screener rows", async ({ page }) => {
-    await page.goto("/themes");
+    await page.goto("/themes?view=full");
     // At least one screener-percentile-badge should appear (e.g., P78 for AI_INFRA)
     await expect(page.getByTestId("screener-percentile-badge").first()).toBeVisible();
   });
 
   test("shows concentration risk cell in theme screener rows", async ({ page }) => {
-    await page.goto("/themes");
+    await page.goto("/themes?view=full");
     // Concentration risk column present (CONC/MOD/DIV labels)
     await expect(page.getByTestId("screener-concentration-cell").first()).toBeVisible();
   });
 
   test("percentile sort shows cheapest themes first", async ({ page }) => {
-    await page.goto("/themes?sort=percentile");
+    await page.goto("/themes?view=full&sort=percentile");
     // First percentile badge should be the lowest percentile (P15 for SAAS_AT_RISK, P25 for BIOTECH)
     const firstBadge = page.getByTestId("screener-percentile-badge").first();
     await expect(firstBadge).toBeVisible();
@@ -1493,7 +1493,7 @@ test.describe("Theme Screener — Concentration Risk & Percentile (EP-075)", () 
   });
 
   test("concentration risk shows CONC for single-sector themes", async ({ page }) => {
-    await page.goto("/themes?sort=percentile");
+    await page.goto("/themes?view=full&sort=percentile");
     // Themes with concentrationRisk=1.0 show "CONC" badge (AI_INFRA, PHYSICAL_AI, BIOTECH, FINANCIAL, RESHORING)
     await expect(page.getByText("CONC").first()).toBeVisible();
   });
@@ -1589,5 +1589,62 @@ test.describe("Theme Investment Quality Score (EP-089)", () => {
     await expect(sortLink).toBeVisible();
     const href = await sortLink.getAttribute("href");
     expect(href).toContain("sort=iqs");
+  });
+});
+
+test.describe("Screener Column Presets (EP-090)", () => {
+  test("standard view (default) shows IQS and Persist columns", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("screener-iqs-cell").first()).toBeVisible();
+    await expect(page.getByTestId("screener-persistence-cell").first()).toBeVisible();
+  });
+
+  test("standard view (default) hides percentile and concentration columns", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("screener-percentile-badge")).toHaveCount(0);
+    await expect(page.getByTestId("screener-concentration-cell")).toHaveCount(0);
+  });
+
+  test("essential view hides Persist column but keeps IQS", async ({ page }) => {
+    await page.goto("/themes?view=essential");
+    await expect(page.getByTestId("screener-iqs-cell").first()).toBeVisible();
+    await expect(page.getByTestId("screener-persistence-cell")).toHaveCount(0);
+  });
+
+  test("full view shows all columns including percentile and concentration", async ({ page }) => {
+    await page.goto("/themes?view=full");
+    await expect(page.getByTestId("screener-percentile-badge").first()).toBeVisible();
+    await expect(page.getByTestId("screener-concentration-cell").first()).toBeVisible();
+    await expect(page.getByTestId("screener-persistence-cell").first()).toBeVisible();
+    await expect(page.getByTestId("screener-iqs-cell").first()).toBeVisible();
+  });
+
+  test("view switcher renders essential, standard, and full links", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("view-switcher")).toBeVisible();
+    await expect(page.getByTestId("view-essential")).toBeVisible();
+    await expect(page.getByTestId("view-standard")).toBeVisible();
+    await expect(page.getByTestId("view-full")).toBeVisible();
+  });
+
+  test("clicking full view link navigates to view=full URL", async ({ page }) => {
+    await page.goto("/themes");
+    await page.click('[data-testid="view-full"]');
+    await expect(page).toHaveURL(/view=full/);
+    await expect(page.getByTestId("screener-percentile-badge").first()).toBeVisible();
+  });
+
+  test("clicking essential view preserves active sort param", async ({ page }) => {
+    await page.goto("/themes?sort=iqs");
+    await page.click('[data-testid="view-essential"]');
+    await expect(page).toHaveURL(/view=essential/);
+    await expect(page).toHaveURL(/sort=iqs/);
+  });
+
+  test("standard view is active by default with no view param in URL", async ({ page }) => {
+    await page.goto("/themes");
+    const standardLink = page.getByTestId("view-standard");
+    const className = await standardLink.getAttribute("class");
+    expect(className).toContain("text-slate-300");
   });
 });

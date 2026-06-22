@@ -20,6 +20,11 @@ import com.ftm.app.themes.entry.EntryTimingContext;
 import com.ftm.app.themes.momentum.MomentumDivergenceClassifier;
 import com.ftm.app.themes.risk.ThemeRiskAggregator;
 import com.ftm.app.themes.risk.ThemeRiskContext;
+import com.ftm.app.themes.signal.ThemeConcentrationRiskCalculator;
+import com.ftm.app.themes.signal.ThemePhaseClassifier;
+import com.ftm.app.themes.signal.ThemeScorePercentileCalculator;
+import com.ftm.app.themes.signal.ThemeSignalStreakCounter;
+import com.ftm.app.themes.signal.ThemeVolatilityCalculator;
 import com.ftm.app.themes.transition.PhaseTransitionContext;
 import com.ftm.app.themes.transition.PhaseTransitionDetector;
 import java.math.BigDecimal;
@@ -46,6 +51,11 @@ public class ThemeService {
   private final EntryTimingAdvisor entryTimingAdvisor;
   private final MomentumDivergenceClassifier momentumDivergenceClassifier;
   private final ConfluenceScoreService confluenceScoreService;
+  private final ThemePhaseClassifier themePhaseClassifier;
+  private final ThemeSignalStreakCounter themeSignalStreakCounter;
+  private final ThemeVolatilityCalculator themeVolatilityCalculator;
+  private final ThemeScorePercentileCalculator themeScorePercentileCalculator;
+  private final ThemeConcentrationRiskCalculator themeConcentrationRiskCalculator;
 
   public ThemeService(
       ThemeRepository themeRepository,
@@ -56,7 +66,12 @@ public class ThemeService {
       ThemeRiskAggregator themeRiskAggregator,
       EntryTimingAdvisor entryTimingAdvisor,
       MomentumDivergenceClassifier momentumDivergenceClassifier,
-      ConfluenceScoreService confluenceScoreService) {
+      ConfluenceScoreService confluenceScoreService,
+      ThemePhaseClassifier themePhaseClassifier,
+      ThemeSignalStreakCounter themeSignalStreakCounter,
+      ThemeVolatilityCalculator themeVolatilityCalculator,
+      ThemeScorePercentileCalculator themeScorePercentileCalculator,
+      ThemeConcentrationRiskCalculator themeConcentrationRiskCalculator) {
     this.themeRepository = themeRepository;
     this.categoryRepository = categoryRepository;
     this.signalRepository = signalRepository;
@@ -66,6 +81,11 @@ public class ThemeService {
     this.entryTimingAdvisor = entryTimingAdvisor;
     this.momentumDivergenceClassifier = momentumDivergenceClassifier;
     this.confluenceScoreService = confluenceScoreService;
+    this.themePhaseClassifier = themePhaseClassifier;
+    this.themeSignalStreakCounter = themeSignalStreakCounter;
+    this.themeVolatilityCalculator = themeVolatilityCalculator;
+    this.themeScorePercentileCalculator = themeScorePercentileCalculator;
+    this.themeConcentrationRiskCalculator = themeConcentrationRiskCalculator;
   }
 
   @Cacheable("themes-latest")
@@ -361,11 +381,11 @@ public class ThemeService {
     Double trend5dVal = avgTrend5d.isPresent() ? avgTrend5d.getAsDouble() : null;
     Double trend20dVal = avgTrend.isPresent() ? avgTrend.getAsDouble() : null;
     Double flowVal = avgFlow.isPresent() ? avgFlow.getAsDouble() : null;
-    String themePhase = computeThemePhase(scoreVal, trend5dVal, trend20dVal, flowVal);
-    int signalStreakDays = computeSignalStreak(history, dominantSignal);
-    Double volatility30d = computeVolatility(history);
-    Double scorePercentile30d = computeScorePercentile(history, scoreVal);
-    Double concentrationRisk = computeConcentrationRisk(allConstituents);
+    String themePhase = themePhaseClassifier.classify(scoreVal, trend5dVal, trend20dVal, flowVal);
+    int signalStreakDays = themeSignalStreakCounter.count(history, dominantSignal);
+    Double volatility30d = themeVolatilityCalculator.calculate(history);
+    Double scorePercentile30d = themeScorePercentileCalculator.calculate(history, scoreVal);
+    Double concentrationRisk = themeConcentrationRiskCalculator.calculate(allConstituents);
     PhaseTransitionContext transitionContext =
         new PhaseTransitionContext(
             themePhase,
@@ -422,86 +442,4 @@ public class ThemeService {
         confluence.confidenceLabel());
   }
 
-  private static int computeSignalStreak(List<DateHistory> history, String currentSignal) {
-    if (history.isEmpty()) return 0;
-    List<DateHistory> reversed = history.reversed();
-    int streak = 0;
-    for (DateHistory point : reversed) {
-      if (inferSignalFromScore(point.averageComposite()).equals(currentSignal)) {
-        streak++;
-      } else {
-        break;
-      }
-    }
-    return streak;
-  }
-
-  private static Double computeConcentrationRisk(List<ThemeConstituentDto> constituents) {
-    if (constituents.isEmpty()) return null;
-    Map<String, Long> countByParent =
-        constituents.stream()
-            .collect(
-                Collectors.groupingBy(
-                    c -> c.parentCategoryId() != null ? c.parentCategoryId() : c.categoryId(),
-                    Collectors.counting()));
-    long maxCount = countByParent.values().stream().mapToLong(Long::longValue).max().orElse(0);
-    return (double) maxCount / constituents.size();
-  }
-
-  private static Double computeScorePercentile(List<DateHistory> history, Double currentScore) {
-    if (history.isEmpty() || currentScore == null) return null;
-    long belowCount =
-        history.stream()
-            .mapToDouble(DateHistory::averageComposite)
-            .filter(s -> s < currentScore)
-            .count();
-    return (double) belowCount / history.size();
-  }
-
-  private static Double computeVolatility(List<DateHistory> history) {
-    if (history.size() < 3) return null;
-    double[] scores = history.stream().mapToDouble(DateHistory::averageComposite).toArray();
-    double[] changes = new double[scores.length - 1];
-    for (int i = 0; i < changes.length; i++) {
-      changes[i] = scores[i + 1] - scores[i];
-    }
-    double mean = 0;
-    for (double change : changes) mean += change;
-    mean /= changes.length;
-    double variance = 0;
-    for (double change : changes) variance += Math.pow(change - mean, 2);
-    variance /= changes.length;
-    return Math.sqrt(variance);
-  }
-
-  private static String inferSignalFromScore(double score) {
-    if (score >= 0.65) return "BUY";
-    if (score >= 0.50) return "WATCH";
-    if (score >= 0.35) return "HOLD";
-    return "REDUCE";
-  }
-
-  private static String computeThemePhase(
-      Double score, Double trend5d, Double trend20d, Double flow) {
-    if (score == null) return "NEUTRAL";
-    boolean accelerating = trend5d != null && trend20d != null && (trend5d - trend20d) > 0.005;
-    boolean trending = trend20d != null && trend20d > 0.003;
-    boolean fading = trend20d != null && trend20d < -0.003;
-    boolean inflowing = flow != null && flow > 0.3;
-    boolean outflowing = flow != null && flow < -0.5;
-    if (score >= 0.65) {
-      if (outflowing && !accelerating) return "DISTRIBUTE";
-      if (accelerating) return "BREAKOUT";
-      if (trending) return "MOMENTUM";
-      return "HOLDING";
-    }
-    if (score >= 0.50) {
-      if (accelerating && inflowing) return "SETUP";
-      if (fading) return "FADING";
-      return "BUILDING";
-    }
-    if (fading) return "FADING";
-    if (score < 0.35) return "WEAK";
-    return "NEUTRAL";
-  }
 }

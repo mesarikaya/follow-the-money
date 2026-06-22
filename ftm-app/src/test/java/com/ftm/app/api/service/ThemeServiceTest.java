@@ -32,6 +32,11 @@ import com.ftm.app.themes.momentum.MomentumDivergenceClassifier;
 import com.ftm.app.themes.risk.ThemeRiskAggregator;
 import com.ftm.app.themes.risk.ThemeRiskContext;
 import com.ftm.app.themes.risk.ThemeRiskLevel;
+import com.ftm.app.themes.signal.ThemeConcentrationRiskCalculator;
+import com.ftm.app.themes.signal.ThemePhaseClassifier;
+import com.ftm.app.themes.signal.ThemeScorePercentileCalculator;
+import com.ftm.app.themes.signal.ThemeSignalStreakCounter;
+import com.ftm.app.themes.signal.ThemeVolatilityCalculator;
 import com.ftm.app.themes.transition.PhaseTransitionContext;
 import com.ftm.app.themes.transition.PhaseTransitionDetector;
 import java.math.BigDecimal;
@@ -61,6 +66,11 @@ class ThemeServiceTest {
   @Mock EntryTimingAdvisor entryTimingAdvisor;
   @Mock MomentumDivergenceClassifier momentumDivergenceClassifier;
   @Mock ConfluenceScoreService confluenceScoreService;
+  @Mock ThemePhaseClassifier themePhaseClassifier;
+  @Mock ThemeSignalStreakCounter themeSignalStreakCounter;
+  @Mock ThemeVolatilityCalculator themeVolatilityCalculator;
+  @Mock ThemeScorePercentileCalculator themeScorePercentileCalculator;
+  @Mock ThemeConcentrationRiskCalculator themeConcentrationRiskCalculator;
   @InjectMocks ThemeService themeService;
 
   @BeforeEach
@@ -73,6 +83,16 @@ class ThemeServiceTest {
         .thenReturn(Optional.empty());
     lenient().when(confluenceScoreService.compute(any(ConfluenceInput.class)))
         .thenReturn(new ConfluenceResult(50, "MODERATE"));
+    lenient().when(themePhaseClassifier.classify(any(), any(), any(), any()))
+        .thenReturn("NEUTRAL");
+    lenient().when(themeSignalStreakCounter.count(any(), any()))
+        .thenReturn(0);
+    lenient().when(themeVolatilityCalculator.calculate(any()))
+        .thenReturn(null);
+    lenient().when(themeScorePercentileCalculator.calculate(any(), any()))
+        .thenReturn(null);
+    lenient().when(themeConcentrationRiskCalculator.calculate(any()))
+        .thenReturn(null);
   }
 
   private Theme theme(String id, String name) {
@@ -322,9 +342,8 @@ class ThemeServiceTest {
   }
 
   @Test
-  @DisplayName("getThemes computes signalStreakDays as consecutive days at current signal")
-  void shouldComputeSignalStreakDays() {
-    LocalDate base = LocalDate.of(2025, 6, 1);
+  @DisplayName("getThemes delegates signalStreakDays computation to ThemeSignalStreakCounter")
+  void shouldDelegateSignalStreakToCounter() {
     when(themeRepository.findAll()).thenReturn(List.of(theme("AI_INFRA", "AI Infrastructure")));
     when(themeRepository.findAllConstituentsByTheme())
         .thenReturn(Map.of("AI_INFRA", List.of("SEMI", "AIRO")));
@@ -347,23 +366,17 @@ class ThemeServiceTest {
                 SignalType.MACRO_FIT, Collections.emptyMap(),
                 SignalType.RS_120, Collections.emptyMap(),
                 SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
-    when(signalRepository.findAverageHistoryByDate(anyCollection(), anyInt()))
-        .thenReturn(
-            List.of(
-                new SignalRepository.DateHistory(base.minusDays(2), 0.50, null, null),
-                new SignalRepository.DateHistory(base.minusDays(1), 0.72, null, null),
-                new SignalRepository.DateHistory(base, 0.78, null, null)));
+    stubHistoryEmpty();
+    when(themeSignalStreakCounter.count(any(), any())).thenReturn(7);
 
     List<ThemeSummaryDto> result = themeService.getThemes();
 
-    assertThat(result.get(0).dominantSignal()).isEqualTo("BUY");
-    assertThat(result.get(0).signalStreakDays()).isEqualTo(2);
+    assertThat(result.get(0).signalStreakDays()).isEqualTo(7);
   }
 
   @Test
-  @DisplayName("getThemes computes volatility30d as standard deviation of daily composite score changes")
-  void shouldComputeVolatility30d() {
-    LocalDate base = LocalDate.of(2025, 6, 1);
+  @DisplayName("getThemes delegates volatility30d computation to ThemeVolatilityCalculator")
+  void shouldDelegateVolatilityToCalculator() {
     when(themeRepository.findAll()).thenReturn(List.of(theme("AI_INFRA", "AI Infrastructure")));
     when(themeRepository.findAllConstituentsByTheme())
         .thenReturn(Map.of("AI_INFRA", List.of("SEMI")));
@@ -380,19 +393,12 @@ class ThemeServiceTest {
                 SignalType.MACRO_FIT, Collections.emptyMap(),
                 SignalType.RS_120, Collections.emptyMap(),
                 SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
-    // scores: [0.60, 0.62, 0.58] → changes: [+0.02, -0.04] → mean=-0.01, stdev=0.030
-    when(signalRepository.findAverageHistoryByDate(anyCollection(), anyInt()))
-        .thenReturn(
-            List.of(
-                new SignalRepository.DateHistory(base.minusDays(2), 0.60, null, null),
-                new SignalRepository.DateHistory(base.minusDays(1), 0.62, null, null),
-                new SignalRepository.DateHistory(base, 0.58, null, null)));
+    stubHistoryEmpty();
+    when(themeVolatilityCalculator.calculate(any())).thenReturn(0.030);
 
     List<ThemeSummaryDto> result = themeService.getThemes();
 
-    assertThat(result.get(0).volatility30d()).isNotNull();
-    assertThat(result.get(0).volatility30d())
-        .isCloseTo(0.030, org.assertj.core.data.Offset.offset(0.001));
+    assertThat(result.get(0).volatility30d()).isCloseTo(0.030, org.assertj.core.data.Offset.offset(0.001));
   }
 
   @Test
@@ -424,9 +430,8 @@ class ThemeServiceTest {
   }
 
   @Test
-  @DisplayName("getThemes computes scorePercentile30d as fraction of history below current score")
-  void shouldComputeScorePercentile30d() {
-    LocalDate base = LocalDate.of(2025, 6, 1);
+  @DisplayName("getThemes delegates scorePercentile30d computation to ThemeScorePercentileCalculator")
+  void shouldDelegateScorePercentileToCalculator() {
     when(themeRepository.findAll()).thenReturn(List.of(theme("AI_INFRA", "AI Infrastructure")));
     when(themeRepository.findAllConstituentsByTheme())
         .thenReturn(Map.of("AI_INFRA", List.of("SEMI")));
@@ -443,30 +448,20 @@ class ThemeServiceTest {
                 SignalType.MACRO_FIT, Collections.emptyMap(),
                 SignalType.RS_120, Collections.emptyMap(),
                 SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
-    // history: 3 of 4 points are below current score of 0.75
-    when(signalRepository.findAverageHistoryByDate(anyCollection(), anyInt()))
-        .thenReturn(
-            List.of(
-                new SignalRepository.DateHistory(base.minusDays(3), 0.60, null, null),
-                new SignalRepository.DateHistory(base.minusDays(2), 0.65, null, null),
-                new SignalRepository.DateHistory(base.minusDays(1), 0.70, null, null),
-                new SignalRepository.DateHistory(base, 0.80, null, null)));
+    stubHistoryEmpty();
+    when(themeScorePercentileCalculator.calculate(any(), any())).thenReturn(0.75);
 
     List<ThemeSummaryDto> result = themeService.getThemes();
 
-    // score=0.75; history=[0.60, 0.65, 0.70, 0.80]; 3 of 4 below → percentile=0.75
-    assertThat(result.get(0).scorePercentile30d()).isNotNull();
-    assertThat(result.get(0).scorePercentile30d())
-        .isCloseTo(0.75, org.assertj.core.data.Offset.offset(0.001));
+    assertThat(result.get(0).scorePercentile30d()).isCloseTo(0.75, org.assertj.core.data.Offset.offset(0.001));
   }
 
   @Test
-  @DisplayName("getThemes computes concentrationRisk as max parent-sector fraction")
-  void shouldComputeConcentrationRisk() {
+  @DisplayName("getThemes delegates concentrationRisk computation to ThemeConcentrationRiskCalculator")
+  void shouldDelegateConcentrationRiskToCalculator() {
     when(themeRepository.findAll()).thenReturn(List.of(theme("AI_INFRA", "AI Infrastructure")));
     when(themeRepository.findAllConstituentsByTheme())
         .thenReturn(Map.of("AI_INFRA", List.of("SEMI", "AIRO")));
-    // Both SEMI and AIRO have parentId="TECH" (from category() helper → "TECH")
     when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
         .thenReturn(
             List.of(
@@ -485,13 +480,11 @@ class ThemeServiceTest {
                 SignalType.RS_120, Collections.emptyMap(),
                 SignalType.COMPOSITE_TREND_5D, Collections.emptyMap()));
     stubHistoryEmpty();
+    when(themeConcentrationRiskCalculator.calculate(any())).thenReturn(1.0);
 
     List<ThemeSummaryDto> result = themeService.getThemes();
 
-    // SEMI→TECH, AIRO→TECH: 2/2 = 1.0 concentration
-    assertThat(result.get(0).concentrationRisk()).isNotNull();
-    assertThat(result.get(0).concentrationRisk())
-        .isCloseTo(1.0, org.assertj.core.data.Offset.offset(0.001));
+    assertThat(result.get(0).concentrationRisk()).isCloseTo(1.0, org.assertj.core.data.Offset.offset(0.001));
   }
 
   @Test

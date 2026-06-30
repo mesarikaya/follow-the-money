@@ -50,3 +50,6 @@ desktop.ini
 
 # ── Misc ──────────────────────────────────────────────────────
 folder_ctx.txt~
+# Test run artifacts (Playwright / surefire dumps)
+test-results/
+**/test-results/

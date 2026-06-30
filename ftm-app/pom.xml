@@ -195,6 +195,61 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!-- `mvn spring-boot:run` activates the 'local' Spring profile by default so
+                         application-local.yml (FRED key, etc.) is loaded without extra flags. -->
+                    <profiles>local</profiles>
+                </configuration>
+            </plugin>
+            <!--
+                Flyway migrates the local PostgreSQL schema BEFORE jOOQ codegen and tests so
+                neither step needs Docker/Testcontainers. Requires a local PostgreSQL on
+                localhost:5432 with databases `ftm` (codegen) and `ftm_test` (isolated tests):
+                    docker compose up -d postgres   # or any local PostgreSQL
+                For a Docker-based, zero-local-DB build instead, use `-Ptestcontainers`.
+            -->
+            <plugin>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-maven-plugin</artifactId>
+                <version>${flyway.version}</version>
+                <configuration>
+                    <url>jdbc:postgresql://localhost:5432/ftm</url>
+                    <user>ftm</user>
+                    <password>ftm</password>
+                    <locations>filesystem:src/main/resources/db/migration</locations>
+                </configuration>
+                <executions>
+                    <!-- Migrate the codegen DB so jOOQ introspects the fully-migrated schema -->
+                    <execution>
+                        <id>flyway-migrate-for-codegen</id>
+                        <phase>initialize</phase>
+                        <goals><goal>migrate</goal></goals>
+                    </execution>
+                    <!-- Migrate the isolated test DB so tests run against a clean schema -->
+                    <execution>
+                        <id>flyway-migrate-test-db</id>
+                        <phase>process-test-resources</phase>
+                        <goals><goal>migrate</goal></goals>
+                        <configuration>
+                            <url>jdbc:postgresql://localhost:5432/ftm_test</url>
+                            <user>ftm</user>
+                            <password>ftm</password>
+                            <locations>filesystem:src/main/resources/db/migration</locations>
+                        </configuration>
+                    </execution>
+                </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.postgresql</groupId>
+                        <artifactId>postgresql</artifactId>
+                        <version>42.7.4</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.flywaydb</groupId>
+                        <artifactId>flyway-database-postgresql</artifactId>
+                        <version>${flyway.version}</version>
+                    </dependency>
+                </dependencies>
             </plugin>
             <plugin>
                 <groupId>org.jooq</groupId>
@@ -214,30 +269,14 @@
                         <artifactId>postgresql</artifactId>
                         <version>42.7.4</version>
                     </dependency>
-                    <dependency>
-                        <groupId>org.testcontainers</groupId>
-                        <artifactId>jdbc</artifactId>
-                        <version>${testcontainers.version}</version>
-                    </dependency>
-                    <dependency>
-                        <groupId>org.testcontainers</groupId>
-                        <artifactId>postgresql</artifactId>
-                        <version>${testcontainers.version}</version>
-                    </dependency>
-                    <dependency>
-                        <groupId>junit</groupId>
-                        <artifactId>junit</artifactId>
-                        <version>4.13.2</version>
-                    </dependency>
                 </dependencies>
                 <configuration>
+                    <!-- Direct JDBC to local PostgreSQL — no Docker. Override with -Ptestcontainers. -->
                     <jdbc>
-                        <driver>org.testcontainers.jdbc.ContainerDatabaseDriver</driver>
-                        <url>
-                            jdbc:tc:postgresql:16-alpine:///codegen?TC_INITSCRIPT=file:src/main/resources/db/codegen/codegen_schema.sql
-                        </url>
-                        <user>test</user>
-                        <password>test</password>
+                        <driver>org.postgresql.Driver</driver>
+                        <url>jdbc:postgresql://localhost:5432/ftm</url>
+                        <user>ftm</user>
+                        <password>ftm</password>
                     </jdbc>
                     <generator>
                         <database>
@@ -266,6 +305,14 @@
                         <include>**/*Tests.java</include>
                         <include>**/*IT.java</include>
                     </includes>
+                    <!-- Tests run against the isolated local `ftm_test` DB (no Docker).
+                         Override with -Ptestcontainers to use an ephemeral Docker PostgreSQL. -->
+                    <systemPropertyVariables>
+                        <spring.datasource.url>jdbc:postgresql://localhost:5432/ftm_test</spring.datasource.url>
+                        <spring.datasource.driver-class-name>org.postgresql.Driver</spring.datasource.driver-class-name>
+                        <spring.datasource.username>ftm</spring.datasource.username>
+                        <spring.datasource.password>ftm</spring.datasource.password>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
             <plugin>
@@ -336,61 +383,41 @@
     </repositories>
 
     <!--
-        local-pg profile: bypasses Testcontainers/docker-java for local development when
-        Docker Desktop API compatibility breaks (e.g. Docker Desktop 4.77.0 requires API ≥1.40
-        but docker-java 3.3.x hardcodes 1.32).
+        Build profiles.
 
-        Usage:
-          docker compose up -d postgres          # start local PostgreSQL once
-          ./mvnw generate-sources -Plocal-pg     # regenerate jOOQ classes
-          ./mvnw test -Plocal-pg                 # run all tests
+        DEFAULT (no profile): Docker-free. jOOQ codegen and tests connect directly to a local
+        PostgreSQL on localhost:5432 (databases `ftm` and `ftm_test`). Flyway migrates both before
+        codegen/tests. This is the everyday local + CI path:
+            mvn test
+            mvn spring-boot:run          # auto-activates the 'local' Spring profile
 
-        Both codegen and tests connect directly to jdbc:postgresql://localhost:5432/ftm.
-        Flyway runs in the initialize phase so jOOQ introspects the fully-migrated schema.
+        testcontainers: opt-in for contributors WITHOUT a local PostgreSQL. Restores the original
+        Docker/Testcontainers path — an ephemeral PostgreSQL is spun up for both codegen and tests:
+            mvn test -Ptestcontainers
+
+        local-pg: retained as a no-op alias so existing `-Plocal-pg` invocations keep working;
+        its configuration is now the default.
     -->
     <profiles>
         <profile>
             <id>local-pg</id>
+        </profile>
+        <profile>
+            <id>testcontainers</id>
             <build>
                 <plugins>
-                    <!-- Activate the 'local' Spring profile so application-local.yml (FRED key, etc.) is loaded -->
+                    <!-- Codegen needs no local DB: spin up an ephemeral PostgreSQL via Testcontainers -->
                     <plugin>
-                        <groupId>org.springframework.boot</groupId>
-                        <artifactId>spring-boot-maven-plugin</artifactId>
+                        <groupId>org.jooq</groupId>
+                        <artifactId>jooq-codegen-maven</artifactId>
                         <configuration>
-                            <profiles>local</profiles>
+                            <jdbc>
+                                <driver>org.testcontainers.jdbc.ContainerDatabaseDriver</driver>
+                                <url>jdbc:tc:postgresql:16-alpine:///codegen?TC_INITSCRIPT=file:src/main/resources/db/codegen/codegen_schema.sql</url>
+                                <user>test</user>
+                                <password>test</password>
+                            </jdbc>
                         </configuration>
-                    </plugin>
-                    <!-- Apply all Flyway migrations: ftm (for codegen) + ftm_test (isolated test DB) -->
-                    <plugin>
-                        <groupId>org.flywaydb</groupId>
-                        <artifactId>flyway-maven-plugin</artifactId>
-                        <version>${flyway.version}</version>
-                        <configuration>
-                            <url>jdbc:postgresql://localhost:5432/ftm</url>
-                            <user>ftm</user>
-                            <password>ftm</password>
-                            <locations>filesystem:src/main/resources/db/migration</locations>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>flyway-migrate-for-codegen</id>
-                                <phase>initialize</phase>
-                                <goals><goal>migrate</goal></goals>
-                            </execution>
-                            <!-- Migrate the test-only DB so tests run against a clean schema -->
-                            <execution>
-                                <id>flyway-migrate-test-db</id>
-                                <phase>process-test-resources</phase>
-                                <goals><goal>migrate</goal></goals>
-                                <configuration>
-                                    <url>jdbc:postgresql://localhost:5432/ftm_test</url>
-                                    <user>ftm</user>
-                                    <password>ftm</password>
-                                    <locations>filesystem:src/main/resources/db/migration</locations>
-                                </configuration>
-                            </execution>
-                        </executions>
                         <dependencies>
                             <dependency>
                                 <groupId>org.postgresql</groupId>
@@ -398,35 +425,45 @@
                                 <version>42.7.4</version>
                             </dependency>
                             <dependency>
-                                <groupId>org.flywaydb</groupId>
-                                <artifactId>flyway-database-postgresql</artifactId>
-                                <version>${flyway.version}</version>
+                                <groupId>org.testcontainers</groupId>
+                                <artifactId>jdbc</artifactId>
+                                <version>${testcontainers.version}</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.testcontainers</groupId>
+                                <artifactId>postgresql</artifactId>
+                                <version>${testcontainers.version}</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>junit</groupId>
+                                <artifactId>junit</artifactId>
+                                <version>4.13.2</version>
                             </dependency>
                         </dependencies>
                     </plugin>
-                    <!-- Override jOOQ codegen: direct JDBC instead of Testcontainers JDBC URL -->
+                    <!-- No local DB to migrate: disable the default Flyway executions -->
                     <plugin>
-                        <groupId>org.jooq</groupId>
-                        <artifactId>jooq-codegen-maven</artifactId>
-                        <configuration>
-                            <jdbc>
-                                <driver>org.postgresql.Driver</driver>
-                                <url>jdbc:postgresql://localhost:5432/ftm</url>
-                                <user>ftm</user>
-                                <password>ftm</password>
-                            </jdbc>
-                        </configuration>
+                        <groupId>org.flywaydb</groupId>
+                        <artifactId>flyway-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>flyway-migrate-for-codegen</id>
+                                <phase>none</phase>
+                            </execution>
+                            <execution>
+                                <id>flyway-migrate-test-db</id>
+                                <phase>none</phase>
+                            </execution>
+                        </executions>
                     </plugin>
-                    <!-- Override surefire: tests use ftm_test (isolated) not ftm (production) -->
+                    <!-- Tests use the Testcontainers JDBC URL from application-test.yml -->
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration combine.children="append">
+                        <configuration>
                             <systemPropertyVariables>
-                                <spring.datasource.url>jdbc:postgresql://localhost:5432/ftm_test</spring.datasource.url>
-                                <spring.datasource.driver-class-name>org.postgresql.Driver</spring.datasource.driver-class-name>
-                                <spring.datasource.username>ftm</spring.datasource.username>
-                                <spring.datasource.password>ftm</spring.datasource.password>
+                                <spring.datasource.url>jdbc:tc:postgresql:16:///ftm</spring.datasource.url>
+                                <spring.datasource.driver-class-name>org.testcontainers.jdbc.ContainerDatabaseDriver</spring.datasource.driver-class-name>
                             </systemPropertyVariables>
                         </configuration>
                     </plugin>

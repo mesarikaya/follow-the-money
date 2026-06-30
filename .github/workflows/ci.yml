@@ -3,13 +3,30 @@ name: CI
 on:
   push:
     branches: [main, develop]
+  # Run on every PR regardless of target branch so stacked / feature-to-feature
+  # PRs are validated (previously only main/develop-targeted PRs triggered CI).
   pull_request:
-    branches: [main, develop]
 
 jobs:
   backend:
     name: Backend Tests
     runs-on: ubuntu-latest
+    # Docker-free build: jOOQ codegen + tests run against this PostgreSQL service,
+    # matching the local default (no Testcontainers).
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ftm
+          POSTGRES_PASSWORD: ftm
+          POSTGRES_DB: ftm
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ftm"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -19,6 +36,9 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
           cache: 'maven'
+
+      - name: Create isolated test database
+        run: PGPASSWORD=ftm psql -h localhost -U ftm -d ftm -c "CREATE DATABASE ftm_test;"
 
       - name: Run backend tests
         run: ./mvnw test -q
@@ -54,6 +74,10 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
+        working-directory: ftm-frontend
+
+      - name: Audit dependencies (fail on high/critical)
+        run: pnpm audit --audit-level=high
         working-directory: ftm-frontend
 
       - name: TypeScript typecheck

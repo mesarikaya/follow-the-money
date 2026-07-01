@@ -1798,7 +1798,7 @@ test.describe("Dashboard — Theme Market Snapshot (EP-093)", () => {
   test("shows momentum balance footer stat", async ({ page }) => {
     await page.goto("/");
     const snapshot = page.getByTestId("theme-market-snapshot");
-    await expect(snapshot.getByText(/Momentum/)).toBeVisible();
+    await expect(snapshot.getByTestId("momentum-balance")).toBeVisible();
   });
 
   test("shows market sentiment label", async ({ page }) => {

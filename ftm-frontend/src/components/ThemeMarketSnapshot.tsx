@@ -105,7 +105,7 @@ export default function ThemeMarketSnapshot({ snapshot }: Props) {
           Avg score{" "}
           <span className="font-semibold text-slate-200">{avgScorePct}</span>
         </span>
-        <span>
+        <span data-testid="momentum-balance">
           Momentum{" "}
           <span className={`font-semibold ${momentumBalance >= 0 ? "text-emerald-400" : "text-red-400"}`}>
             {momentumBalance >= 0 ? "+" : ""}{momentumBalance}

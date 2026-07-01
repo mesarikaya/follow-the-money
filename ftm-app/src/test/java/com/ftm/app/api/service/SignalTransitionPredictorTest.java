@@ -25,12 +25,34 @@ class SignalTransitionPredictorTest {
       String rrgQuadrant,
       String tradeSignal) {
     return new CategorySummaryDto(
-        id, id.name(), "EQUITY_SECTOR", "ETF",
-        score, trend5d, null, trend20d,
-        rrgQuadrant, null, null, null, null,
-        null, null, 1, null, LocalDate.now(),
-        tradeSignal, null, null, null, null, null,
-        null, null, null, null);
+        id,
+        id.name(),
+        "EQUITY_SECTOR",
+        "ETF",
+        score,
+        trend5d,
+        null,
+        trend20d,
+        rrgQuadrant,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        1,
+        null,
+        LocalDate.now(),
+        tradeSignal,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null);
   }
 
   // ------------------------------------------------------------------ approaching BUY

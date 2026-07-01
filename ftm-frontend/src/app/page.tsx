@@ -1,4 +1,4 @@
-import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, fetchWinRates, fetchPriceLevels, fetchSignalTransitions, fetchScoreComponents, fetchScreenerSnapshot, fetchThemes, fetchThemeHistory, fetchApproachingSignals, fetchPortfolioActions, SignalWinRateDto, PriceLevelDto, SubSectorSummary, SignalTransitionDto, ScoreDecompositionDto, ThemeSummary, ThemeHistoryPoint, ApproachingSignalDto, HoldingActionDto } from "@/lib/api";
+import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, fetchWinRates, fetchPriceLevels, fetchSignalTransitions, fetchScoreComponents, fetchThemes, fetchThemeHistory, fetchThemeSnapshot, fetchApproachingSignals, fetchPortfolioActions, SignalWinRateDto, PriceLevelDto, SubSectorSummary, SignalTransitionDto, ScoreDecompositionDto, ThemeSummary, ThemeHistoryPoint, ThemeSnapshot, ApproachingSignalDto, HoldingActionDto } from "@/lib/api";
 import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
 import CategoryTable from "@/components/CategoryTable";
 import MacroPanel from "@/components/MacroPanel";
@@ -42,6 +42,7 @@ import ThemeAlertActivityStrip from "@/components/ThemeAlertActivityStrip";
 import ThemeHealthGauge from "@/components/ThemeHealthGauge";
 import ThemeSignalQualityPanel from "@/components/ThemeSignalQualityPanel";
 import ThemeMomentumForecast from "@/components/ThemeMomentumForecast";
+import ThemeMarketSnapshot from "@/components/ThemeMarketSnapshot";
 
 export const dynamic = "force-dynamic";
 
@@ -54,18 +55,35 @@ export default async function Home({ searchParams }: Props) {
 
   const sectorIds = Array.from(SECTOR_DRILLDOWN_IDS);
 
-  const [categoriesResult, macroResult, rotationResult, scoreHistoryResult, winRatesResult, priceLevelsResult, transitionsResult, scoreComponentsResult, ...subSectorResults] =
-    await Promise.allSettled([
-      fetchCategories(timeframe),
-      fetchMacro(),
-      fetchRotation(),
-      fetchCategoryScoreHistory(30),
-      fetchWinRates(365),
-      fetchPriceLevels(),
-      fetchSignalTransitions(7),
-      fetchScoreComponents(),
-      ...sectorIds.map((id) => fetchSubSectors(id)),
-    ]);
+  const [
+    categoriesResult,
+    macroResult,
+    rotationResult,
+    scoreHistoryResult,
+    winRatesResult,
+    priceLevelsResult,
+    transitionsResult,
+    scoreComponentsResult,
+    approachingSignalsResult,
+    portfolioActionsResult,
+    themesResult,
+    snapshotResult,
+    ...subSectorResults
+  ] = await Promise.allSettled([
+    fetchCategories(timeframe),
+    fetchMacro(),
+    fetchRotation(),
+    fetchCategoryScoreHistory(30),
+    fetchWinRates(365),
+    fetchPriceLevels(),
+    fetchSignalTransitions(7),
+    fetchScoreComponents(),
+    fetchApproachingSignals(),
+    fetchPortfolioActions(),
+    fetchThemes(),
+    fetchThemeSnapshot(),
+    ...sectorIds.map((id) => fetchSubSectors(id)),
+  ]);
 
   const scoreComponentsByCategory: Record<string, ScoreDecompositionDto> =
     scoreComponentsResult.status === "fulfilled" ? scoreComponentsResult.value : {};
@@ -106,8 +124,14 @@ export default async function Home({ searchParams }: Props) {
   const scoreHistory =
     scoreHistoryResult.status === "fulfilled" ? scoreHistoryResult.value : {};
 
-  const approachingSignals: ApproachingSignalDto[] = await fetchApproachingSignals().catch(() => []);
-  const portfolioActions: HoldingActionDto[] = await fetchPortfolioActions().catch(() => []);
+  const approachingSignals: ApproachingSignalDto[] =
+    approachingSignalsResult.status === "fulfilled" ? approachingSignalsResult.value : [];
+  const portfolioActions: HoldingActionDto[] =
+    portfolioActionsResult.status === "fulfilled" ? portfolioActionsResult.value : [];
+  const themes: ThemeSummary[] =
+    themesResult.status === "fulfilled" ? themesResult.value : [];
+  const snapshot: ThemeSnapshot | null =
+    snapshotResult.status === "fulfilled" ? snapshotResult.value : null;
 
   const priorityActions = derivePriorityActions(
     categories,
@@ -118,7 +142,6 @@ export default async function Home({ searchParams }: Props) {
     portfolioActions,
   );
 
-  const themes: ThemeSummary[] = await fetchThemes().catch(() => []);
   const themeHistoryResults = await Promise.allSettled(
     themes.map(t => fetchThemeHistory(t.id, 30))
   );
@@ -151,6 +174,8 @@ export default async function Home({ searchParams }: Props) {
         {categories.length > 0 && <MarketPulseStrip categories={categories} />}
 
         {categories.length > 0 && <MarketRegimeBanner categories={categories} />}
+
+        {snapshot !== null && <ThemeMarketSnapshot snapshot={snapshot} />}
 
         {categories.length > 0 && <ActionSummaryPanel categories={categories} winRateByCategory={winRateByCategory} priceLevelByCategory={priceLevelByCategory} scoreHistory={scoreHistory} />}
 

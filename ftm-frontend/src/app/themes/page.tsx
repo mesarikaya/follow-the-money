@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { fetchThemes, fetchThemeHistory, fetchAlerts, fetchRecentAlerts, AlertDto, ThemeSummary, ThemeConstituent, ThemeHistoryPoint } from "@/lib/api";
+import { fetchThemes, fetchThemeHistory, fetchAlerts, fetchRecentAlerts, fetchRotationScore, AlertDto, ThemeSummary, ThemeConstituent, ThemeHistoryPoint, CapitalRotationData } from "@/lib/api";
 import ThemeAlertRiskMap from "@/components/ThemeAlertRiskMap";
 import ThemeBuyCountdown from "@/components/ThemeBuyCountdown";
 import ThemeScoreZPanel from "@/components/ThemeScoreZPanel";
@@ -191,6 +191,124 @@ function ThemePhaseBadge({ phase }: { phase: string | null }) {
   );
 }
 
+const TRANSITION_CONFIG: Record<string, { label: string; className: string; title: string }> = {
+  APPROACHING_BUY:  { label: "→ BUY",   className: "bg-emerald-500/25 text-emerald-300 border border-emerald-400/40", title: "Approaching BUY — rising momentum, streak holding" },
+  BREAKOUT_AT_RISK: { label: "⚠ RISK",  className: "bg-amber-500/25 text-amber-300 border border-amber-400/40",     title: "Breakout at risk — momentum fading with elevated alerts" },
+  EARLY_RECOVERY:   { label: "↑ RECOV", className: "bg-sky-500/20 text-sky-300 border border-sky-400/30",           title: "Early recovery — score rebuilding with accelerating 5d trend" },
+  DISTRIBUTION:     { label: "↘ DIST",  className: "bg-orange-500/20 text-orange-300 border border-orange-400/30",  title: "Distribution signal — high score with outflow and declining trend" },
+};
+
+function PhaseTransitionBadge({ signal }: { signal: string | null }) {
+  if (!signal) return null;
+  const cfg = TRANSITION_CONFIG[signal];
+  if (!cfg) return null;
+  return (
+    <span
+      className={`text-[8px] font-mono px-1.5 py-0.5 rounded ${cfg.className}`}
+      title={cfg.title}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
+const RISK_CONFIG: Record<string, { label: string; className: string; title: string }> = {
+  LOW:     { label: "LOW RISK",     className: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25", title: "Low risk — low volatility, positive trends, stable phase" },
+  MEDIUM:  { label: "MED RISK",    className: "bg-slate-600/30 text-slate-300 border border-slate-500/30",      title: "Medium risk — balanced signals" },
+  HIGH:    { label: "HIGH RISK",    className: "bg-amber-500/20 text-amber-300 border border-amber-500/30",      title: "High risk — fading trend, elevated alerts or unstable phase" },
+  EXTREME: { label: "EXTR RISK",   className: "bg-red-500/20 text-red-300 border border-red-500/30",            title: "Extreme risk — severe volatility, dual trend decline or weak phase" },
+};
+
+function RiskLevelBadge({ riskLevel }: { riskLevel: string | null }) {
+  if (!riskLevel) return null;
+  const cfg = RISK_CONFIG[riskLevel];
+  if (!cfg) return null;
+  return (
+    <span
+      className={`text-[8px] font-mono px-1.5 py-0.5 rounded ${cfg.className}`}
+      title={cfg.title}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
+const ALIGNMENT_CONFIG: Record<string, { label: string; className: string; icon: string; tooltip: string }> = {
+  ALIGNED_BULLISH: { label: "↑↑", className: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/35", icon: "↑↑", tooltip: "5d and 20d momentum both positive — sustained uptrend" },
+  RECOVERING:      { label: "↪↑", className: "bg-teal-500/15 text-teal-300 border border-teal-500/30",         icon: "↪↑", tooltip: "Short-term dip in healthy long-term uptrend — potential buy-the-dip" },
+  FADING:          { label: "↗↓", className: "bg-amber-500/15 text-amber-300 border border-amber-500/30",       icon: "↗↓", tooltip: "Short-term bounce in declining long-term trend — momentum fading" },
+  ALIGNED_BEARISH: { label: "↓↓", className: "bg-red-500/15 text-red-400 border border-red-500/25",             icon: "↓↓", tooltip: "Both timeframes declining — sustained downward pressure" },
+  NEUTRAL:         { label: "→",  className: "bg-slate-700/60 text-slate-400 border border-slate-600/40",       icon: "→",  tooltip: "No clear momentum direction" },
+};
+
+function MomentumAlignmentBadge({ alignment }: { alignment: string | null }) {
+  if (!alignment) return null;
+  const cfg = ALIGNMENT_CONFIG[alignment];
+  if (!cfg) return null;
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold ${cfg.className}`}
+      title={cfg.tooltip}
+    >
+      {cfg.icon}
+    </span>
+  );
+}
+
+const ENTRY_CONFIG: Record<string, { label: string; className: string; icon: string }> = {
+  ENTER:    { label: "ENTER",    className: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/35", icon: "↗" },
+  SCALE_IN: { label: "SCALE IN", className: "bg-teal-500/20 text-teal-300 border border-teal-500/35",         icon: "↗" },
+  WATCH:    { label: "WATCH",    className: "bg-amber-500/15 text-amber-300 border border-amber-500/30",       icon: "◉" },
+  AVOID:    { label: "AVOID",    className: "bg-red-500/15 text-red-400 border border-red-500/25",             icon: "✕" },
+};
+
+function EntryActionBadge({
+  action,
+  rationale,
+}: {
+  action: string | null;
+  rationale: string | null;
+}) {
+  if (!action) return null;
+  const cfg = ENTRY_CONFIG[action];
+  if (!cfg) return null;
+  return (
+    <span
+      className={`text-[8px] font-mono px-1.5 py-0.5 rounded flex items-center gap-0.5 ${cfg.className}`}
+      title={rationale ?? action}
+    >
+      <span>{cfg.icon}</span>
+      <span>{cfg.label}</span>
+    </span>
+  );
+}
+
+const CONFIDENCE_CONFIG: Record<string, { label: string; className: string }> = {
+  HIGH_CONFIDENCE: { label: "⬆ HIGH",    className: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/35" },
+  MODERATE:        { label: "◆ MOD",     className: "bg-slate-700/60 text-slate-300 border border-slate-600/40" },
+  CAUTIOUS:        { label: "▼ CAUT",    className: "bg-amber-500/15 text-amber-300 border border-amber-500/30" },
+  AVOID:           { label: "✕ AVOID",   className: "bg-red-500/15 text-red-400 border border-red-500/25" },
+};
+
+function ConfluenceBadge({
+  confluenceScore,
+  confidenceLabel,
+}: {
+  confluenceScore: number;
+  confidenceLabel: string;
+}) {
+  const cfg = CONFIDENCE_CONFIG[confidenceLabel];
+  if (!cfg) return null;
+  return (
+    <span
+      className={`text-[8px] font-mono px-1.5 py-0.5 rounded flex items-center gap-0.5 ${cfg.className}`}
+      title={`Signal confluence: ${confluenceScore}/100 — combines entry timing, risk level, momentum alignment, and phase transition signals`}
+    >
+      {cfg.label} {confluenceScore}
+    </span>
+  );
+}
+
 function scoreTier(score: number | null): string {
   if (score == null) return "HOLD";
   if (score >= 0.65) return "BUY";
@@ -306,6 +424,11 @@ function ThemeCard({ theme, history }: { theme: ThemeSummary; history: ThemeHist
             {signal.label}
           </span>
           <ThemePhaseBadge phase={theme.themePhase} />
+          <PhaseTransitionBadge signal={theme.phaseTransitionSignal} />
+          <RiskLevelBadge riskLevel={theme.riskLevel} />
+          <EntryActionBadge action={theme.entryAction} rationale={theme.entryRationale} />
+          <ConfluenceBadge confluenceScore={theme.confluenceScore} confidenceLabel={theme.confidenceLabel} />
+          <MomentumAlignmentBadge alignment={theme.momentumAlignment} />
           <SignalFreshnessBadge history={history} signal={theme.dominantSignal} />
           <ScoreDeltaBadge history={history} />
           <FlowChip flow={theme.flow20d} />
@@ -727,13 +850,15 @@ function ThemePlaybook({
 function PreBuySetupPanel({ themes }: { themes: ThemeSummary[] }) {
   const setups = themes.filter(
     t =>
-      t.compositeScore != null &&
-      t.compositeScore >= 0.50 &&
-      t.compositeScore < 0.65 &&
-      t.dominantSignal !== "BUY" &&
-      t.compositeTrend5d != null &&
-      t.compositeTrend20d != null &&
-      t.compositeTrend5d > t.compositeTrend20d
+      t.phaseTransitionSignal === "APPROACHING_BUY" ||
+      (t.phaseTransitionSignal == null &&
+        t.compositeScore != null &&
+        t.compositeScore >= 0.50 &&
+        t.compositeScore < 0.65 &&
+        t.dominantSignal !== "BUY" &&
+        t.compositeTrend5d != null &&
+        t.compositeTrend20d != null &&
+        t.compositeTrend5d > t.compositeTrend20d)
   );
   if (setups.length === 0) return null;
 
@@ -796,7 +921,16 @@ function ThemeTippingPoints({
       : null;
 
     const score = t.compositeScore;
-    if (score >= 0.58 && score < BUY_ZONE && (delta5d == null || delta5d >= -0.02)) {
+
+    if (t.phaseTransitionSignal === "APPROACHING_BUY") {
+      approaching.push({ theme: t, score, delta5d, gap: BUY_ZONE - score });
+    } else if (t.phaseTransitionSignal === "BREAKOUT_AT_RISK") {
+      atRisk.push({ theme: t, score, delta5d, margin: score - BUY_ZONE });
+    } else if (t.phaseTransitionSignal === "EARLY_RECOVERY") {
+      recovering.push({ theme: t, score, delta5d, gap: HOLD_ZONE - score });
+    } else if (t.phaseTransitionSignal === "DISTRIBUTION") {
+      atRisk.push({ theme: t, score, delta5d, margin: score - BUY_ZONE });
+    } else if (score >= 0.58 && score < BUY_ZONE && (delta5d == null || delta5d >= -0.02)) {
       approaching.push({ theme: t, score, delta5d, gap: BUY_ZONE - score });
     } else if (score >= BUY_ZONE && score <= 0.72 && delta5d != null && delta5d < -0.02) {
       atRisk.push({ theme: t, score, delta5d, margin: score - BUY_ZONE });
@@ -1194,81 +1328,46 @@ function getThemeUniqueSectors(theme: ThemeSummary): string[] {
   return [...seen].slice(0, 3);
 }
 
-function SmartMoneyPicksPanel({ themes }: { themes: ThemeSummary[] }) {
-  const top3 = [...themes]
-    .filter(t => t.investmentQualityScore != null)
-    .sort((a, b) => (b.investmentQualityScore ?? 0) - (a.investmentQualityScore ?? 0))
-    .slice(0, 3);
+type ViewPreset = "essential" | "standard" | "full";
 
-  if (top3.length === 0) return null;
+type ScreenerParams = { sort?: string; signal?: string; phase?: string; entry?: string; confidence?: string; view?: string };
 
-  return (
-    <div
-      data-testid="smart-money-picks-panel"
-      className="mb-4 bg-slate-800/40 border border-slate-700/40 rounded-lg overflow-hidden"
-    >
-      <div className="px-4 py-2.5 border-b border-slate-700/30 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
-            Smart Money Picks
-          </span>
-          <span className="text-[10px] font-mono text-slate-600">· highest investment quality score</span>
-        </div>
-        <Link
-          href="/themes?sort=iq"
-          className="text-[9px] font-mono text-slate-600 hover:text-cyan-400 transition-colors"
-        >
-          sort by IQ →
-        </Link>
-      </div>
-      <div className="divide-y divide-slate-700/20">
-        {top3.map((t, rank) => {
-          const iq = t.investmentQualityScore!;
-          const iqPct = Math.round(iq * 100);
-          const iqColor =
-            iq >= 0.75 ? "text-emerald-400"
-            : iq >= 0.60 ? "text-cyan-400"
-            : "text-amber-400";
-          const barColor =
-            iq >= 0.75 ? "bg-emerald-500"
-            : iq >= 0.60 ? "bg-cyan-500"
-            : "bg-amber-500";
-          const signal = SIGNAL_CONFIG[t.dominantSignal] ?? SIGNAL_CONFIG.HOLD;
-          return (
-            <div key={t.id} className="flex items-center gap-4 px-4 py-2.5">
-              <span className="text-[11px] font-mono text-slate-600 tabular-nums w-4 shrink-0">
-                {rank + 1}
-              </span>
-              <Link
-                href={`/themes/${t.id}`}
-                className="text-[11px] font-semibold text-slate-200 hover:text-cyan-300 transition-colors min-w-0 truncate flex-1"
-              >
-                {t.name}
-              </Link>
-              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded shrink-0 ${signal.bg} ${signal.color}`}>
-                {signal.label}
-              </span>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full ${barColor}`} style={{ width: `${iqPct}%` }} />
-                </div>
-                <span className={`text-[11px] font-mono font-semibold tabular-nums ${iqColor}`}>
-                  {iqPct}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+const ESSENTIAL_COLS = new Set([
+  "rank", "rankDelta", "theme", "sector", "signal", "score",
+  "trend5d", "phase", "iqs", "bullish", "alerts",
+]);
+
+const STANDARD_COLS = new Set([
+  ...ESSENTIAL_COLS,
+  "rs60", "entry", "momentum", "trend", "persist", "conf",
+]);
+
+function isVisible(col: string, view: ViewPreset): boolean {
+  if (view === "full") return true;
+  if (view === "standard") return STANDARD_COLS.has(col);
+  return ESSENTIAL_COLS.has(col);
 }
 
-function SortLink({ label, sortKey, currentSort, title }: { label: string; sortKey: string; currentSort: string; title?: string }) {
+function buildScreenerUrl(current: ScreenerParams, overrides: Partial<ScreenerParams>): string {
+  const merged = { ...current, ...overrides };
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(merged)) {
+    if (v != null && v !== "") params.set(k, v);
+  }
+  const qs = params.toString();
+  return `/themes${qs ? `?${qs}` : ""}`;
+}
+
+function SortLink({
+  label, sortKey, currentSort, title, allParams,
+}: {
+  label: string; sortKey: string; currentSort: string; title?: string;
+  allParams: ScreenerParams;
+}) {
   const isActive = currentSort === sortKey;
   return (
     <Link
-      href={`/themes?sort=${sortKey}`}
+      href={buildScreenerUrl(allParams, { sort: sortKey })}
       className={`hover:text-slate-300 transition-colors ${isActive ? "text-cyan-400" : "text-slate-600"}`}
       title={title}
     >
@@ -1277,18 +1376,154 @@ function SortLink({ label, sortKey, currentSort, title }: { label: string; sortK
   );
 }
 
+function FilterChip({
+  label, paramKey, value, activeValue, allParams,
+}: {
+  label: string; paramKey: keyof ScreenerParams; value: string;
+  activeValue: string | undefined; allParams: ScreenerParams;
+}) {
+  const isActive = activeValue === value;
+  const href = buildScreenerUrl(allParams, { [paramKey]: isActive ? undefined : value });
+  return (
+    <Link
+      href={href}
+      className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
+        isActive
+          ? "bg-cyan-500/25 text-cyan-300 border border-cyan-500/40"
+          : "bg-slate-700/40 text-slate-500 border border-slate-600/30 hover:text-slate-300 hover:border-slate-500/50"
+      }`}
+    >
+      {isActive && <span className="mr-0.5 text-cyan-400">✕</span>}
+      {label}
+    </Link>
+  );
+}
+
+function ViewSwitcher({ view, allParams }: { view: ViewPreset; allParams: ScreenerParams }) {
+  const colCount = view === "full" ? 23 : view === "standard" ? 17 : 11;
+  return (
+    <div className="flex items-center gap-1.5" data-testid="view-switcher">
+      <span className="text-[9px] font-mono text-slate-600 uppercase tracking-wider mr-0.5">Cols:</span>
+      {(["essential", "standard", "full"] as ViewPreset[]).map(v => (
+        <Link
+          key={v}
+          data-testid={`view-${v}`}
+          href={buildScreenerUrl(allParams, { view: v === "standard" ? undefined : v })}
+          className={`text-[9px] font-mono px-2 py-0.5 rounded border transition-colors ${
+            view === v
+              ? "bg-slate-700/60 text-slate-300 border-slate-600/50"
+              : "text-slate-600 border-transparent hover:text-slate-400 hover:border-slate-700/40"
+          }`}
+        >
+          {v}
+        </Link>
+      ))}
+      <span className="text-[9px] font-mono text-slate-700">{colCount}c</span>
+    </div>
+  );
+}
+
+function ThemeScreenerFilterBar({
+  allParams, totalCount, filteredCount,
+}: {
+  allParams: ScreenerParams; totalCount: number; filteredCount: number;
+}) {
+  const hasActiveFilter = allParams.signal != null || allParams.phase != null || allParams.entry != null || allParams.confidence != null;
+  const filterGroups: { label: string; paramKey: keyof ScreenerParams; options: { label: string; value: string }[] }[] = [
+    {
+      label: "Signal",
+      paramKey: "signal",
+      options: [
+        { label: "BUY", value: "BUY" },
+        { label: "WATCH", value: "WATCH" },
+        { label: "HOLD", value: "HOLD" },
+        { label: "REDUCE", value: "REDUCE" },
+      ],
+    },
+    {
+      label: "Phase",
+      paramKey: "phase",
+      options: [
+        { label: "Breakout", value: "BREAKOUT" },
+        { label: "Momentum", value: "MOMENTUM" },
+        { label: "Setup", value: "SETUP" },
+        { label: "Building", value: "BUILDING" },
+        { label: "Fading", value: "FADING" },
+        { label: "Distribute", value: "DISTRIBUTE" },
+        { label: "Weak", value: "WEAK" },
+      ],
+    },
+    {
+      label: "Entry",
+      paramKey: "entry",
+      options: [
+        { label: "Enter", value: "ENTER" },
+        { label: "Scale In", value: "SCALE_IN" },
+        { label: "Watch", value: "WATCH" },
+        { label: "Avoid", value: "AVOID" },
+      ],
+    },
+    {
+      label: "Confidence",
+      paramKey: "confidence",
+      options: [
+        { label: "High", value: "HIGH_CONFIDENCE" },
+        { label: "Moderate", value: "MODERATE" },
+        { label: "Cautious", value: "CAUTIOUS" },
+        { label: "Avoid", value: "AVOID" },
+      ],
+    },
+  ];
+  return (
+    <div className="px-3 py-2 border-b border-slate-700/40 bg-slate-800/20 flex flex-wrap items-center gap-3">
+      {filterGroups.map(group => (
+        <div key={group.paramKey} className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[9px] font-mono text-slate-600 uppercase tracking-wider shrink-0">{group.label}:</span>
+          {group.options.map(opt => (
+            <FilterChip
+              key={opt.value}
+              label={opt.label}
+              paramKey={group.paramKey}
+              value={opt.value}
+              activeValue={allParams[group.paramKey]}
+              allParams={allParams}
+            />
+          ))}
+        </div>
+      ))}
+      {hasActiveFilter && (
+        <Link
+          href={buildScreenerUrl(allParams, { signal: undefined, phase: undefined, entry: undefined, confidence: undefined })}
+          className="ml-auto text-[10px] font-mono text-slate-500 hover:text-slate-300 transition-colors"
+        >
+          Clear filters · {filteredCount}/{totalCount}
+        </Link>
+      )}
+      {!hasActiveFilter && (
+        <span className="ml-auto text-[10px] font-mono text-slate-600">{totalCount} themes</span>
+      )}
+    </div>
+  );
+}
+
 function ThemeScreener({
   themes,
+  allThemes,
   historiesByThemeId,
   alertsByThemeId,
   sort,
+  allParams,
+  view,
 }: {
   themes: ThemeSummary[];
+  allThemes: ThemeSummary[];
   historiesByThemeId: Record<string, ThemeHistoryPoint[]>;
   alertsByThemeId: Record<string, number>;
   sort: string;
+  allParams: ScreenerParams;
+  view: ViewPreset;
 }) {
-  if (themes.length === 0) return null;
+  if (allThemes.length === 0) return null;
 
   const sortedByScore = [...themes].sort((a, b) => (b.compositeScore ?? -1) - (a.compositeScore ?? -1));
   const scoreRankById: Record<string, number> = {};
@@ -1319,8 +1554,14 @@ function ThemeScreener({
     if (sort === "percentile") {
       return [...themes].sort((a, b) => (a.scorePercentile30d ?? 1) - (b.scorePercentile30d ?? 1));
     }
-    if (sort === "iq") {
-      return [...themes].sort((a, b) => (b.investmentQualityScore ?? -1) - (a.investmentQualityScore ?? -1));
+    if (sort === "confluence") {
+      return [...themes].sort((a, b) => b.confluenceScore - a.confluenceScore);
+    }
+    if (sort === "persistence") {
+      return [...themes].sort((a, b) => b.persistenceScore - a.persistenceScore);
+    }
+    if (sort === "iqs") {
+      return [...themes].sort((a, b) => b.investmentQualityScore - a.investmentQualityScore);
     }
     return sortedByScore;
   })();
@@ -1339,12 +1580,33 @@ function ThemeScreener({
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   priorSorted.forEach((x, rank) => { priorRankById[x.id] = rank + 1; });
 
+  const columnCount = view === "full" ? 23 : view === "standard" ? 17 : 11;
+
   return (
     <div className="bg-slate-800/40 border border-slate-700/60 rounded-lg overflow-hidden mb-4">
       <div className="px-3 py-2 border-b border-slate-700/40 flex items-center justify-between">
         <span className="text-[10px] text-slate-500 uppercase tracking-wider font-mono">Theme Screener · Live Rankings</span>
-        <span className="text-[10px] font-mono text-slate-600">{themes.length} rows</span>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/themes/correlation"
+            className="text-[9px] font-mono text-slate-600 hover:text-slate-400 transition-colors border border-transparent hover:border-slate-700/40 px-2 py-0.5 rounded"
+            title="Signal co-movement matrix — see which themes move together"
+            data-testid="correlation-nav-link"
+          >
+            ⊞ Co-movement
+          </Link>
+          <Link
+            href="/themes/coverage"
+            className="text-[9px] font-mono text-slate-600 hover:text-slate-400 transition-colors border border-transparent hover:border-slate-700/40 px-2 py-0.5 rounded"
+            title="Portfolio theme coverage — which themes are gaps in your portfolio"
+            data-testid="coverage-nav-link"
+          >
+            ◎ Coverage
+          </Link>
+          <ViewSwitcher view={view} allParams={allParams} />
+        </div>
       </div>
+      <ThemeScreenerFilterBar allParams={allParams} totalCount={allThemes.length} filteredCount={themes.length} />
       <div className="overflow-x-auto">
         <table className="w-full text-left min-w-[800px]">
           <thead>
@@ -1354,21 +1616,40 @@ function ThemeScreener({
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Theme</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Sector</th>
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Signal</th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Score" sortKey="score" currentSort={sort} title="Sort by composite score" /></th>
-              <th className="py-1.5 px-2 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="5d Δ" sortKey="delta5d" currentSort={sort} title="Sort by 5-day score momentum" /></th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="RS-60" sortKey="rs60" currentSort={sort} title="Sort by 60-day relative strength vs SPY" /></th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Flow</th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">vs Sectors</th>
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Score" sortKey="score" currentSort={sort} title="Sort by composite score" allParams={allParams} /></th>
+              <th className="py-1.5 px-2 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="5d Δ" sortKey="delta5d" currentSort={sort} title="Sort by 5-day score momentum" allParams={allParams} /></th>
+              {isVisible("rs60", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="RS-60" sortKey="rs60" currentSort={sort} title="Sort by 60-day relative strength vs SPY" allParams={allParams} /></th>}
+              {isVisible("flow", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Flow</th>}
+              {isVisible("vsSectors", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">vs Sectors</th>}
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Phase</th>
+              {isVisible("transition", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Server-side phase transition signal">Trans</th>}
+              {isVisible("risk", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Multi-dimension risk score">Risk</th>}
+              {isVisible("entry", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Entry timing advisory — ENTER, SCALE IN, WATCH, or AVOID">Entry</th>}
+              {isVisible("momentum", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="5d vs 20d momentum alignment">Mom</th>}
               <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600">Bullish</th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Trend" sortKey="velocity" currentSort={sort} title="Sort by momentum acceleration (5d trend vs 20d)" /></th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Pct" sortKey="percentile" currentSort={sort} title="Sort by 30-day score percentile (ascending = cheapest vs recent history)" /></th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Sector concentration risk: fraction of constituents in dominant parent sector">Conc</th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Alerts" sortKey="alerts" currentSort={sort} title="Sort by active alert count" /></th>
-              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider" title="Sort by multi-factor Investment Quality score (signal strength 40% · conviction 25% · stability 20% · momentum 10% · flow 5%)"><SortLink label="IQ" sortKey="iq" currentSort={sort} title="Sort by Investment Quality Score — composite of signal strength, conviction, stability, momentum, and flow" /></th>
+              {isVisible("trend", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Trend" sortKey="velocity" currentSort={sort} title="Sort by momentum acceleration (5d trend vs 20d)" allParams={allParams} /></th>}
+              {isVisible("percentile", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Pct" sortKey="percentile" currentSort={sort} title="Sort by 30-day score percentile (ascending = cheapest vs recent history)" allParams={allParams} /></th>}
+              {isVisible("concentration", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider text-slate-600" title="Sector concentration risk: fraction of constituents in dominant parent sector">Conc</th>}
+              {isVisible("persist", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Persist" sortKey="persistence" currentSort={sort} title="Sort by phase persistence grade — how consistently the theme has been in a strong phase over 30 days (A=best)" allParams={allParams} /></th>}
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="IQS" sortKey="iqs" currentSort={sort} title="Sort by Investment Quality Score — composite of signal quality (50%), value zone (20%), diversification (15%), and volatility (15%)" allParams={allParams} /></th>
+              {isVisible("conf", view) && <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Conf" sortKey="confluence" currentSort={sort} title="Sort by signal confluence score (0-100)" allParams={allParams} /></th>}
+              <th className="py-1.5 px-3 text-[9px] font-semibold uppercase tracking-wider"><SortLink label="Alerts" sortKey="alerts" currentSort={sort} title="Sort by active alert count" allParams={allParams} /></th>
             </tr>
           </thead>
           <tbody>
+            {sorted.length === 0 && (
+              <tr>
+                <td colSpan={columnCount} className="py-8 text-center">
+                  <p className="text-[11px] text-slate-500">No themes match the active filters.</p>
+                  <Link
+                    href={buildScreenerUrl(allParams, { signal: undefined, phase: undefined, entry: undefined })}
+                    className="text-[10px] font-mono text-cyan-500 hover:text-cyan-300 mt-1 inline-block"
+                  >
+                    Clear filters
+                  </Link>
+                </td>
+              </tr>
+            )}
             {sorted.map((t, i) => {
               const rank = i + 1;
               const priorRank = priorRankById[t.id];
@@ -1418,9 +1699,19 @@ function ThemeScreener({
                     )}
                   </td>
                   <td className="py-2 px-3">
-                    <Link href={`/themes/${t.id}`} className="text-[11px] font-semibold text-slate-200 hover:text-cyan-300 transition-colors">
-                      {t.name}
-                    </Link>
+                    <div className="flex items-center gap-1.5 group">
+                      <Link href={`/themes/${t.id}`} className="text-[11px] font-semibold text-slate-200 hover:text-cyan-300 transition-colors">
+                        {t.name}
+                      </Link>
+                      <Link
+                        href={`/themes/compare?a=${t.id}`}
+                        className="text-[9px] font-mono text-slate-700 hover:text-slate-500 transition-colors opacity-0 group-hover:opacity-100"
+                        title={`Compare ${t.name} with another theme`}
+                        data-testid={`screener-compare-link-${t.id}`}
+                      >
+                        ↔
+                      </Link>
+                    </div>
                   </td>
                   <td className="py-2 px-3">
                     <div className="flex items-center gap-1 flex-wrap">
@@ -1486,23 +1777,23 @@ function ThemeScreener({
                       <span className="text-slate-700">0</span>
                     )}
                   </td>
-                  <td className="py-2 px-3">
+                  {isVisible("rs60", view) && <td className="py-2 px-3">
                     <span className={`text-[10px] font-mono tabular-nums ${rsClr}`}>
                       {t.rs60 != null ? `${t.rs60 > 0 ? "+" : ""}${(t.rs60 * 100).toFixed(1)}%` : "—"}
                     </span>
-                  </td>
-                  <td className="py-2 px-3">
+                  </td>}
+                  {isVisible("flow", view) && <td className="py-2 px-3">
                     <span className={`text-[10px] font-mono tabular-nums ${flowClr}`}>
                       {t.flow20d != null ? `${flowArrow} ${Math.abs(t.flow20d).toFixed(1)}σ` : "—"}
                     </span>
-                  </td>
-                  <td className="py-2 px-3">
+                  </td>}
+                  {isVisible("vsSectors", view) && <td className="py-2 px-3">
                     {divPts != null ? (
                       <span className={`text-[10px] font-mono tabular-nums ${divPts > 2 ? "text-emerald-400" : divPts < -2 ? "text-red-400" : "text-slate-400"}`}>
                         {divPts > 0 ? "+" : ""}{divPts}pt
                       </span>
                     ) : <span className="text-slate-600 text-[10px]">—</span>}
-                  </td>
+                  </td>}
                   <td className="py-2 px-3">
                     <div className="flex items-center gap-1">
                       <ThemePhaseBadge phase={t.themePhase ?? null} />
@@ -1520,6 +1811,18 @@ function ThemeScreener({
                       )}
                     </div>
                   </td>
+                  {isVisible("transition", view) && <td className="py-2 px-3">
+                    <PhaseTransitionBadge signal={t.phaseTransitionSignal ?? null} />
+                  </td>}
+                  {isVisible("risk", view) && <td className="py-2 px-3">
+                    <RiskLevelBadge riskLevel={t.riskLevel ?? null} />
+                  </td>}
+                  {isVisible("entry", view) && <td className="py-2 px-3">
+                    <EntryActionBadge action={t.entryAction ?? null} rationale={t.entryRationale ?? null} />
+                  </td>}
+                  {isVisible("momentum", view) && <td className="py-2 px-3">
+                    <MomentumAlignmentBadge alignment={t.momentumAlignment ?? null} />
+                  </td>}
                   <td className="py-2 px-3">
                     <div className="flex items-center gap-1.5" title={`${t.bullishCount}/${t.constituentCount} ETFs bullish (BUY or WATCH)`}>
                       <div className="flex h-2 w-10 rounded-full overflow-hidden bg-slate-700 gap-px">
@@ -1535,7 +1838,7 @@ function ThemeScreener({
                       </span>
                     </div>
                   </td>
-                  <td className="py-2 px-3">
+                  {isVisible("trend", view) && <td className="py-2 px-3">
                     <span className={`text-[10px] font-mono ${trendClr}`}>
                       {trendArrow}{t.compositeTrend20d != null ? ` ${t.compositeTrend20d > 0 ? "+" : ""}${(t.compositeTrend20d * 100).toFixed(1)}pt` : ""}
                       {accel != null && Math.abs(accel) > 0.002 && (
@@ -1546,8 +1849,8 @@ function ThemeScreener({
                         </span>
                       )}
                     </span>
-                  </td>
-                  <td className="py-2 px-3">
+                  </td>}
+                  {isVisible("percentile", view) && <td className="py-2 px-3">
                     {t.scorePercentile30d != null ? (
                       <span
                         data-testid="screener-percentile-badge"
@@ -1565,8 +1868,8 @@ function ThemeScreener({
                     ) : (
                       <span className="text-slate-700 text-[10px]">—</span>
                     )}
-                  </td>
-                  <td className="py-2 px-3" data-testid="screener-concentration-cell">
+                  </td>}
+                  {isVisible("concentration", view) && <td className="py-2 px-3" data-testid="screener-concentration-cell">
                     {t.concentrationRisk != null ? (
                       <span
                         className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
@@ -1583,7 +1886,46 @@ function ThemeScreener({
                     ) : (
                       <span className="text-slate-700 text-[10px]">—</span>
                     )}
+                  </td>}
+                  {isVisible("persist", view) && <td className="py-2 px-3" data-testid="screener-persistence-cell">
+                    <span
+                      className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                        t.persistenceGrade === "A"
+                          ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
+                          : t.persistenceGrade === "B"
+                          ? "bg-cyan-500/15 text-cyan-400 border-cyan-500/25"
+                          : t.persistenceGrade === "C"
+                          ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                          : t.persistenceGrade === "D"
+                          ? "bg-orange-500/10 text-orange-400 border-orange-500/20"
+                          : "bg-red-500/10 text-red-400 border-red-500/20"
+                      }`}
+                      title={`Phase persistence: ${t.persistenceScore}% of last 30 days in a strong phase (BREAKOUT/MOMENTUM/SETUP)`}
+                    >
+                      {t.persistenceGrade}
+                    </span>
+                  </td>}
+                  <td className="py-2 px-3" data-testid="screener-iqs-cell">
+                    <span
+                      className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                        t.investmentQualityGrade === "A"
+                          ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
+                          : t.investmentQualityGrade === "B"
+                          ? "bg-cyan-500/15 text-cyan-400 border-cyan-500/25"
+                          : t.investmentQualityGrade === "C"
+                          ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                          : t.investmentQualityGrade === "D"
+                          ? "bg-orange-500/10 text-orange-400 border-orange-500/20"
+                          : "bg-red-500/10 text-red-400 border-red-500/20"
+                      }`}
+                      title={`Investment Quality Score: ${t.investmentQualityScore}/100 — signal quality (50%), value zone (20%), diversification (15%), volatility (15%)`}
+                    >
+                      {t.investmentQualityGrade}
+                    </span>
                   </td>
+                  {isVisible("conf", view) && <td className="py-2 px-3">
+                    <ConfluenceBadge confluenceScore={t.confluenceScore} confidenceLabel={t.confidenceLabel} />
+                  </td>}
                   <td className="py-2 px-3">
                     {alertCount > 0 ? (
                       <span
@@ -1595,35 +1937,6 @@ function ThemeScreener({
                     ) : (
                       <span className="text-slate-700 text-[10px]">—</span>
                     )}
-                  </td>
-                  <td className="py-2 px-3" data-testid="screener-iq-cell">
-                    {t.investmentQualityScore != null ? (
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-10 h-1 bg-slate-700 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${
-                              t.investmentQualityScore >= 0.75 ? "bg-emerald-500"
-                              : t.investmentQualityScore >= 0.60 ? "bg-cyan-500"
-                              : t.investmentQualityScore >= 0.45 ? "bg-amber-500"
-                              : "bg-red-500"
-                            }`}
-                            style={{ width: `${Math.round(t.investmentQualityScore * 100)}%` }}
-                          />
-                        </div>
-                        <span
-                          data-testid="screener-iq-badge"
-                          className={`text-[10px] font-mono tabular-nums ${
-                            t.investmentQualityScore >= 0.75 ? "text-emerald-400"
-                            : t.investmentQualityScore >= 0.60 ? "text-cyan-400"
-                            : t.investmentQualityScore >= 0.45 ? "text-amber-400"
-                            : "text-red-400"
-                          }`}
-                          title={`Investment Quality Score: ${Math.round(t.investmentQualityScore * 100)} — signal strength 40% · conviction 25% · stability 20% · momentum 10% · flow 5%`}
-                        >
-                          {Math.round(t.investmentQualityScore * 100)}
-                        </span>
-                      </div>
-                    ) : <span className="text-slate-700 text-[10px]">—</span>}
                   </td>
                 </tr>
               );
@@ -1837,18 +2150,290 @@ function ThemeRaceChart({
   );
 }
 
+const RISK_ORDINAL: Record<string, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, EXTREME: 3 };
+const RISK_COLORS: Record<string, string> = {
+  LOW:     "#34d399",
+  MEDIUM:  "#94a3b8",
+  HIGH:    "#fbbf24",
+  EXTREME: "#f87171",
+};
+const RISK_LABELS = ["LOW", "MEDIUM", "HIGH", "EXTREME"];
+
+function ThemeRiskMatrixPanel({ themes }: { themes: ThemeSummary[] }) {
+  const plotThemes = themes.filter(t => t.compositeScore != null && t.riskLevel != null);
+  if (plotThemes.length < 2) return null;
+
+  const W = 540, H = 200, padX = 60, padY = 28, plotW = W - padX * 2, plotH = H - padY * 2;
+  const scoreToX = (s: number) => padX + s * plotW;
+  const riskToY = (r: string) => padY + ((RISK_ORDINAL[r] ?? 1) / 3) * plotH;
+
+  return (
+    <div className="mb-4 bg-slate-800/40 border border-slate-700/40 rounded-lg overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-slate-700/30 flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Risk vs Score Matrix</span>
+        <span className="text-[10px] text-slate-600 font-mono">opportunity (high score, low risk) at top-right</span>
+      </div>
+      <div className="px-3 py-2">
+        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="w-full">
+          {/* quadrant shading */}
+          <rect x={padX + 0.65 * plotW} y={padY} width={0.35 * plotW} height={plotH / 2} fill="#34d39908" />
+          <rect x={padX} y={padY + plotH / 2} width={0.65 * plotW} height={plotH / 2} fill="#f8717108" />
+
+          {/* BUY threshold line */}
+          <line x1={padX + 0.65 * plotW} y1={padY} x2={padX + 0.65 * plotW} y2={padY + plotH}
+            stroke="#34d399" strokeWidth="0.6" strokeDasharray="3 3" opacity="0.4" />
+          <line x1={padX} y1={padY + plotH / 2} x2={padX + plotW} y2={padY + plotH / 2}
+            stroke="#94a3b8" strokeWidth="0.6" strokeDasharray="3 3" opacity="0.3" />
+
+          {/* axes labels */}
+          {RISK_LABELS.map((label, i) => (
+            <text key={label} x={padX - 4} y={padY + (i / 3) * plotH + 4}
+              fill="#64748b" fontSize="7" fontFamily="monospace" textAnchor="end">
+              {label.slice(0, 3)}
+            </text>
+          ))}
+          {[0, 0.25, 0.5, 0.65, 0.75, 1.0].map(v => (
+            <text key={v} x={scoreToX(v)} y={padY + plotH + 10}
+              fill="#475569" fontSize="7" fontFamily="monospace" textAnchor="middle">
+              {Math.round(v * 100)}
+            </text>
+          ))}
+
+          {/* quadrant labels */}
+          <text x={padX + 0.68 * plotW + 4} y={padY + 8} fill="#34d39960" fontSize="6.5" fontFamily="monospace">BEST</text>
+          <text x={padX + 4} y={padY + plotH - 4} fill="#f8717160" fontSize="6.5" fontFamily="monospace">AVOID</text>
+
+          {/* dots */}
+          {plotThemes.map(t => {
+            const x = scoreToX(t.compositeScore!);
+            const y = riskToY(t.riskLevel!);
+            const fill = RISK_COLORS[t.riskLevel!] ?? "#94a3b8";
+            const label = t.name.split(" ").slice(0, 2).join(" ");
+            return (
+              <g key={t.id}>
+                <circle cx={x} cy={y} r={5} fill={fill} fillOpacity={0.8} />
+                <text x={x} y={y - 8} fill={fill} fontSize="6" fontFamily="monospace"
+                  textAnchor="middle" opacity="0.85">{label}</text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function ThemeEntryAdvisorPanel({ themes }: { themes: ThemeSummary[] }) {
+  const actionable = themes
+    .filter(t => t.entryAction === "ENTER" || t.entryAction === "SCALE_IN")
+    .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
+  const watches = themes
+    .filter(t => t.entryAction === "WATCH")
+    .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
+
+  if (actionable.length === 0 && watches.length === 0) return null;
+
+  return (
+    <div className="mb-4 bg-slate-800/40 border border-slate-700/40 rounded-lg overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-slate-700/30 flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Entry Timing Advisor</span>
+        <span className="text-[10px] text-slate-600 font-mono">chain-of-responsibility · {actionable.length} actionable</span>
+      </div>
+      <div className="divide-y divide-slate-700/20">
+        {actionable.map(t => (
+          <div key={t.id} className="px-4 py-2.5 flex items-center gap-3">
+            <EntryActionBadge action={t.entryAction} rationale={null} />
+            <span className="text-[11px] font-medium text-slate-200 min-w-0 flex-1 truncate">{t.name}</span>
+            <span className="text-[10px] font-mono text-slate-400 shrink-0">
+              {t.compositeScore != null ? Math.round(t.compositeScore * 100) : "—"}
+            </span>
+            <span className="text-[9px] text-slate-500 max-w-[260px] truncate hidden sm:block" title={t.entryRationale ?? ""}>
+              {t.entryRationale}
+            </span>
+          </div>
+        ))}
+        {watches.length > 0 && (
+          <div className="px-4 py-2 bg-slate-800/20">
+            <div className="text-[9px] font-mono text-slate-600 uppercase mb-1.5">Watchlist — approaching BUY zone</div>
+            <div className="flex flex-wrap gap-2">
+              {watches.map(t => (
+                <div key={t.id} className="flex items-center gap-1.5 bg-slate-700/30 rounded px-2 py-1">
+                  <span className="text-[10px] text-amber-300 font-mono">◉</span>
+                  <span className="text-[10px] text-slate-300">{t.name}</span>
+                  <span className="text-[9px] font-mono text-slate-500">
+                    {t.compositeScore != null ? Math.round(t.compositeScore * 100) : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CapitalRotationPanel({ data }: { data: CapitalRotationData }) {
+  const INTENSITY_CONFIG: Record<string, { label: string; className: string; barColor: string }> = {
+    STRONG:        { label: "STRONG ROTATION",  className: "text-emerald-300 bg-emerald-500/15 border-emerald-500/30", barColor: "bg-emerald-500" },
+    MODERATE:      { label: "MODERATE ROTATION", className: "text-cyan-300 bg-cyan-500/15 border-cyan-500/30",          barColor: "bg-cyan-500" },
+    LOW:           { label: "LOW ROTATION",      className: "text-amber-300 bg-amber-500/15 border-amber-500/30",       barColor: "bg-amber-500" },
+    CONSOLIDATING: { label: "CONSOLIDATING",     className: "text-slate-400 bg-slate-700/40 border-slate-600/40",       barColor: "bg-slate-500" },
+  };
+  const cfg = INTENSITY_CONFIG[data.intensityLabel] ?? INTENSITY_CONFIG.CONSOLIDATING;
+  const scorePct = Math.round(data.rotationScore * 100);
+  const dispersionPct = Math.round(data.scoreDispersion * 100);
+  const alignmentPct = Math.round(data.trendAlignment * 100);
+  return (
+    <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-slate-700/40 flex items-center gap-3">
+        <span className="text-[10px] font-mono font-semibold text-slate-400 uppercase tracking-wider">Capital Rotation Score</span>
+        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${cfg.className}`}>
+          {cfg.label}
+        </span>
+        <span className="ml-auto text-[11px] font-mono font-bold text-slate-200">{scorePct}</span>
+        <span className="text-[9px] font-mono text-slate-600">/100</span>
+      </div>
+      <div className="px-4 py-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="flex flex-col gap-3">
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-[9px] font-mono text-slate-500 uppercase">Score Dispersion</span>
+              <span className="text-[10px] font-mono text-slate-400">{dispersionPct}%</span>
+            </div>
+            <div className="h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full ${cfg.barColor} opacity-80`} style={{ width: `${dispersionPct}%` }} />
+            </div>
+            <p className="text-[9px] text-slate-600 mt-0.5">IQR of composite scores — wider = more dispersed capital</p>
+          </div>
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-[9px] font-mono text-slate-500 uppercase">Trend Alignment</span>
+              <span className="text-[10px] font-mono text-slate-400">{alignmentPct}%</span>
+            </div>
+            <div className="h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full ${cfg.barColor} opacity-80`} style={{ width: `${alignmentPct}%` }} />
+            </div>
+            <p className="text-[9px] text-slate-600 mt-0.5">Winners trending up + losers trending down simultaneously</p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-3">
+          {data.leadingThemeNames.length > 0 && (
+            <div>
+              <div className="text-[9px] font-mono text-emerald-600 uppercase mb-1.5">Leading</div>
+              <div className="flex flex-col gap-1">
+                {data.leadingThemeNames.map((name, i) => (
+                  <div key={name} className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-mono text-slate-600">#{i + 1}</span>
+                    <span className="text-[10px] text-slate-300 truncate">{name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {data.laggingThemeNames.length > 0 && (
+            <div>
+              <div className="text-[9px] font-mono text-red-700 uppercase mb-1.5">Lagging</div>
+              <div className="flex flex-col gap-1">
+                {data.laggingThemeNames.map((name) => (
+                  <div key={name} className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-mono text-slate-600">↓</span>
+                    <span className="text-[10px] text-slate-500 truncate">{name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MomentumDivergencePanel({ themes }: { themes: ThemeSummary[] }) {
+  const fading = themes.filter(t => t.momentumAlignment === "FADING" && t.compositeScore != null)
+    .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
+  const recovering = themes.filter(t => t.momentumAlignment === "RECOVERING" && t.compositeScore != null)
+    .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
+  if (fading.length === 0 && recovering.length === 0) return null;
+  return (
+    <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-slate-700/40 flex items-center gap-2">
+        <span className="text-[10px] font-mono font-semibold text-slate-400 uppercase tracking-wider">Momentum Divergence</span>
+        <span className="text-[9px] text-slate-600">5d vs 20d trend misalignment signals</span>
+      </div>
+      <div className="divide-y divide-slate-700/30">
+        {recovering.length > 0 && (
+          <div className="px-4 py-2.5">
+            <div className="text-[9px] font-mono text-teal-600 uppercase mb-2">Recovering — dip in healthy uptrend</div>
+            <div className="flex flex-col gap-1.5">
+              {recovering.map(t => (
+                <div key={t.id} className="flex items-center gap-2.5">
+                  <MomentumAlignmentBadge alignment="RECOVERING" />
+                  <span className="text-[11px] font-medium text-slate-200 flex-1 truncate">{t.name}</span>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    score {Math.round((t.compositeScore ?? 0) * 100)}
+                  </span>
+                  <span className="text-[9px] font-mono text-teal-400">
+                    5d {t.compositeTrend5d != null ? `${t.compositeTrend5d > 0 ? "+" : ""}${(t.compositeTrend5d * 100).toFixed(1)}pt` : "—"}
+                  </span>
+                  <span className="text-[9px] font-mono text-emerald-400">
+                    20d {t.compositeTrend20d != null ? `+${(t.compositeTrend20d * 100).toFixed(1)}pt` : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {fading.length > 0 && (
+          <div className="px-4 py-2.5">
+            <div className="text-[9px] font-mono text-amber-600 uppercase mb-2">Fading — short bounce in declining trend</div>
+            <div className="flex flex-col gap-1.5">
+              {fading.map(t => (
+                <div key={t.id} className="flex items-center gap-2.5">
+                  <MomentumAlignmentBadge alignment="FADING" />
+                  <span className="text-[11px] font-medium text-slate-200 flex-1 truncate">{t.name}</span>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    score {Math.round((t.compositeScore ?? 0) * 100)}
+                  </span>
+                  <span className="text-[9px] font-mono text-amber-400">
+                    5d +{t.compositeTrend5d != null ? `${(t.compositeTrend5d * 100).toFixed(1)}pt` : "—"}
+                  </span>
+                  <span className="text-[9px] font-mono text-red-400">
+                    20d {t.compositeTrend20d != null ? `${(t.compositeTrend20d * 100).toFixed(1)}pt` : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default async function ThemesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string }>;
+  searchParams: Promise<{ sort?: string; signal?: string; phase?: string; entry?: string; confidence?: string; view?: string }>;
 }) {
-  const { sort: sortParam } = await searchParams;
-  const screenerSort = ["score", "delta5d", "alerts", "rs60", "velocity", "percentile", "iq"].includes(sortParam ?? "") ? sortParam as string : "score";
+  const { sort: sortParam, signal: signalFilter, phase: phaseFilter, entry: entryFilter, confidence: confidenceFilter, view: viewParam } = await searchParams;
+  const screenerSort = ["score", "delta5d", "alerts", "rs60", "velocity", "percentile", "confluence", "persistence", "iqs"].includes(sortParam ?? "") ? sortParam as string : "score";
+  const view: ViewPreset = viewParam === "essential" ? "essential" : viewParam === "full" ? "full" : "standard";
+  const allParams: ScreenerParams = {
+    sort: sortParam,
+    signal: signalFilter,
+    phase: phaseFilter,
+    entry: entryFilter,
+    confidence: confidenceFilter,
+    view: view === "standard" ? undefined : view,
+  };
 
-  const [themes, alertsResponse, recentAlerts] = await Promise.all([
+  const [themes, alertsResponse, recentAlerts, rotationData] = await Promise.all([
     fetchThemes(),
     fetchAlerts().catch(() => ({ activeCount: 0, alerts: [] })),
     fetchRecentAlerts().catch(() => [] as AlertDto[]),
+    fetchRotationScore().catch(() => null),
   ]);
 
   const historyResults = await Promise.allSettled(
@@ -1865,6 +2450,15 @@ export default async function ThemesPage({
   for (const alert of themeAlerts) {
     if (alert.themeId) alertsByThemeId[alert.themeId] = (alertsByThemeId[alert.themeId] ?? 0) + 1;
   }
+
+  const filteredThemes = themes.filter(t => {
+    if (signalFilter && t.dominantSignal !== signalFilter) return false;
+    if (phaseFilter && t.themePhase !== phaseFilter) return false;
+    if (entryFilter && t.entryAction !== entryFilter) return false;
+    if (confidenceFilter && t.confidenceLabel !== confidenceFilter) return false;
+    return true;
+  });
+
   const buyThemes = themes.filter(t => t.dominantSignal === "BUY").length;
   const watchThemes = themes.filter(t => t.dominantSignal === "WATCH").length;
   const activeThemes = themes.filter(t => t.dominantSignal === "BUY" || t.dominantSignal === "WATCH").length;
@@ -1934,6 +2528,10 @@ export default async function ThemesPage({
         {themes.length > 0 && <ThemeTippingPoints themes={themes} historiesByThemeId={historyByThemeId} />}
         {themes.length > 0 && <ThemePlaybook themes={themes} historiesByThemeId={historyByThemeId} />}
         {themes.length > 0 && <PreBuySetupPanel themes={themes} />}
+        {themes.length > 1 && <ThemeRiskMatrixPanel themes={themes} />}
+        {rotationData && <CapitalRotationPanel data={rotationData} />}
+        {themes.length > 0 && <ThemeEntryAdvisorPanel themes={themes} />}
+        {themes.length > 0 && <MomentumDivergencePanel themes={themes} />}
         {themes.length > 0 && <ThemeNarrative themes={themes} />}
         {themes.length > 0 && <ActiveRotationBanner themes={themes} historiesByThemeId={historyByThemeId} />}
         {themes.length > 0 && <ThemeBuyCountdown themes={themes} />}
@@ -1948,8 +2546,7 @@ export default async function ThemesPage({
         {themes.length > 1 && <ThemePositioningMatrix themes={themes} />}
         {themes.length > 1 && <ThemeRaceChart themes={themes} historiesByThemeId={historyByThemeId} />}
         {themes.length > 1 && <ThemeAlertRiskMap themes={themes} />}
-        {themes.length > 0 && <SmartMoneyPicksPanel themes={themes} />}
-        {themes.length > 0 && <ThemeScreener themes={themes} historiesByThemeId={historyByThemeId} alertsByThemeId={alertsByThemeId} sort={screenerSort} />}
+        {themes.length > 0 && <ThemeScreener themes={filteredThemes} allThemes={themes} historiesByThemeId={historyByThemeId} alertsByThemeId={alertsByThemeId} sort={screenerSort} allParams={allParams} view={view} />}
         {themes.length > 1 && <ThemeScoreHeatmap themes={themes} historiesByThemeId={historyByThemeId} />}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">

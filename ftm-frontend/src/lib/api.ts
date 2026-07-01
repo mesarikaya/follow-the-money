@@ -658,14 +658,26 @@ export type ThemeSummary = {
   topConstituents: ThemeConstituent[];
   alertCount30d: number;
   signalStreakDays: number;
+  phaseStreakDays: number;
   volatility30d: number | null;
   scorePercentile30d: number | null;
   concentrationRisk: number | null;
-  investmentQualityScore: number | null;
+  phaseTransitionSignal: string | null;
+  riskLevel: string | null;
+  entryAction: string | null;
+  entryRationale: string | null;
+  momentumAlignment: string | null;
+  confluenceScore: number;
+  confidenceLabel: string;
+  persistenceScore: number;
+  persistenceGrade: string;
+  investmentQualityScore: number;
+  investmentQualityGrade: string;
 };
 
 export type ThemeDetail = ThemeSummary & {
   constituents: ThemeConstituent[];
+  phaseHistory30d: string[];
 };
 
 export type ThemeHistoryPoint = {
@@ -675,10 +687,29 @@ export type ThemeHistoryPoint = {
   trend20d: number | null;
 };
 
+export type CapitalRotationData = {
+  rotationScore: number;
+  intensityLabel: string;
+  scoreDispersion: number;
+  trendAlignment: number;
+  leadingThemeNames: string[];
+  laggingThemeNames: string[];
+};
+
 export const fetchThemes = () => get<ThemeSummary[]>("/api/v1/themes");
 export const fetchTheme = (themeId: string) => get<ThemeDetail>(`/api/v1/themes/${themeId}`);
 export const fetchThemeHistory = (themeId: string, days = 30) =>
   get<ThemeHistoryPoint[]>(`/api/v1/themes/${themeId}/history?days=${days}`);
+export const fetchRotationScore = () =>
+  get<CapitalRotationData>("/api/v1/themes/rotation-score");
+
+export type ThemeCorrelationMatrix = {
+  themeIds: string[];
+  themeNames: string[];
+  matrix: number[][];
+};
+export const fetchThemeCorrelation = (days = 60) =>
+  get<ThemeCorrelationMatrix>(`/api/v1/themes/signal-correlation?days=${days}`);
 
 export type ApproachingSignalDto = {
   categoryId: string;
@@ -711,3 +742,35 @@ export type HoldingActionDto = {
 
 export const fetchPortfolioActions = (timeframe = "60d") =>
   get<HoldingActionDto[]>(`/api/v1/portfolio/actions?timeframe=${timeframe}`);
+
+export type ThemeSnapshot = {
+  totalThemes: number;
+  buyCount: number;
+  watchCount: number;
+  holdCount: number;
+  reduceCount: number;
+  breakoutCount: number;
+  momentumCount: number;
+  buildingCount: number;
+  fadingCount: number;
+  weakCount: number;
+  averageCompositeScore: number;
+  gainingMomentumCount: number;
+  losingMomentumCount: number;
+};
+
+export const fetchThemeSnapshot = () => get<ThemeSnapshot>("/api/v1/themes/snapshot");
+
+export type ThemePortfolioCoverage = {
+  themeId: string;
+  themeName: string;
+  dominantSignal: string | null;
+  themePhase: string | null;
+  compositeScore: number;
+  covered: boolean;
+  coveringTickers: string[];
+  portfolioExposurePct: number;
+};
+
+export const fetchThemePortfolioCoverage = () =>
+  get<ThemePortfolioCoverage[]>("/api/v1/themes/portfolio-coverage");

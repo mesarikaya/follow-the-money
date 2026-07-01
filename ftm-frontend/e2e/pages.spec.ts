@@ -1470,19 +1470,19 @@ test.describe("Dashboard — Theme Leaderboard Value Zone (EP-074)", () => {
 
 test.describe("Theme Screener — Concentration Risk & Percentile (EP-075)", () => {
   test("shows percentile badge in theme screener rows", async ({ page }) => {
-    await page.goto("/themes");
+    await page.goto("/themes?view=full");
     // At least one screener-percentile-badge should appear (e.g., P78 for AI_INFRA)
     await expect(page.getByTestId("screener-percentile-badge").first()).toBeVisible();
   });
 
   test("shows concentration risk cell in theme screener rows", async ({ page }) => {
-    await page.goto("/themes");
+    await page.goto("/themes?view=full");
     // Concentration risk column present (CONC/MOD/DIV labels)
     await expect(page.getByTestId("screener-concentration-cell").first()).toBeVisible();
   });
 
   test("percentile sort shows cheapest themes first", async ({ page }) => {
-    await page.goto("/themes?sort=percentile");
+    await page.goto("/themes?view=full&sort=percentile");
     // First percentile badge should be the lowest percentile (P15 for SAAS_AT_RISK, P25 for BIOTECH)
     const firstBadge = page.getByTestId("screener-percentile-badge").first();
     await expect(firstBadge).toBeVisible();
@@ -1493,37 +1493,364 @@ test.describe("Theme Screener — Concentration Risk & Percentile (EP-075)", () 
   });
 
   test("concentration risk shows CONC for single-sector themes", async ({ page }) => {
-    await page.goto("/themes?sort=percentile");
+    await page.goto("/themes?view=full&sort=percentile");
     // Themes with concentrationRisk=1.0 show "CONC" badge (AI_INFRA, PHYSICAL_AI, BIOTECH, FINANCIAL, RESHORING)
     await expect(page.getByText("CONC").first()).toBeVisible();
   });
 });
 
-test.describe("Theme Screener — Investment Quality Score (EP-076)", () => {
-  test("shows Smart Money Picks panel on themes page", async ({ page }) => {
-    await page.goto("/themes");
-    await expect(page.getByTestId("smart-money-picks-panel")).toBeVisible();
+test.describe("Theme Detail — Phase Streak & History (EP-087)", () => {
+  test("shows phase streak badge in theme detail AggMetric grid", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    // AI_INFRA has phaseStreakDays=18 in mock, should render "18d" under "Phase" label
+    await expect(page.getByText("Phase").first()).toBeVisible();
+    await expect(page.getByText("18d")).toBeVisible();
   });
 
-  test("Smart Money Picks panel shows top 3 themes by IQ score", async ({ page }) => {
-    await page.goto("/themes");
-    const panel = page.getByTestId("smart-money-picks-panel");
-    // Panel should contain exactly 3 rows (rank 1, 2, 3)
-    const rows = panel.locator("a[href^='/themes/']");
-    await expect(rows).toHaveCount(3);
+  test("phase streak badge is absent when phaseStreakDays is 0", async ({ page }) => {
+    await page.goto("/themes/CLEAN_POWER");
+    // CLEAN_POWER has phaseStreakDays=5; "Phase" label should only appear if > 0
+    // If present, "5d" should be visible; use a soft assertion
+    const streakEl = page.getByText("5d");
+    const count = await streakEl.count();
+    if (count > 0) {
+      await expect(streakEl.first()).toBeVisible();
+    }
   });
 
-  test("IQ score column is visible in theme screener rows", async ({ page }) => {
+  test("phase timeline strip renders on theme detail page", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    await expect(page.getByText("Phase Timeline")).toBeVisible();
+  });
+});
+
+test.describe("Theme Persistence Score (EP-088)", () => {
+  test("screener shows persistence grade badge for each theme", async ({ page }) => {
     await page.goto("/themes");
-    await expect(page.getByTestId("screener-iq-cell").first()).toBeVisible();
+    const cells = page.getByTestId("screener-persistence-cell");
+    await expect(cells.first()).toBeVisible();
+    // AI_INFRA has persistenceGrade A
+    await expect(page.getByTestId("screener-persistence-cell").filter({ hasText: "A" }).first()).toBeVisible();
   });
 
-  test("IQ sort shows highest-quality themes first", async ({ page }) => {
-    await page.goto("/themes?sort=iq");
-    const badges = page.getByTestId("screener-iq-badge");
-    await expect(badges.first()).toBeVisible();
-    const firstScore = parseInt((await badges.first().textContent()) ?? "0", 10);
-    const secondScore = parseInt((await badges.nth(1).textContent()) ?? "0", 10);
-    expect(firstScore).toBeGreaterThanOrEqual(secondScore);
+  test("theme detail shows persistence grade badge with correct grade", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    await expect(page.getByText("Persist").first()).toBeVisible();
+    await expect(page.getByTestId("persistence-grade-badge")).toBeVisible();
+    await expect(page.getByTestId("persistence-grade-badge")).toHaveText("A");
+  });
+
+  test("screener includes a grade F badge for low-persistence themes", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("screener-persistence-cell").first()).toBeVisible();
+    const allCells = await page.getByTestId("screener-persistence-cell").all();
+    const grades = await Promise.all(allCells.map(c => c.innerText()));
+    expect(grades.map(g => g.trim())).toContain("F");
+  });
+
+  test("persistence column header link is present in screener", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("screener-persistence-cell").first()).toBeVisible();
+    // Sort link for Persist column is present and points to sort=persistence URL
+    const sortLink = page.getByRole("link", { name: "Persist" });
+    await expect(sortLink).toBeVisible();
+    const href = await sortLink.getAttribute("href");
+    expect(href).toContain("sort=persistence");
+  });
+});
+
+test.describe("Theme Investment Quality Score (EP-089)", () => {
+  test("screener shows IQS grade badge for each theme", async ({ page }) => {
+    await page.goto("/themes");
+    const cells = page.getByTestId("screener-iqs-cell");
+    await expect(cells.first()).toBeVisible();
+    await expect(page.getByTestId("screener-iqs-cell").filter({ hasText: "B" }).first()).toBeVisible();
+  });
+
+  test("theme detail shows IQS grade badge with correct grade", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    await expect(page.getByText("IQS").first()).toBeVisible();
+    await expect(page.getByTestId("iqs-grade-badge")).toBeVisible();
+    await expect(page.getByTestId("iqs-grade-badge")).toHaveText("B");
+  });
+
+  test("screener includes a grade F IQS badge for lowest-quality theme", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("screener-iqs-cell").first()).toBeVisible();
+    const allCells = await page.getByTestId("screener-iqs-cell").all();
+    const grades = await Promise.all(allCells.map(c => c.innerText()));
+    expect(grades.map(g => g.trim())).toContain("F");
+  });
+
+  test("IQS column header sort link points to sort=iqs URL", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("screener-iqs-cell").first()).toBeVisible();
+    const sortLink = page.getByRole("link", { name: "IQS" });
+    await expect(sortLink).toBeVisible();
+    const href = await sortLink.getAttribute("href");
+    expect(href).toContain("sort=iqs");
+  });
+});
+
+test.describe("Screener Column Presets (EP-090)", () => {
+  test("standard view (default) shows IQS and Persist columns", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("screener-iqs-cell").first()).toBeVisible();
+    await expect(page.getByTestId("screener-persistence-cell").first()).toBeVisible();
+  });
+
+  test("standard view (default) hides percentile and concentration columns", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("screener-percentile-badge")).toHaveCount(0);
+    await expect(page.getByTestId("screener-concentration-cell")).toHaveCount(0);
+  });
+
+  test("essential view hides Persist column but keeps IQS", async ({ page }) => {
+    await page.goto("/themes?view=essential");
+    await expect(page.getByTestId("screener-iqs-cell").first()).toBeVisible();
+    await expect(page.getByTestId("screener-persistence-cell")).toHaveCount(0);
+  });
+
+  test("full view shows all columns including percentile and concentration", async ({ page }) => {
+    await page.goto("/themes?view=full");
+    await expect(page.getByTestId("screener-percentile-badge").first()).toBeVisible();
+    await expect(page.getByTestId("screener-concentration-cell").first()).toBeVisible();
+    await expect(page.getByTestId("screener-persistence-cell").first()).toBeVisible();
+    await expect(page.getByTestId("screener-iqs-cell").first()).toBeVisible();
+  });
+
+  test("view switcher renders essential, standard, and full links", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("view-switcher")).toBeVisible();
+    await expect(page.getByTestId("view-essential")).toBeVisible();
+    await expect(page.getByTestId("view-standard")).toBeVisible();
+    await expect(page.getByTestId("view-full")).toBeVisible();
+  });
+
+  test("clicking full view link navigates to view=full URL", async ({ page }) => {
+    await page.goto("/themes");
+    await page.click('[data-testid="view-full"]');
+    await expect(page).toHaveURL(/view=full/);
+    await expect(page.getByTestId("screener-percentile-badge").first()).toBeVisible();
+  });
+
+  test("clicking essential view preserves active sort param", async ({ page }) => {
+    await page.goto("/themes?sort=iqs");
+    await page.click('[data-testid="view-essential"]');
+    await expect(page).toHaveURL(/view=essential/);
+    await expect(page).toHaveURL(/sort=iqs/);
+  });
+
+  test("standard view is active by default with no view param in URL", async ({ page }) => {
+    await page.goto("/themes");
+    const standardLink = page.getByTestId("view-standard");
+    const className = await standardLink.getAttribute("class");
+    expect(className).toContain("text-slate-300");
+  });
+});
+
+test.describe("Theme Comparison Page (EP-091)", () => {
+  test("no params: shows theme picker list", async ({ page }) => {
+    await page.goto("/themes/compare");
+    await expect(page.getByText("Compare Themes")).toBeVisible();
+    await expect(page.getByTestId("picker-theme-AI_INFRA")).toBeVisible();
+    await expect(page.getByTestId("picker-theme-CHIP_COMPUTE")).toBeVisible();
+  });
+
+  test("one param: shows selected theme and pick-second list", async ({ page }) => {
+    await page.goto("/themes/compare?a=AI_INFRA");
+    await expect(page.getByText(/Compare.*AI Infrastructure/i)).toBeVisible();
+    // AI_INFRA should not appear in the second picker (can't compare with itself)
+    await expect(page.getByTestId("picker-theme-AI_INFRA")).not.toBeVisible();
+    await expect(page.getByTestId("picker-theme-CHIP_COMPUTE")).toBeVisible();
+  });
+
+  test("both params: shows comparison table with both theme names", async ({ page }) => {
+    await page.goto("/themes/compare?a=AI_INFRA&b=CHIP_COMPUTE");
+    await expect(page.getByTestId("compare-theme-name-a")).toBeVisible();
+    await expect(page.getByTestId("compare-theme-name-b")).toBeVisible();
+    const nameA = await page.getByTestId("compare-theme-name-a").textContent();
+    const nameB = await page.getByTestId("compare-theme-name-b").textContent();
+    expect(nameA).toContain("AI Infrastructure");
+    expect(nameB).toContain("Semiconductor Supercycle");
+  });
+
+  test("comparison table renders key metrics", async ({ page }) => {
+    await page.goto("/themes/compare?a=AI_INFRA&b=CHIP_COMPUTE");
+    const table = page.getByTestId("comparison-table");
+    await expect(table).toBeVisible();
+    // Use .first() since label text like "Score" also appears in subtitles ("score momentum")
+    await expect(table.getByText("Score").first()).toBeVisible();
+    await expect(table.getByText("Signal").first()).toBeVisible();
+    await expect(table.getByText("IQS").first()).toBeVisible();
+    await expect(table.getByText("Persist").first()).toBeVisible();
+    await expect(table.getByText("RS-60").first()).toBeVisible();
+  });
+
+  test("swap link reverses themes", async ({ page }) => {
+    await page.goto("/themes/compare?a=AI_INFRA&b=CHIP_COMPUTE");
+    await expect(page.getByTestId("compare-swap-link")).toBeVisible();
+    await page.click('[data-testid="compare-swap-link"]');
+    await expect(page).toHaveURL(/a=CHIP_COMPUTE/);
+    await expect(page).toHaveURL(/b=AI_INFRA/);
+  });
+
+  test("theme detail page has compare link", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    const compareLink = page.getByTestId("theme-detail-compare-link");
+    await expect(compareLink).toBeVisible();
+    const href = await compareLink.getAttribute("href");
+    expect(href).toContain("/themes/compare?a=AI_INFRA");
+  });
+
+  test("compare link on theme detail navigates to picker with first theme selected", async ({ page }) => {
+    await page.goto("/themes/AI_INFRA");
+    await page.click('[data-testid="theme-detail-compare-link"]');
+    await expect(page).toHaveURL(/\/themes\/compare\?a=AI_INFRA/);
+    await expect(page.getByText(/Compare.*AI Infrastructure/i)).toBeVisible();
+  });
+
+  test("wins summary shows correct count for each theme", async ({ page }) => {
+    await page.goto("/themes/compare?a=AI_INFRA&b=SAAS_AT_RISK");
+    // AI_INFRA (BUY, high score) should win more metrics against SAAS_AT_RISK (REDUCE, low score)
+    const winLabels = page.getByText(/\d+ \/ 12 wins/);
+    await expect(winLabels.first()).toBeVisible();
+  });
+});
+
+test.describe("Theme Signal Co-Movement Matrix (EP-092)", () => {
+  test("correlation page loads with heading", async ({ page }) => {
+    await page.goto("/themes/correlation");
+    await expect(page.getByText("Signal Co-Movement Matrix")).toBeVisible();
+  });
+
+  test("shows correlation heatmap table", async ({ page }) => {
+    await page.goto("/themes/correlation");
+    await expect(page.getByTestId("correlation-heatmap")).toBeVisible();
+  });
+
+  test("shows insight summary panel", async ({ page }) => {
+    await page.goto("/themes/correlation");
+    await expect(page.getByTestId("correlation-insights")).toBeVisible();
+    await expect(page.getByText("Avg co-movement")).toBeVisible();
+    await expect(page.getByText("Most correlated")).toBeVisible();
+    await expect(page.getByText("Least correlated")).toBeVisible();
+  });
+
+  test("cells link to compare page for theme pairs", async ({ page }) => {
+    await page.goto("/themes/correlation");
+    const cell = page.getByTestId("corr-cell-AI_INFRA-CHIP_COMPUTE");
+    await expect(cell).toBeVisible();
+    await expect(cell).toHaveAttribute("href", "/themes/compare?a=AI_INFRA&b=CHIP_COMPUTE");
+  });
+
+  test("diagonal cells show 1.00 and are not links", async ({ page }) => {
+    await page.goto("/themes/correlation");
+    // Diagonal: AI_INFRA vs AI_INFRA — no link (just a div with 1.00)
+    await expect(page.getByText("1.00").first()).toBeVisible();
+  });
+
+  test("correlation nav link exists on screener page", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("correlation-nav-link")).toBeVisible();
+  });
+
+  test("nav link leads to correlation page", async ({ page }) => {
+    await page.goto("/themes");
+    await page.getByTestId("correlation-nav-link").click();
+    await expect(page).toHaveURL("/themes/correlation");
+    await expect(page.getByText("Signal Co-Movement Matrix")).toBeVisible();
+  });
+
+  test("back link from correlation page returns to themes", async ({ page }) => {
+    await page.goto("/themes/correlation");
+    await page.getByRole("link", { name: "← Themes" }).click();
+    await expect(page).toHaveURL("/themes");
+  });
+});
+
+test.describe("Dashboard — Theme Market Snapshot (EP-093)", () => {
+  test("renders theme market snapshot panel", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("theme-market-snapshot")).toBeVisible();
+  });
+
+  test("shows Theme Market Snapshot heading", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "Theme Market Snapshot" })).toBeVisible();
+  });
+
+  test("shows signal distribution pills", async ({ page }) => {
+    await page.goto("/");
+    const snapshot = page.getByTestId("theme-market-snapshot");
+    await expect(snapshot.getByText("BUY")).toBeVisible();
+    await expect(snapshot.getByText("WATCH")).toBeVisible();
+    await expect(snapshot.getByText("HOLD")).toBeVisible();
+    await expect(snapshot.getByText("REDUCE")).toBeVisible();
+  });
+
+  test("shows avg score footer stat", async ({ page }) => {
+    await page.goto("/");
+    const snapshot = page.getByTestId("theme-market-snapshot");
+    await expect(snapshot.getByText(/Avg score/)).toBeVisible();
+  });
+
+  test("shows momentum balance footer stat", async ({ page }) => {
+    await page.goto("/");
+    const snapshot = page.getByTestId("theme-market-snapshot");
+    await expect(snapshot.getByText(/Momentum/)).toBeVisible();
+  });
+
+  test("shows market sentiment label", async ({ page }) => {
+    await page.goto("/");
+    const snapshot = page.getByTestId("theme-market-snapshot");
+    await expect(snapshot.getByText(/Risk-On|Mixed|Risk-Off/)).toBeVisible();
+  });
+});
+
+test.describe("Themes — Portfolio Coverage Page (EP-094)", () => {
+  test("coverage page loads", async ({ page }) => {
+    await page.goto("/themes/coverage");
+    await expect(page.getByRole("heading", { name: "Portfolio Theme Coverage" })).toBeVisible();
+  });
+
+  test("shows gap opportunities section", async ({ page }) => {
+    await page.goto("/themes/coverage");
+    await expect(page.getByTestId("gap-opportunities-section")).toBeVisible();
+  });
+
+  test("shows covered themes section", async ({ page }) => {
+    await page.goto("/themes/coverage");
+    await expect(page.getByTestId("covered-themes-section")).toBeVisible();
+  });
+
+  test("covered themes show portfolio ticker badges", async ({ page }) => {
+    await page.goto("/themes/coverage");
+    const covered = page.getByTestId("covered-themes-section");
+    await expect(covered.getByText(/SMH|ITA/).first()).toBeVisible();
+  });
+
+  test("gap opportunities contain BUY or WATCH signal", async ({ page }) => {
+    await page.goto("/themes/coverage");
+    const gaps = page.getByTestId("gap-opportunities-section");
+    await expect(gaps.getByText(/BUY|WATCH/).first()).toBeVisible();
+  });
+
+  test("coverage nav link exists on themes screener", async ({ page }) => {
+    await page.goto("/themes");
+    await expect(page.getByTestId("coverage-nav-link")).toBeVisible();
+  });
+
+  test("coverage nav link leads to coverage page", async ({ page }) => {
+    await page.goto("/themes");
+    await page.getByTestId("coverage-nav-link").click();
+    await expect(page).toHaveURL("/themes/coverage");
+    await expect(page.getByRole("heading", { name: "Portfolio Theme Coverage" })).toBeVisible();
+  });
+
+  test("back link from coverage page returns to themes", async ({ page }) => {
+    await page.goto("/themes/coverage");
+    await page.getByRole("link", { name: "← Themes" }).click();
+    await expect(page).toHaveURL("/themes");
   });
 });

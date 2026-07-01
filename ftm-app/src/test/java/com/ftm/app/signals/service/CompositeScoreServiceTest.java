@@ -289,7 +289,9 @@ class CompositeScoreServiceTest {
 
       for (String categoryId : compositeScores.keySet()) {
         assertThat(decompositions.get(categoryId).totalScore())
-            .as("totalScore in decomposition should match computeCompositeScores for %s", categoryId)
+            .as(
+                "totalScore in decomposition should match computeCompositeScores for %s",
+                categoryId)
             .isEqualByComparingTo(compositeScores.get(categoryId));
       }
     }

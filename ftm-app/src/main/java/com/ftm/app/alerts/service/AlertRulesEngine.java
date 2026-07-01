@@ -3719,8 +3719,7 @@ public class AlertRulesEngine {
 
       boolean divergenceActive =
           avgComposite >= THEME_SPD_FIRE_SCORE_MIN && avgRs20 < THEME_SPD_FIRE_RS20_MAX;
-      boolean divergenceResolved =
-          avgComposite < THEME_SPD_RESOLVE_SCORE_MAX || avgRs20 >= 0.0;
+      boolean divergenceResolved = avgComposite < THEME_SPD_RESOLVE_SCORE_MAX || avgRs20 >= 0.0;
 
       if (!hasActive && divergenceActive) {
         Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);

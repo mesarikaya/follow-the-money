@@ -1,9 +1,18 @@
 package com.ftm.app.api.controller;
 
+import com.ftm.app.api.dto.CapitalRotationDto;
+import com.ftm.app.api.dto.ThemeCorrelationDto;
 import com.ftm.app.api.dto.ThemeDetailDto;
 import com.ftm.app.api.dto.ThemeHistoryPointDto;
+import com.ftm.app.api.dto.ThemePortfolioCoverageDto;
+import com.ftm.app.api.dto.ThemeSnapshotDto;
 import com.ftm.app.api.dto.ThemeSummaryDto;
 import com.ftm.app.api.service.ThemeService;
+import com.ftm.app.themes.correlation.ThemeSignalCorrelationService;
+import com.ftm.app.themes.coverage.ThemePortfolioCoverageService;
+import com.ftm.app.themes.rotation.CapitalRotationResult;
+import com.ftm.app.themes.rotation.CapitalRotationScoreService;
+import com.ftm.app.themes.snapshot.ThemeSnapshotService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
@@ -26,9 +35,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class ThemeController {
 
   private final ThemeService themeService;
+  private final CapitalRotationScoreService capitalRotationScoreService;
+  private final ThemeSignalCorrelationService themeSignalCorrelationService;
+  private final ThemeSnapshotService themeSnapshotService;
+  private final ThemePortfolioCoverageService themePortfolioCoverageService;
 
-  public ThemeController(ThemeService themeService) {
+  public ThemeController(
+      ThemeService themeService,
+      CapitalRotationScoreService capitalRotationScoreService,
+      ThemeSignalCorrelationService themeSignalCorrelationService,
+      ThemeSnapshotService themeSnapshotService,
+      ThemePortfolioCoverageService themePortfolioCoverageService) {
     this.themeService = themeService;
+    this.capitalRotationScoreService = capitalRotationScoreService;
+    this.themeSignalCorrelationService = themeSignalCorrelationService;
+    this.themeSnapshotService = themeSnapshotService;
+    this.themePortfolioCoverageService = themePortfolioCoverageService;
   }
 
   @GetMapping
@@ -49,6 +71,22 @@ public class ThemeController {
     return themeService.getTheme(themeId.toUpperCase());
   }
 
+  @GetMapping("/rotation-score")
+  @Operation(
+      summary =
+          "Capital rotation intensity across all themes: score dispersion + trend alignment weighted composite")
+  public CapitalRotationDto getRotationScore() {
+    List<ThemeSummaryDto> themes = themeService.getThemes();
+    CapitalRotationResult result = capitalRotationScoreService.compute(themes);
+    return new CapitalRotationDto(
+        result.rotationScore(),
+        result.intensityLabel(),
+        result.scoreDispersion(),
+        result.trendAlignment(),
+        result.leadingThemeNames(),
+        result.laggingThemeNames());
+  }
+
   @GetMapping("/{themeId}/history")
   @Operation(
       summary =
@@ -61,5 +99,30 @@ public class ThemeController {
           String themeId,
       @RequestParam(defaultValue = "30") @Min(1) @Max(252) int days) {
     return themeService.getThemeHistory(themeId.toUpperCase(), days);
+  }
+
+  @GetMapping("/portfolio-coverage")
+  @Operation(
+      summary =
+          "Portfolio theme coverage: which themes have portfolio exposure vs. uncovered gap opportunities")
+  public List<ThemePortfolioCoverageDto> getPortfolioCoverage() {
+    return themePortfolioCoverageService.getCoverage();
+  }
+
+  @GetMapping("/snapshot")
+  @Operation(
+      summary =
+          "Market-level snapshot of all themes: signal distribution, phase breakdown, score average, and momentum balance")
+  public ThemeSnapshotDto getSnapshot() {
+    return themeSnapshotService.getSnapshot();
+  }
+
+  @GetMapping("/signal-correlation")
+  @Operation(
+      summary =
+          "Pairwise Pearson correlation of daily score deltas across all themes — measures signal co-movement, not return correlation")
+  public ThemeCorrelationDto getSignalCorrelation(
+      @RequestParam(defaultValue = "60") @Min(20) @Max(252) int days) {
+    return themeSignalCorrelationService.compute(days);
   }
 }

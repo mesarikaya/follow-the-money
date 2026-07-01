@@ -22,8 +22,18 @@ class PortfolioActionEngineTest {
   private HoldingDto holding(
       String ticker, String name, String categoryId, BigDecimal marketValueEur) {
     return new HoldingDto(
-        ticker, name, categoryId, "USD", BigDecimal.TEN, new BigDecimal("100"),
-        null, null, null, LocalDate.now(), null, marketValueEur);
+        ticker,
+        name,
+        categoryId,
+        "USD",
+        BigDecimal.TEN,
+        new BigDecimal("100"),
+        null,
+        null,
+        null,
+        LocalDate.now(),
+        null,
+        marketValueEur);
   }
 
   private CategorySummaryDto category(
@@ -34,12 +44,34 @@ class PortfolioActionEngineTest {
       BigDecimal trend20d,
       Integer convictionScore) {
     return new CategorySummaryDto(
-        id, id.name(), "EQUITY_SECTOR", "ETF",
-        compositeScore, null, null, trend20d,
-        rrgQuadrant, null, null, null, null,
-        null, null, 1, null, LocalDate.now(),
-        tradeSignal, null, null, null, null, null,
-        convictionScore, null, null, null);
+        id,
+        id.name(),
+        "EQUITY_SECTOR",
+        "ETF",
+        compositeScore,
+        null,
+        null,
+        trend20d,
+        rrgQuadrant,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        1,
+        null,
+        LocalDate.now(),
+        tradeSignal,
+        null,
+        null,
+        null,
+        null,
+        null,
+        convictionScore,
+        null,
+        null,
+        null);
   }
 
   // ------------------------------------------------------------------ EXIT
@@ -49,11 +81,12 @@ class PortfolioActionEngineTest {
   void shouldReturnExitWhenReduceSignalAndPositionOversized() {
     // 6 000 / 100 000 = 6% → above 5% → EXIT
     HoldingDto enrg = holding("ENRG", "Energy ETF", "ENRG", new BigDecimal("6000"));
-    CategorySummaryDto cat = category(CategoryId.ENRG, "REDUCE",
-        new BigDecimal("0.30"), "2", new BigDecimal("-0.02"), 60);
+    CategorySummaryDto cat =
+        category(
+            CategoryId.ENRG, "REDUCE", new BigDecimal("0.30"), "2", new BigDecimal("-0.02"), 60);
 
-    List<HoldingActionDto> actions = engine.deriveActions(
-        List.of(enrg), Map.of("ENRG", cat), new BigDecimal("100000"));
+    List<HoldingActionDto> actions =
+        engine.deriveActions(List.of(enrg), Map.of("ENRG", cat), new BigDecimal("100000"));
 
     assertThat(actions).hasSize(1);
     HoldingActionDto action = actions.get(0);
@@ -69,11 +102,12 @@ class PortfolioActionEngineTest {
   void shouldReturnTrimWhenReduceSignalAndPositionSmall() {
     // 3 000 / 100 000 = 3% → under 5% → TRIM
     HoldingDto finl = holding("XLF", "Financials", "FINL", new BigDecimal("3000"));
-    CategorySummaryDto cat = category(CategoryId.FINL, "REDUCE",
-        new BigDecimal("0.28"), "1", new BigDecimal("-0.01"), 55);
+    CategorySummaryDto cat =
+        category(
+            CategoryId.FINL, "REDUCE", new BigDecimal("0.28"), "1", new BigDecimal("-0.01"), 55);
 
-    List<HoldingActionDto> actions = engine.deriveActions(
-        List.of(finl), Map.of("FINL", cat), new BigDecimal("100000"));
+    List<HoldingActionDto> actions =
+        engine.deriveActions(List.of(finl), Map.of("FINL", cat), new BigDecimal("100000"));
 
     assertThat(actions).hasSize(1);
     assertThat(actions.get(0).action()).isEqualTo("TRIM");
@@ -86,11 +120,12 @@ class PortfolioActionEngineTest {
   @DisplayName("WATCH for WATCH signal regardless of position size")
   void shouldReturnWatchForWatchSignal() {
     HoldingDto hlth = holding("XLV", "Health Care", "HLTH", new BigDecimal("8000"));
-    CategorySummaryDto cat = category(CategoryId.HLTH, "WATCH",
-        new BigDecimal("0.55"), "4", new BigDecimal("-0.005"), 30);
+    CategorySummaryDto cat =
+        category(
+            CategoryId.HLTH, "WATCH", new BigDecimal("0.55"), "4", new BigDecimal("-0.005"), 30);
 
-    List<HoldingActionDto> actions = engine.deriveActions(
-        List.of(hlth), Map.of("HLTH", cat), new BigDecimal("100000"));
+    List<HoldingActionDto> actions =
+        engine.deriveActions(List.of(hlth), Map.of("HLTH", cat), new BigDecimal("100000"));
 
     assertThat(actions).hasSize(1);
     assertThat(actions.get(0).action()).isEqualTo("WATCH");
@@ -103,11 +138,11 @@ class PortfolioActionEngineTest {
   @DisplayName("HOLD for BUY signal")
   void shouldReturnHoldForBuySignal() {
     HoldingDto tech = holding("XLK", "Technology", "TECH", new BigDecimal("20000"));
-    CategorySummaryDto cat = category(CategoryId.TECH, "BUY",
-        new BigDecimal("0.78"), "4", new BigDecimal("0.03"), 85);
+    CategorySummaryDto cat =
+        category(CategoryId.TECH, "BUY", new BigDecimal("0.78"), "4", new BigDecimal("0.03"), 85);
 
-    List<HoldingActionDto> actions = engine.deriveActions(
-        List.of(tech), Map.of("TECH", cat), new BigDecimal("100000"));
+    List<HoldingActionDto> actions =
+        engine.deriveActions(List.of(tech), Map.of("TECH", cat), new BigDecimal("100000"));
 
     assertThat(actions).hasSize(1);
     assertThat(actions.get(0).action()).isEqualTo("HOLD");
@@ -122,8 +157,8 @@ class PortfolioActionEngineTest {
   void shouldReturnUnclassifiedWhenCategoryIdIsNull() {
     HoldingDto mystery = holding("TSLA", "Tesla", null, new BigDecimal("5000"));
 
-    List<HoldingActionDto> actions = engine.deriveActions(
-        List.of(mystery), Map.of(), new BigDecimal("100000"));
+    List<HoldingActionDto> actions =
+        engine.deriveActions(List.of(mystery), Map.of(), new BigDecimal("100000"));
 
     assertThat(actions).hasSize(1);
     assertThat(actions.get(0).action()).isEqualTo("UNCLASSIFIED");
@@ -138,8 +173,8 @@ class PortfolioActionEngineTest {
   void shouldReturnUnclassifiedWhenCategoryNotInMap() {
     HoldingDto exotica = holding("EXOT", "Exotic ETF", "UNKNOWN", new BigDecimal("2000"));
 
-    List<HoldingActionDto> actions = engine.deriveActions(
-        List.of(exotica), Map.of(), new BigDecimal("100000"));
+    List<HoldingActionDto> actions =
+        engine.deriveActions(List.of(exotica), Map.of(), new BigDecimal("100000"));
 
     assertThat(actions).hasSize(1);
     assertThat(actions.get(0).action()).isEqualTo("UNCLASSIFIED");
@@ -151,11 +186,11 @@ class PortfolioActionEngineTest {
   @DisplayName("portfolioPct is computed correctly")
   void shouldComputePortfolioPctCorrectly() {
     HoldingDto h = holding("MATL", "Materials", "MATL", new BigDecimal("12500"));
-    CategorySummaryDto cat = category(CategoryId.MATL, "BUY",
-        new BigDecimal("0.70"), "4", new BigDecimal("0.02"), 70);
+    CategorySummaryDto cat =
+        category(CategoryId.MATL, "BUY", new BigDecimal("0.70"), "4", new BigDecimal("0.02"), 70);
 
-    List<HoldingActionDto> actions = engine.deriveActions(
-        List.of(h), Map.of("MATL", cat), new BigDecimal("50000"));
+    List<HoldingActionDto> actions =
+        engine.deriveActions(List.of(h), Map.of("MATL", cat), new BigDecimal("50000"));
 
     // 12500 / 50000 * 100 = 25.00%
     assertThat(actions.get(0).portfolioPct()).isEqualByComparingTo("25.00");
@@ -170,22 +205,41 @@ class PortfolioActionEngineTest {
     HoldingDto holdHolding = holding("TECH", "Technology", "TECH", new BigDecimal("15000"));
     HoldingDto watchHolding = holding("HLTH", "Health", "HLTH", new BigDecimal("5000"));
 
-    Map<String, CategorySummaryDto> cats = Map.of(
-        "ENRG", category(CategoryId.ENRG, "REDUCE", new BigDecimal("0.25"), "2",
-            new BigDecimal("-0.02"), 60),
-        "TECH", category(CategoryId.TECH, "BUY", new BigDecimal("0.78"), "4",
-            new BigDecimal("0.03"), 85),
-        "HLTH", category(CategoryId.HLTH, "WATCH", new BigDecimal("0.55"), "4",
-            new BigDecimal("-0.005"), 30)
-    );
+    Map<String, CategorySummaryDto> cats =
+        Map.of(
+            "ENRG",
+                category(
+                    CategoryId.ENRG,
+                    "REDUCE",
+                    new BigDecimal("0.25"),
+                    "2",
+                    new BigDecimal("-0.02"),
+                    60),
+            "TECH",
+                category(
+                    CategoryId.TECH,
+                    "BUY",
+                    new BigDecimal("0.78"),
+                    "4",
+                    new BigDecimal("0.03"),
+                    85),
+            "HLTH",
+                category(
+                    CategoryId.HLTH,
+                    "WATCH",
+                    new BigDecimal("0.55"),
+                    "4",
+                    new BigDecimal("-0.005"),
+                    30));
 
-    List<HoldingActionDto> actions = engine.deriveActions(
-        List.of(exitHolding, holdHolding, watchHolding), cats, new BigDecimal("100000"));
+    List<HoldingActionDto> actions =
+        engine.deriveActions(
+            List.of(exitHolding, holdHolding, watchHolding), cats, new BigDecimal("100000"));
 
     assertThat(actions).hasSize(3);
-    assertThat(actions.get(0).action()).isEqualTo("EXIT");   // urgency 1
-    assertThat(actions.get(1).action()).isEqualTo("WATCH");  // urgency 3
-    assertThat(actions.get(2).action()).isEqualTo("HOLD");   // urgency 4
+    assertThat(actions.get(0).action()).isEqualTo("EXIT"); // urgency 1
+    assertThat(actions.get(1).action()).isEqualTo("WATCH"); // urgency 3
+    assertThat(actions.get(2).action()).isEqualTo("HOLD"); // urgency 4
   }
 
   // ------------------------------------------------------------------ signal derivation fallback
@@ -195,11 +249,11 @@ class PortfolioActionEngineTest {
   void shouldDeriveSignalWhenCategoryTradeSignalIsNull() {
     // Score 0.70, quadrant 4, trend20d 0.02 → derived BUY
     HoldingDto gold = holding("GLD", "Gold", "GOLD", new BigDecimal("5000"));
-    CategorySummaryDto cat = category(CategoryId.GOLD, null,
-        new BigDecimal("0.70"), "4", new BigDecimal("0.02"), 0);
+    CategorySummaryDto cat =
+        category(CategoryId.GOLD, null, new BigDecimal("0.70"), "4", new BigDecimal("0.02"), 0);
 
-    List<HoldingActionDto> actions = engine.deriveActions(
-        List.of(gold), Map.of("GOLD", cat), new BigDecimal("100000"));
+    List<HoldingActionDto> actions =
+        engine.deriveActions(List.of(gold), Map.of("GOLD", cat), new BigDecimal("100000"));
 
     assertThat(actions.get(0).signal()).isEqualTo("BUY");
     assertThat(actions.get(0).action()).isEqualTo("HOLD");
@@ -210,8 +264,8 @@ class PortfolioActionEngineTest {
   @Test
   @DisplayName("returns empty list when holdings list is empty")
   void shouldReturnEmptyListForEmptyHoldings() {
-    List<HoldingActionDto> actions = engine.deriveActions(
-        List.of(), Map.of(), new BigDecimal("100000"));
+    List<HoldingActionDto> actions =
+        engine.deriveActions(List.of(), Map.of(), new BigDecimal("100000"));
     assertThat(actions).isEmpty();
   }
 }

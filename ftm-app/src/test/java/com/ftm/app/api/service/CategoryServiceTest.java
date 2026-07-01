@@ -420,7 +420,8 @@ class CategoryServiceTest {
   }
 
   @Test
-  @DisplayName("getScreenerSnapshot returns all zeros when top-level categories have no composite signal")
+  @DisplayName(
+      "getScreenerSnapshot returns all zeros when top-level categories have no composite signal")
   void shouldReturnAllZerosWhenNoCompositeSignalData() {
     when(categoryRepository.findTopLevelActiveCategoryIds()).thenReturn(Set.of("TECH", "FINL"));
     when(signalRepository.findLatestByTypes(any())).thenReturn(Map.of());
@@ -432,12 +433,17 @@ class CategoryServiceTest {
   }
 
   @Test
-  @DisplayName("getScreenerSnapshot computes correct BUY/WATCH/HOLD/REDUCE distribution and breadth metrics")
+  @DisplayName(
+      "getScreenerSnapshot computes correct BUY/WATCH/HOLD/REDUCE distribution and breadth metrics")
   void shouldComputeCorrectSignalDistributionAndBreadthMetrics() {
-    // TECH: score=0.80, RRG=4(Leading),   trend=+0.05 → BUY;  rs60=0.10>0, rs20=0.15>rs60 → RS✓ MOM✓ RiskOn✓
-    // FINL: score=0.55, RRG=3(Improving), trend=+0.03 → WATCH; rs60=0.05>0, rs20=0.02<rs60 → RS✓ MOM✗ RiskOn✓
-    // HLTH: score=0.45, RRG=2(Weakening), trend=-0.02 → HOLD;  rs60=-0.02<0               → RS✗ MOM✗ RiskOn✗
-    // ENRG: score=0.28, RRG=1(Lagging),   trend=-0.05 → REDUCE; rs60=-0.08<0, rs20=-0.10<rs60 → RS✗ MOM✗ RiskOn✗
+    // TECH: score=0.80, RRG=4(Leading),   trend=+0.05 → BUY;  rs60=0.10>0, rs20=0.15>rs60 → RS✓
+    // MOM✓ RiskOn✓
+    // FINL: score=0.55, RRG=3(Improving), trend=+0.03 → WATCH; rs60=0.05>0, rs20=0.02<rs60 → RS✓
+    // MOM✗ RiskOn✓
+    // HLTH: score=0.45, RRG=2(Weakening), trend=-0.02 → HOLD;  rs60=-0.02<0               → RS✗
+    // MOM✗ RiskOn✗
+    // ENRG: score=0.28, RRG=1(Lagging),   trend=-0.05 → REDUCE; rs60=-0.08<0, rs20=-0.10<rs60 → RS✗
+    // MOM✗ RiskOn✗
     when(categoryRepository.findTopLevelActiveCategoryIds())
         .thenReturn(Set.of("TECH", "FINL", "HLTH", "ENRG"));
     when(signalRepository.findLatestByTypes(any()))

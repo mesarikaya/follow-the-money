@@ -88,8 +88,7 @@ public interface CategoryMapper {
               + "rs20ByCategoryId.get(row.category().id().name())))")
   @Mapping(
       target = "activeAlertCount",
-      expression =
-          "java(activeAlertCountByCategoryId.getOrDefault(row.category().id().name(), 0))")
+      expression = "java(activeAlertCountByCategoryId.getOrDefault(row.category().id().name(), 0))")
   @Mapping(target = "parentId", source = "row.category.parentId")
   @Mapping(
       target = "scoreStreakDays",

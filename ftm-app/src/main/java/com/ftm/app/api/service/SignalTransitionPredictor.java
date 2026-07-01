@@ -12,8 +12,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Projects when each category's composite score will cross the next signal threshold given its
- * current 5-day momentum velocity. All projections assume momentum continues at the 5-day rate —
- * a rough but useful near-term estimate. Only predictions within 1–30 trading days are returned.
+ * current 5-day momentum velocity. All projections assume momentum continues at the 5-day rate — a
+ * rough but useful near-term estimate. Only predictions within 1–30 trading days are returned.
  *
  * <p>Threshold targets:
  *
@@ -52,7 +52,8 @@ public class SignalTransitionPredictor {
     if (category.compositeScore() == null || category.compositeTrend5d() == null) return null;
 
     String signal = resolveSignal(category);
-    BigDecimal velocity = category.compositeTrend5d().divide(VELOCITY_DIVISOR, 6, RoundingMode.HALF_UP);
+    BigDecimal velocity =
+        category.compositeTrend5d().divide(VELOCITY_DIVISOR, 6, RoundingMode.HALF_UP);
 
     if (velocity.compareTo(BigDecimal.ZERO) == 0) return null;
 

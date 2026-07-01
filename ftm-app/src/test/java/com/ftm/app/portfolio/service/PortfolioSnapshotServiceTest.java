@@ -43,7 +43,8 @@ class PortfolioSnapshotServiceTest {
   @Test
   @DisplayName("captureSnapshot: skips when all holdings have null EUR value — total is zero")
   void shouldSkipWhenTotalValueIsZero() {
-    portfolioSnapshotService.captureSnapshot(List.of(holdingWithEurValue(null), holdingWithEurValue(null)));
+    portfolioSnapshotService.captureSnapshot(
+        List.of(holdingWithEurValue(null), holdingWithEurValue(null)));
 
     verify(snapshotRepository, never()).upsertSnapshot(any());
     verify(holdingPriceService, never()).fetchUsdPerEurRate();
@@ -58,7 +59,8 @@ class PortfolioSnapshotServiceTest {
 
     portfolioSnapshotService.captureSnapshot(List.of(h1, h2));
 
-    ArgumentCaptor<PortfolioValueSnapshot> captor = ArgumentCaptor.forClass(PortfolioValueSnapshot.class);
+    ArgumentCaptor<PortfolioValueSnapshot> captor =
+        ArgumentCaptor.forClass(PortfolioValueSnapshot.class);
     verify(snapshotRepository).upsertSnapshot(captor.capture());
     PortfolioValueSnapshot saved = captor.getValue();
     assertThat(saved.totalValueEur()).isEqualByComparingTo("3500.50");
@@ -67,22 +69,30 @@ class PortfolioSnapshotServiceTest {
   }
 
   @Test
-  @DisplayName("captureSnapshot: computes cost basis using (avgCost / currentPrice) × marketValueEur")
+  @DisplayName(
+      "captureSnapshot: computes cost basis using (avgCost / currentPrice) × marketValueEur")
   void shouldComputeCostBasisFromCostToCurrentPriceRatio() {
     // avgCostLocal=80, currentPriceLocal=100, marketValueEur=1000 → costEur = 1000 × 0.8 = 800
-    HoldingDto holding = new HoldingDto(
-        "XLK", "Tech ETF", "TECH", "USD",
-        new BigDecimal("10"),
-        new BigDecimal("80.00"),
-        null, null,
-        new BigDecimal("100.00"),
-        LocalDate.now(), "yahoo_finance",
-        new BigDecimal("1000.00"));
+    HoldingDto holding =
+        new HoldingDto(
+            "XLK",
+            "Tech ETF",
+            "TECH",
+            "USD",
+            new BigDecimal("10"),
+            new BigDecimal("80.00"),
+            null,
+            null,
+            new BigDecimal("100.00"),
+            LocalDate.now(),
+            "yahoo_finance",
+            new BigDecimal("1000.00"));
     stubFxRates();
 
     portfolioSnapshotService.captureSnapshot(List.of(holding));
 
-    ArgumentCaptor<PortfolioValueSnapshot> captor = ArgumentCaptor.forClass(PortfolioValueSnapshot.class);
+    ArgumentCaptor<PortfolioValueSnapshot> captor =
+        ArgumentCaptor.forClass(PortfolioValueSnapshot.class);
     verify(snapshotRepository).upsertSnapshot(captor.capture());
     assertThat(captor.getValue().totalCostEur()).isEqualByComparingTo("800.00");
   }
@@ -92,21 +102,29 @@ class PortfolioSnapshotServiceTest {
   void shouldCaptureFxRatesAfterSnapshot() {
     stubFxRates();
 
-    portfolioSnapshotService.captureSnapshot(List.of(holdingWithEurValue(new BigDecimal("5000.00"))));
+    portfolioSnapshotService.captureSnapshot(
+        List.of(holdingWithEurValue(new BigDecimal("5000.00"))));
 
-    verify(snapshotRepository).upsertFxRate(any(LocalDate.class), eq("USD_PER_EUR"), eq(new BigDecimal("1.08")), eq("FRED"));
-    verify(snapshotRepository).upsertFxRate(any(LocalDate.class), eq("GBP_USD"), eq(new BigDecimal("1.27")), eq("YAHOO"));
-    verify(snapshotRepository).upsertFxRate(any(LocalDate.class), eq("SEK_USD"), eq(new BigDecimal("0.092")), eq("YAHOO"));
+    verify(snapshotRepository)
+        .upsertFxRate(
+            any(LocalDate.class), eq("USD_PER_EUR"), eq(new BigDecimal("1.08")), eq("FRED"));
+    verify(snapshotRepository)
+        .upsertFxRate(any(LocalDate.class), eq("GBP_USD"), eq(new BigDecimal("1.27")), eq("YAHOO"));
+    verify(snapshotRepository)
+        .upsertFxRate(
+            any(LocalDate.class), eq("SEK_USD"), eq(new BigDecimal("0.092")), eq("YAHOO"));
   }
 
   @Test
-  @DisplayName("captureSnapshot: snapshot is still saved when one FX fetch throws — remaining rates still stored")
+  @DisplayName(
+      "captureSnapshot: snapshot is still saved when one FX fetch throws — remaining rates still stored")
   void shouldTolerateIndividualFxRateFetchErrors() {
     when(holdingPriceService.fetchUsdPerEurRate()).thenThrow(new RuntimeException("FRED down"));
     when(holdingPriceService.fetchGbpUsdRate()).thenReturn(new BigDecimal("1.27"));
     when(holdingPriceService.fetchSekUsdRate()).thenReturn(new BigDecimal("0.092"));
 
-    portfolioSnapshotService.captureSnapshot(List.of(holdingWithEurValue(new BigDecimal("3000.00"))));
+    portfolioSnapshotService.captureSnapshot(
+        List.of(holdingWithEurValue(new BigDecimal("3000.00"))));
 
     verify(snapshotRepository).upsertSnapshot(any());
     // USD_PER_EUR failed; GBP_USD and SEK_USD still written
@@ -117,7 +135,9 @@ class PortfolioSnapshotServiceTest {
   @DisplayName("getRecentSnapshots: delegates to repository with the requested day count")
   void shouldDelegateToRepositoryForSnapshots() {
     List<PortfolioValueSnapshot> expected =
-        List.of(new PortfolioValueSnapshot(LocalDate.now(), new BigDecimal("10000"), new BigDecimal("9000"), 5));
+        List.of(
+            new PortfolioValueSnapshot(
+                LocalDate.now(), new BigDecimal("10000"), new BigDecimal("9000"), 5));
     when(snapshotRepository.findRecentSnapshots(30)).thenReturn(expected);
 
     List<PortfolioValueSnapshot> result = portfolioSnapshotService.getRecentSnapshots(30);
@@ -133,12 +153,17 @@ class PortfolioSnapshotServiceTest {
 
   private HoldingDto holdingWithEurValue(BigDecimal marketValueEur) {
     return new HoldingDto(
-        "XLK", "Tech ETF", "TECH", "USD",
+        "XLK",
+        "Tech ETF",
+        "TECH",
+        "USD",
         new BigDecimal("10"),
         new BigDecimal("195.00"),
-        null, null,
+        null,
+        null,
         new BigDecimal("200.00"),
-        LocalDate.now(), "yahoo_finance",
+        LocalDate.now(),
+        "yahoo_finance",
         marketValueEur);
   }
 }

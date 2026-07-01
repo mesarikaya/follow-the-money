@@ -8,7 +8,6 @@ import com.ftm.app.domain.CategoryId;
 import com.ftm.app.domain.Severity;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -158,28 +157,26 @@ public class AlertRepository {
         .where(ALERTS.CREATED_AT.ge(since))
         .groupBy(dateField, ALERTS.SEVERITY)
         .orderBy(dateField)
-        .fetch(r -> {
-          Map<String, Object> row = new LinkedHashMap<>();
-          row.put("date", r.get("alert_date", LocalDate.class));
-          row.put("severity", r.get(ALERTS.SEVERITY));
-          row.put("count", r.get("cnt", Integer.class));
-          return row;
-        });
+        .fetch(
+            r -> {
+              Map<String, Object> row = new LinkedHashMap<>();
+              row.put("date", r.get("alert_date", LocalDate.class));
+              row.put("severity", r.get(ALERTS.SEVERITY));
+              row.put("count", r.get("cnt", Integer.class));
+              return row;
+            });
   }
 
   public int countRecentByThemeId(String themeId, int days) {
     var since = OffsetDateTime.now().minusDays(days);
-    return dsl.fetchCount(
-        ALERTS,
-        ALERTS.THEME_ID.eq(themeId).and(ALERTS.CREATED_AT.ge(since)));
+    return dsl.fetchCount(ALERTS, ALERTS.THEME_ID.eq(themeId).and(ALERTS.CREATED_AT.ge(since)));
   }
 
   public int countRecentByCategoryIds(List<String> categoryIds, int days) {
     if (categoryIds.isEmpty()) return 0;
     var since = OffsetDateTime.now().minusDays(days);
     return dsl.fetchCount(
-        ALERTS,
-        ALERTS.CATEGORY_ID.in(categoryIds).and(ALERTS.CREATED_AT.ge(since)));
+        ALERTS, ALERTS.CATEGORY_ID.in(categoryIds).and(ALERTS.CREATED_AT.ge(since)));
   }
 
   public Map<String, Integer> findActiveAlertCountsByCategory() {

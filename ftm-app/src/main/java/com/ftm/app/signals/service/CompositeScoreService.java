@@ -63,8 +63,8 @@ public class CompositeScoreService {
   /**
    * Computes the factor-level contributions for each category.
    *
-   * <p>Runs the same normalization as {@link #computeCompositeScores} and scales each
-   * contribution by {@code 1/totalWeight} so the 7 values sum to {@code totalScore}.
+   * <p>Runs the same normalization as {@link #computeCompositeScores} and scales each contribution
+   * by {@code 1/totalWeight} so the 7 values sum to {@code totalScore}.
    */
   public Map<String, ScoreDecomposition> computeScoreDecompositions(
       Map<String, BigDecimal> rs60ByCategoryId,
@@ -104,7 +104,8 @@ public class CompositeScoreService {
       BigDecimal nMacroFit = normalizedMacroFit.get(categoryId);
       BigDecimal nRrg = rrgScores.get(categoryId);
 
-      BigDecimal totalWeight = totalWeight(nRs60, nRs120, nPers20d, nFlow20d, nMom, nMacroFit, nRrg);
+      BigDecimal totalWeight =
+          totalWeight(nRs60, nRs120, nPers20d, nFlow20d, nMom, nMacroFit, nRrg);
       if (totalWeight.compareTo(BigDecimal.ZERO) == 0) continue;
 
       BigDecimal totalScore =

@@ -56,7 +56,8 @@ public class TickerMappingController {
     holdingClassificationService.refreshCache();
     int reclassified = holdingUploadService.reclassifyUnmappedHoldings();
     if (reclassified > 0) {
-      log.info("ticker mapping upsert for {}: reclassified {} holdings", request.ticker(), reclassified);
+      log.info(
+          "ticker mapping upsert for {}: reclassified {} holdings", request.ticker(), reclassified);
     }
     TickerMapping saved = tickerMappingRepository.findByTicker(request.ticker()).orElseThrow();
     return ResponseEntity.ok(tickerMappingMapper.toDto(saved));

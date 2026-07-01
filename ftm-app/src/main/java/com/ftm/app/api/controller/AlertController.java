@@ -83,15 +83,13 @@ public class AlertController {
 
   @GetMapping("/rule-stats")
   @Operation(summary = "Alert fire counts per rule over the last N days (default 30)")
-  public Map<String, Integer> getRuleStats(
-      @RequestParam(defaultValue = "30") int days) {
+  public Map<String, Integer> getRuleStats(@RequestParam(defaultValue = "30") int days) {
     return alertService.getAlertRuleFireCounts(days);
   }
 
   @GetMapping("/severity-history")
   @Operation(summary = "Daily alert fire counts by severity for the last N days (default 30)")
-  public List<AlertSeverityDayDto> getSeverityHistory(
-      @RequestParam(defaultValue = "30") int days) {
+  public List<AlertSeverityDayDto> getSeverityHistory(@RequestParam(defaultValue = "30") int days) {
     return alertService.getAlertSeverityHistory(days);
   }
 }

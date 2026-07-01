@@ -250,7 +250,10 @@ public class HoldingUploadService {
                         categoryId -> {
                           int updated = holdingRepository.updateCategoryId(h.ticker(), categoryId);
                           if (updated > 0) {
-                            log.info("category re-synced for holding ticker={} → {}", h.ticker(), categoryId);
+                            log.info(
+                                "category re-synced for holding ticker={} → {}",
+                                h.ticker(),
+                                categoryId);
                             count[0]++;
                           }
                         }));

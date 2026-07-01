@@ -21,7 +21,9 @@ class BacktestEngineTest {
 
   @BeforeEach
   void setUp() {
-    engine = new BacktestEngine(mock(SignalRepository.class), mock(DSLContext.class), new AllocationComputer());
+    engine =
+        new BacktestEngine(
+            mock(SignalRepository.class), mock(DSLContext.class), new AllocationComputer());
   }
 
   // ── computeSortinoRatio ──────────────────────────────────────────────────────
@@ -131,7 +133,8 @@ class BacktestEngineTest {
   @Test
   @DisplayName("simulate: empty trading dates yields empty curve")
   void simulateEmptyDatesYieldsEmptyCurve() {
-    List<EquityCurvePoint> curve = engine.simulatePortfolio(List.of(), Map.of(), Map.of(), Map.of());
+    List<EquityCurvePoint> curve =
+        engine.simulatePortfolio(List.of(), Map.of(), Map.of(), Map.of());
     assertThat(curve).isEmpty();
   }
 
@@ -139,10 +142,11 @@ class BacktestEngineTest {
   @DisplayName("simulate: no allocations — portfolio stays flat at initial value")
   void simulateNoAllocationsKeepsPortfolioFlat() {
     var dates = dates("2023-01-01", "2023-01-02", "2023-01-03");
-    var prices = Map.of(
-        date("2023-01-01"), Map.of("TECH", bd(100)),
-        date("2023-01-02"), Map.of("TECH", bd(110)),
-        date("2023-01-03"), Map.of("TECH", bd(120)));
+    var prices =
+        Map.of(
+            date("2023-01-01"), Map.of("TECH", bd(100)),
+            date("2023-01-02"), Map.of("TECH", bd(110)),
+            date("2023-01-03"), Map.of("TECH", bd(120)));
 
     List<EquityCurvePoint> curve = engine.simulatePortfolio(dates, Map.of(), prices, Map.of());
 
@@ -155,10 +159,11 @@ class BacktestEngineTest {
   void simulateFlatPricesYieldZeroReturn() {
     var dates = dates("2023-01-02", "2023-01-03", "2023-01-04");
     var allocations = Map.of(date("2023-01-02"), List.of("TECH"));
-    var prices = Map.of(
-        date("2023-01-02"), Map.of("TECH", bd(100)),
-        date("2023-01-03"), Map.of("TECH", bd(100)),
-        date("2023-01-04"), Map.of("TECH", bd(100)));
+    var prices =
+        Map.of(
+            date("2023-01-02"), Map.of("TECH", bd(100)),
+            date("2023-01-03"), Map.of("TECH", bd(100)),
+            date("2023-01-04"), Map.of("TECH", bd(100)));
 
     List<EquityCurvePoint> curve = engine.simulatePortfolio(dates, allocations, prices, Map.of());
 
@@ -171,9 +176,10 @@ class BacktestEngineTest {
   void simulatePriceGainYieldsCorrectReturn() {
     var dates = dates("2023-01-02", "2023-01-03");
     var allocations = Map.of(date("2023-01-02"), List.of("TECH"));
-    var prices = Map.of(
-        date("2023-01-02"), Map.of("TECH", bd(100)),
-        date("2023-01-03"), Map.of("TECH", bd(110)));
+    var prices =
+        Map.of(
+            date("2023-01-02"), Map.of("TECH", bd(100)),
+            date("2023-01-03"), Map.of("TECH", bd(110)));
 
     List<EquityCurvePoint> curve = engine.simulatePortfolio(dates, allocations, prices, Map.of());
 
@@ -187,14 +193,16 @@ class BacktestEngineTest {
   void simulatePortfolioValueChainsAcrossRebalance() {
     // Day 1-2: hold TECH (+10% gain → 11000), Day 3: rebalance to FINL, Day 4: FINL +10%
     var dates = dates("2023-01-02", "2023-01-03", "2023-01-04", "2023-01-05");
-    var allocations = Map.of(
-        date("2023-01-02"), List.of("TECH"),
-        date("2023-01-04"), List.of("FINL"));
-    var prices = Map.of(
-        date("2023-01-02"), Map.of("TECH", bd(100), "FINL", bd(200)),
-        date("2023-01-03"), Map.of("TECH", bd(110), "FINL", bd(200)),
-        date("2023-01-04"), Map.of("TECH", bd(110), "FINL", bd(200)),
-        date("2023-01-05"), Map.of("TECH", bd(110), "FINL", bd(220)));
+    var allocations =
+        Map.of(
+            date("2023-01-02"), List.of("TECH"),
+            date("2023-01-04"), List.of("FINL"));
+    var prices =
+        Map.of(
+            date("2023-01-02"), Map.of("TECH", bd(100), "FINL", bd(200)),
+            date("2023-01-03"), Map.of("TECH", bd(110), "FINL", bd(200)),
+            date("2023-01-04"), Map.of("TECH", bd(110), "FINL", bd(200)),
+            date("2023-01-05"), Map.of("TECH", bd(110), "FINL", bd(220)));
 
     List<EquityCurvePoint> curve = engine.simulatePortfolio(dates, allocations, prices, Map.of());
 
@@ -206,14 +214,16 @@ class BacktestEngineTest {
   }
 
   @Test
-  @DisplayName("simulate: zero price at entry is excluded from allocation (not added to entryPrices)")
+  @DisplayName(
+      "simulate: zero price at entry is excluded from allocation (not added to entryPrices)")
   void simulateZeroPriceAtEntryExcludesPositionFromAllocation() {
     // FINL has adj_close=0 at rebalance date — should be silently excluded
     var dates = dates("2023-01-02", "2023-01-03");
     var allocations = Map.of(date("2023-01-02"), List.of("TECH", "FINL"));
-    var prices = Map.of(
-        date("2023-01-02"), Map.of("TECH", bd(100), "FINL", bd(0)),
-        date("2023-01-03"), Map.of("TECH", bd(110), "FINL", bd(0)));
+    var prices =
+        Map.of(
+            date("2023-01-02"), Map.of("TECH", bd(100), "FINL", bd(0)),
+            date("2023-01-03"), Map.of("TECH", bd(110), "FINL", bd(0)));
 
     List<EquityCurvePoint> curve = engine.simulatePortfolio(dates, allocations, prices, Map.of());
 
@@ -227,10 +237,11 @@ class BacktestEngineTest {
     // TECH has valid entry on D1 but adj_close=0 on D2 — must not collapse portfolio to 0
     var dates = dates("2023-01-02", "2023-01-03", "2023-01-04");
     var allocations = Map.of(date("2023-01-02"), List.of("TECH", "FINL"));
-    var prices = Map.of(
-        date("2023-01-02"), Map.of("TECH", bd(100), "FINL", bd(200)),
-        date("2023-01-03"), Map.of("TECH", bd(0), "FINL", bd(220)),
-        date("2023-01-04"), Map.of("TECH", bd(110), "FINL", bd(220)));
+    var prices =
+        Map.of(
+            date("2023-01-02"), Map.of("TECH", bd(100), "FINL", bd(200)),
+            date("2023-01-03"), Map.of("TECH", bd(0), "FINL", bd(220)),
+            date("2023-01-04"), Map.of("TECH", bd(110), "FINL", bd(220)));
 
     List<EquityCurvePoint> curve = engine.simulatePortfolio(dates, allocations, prices, Map.of());
 
@@ -244,10 +255,11 @@ class BacktestEngineTest {
   @DisplayName("simulate: SPY tracking follows entry-normalized price ratio")
   void simulateSpyTracksFromEntryNormalized() {
     var dates = dates("2023-01-02", "2023-01-03", "2023-01-04");
-    var spy = Map.of(
-        date("2023-01-02"), bd(400),
-        date("2023-01-03"), bd(440),
-        date("2023-01-04"), bd(480));
+    var spy =
+        Map.of(
+            date("2023-01-02"), bd(400),
+            date("2023-01-03"), bd(440),
+            date("2023-01-04"), bd(480));
 
     List<EquityCurvePoint> curve = engine.simulatePortfolio(dates, Map.of(), Map.of(), spy);
 
@@ -263,9 +275,10 @@ class BacktestEngineTest {
     // TECH +20%, FINL flat → mean = +10%
     var dates = dates("2023-01-02", "2023-01-03");
     var allocations = Map.of(date("2023-01-02"), List.of("TECH", "FINL"));
-    var prices = Map.of(
-        date("2023-01-02"), Map.of("TECH", bd(100), "FINL", bd(200)),
-        date("2023-01-03"), Map.of("TECH", bd(120), "FINL", bd(200)));
+    var prices =
+        Map.of(
+            date("2023-01-02"), Map.of("TECH", bd(100), "FINL", bd(200)),
+            date("2023-01-03"), Map.of("TECH", bd(120), "FINL", bd(200)));
 
     List<EquityCurvePoint> curve = engine.simulatePortfolio(dates, allocations, prices, Map.of());
 

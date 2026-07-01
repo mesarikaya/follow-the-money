@@ -16,8 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/categories/approaching")
 @Tag(
     name = "Signal Predictions",
-    description =
-        "Momentum-velocity projections for upcoming trade signal threshold crossings")
+    description = "Momentum-velocity projections for upcoming trade signal threshold crossings")
 public class SignalTransitionPredictorController {
 
   private final CategoryService categoryService;

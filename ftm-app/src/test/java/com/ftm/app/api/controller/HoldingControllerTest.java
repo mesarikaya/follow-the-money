@@ -178,9 +178,7 @@ class HoldingControllerTest {
   @Test
   @DisplayName("DELETE /portfolio/holdings/{ticker} returns 204 No Content")
   void shouldDeleteHoldingAndReturn204() throws Exception {
-    mockMvc
-        .perform(delete("/portfolio/holdings/XLK"))
-        .andExpect(status().isNoContent());
+    mockMvc.perform(delete("/portfolio/holdings/XLK")).andExpect(status().isNoContent());
   }
 
   @Test
@@ -190,15 +188,14 @@ class HoldingControllerTest {
         .when(holdingUploadService)
         .deleteHolding("UNKNOWN");
 
-    mockMvc
-        .perform(delete("/portfolio/holdings/UNKNOWN"))
-        .andExpect(status().isNotFound());
+    mockMvc.perform(delete("/portfolio/holdings/UNKNOWN")).andExpect(status().isNotFound());
   }
 
   @Test
   @DisplayName("POST /portfolio/holdings/refresh-prices returns 200 with updated holdings list")
   void shouldRefreshPricesAndReturn200() throws Exception {
-    List<HoldingDto> refreshed = List.of(sampleHolding("XLK", "TECH"), sampleHolding("GLD", "GOLD"));
+    List<HoldingDto> refreshed =
+        List.of(sampleHolding("XLK", "TECH"), sampleHolding("GLD", "GOLD"));
     when(holdingUploadService.refreshPricesAndSyncAllocations()).thenReturn(refreshed);
 
     mockMvc
@@ -208,10 +205,13 @@ class HoldingControllerTest {
   }
 
   @Test
-  @DisplayName("GET /portfolio/holdings/snapshots returns 200 with snapshot list using default 90-day window")
+  @DisplayName(
+      "GET /portfolio/holdings/snapshots returns 200 with snapshot list using default 90-day window")
   void shouldReturnSnapshotsWithDefaultDays() throws Exception {
     List<PortfolioValueSnapshot> snapshots =
-        List.of(new PortfolioValueSnapshot(LocalDate.of(2026, 6, 1), new BigDecimal("10000"), new BigDecimal("9000"), 5));
+        List.of(
+            new PortfolioValueSnapshot(
+                LocalDate.of(2026, 6, 1), new BigDecimal("10000"), new BigDecimal("9000"), 5));
     when(portfolioSnapshotService.getRecentSnapshots(90)).thenReturn(snapshots);
 
     mockMvc
@@ -221,10 +221,13 @@ class HoldingControllerTest {
   }
 
   @Test
-  @DisplayName("GET /portfolio/holdings/snapshots?days=30 passes the custom day count to the service")
+  @DisplayName(
+      "GET /portfolio/holdings/snapshots?days=30 passes the custom day count to the service")
   void shouldReturnSnapshotsWithCustomDays() throws Exception {
     List<PortfolioValueSnapshot> snapshots =
-        List.of(new PortfolioValueSnapshot(LocalDate.of(2026, 6, 1), new BigDecimal("10000"), new BigDecimal("9000"), 5));
+        List.of(
+            new PortfolioValueSnapshot(
+                LocalDate.of(2026, 6, 1), new BigDecimal("10000"), new BigDecimal("9000"), 5));
     when(portfolioSnapshotService.getRecentSnapshots(30)).thenReturn(snapshots);
 
     mockMvc

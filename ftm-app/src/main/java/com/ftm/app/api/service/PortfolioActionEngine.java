@@ -91,8 +91,7 @@ public class PortfolioActionEngine {
 
   private int urgencyFor(String signal, BigDecimal portfolioPct) {
     if ("REDUCE".equals(signal)) {
-      boolean oversized =
-          portfolioPct != null && portfolioPct.compareTo(EXIT_THRESHOLD_PCT) > 0;
+      boolean oversized = portfolioPct != null && portfolioPct.compareTo(EXIT_THRESHOLD_PCT) > 0;
       return oversized ? 1 : 2;
     }
     if ("WATCH".equals(signal)) return 3;
@@ -135,8 +134,7 @@ public class PortfolioActionEngine {
               + " has an active BUY signal"
               + (conviction != null && conviction > 0 ? " (conviction: " + conviction + ")" : "")
               + " — maintain or add to position.";
-      default ->
-          categoryName + " is neutral; no strong directional signal — hold and monitor.";
+      default -> categoryName + " is neutral; no strong directional signal — hold and monitor.";
     };
   }
 
@@ -144,9 +142,7 @@ public class PortfolioActionEngine {
     if (marketValueEur == null || totalEur == null || totalEur.compareTo(BigDecimal.ZERO) == 0) {
       return null;
     }
-    return marketValueEur
-        .multiply(HUNDRED)
-        .divide(totalEur, 2, RoundingMode.HALF_UP);
+    return marketValueEur.multiply(HUNDRED).divide(totalEur, 2, RoundingMode.HALF_UP);
   }
 
   private HoldingActionDto unclassified(HoldingDto holding, BigDecimal portfolioPct) {

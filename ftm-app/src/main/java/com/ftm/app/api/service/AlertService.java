@@ -110,10 +110,10 @@ public class AlertService {
       byDate.computeIfAbsent(date, d -> new int[4]);
       int[] counts = byDate.get(date);
       switch (severity) {
-        case "URGENT"  -> counts[0] += count;
-        case "ACTION"  -> counts[1] += count;
+        case "URGENT" -> counts[0] += count;
+        case "ACTION" -> counts[1] += count;
         case "WARNING" -> counts[2] += count;
-        case "INFO"    -> counts[3] += count;
+        case "INFO" -> counts[3] += count;
         default -> {} // unknown severity — ignore
       }
     }
@@ -132,22 +132,24 @@ public class AlertService {
         .toList();
   }
 
-  @Caching(evict = {
-      @CacheEvict("alerts-latest"),
-      @CacheEvict("alerts-count"),
-      @CacheEvict("recent-alerts")
-  })
+  @Caching(
+      evict = {
+        @CacheEvict("alerts-latest"),
+        @CacheEvict("alerts-count"),
+        @CacheEvict("recent-alerts")
+      })
   public int acknowledgeAllActive() {
     int count = alertRepository.acknowledgeAllActive();
     log.info("Bulk-dismissed {} active alerts", count);
     return count;
   }
 
-  @Caching(evict = {
-      @CacheEvict("alerts-latest"),
-      @CacheEvict("alerts-count"),
-      @CacheEvict("recent-alerts")
-  })
+  @Caching(
+      evict = {
+        @CacheEvict("alerts-latest"),
+        @CacheEvict("alerts-count"),
+        @CacheEvict("recent-alerts")
+      })
   public AlertDto acknowledgeAlert(Long alertId) {
     Alert acknowledged =
         alertRepository

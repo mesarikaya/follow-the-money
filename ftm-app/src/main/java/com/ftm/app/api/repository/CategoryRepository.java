@@ -26,6 +26,13 @@ public class CategoryRepository {
     this.dsl = dsl;
   }
 
+  /** True if a category row with the given id exists (used to validate ticker mappings). */
+  public boolean existsById(String categoryId) {
+    if (categoryId == null || categoryId.isBlank()) return false;
+    return dsl.fetchExists(
+        dsl.selectOne().from(CATEGORIES).where(CATEGORIES.ID.eq(categoryId.trim())));
+  }
+
   public List<Category> findAllByActiveTrueOrderByDisplayOrderAsc() {
     return dsl.selectFrom(CATEGORIES)
         .where(CATEGORIES.ACTIVE.isTrue())

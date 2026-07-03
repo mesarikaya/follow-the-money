@@ -2,6 +2,7 @@ package com.ftm.app.api.controller;
 
 import static org.instancio.Select.field;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -17,8 +18,7 @@ import com.ftm.app.api.exceptions.GlobalExceptionHandler;
 import com.ftm.app.api.mapper.TickerMappingMapper;
 import com.ftm.app.portfolio.domain.TickerMapping;
 import com.ftm.app.portfolio.repository.TickerMappingRepository;
-import com.ftm.app.portfolio.service.HoldingClassificationService;
-import com.ftm.app.portfolio.service.HoldingUploadService;
+import com.ftm.app.portfolio.service.TickerMappingService;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.instancio.Instancio;
@@ -37,8 +37,7 @@ class TickerMappingControllerTest {
 
   private static final OffsetDateTime UPDATED_AT = OffsetDateTime.parse("2025-01-01T00:00:00Z");
   @Mock TickerMappingRepository tickerMappingRepository;
-  @Mock HoldingClassificationService holdingClassificationService;
-  @Mock HoldingUploadService holdingUploadService;
+  @Mock TickerMappingService tickerMappingService;
   @Mock TickerMappingMapper tickerMappingMapper;
   MockMvc mockMvc;
   ObjectMapper objectMapper = new ObjectMapper();
@@ -48,10 +47,7 @@ class TickerMappingControllerTest {
     mockMvc =
         MockMvcBuilders.standaloneSetup(
                 new TickerMappingController(
-                    tickerMappingRepository,
-                    holdingClassificationService,
-                    holdingUploadService,
-                    tickerMappingMapper))
+                    tickerMappingRepository, tickerMappingService, tickerMappingMapper))
             .setControllerAdvice(new GlobalExceptionHandler())
             .build();
   }
@@ -88,19 +84,13 @@ class TickerMappingControllerTest {
   }
 
   @Test
-  @DisplayName("POST /admin/ticker-mappings creates mapping and returns 200")
+  @DisplayName("POST /admin/ticker-mappings delegates to the service and returns 200")
   void shouldUpsertMapping() throws Exception {
     TickerMappingRequest request = new TickerMappingRequest("AAPL", "TECH", "Apple Inc.");
-    TickerMapping saved =
-        Instancio.of(TickerMapping.class)
-            .set(field(TickerMapping::ticker), "AAPL")
-            .set(field(TickerMapping::categoryId), "TECH")
-            .set(field(TickerMapping::notes), "Apple Inc.")
-            .create();
+    TickerMapping saved = new TickerMapping("AAPL", "TECH", "Apple Inc.", UPDATED_AT);
     TickerMappingDto savedDto = new TickerMappingDto("AAPL", "TECH", "Apple Inc.", UPDATED_AT);
-    when(tickerMappingRepository.findByTicker("AAPL")).thenReturn(java.util.Optional.of(saved));
+    when(tickerMappingService.upsert("AAPL", "TECH", "Apple Inc.")).thenReturn(saved);
     when(tickerMappingMapper.toDto(any(TickerMapping.class))).thenReturn(savedDto);
-    when(holdingUploadService.reclassifyUnmappedHoldings()).thenReturn(0);
 
     mockMvc
         .perform(
@@ -111,9 +101,23 @@ class TickerMappingControllerTest {
         .andExpect(jsonPath("$.ticker").value("AAPL"))
         .andExpect(jsonPath("$.categoryId").value("TECH"));
 
-    verify(tickerMappingRepository).upsert("AAPL", "TECH", "Apple Inc.");
-    verify(holdingClassificationService).refreshCache();
-    verify(holdingUploadService).reclassifyUnmappedHoldings();
+    verify(tickerMappingService).upsert("AAPL", "TECH", "Apple Inc.");
+  }
+
+  @Test
+  @DisplayName("POST /admin/ticker-mappings returns 422 for an unknown category (not a 500)")
+  void shouldReturn422ForUnknownCategory() throws Exception {
+    TickerMappingRequest request = new TickerMappingRequest("ADYEN.AS", "NOPE", null);
+    when(tickerMappingService.upsert(anyString(), anyString(), any()))
+        .thenThrow(new IllegalArgumentException("Unknown category 'NOPE'."));
+
+    mockMvc
+        .perform(
+            post("/admin/ticker-mappings")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(jsonPath("$.detail").value("Unknown category 'NOPE'."));
   }
 
   @Test
@@ -132,17 +136,17 @@ class TickerMappingControllerTest {
   @Test
   @DisplayName("DELETE /admin/ticker-mappings/{ticker} returns 204 when deleted")
   void shouldDeleteMapping() throws Exception {
-    when(tickerMappingRepository.delete("XLK")).thenReturn(1);
+    when(tickerMappingService.delete("XLK")).thenReturn(true);
 
     mockMvc.perform(delete("/admin/ticker-mappings/XLK")).andExpect(status().isNoContent());
 
-    verify(holdingClassificationService).refreshCache();
+    verify(tickerMappingService).delete("XLK");
   }
 
   @Test
-  @DisplayName("DELETE /api/v1/admin/ticker-mappings/{ticker} returns 404 when not found")
+  @DisplayName("DELETE /admin/ticker-mappings/{ticker} returns 404 when not found")
   void shouldReturn404WhenNotFound() throws Exception {
-    when(tickerMappingRepository.delete("UNKNOWN")).thenReturn(0);
+    when(tickerMappingService.delete("UNKNOWN")).thenReturn(false);
 
     mockMvc.perform(delete("/admin/ticker-mappings/UNKNOWN")).andExpect(status().isNotFound());
   }

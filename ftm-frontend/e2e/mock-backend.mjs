@@ -970,6 +970,10 @@ const server = http.createServer(async (req, res) => {
   } else if (path === "/api/v1/portfolio/holdings" && req.method === "GET") {
     res.writeHead(200);
     res.end(JSON.stringify(HOLDINGS_RESPONSE));
+  } else if (/^\/api\/v1\/portfolio\/holdings\/[^/]+$/.test(path) && req.method === "DELETE") {
+    // Delete a single holding by ticker — 204 No Content, like the real backend.
+    res.writeHead(204);
+    res.end();
   } else if (path === "/api/v1/portfolio/holdings/template" && req.method === "GET") {
     res.setHeader("Content-Type", "text/csv");
     res.writeHead(200);

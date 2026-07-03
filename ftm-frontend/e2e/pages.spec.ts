@@ -68,13 +68,41 @@ test.describe("Portfolio page", () => {
     await page.goto("/portfolio");
     // Sidebar also says "Portfolio" — use heading role to avoid strict mode
     await expect(page.getByRole("heading", { name: "Portfolio", level: 1 })).toBeVisible();
-    // Holdings h2 is always rendered regardless of data load (client-side fetch skips mock)
     await expect(page.getByRole("heading", { name: /Holdings/ })).toBeVisible();
   });
 
   test("shows holdings section", async ({ page }) => {
     await page.goto("/portfolio");
     await expect(page.getByText(/Holdings/)).toBeVisible();
+  });
+
+  // The Holdings table is disambiguated from the "Recommended Actions" table (which also lists
+  // tickers) by its unique "Avg Cost" column header.
+  const holdingsTable = (page: import("@playwright/test").Page) =>
+    page.getByRole("table").filter({ has: page.getByRole("columnheader", { name: "Avg Cost" }) });
+
+  test("renders holdings fetched from the backend", async ({ page }) => {
+    await page.goto("/portfolio");
+    // Mock HOLDINGS_RESPONSE contains AAPL, XLK, XLE — the client-side fetch resolves in e2e.
+    const table = holdingsTable(page);
+    await expect(table.getByRole("row").filter({ hasText: "AAPL" })).toBeVisible();
+    await expect(table.getByRole("row").filter({ hasText: "XLK" })).toBeVisible();
+    await expect(table.getByRole("row").filter({ hasText: "XLE" })).toBeVisible();
+  });
+
+  test("deletes a holding via the confirm flow", async ({ page }) => {
+    await page.goto("/portfolio");
+    const table = holdingsTable(page);
+    const aaplRow = table.getByRole("row").filter({ hasText: "AAPL" });
+    await expect(aaplRow).toBeVisible();
+
+    await aaplRow.getByRole("button", { name: "Delete" }).click();
+    // Confirmation appears in-row; confirm with "Yes".
+    await aaplRow.getByRole("button", { name: "Yes" }).click();
+
+    // Row is removed optimistically after the DELETE resolves; other holdings remain.
+    await expect(table.getByRole("row").filter({ hasText: "AAPL" })).toHaveCount(0);
+    await expect(table.getByRole("row").filter({ hasText: "XLK" })).toBeVisible();
   });
 });
 

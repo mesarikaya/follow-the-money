@@ -126,6 +126,39 @@ test.describe("Backtester page", () => {
     // Multiple <select> elements exist — use first() to avoid strict mode
     await expect(page.getByRole("combobox").first()).toBeVisible();
   });
+
+  test("running a backtest renders the results, verdict and metric cards", async ({ page }) => {
+    await page.goto("/backtest");
+    await page.getByRole("button", { name: /Run Backtest/ }).click();
+
+    // Results block appears once the (mocked) run resolves — the vs-SPY verdict header.
+    await expect(page.getByText("vs SPY Outcome")).toBeVisible();
+    // Mock returns 18.5% strategy vs 14.3% SPY → strategy outperforms.
+    await expect(page.getByText("Outperforms")).toBeVisible();
+    await expect(page.getByText("Cumulative Alpha (vs SPY)")).toBeVisible();
+
+    // Strategy metric cards render (labels appear in both Strategy and SPY columns → first()).
+    await expect(page.getByText("Total Return", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Sharpe Ratio", { exact: true }).first()).toBeVisible();
+
+    // Sortino Delta only renders when both strategy and SPY sortino are present — guards the
+    // API result shape (real backend returns these; mock must too).
+    await expect(page.getByText("Sortino Delta")).toBeVisible();
+  });
+
+  test("backtest surfaces a backend error message instead of failing silently", async ({ page }) => {
+    // When the backend rejects the run (e.g. no signal data), the detail must reach the user.
+    await page.route("**/api/v1/backtest/run", route =>
+      route.fulfill({
+        status: 422,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "No composite scores found for the date range. Run signal computation first." }),
+      }),
+    );
+    await page.goto("/backtest");
+    await page.getByRole("button", { name: /Run Backtest/ }).click();
+    await expect(page.getByText(/Run signal computation first/)).toBeVisible();
+  });
 });
 
 test.describe("Sectors hub page", () => {

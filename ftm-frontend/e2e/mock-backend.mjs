@@ -751,6 +751,10 @@ function generateSignalHistory(categoryId, days) {
 const server = http.createServer(async (req, res) => {
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Access-Control-Allow-Origin", "*");
+  // Mirror the real backend's CORS (WebMvcConfig) so client-side POST/PUT/PATCH from the
+  // browser survive the preflight — without these, JSON POSTs fail with "Failed to fetch".
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "*");
 
   if (req.method === "OPTIONS") {
     res.writeHead(204);
@@ -1163,10 +1167,14 @@ const server = http.createServer(async (req, res) => {
       annualizedReturnPct: 18.5,
       maxDrawdownPct: 8.2,
       sharpeRatio: 1.42,
+      sortinoRatio: 1.98,
+      calmarRatio: 2.26,
       spyTotalReturnPct: 14.3,
       spyAnnualizedReturnPct: 14.3,
       spyMaxDrawdownPct: 11.5,
       spySharpeRatio: 1.05,
+      spySortinoRatio: 1.41,
+      spyCalmarRatio: 1.24,
       tradingDays: 252,
       equityCurve: curve,
       rebalanceHistory: [

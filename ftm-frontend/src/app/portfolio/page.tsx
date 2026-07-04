@@ -141,6 +141,16 @@ export default function PortfolioPage() {
     }
   }, []);
 
+  // Re-fetch everything derived from holdings after any CRUD (add/edit/delete/upload/refresh)
+  // so holdings, allocations, the alignment/summary panels, and Recommended Actions stay in sync.
+  const reloadPortfolioData = useCallback(async () => {
+    await Promise.all([
+      fetchHoldings().then(setHoldings).catch(() => {}),
+      loadPortfolio(),
+      fetchPortfolioActions().then(setPortfolioActions).catch(() => {}),
+    ]);
+  }, [loadPortfolio]);
+
   useEffect(() => {
     loadPortfolio();
     fetchHoldings().then(setHoldings).catch(() => setHoldings([]));
@@ -212,8 +222,7 @@ export default function PortfolioPage() {
       const result = await uploadHoldings(file);
       setUploadResult(result);
       setHoldings(result.holdings);
-      // Reload portfolio allocations since holdings changed
-      await loadPortfolio();
+      await reloadPortfolioData();
     } catch (error) {
       setUploadError(String(error));
     } finally {
@@ -226,7 +235,7 @@ export default function PortfolioPage() {
     try {
       const updated = await refreshHoldingPrices();
       setHoldings(updated);
-      await loadPortfolio();
+      await reloadPortfolioData();
     } catch (error) {
       setUploadError(String(error));
     } finally {
@@ -248,7 +257,7 @@ export default function PortfolioPage() {
       setHoldings((prev) => prev ? [...prev, created] : [created]);
       setShowAddForm(false);
       setAddTicker(""); setAddCurrency("USD"); setAddQty(""); setAddAvgCost("");
-      await loadPortfolio();
+      await reloadPortfolioData();
     } catch (error) {
       setAddError(String(error));
     } finally {
@@ -318,7 +327,7 @@ export default function PortfolioPage() {
       });
       setEditingTicker(null);
       setHoldings((prev) => prev ? prev.map((h) => h.ticker === ticker ? updated : h) : prev);
-      Promise.all([loadPortfolio(), fetchHoldings()]).then(([, fresh]) => setHoldings(fresh));
+      await reloadPortfolioData();
     } catch (error) {
       setEditError(String(error));
     } finally {
@@ -333,7 +342,7 @@ export default function PortfolioPage() {
       await deleteHolding(ticker);
       setHoldings((prev) => prev ? prev.filter((h) => h.ticker !== ticker) : prev);
       setConfirmDeleteTicker(null);
-      loadPortfolio();
+      await reloadPortfolioData();
     } catch (error) {
       setEditError(String(error));
     } finally {

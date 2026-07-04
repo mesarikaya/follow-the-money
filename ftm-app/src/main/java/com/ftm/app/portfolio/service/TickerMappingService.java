@@ -47,7 +47,7 @@ public class TickerMappingService {
     }
     tickerMappingRepository.upsert(ticker, categoryId, notes);
     classificationService.refreshCache();
-    int reclassified = holdingUploadService.reclassifyUnmappedHoldings();
+    int reclassified = holdingUploadService.resyncHoldingCategories();
     if (reclassified > 0) {
       log.info("ticker mapping upsert for {}: reclassified {} holding(s)", ticker, reclassified);
     }

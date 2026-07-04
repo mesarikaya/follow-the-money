@@ -128,9 +128,12 @@ public class HoldingRepository {
   }
 
   public int updateCategoryId(String ticker, String categoryId) {
+    // Updates by ticker regardless of the current category so a corrected ticker mapping can
+    // re-classify an already-classified holding (e.g. SPCE moved from TECH to INDU_ADEF), not only
+    // backfill null categories. Callers decide whether a change is warranted.
     return dsl.update(HOLDINGS)
         .set(HOLDINGS.CATEGORY_ID, categoryId)
-        .where(HOLDINGS.TICKER.eq(ticker).and(HOLDINGS.CATEGORY_ID.isNull()))
+        .where(HOLDINGS.TICKER.eq(ticker))
         .execute();
   }
 

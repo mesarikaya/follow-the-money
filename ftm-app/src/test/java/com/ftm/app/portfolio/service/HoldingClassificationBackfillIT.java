@@ -64,7 +64,33 @@ class HoldingClassificationBackfillIT {
     holdingRepository.replaceAll(List.of(unclassified(ADYEN)));
     assertThat(holdingRepository.findAll().get(0).categoryId()).isNull();
 
-    int reclassified = holdingUploadService.reclassifyUnmappedHoldings();
+    int reclassified = holdingUploadService.resyncHoldingCategories();
+
+    assertThat(reclassified).isEqualTo(1);
+    assertThat(holdingRepository.findAll().get(0).categoryId()).isEqualTo(FINTECH);
+  }
+
+  @Test
+  @DisplayName("a holding whose stored category no longer matches its mapping is corrected")
+  void correctsHoldingWhenMappingChanges() {
+    // ADYEN stored under the wrong sector, as SPCE was (TECH) before its mapping was fixed.
+    Holding misclassified =
+        new Holding(
+            null,
+            ADYEN,
+            ADYEN + " N.V.",
+            "TECH",
+            "EUR",
+            new BigDecimal("2.0"),
+            new BigDecimal("816.00"),
+            null,
+            null,
+            null,
+            null,
+            null);
+    holdingRepository.replaceAll(List.of(misclassified));
+
+    int reclassified = holdingUploadService.resyncHoldingCategories();
 
     assertThat(reclassified).isEqualTo(1);
     assertThat(holdingRepository.findAll().get(0).categoryId()).isEqualTo(FINTECH);
@@ -75,7 +101,7 @@ class HoldingClassificationBackfillIT {
   void leavesGenuinelyUnmappedHoldingsAlone() {
     holdingRepository.replaceAll(List.of(unclassified("ZZZZ.XX")));
 
-    int reclassified = holdingUploadService.reclassifyUnmappedHoldings();
+    int reclassified = holdingUploadService.resyncHoldingCategories();
 
     assertThat(reclassified).isZero();
     assertThat(holdingRepository.findAll().get(0).categoryId()).isNull();

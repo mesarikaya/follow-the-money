@@ -238,21 +238,31 @@ public class HoldingUploadService {
     return holdingDtos;
   }
 
-  public int reclassifyUnmappedHoldings() {
+  /**
+   * Re-syncs every holding's stored category against the current ticker→category map. A holding is
+   * updated when its ticker resolves to a category different from what is stored — covering both
+   * the never-classified case (null category, uploaded before the mapping existed) and the
+   * correction case (a mapping was later fixed, e.g. SPCE moved from TECH to INDU_ADEF). Tickers
+   * with no mapping are left untouched and not counted.
+   *
+   * @return the number of holdings whose category changed
+   */
+  public int resyncHoldingCategories() {
     int[] count = {0};
     holdingRepository.findAll().stream()
-        .filter(h -> h.categoryId() == null)
         .forEach(
             h ->
                 classificationService
                     .classify(h.ticker())
+                    .filter(categoryId -> !categoryId.equals(h.categoryId()))
                     .ifPresent(
                         categoryId -> {
                           int updated = holdingRepository.updateCategoryId(h.ticker(), categoryId);
                           if (updated > 0) {
                             log.info(
-                                "category re-synced for holding ticker={} → {}",
+                                "category re-synced for holding ticker={} : {} → {}",
                                 h.ticker(),
+                                h.categoryId(),
                                 categoryId);
                             count[0]++;
                           }
@@ -261,7 +271,7 @@ public class HoldingUploadService {
   }
 
   private void syncMissingCategoryIds() {
-    reclassifyUnmappedHoldings();
+    resyncHoldingCategories();
   }
 
   public String generateCsvTemplate() {

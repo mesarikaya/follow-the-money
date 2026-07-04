@@ -32,10 +32,11 @@ class TickerMappingServiceTest {
   }
 
   @Test
-  @DisplayName("upsert with a known category persists, refreshes cache, reclassifies, and returns saved")
+  @DisplayName(
+      "upsert with a known category persists, refreshes cache, reclassifies, and returns saved")
   void upsertKnownCategory() {
     when(categoryRepository.existsById("FINL_FINT")).thenReturn(true);
-    when(holdingUploadService.reclassifyUnmappedHoldings()).thenReturn(1);
+    when(holdingUploadService.resyncHoldingCategories()).thenReturn(1);
     var saved = new TickerMapping("ADYEN.AS", "FINL_FINT", "note", OffsetDateTime.now());
     when(tickerMappingRepository.findByTicker("ADYEN.AS")).thenReturn(Optional.of(saved));
 
@@ -44,7 +45,7 @@ class TickerMappingServiceTest {
     assertThat(result).isEqualTo(saved);
     verify(tickerMappingRepository).upsert("ADYEN.AS", "FINL_FINT", "note");
     verify(classificationService).refreshCache();
-    verify(holdingUploadService).reclassifyUnmappedHoldings();
+    verify(holdingUploadService).resyncHoldingCategories();
   }
 
   @Test
@@ -56,8 +57,11 @@ class TickerMappingServiceTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Unknown category");
 
-    verify(tickerMappingRepository, never()).upsert(org.mockito.ArgumentMatchers.anyString(),
-        org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
+    verify(tickerMappingRepository, never())
+        .upsert(
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.any());
     verifyNoInteractions(classificationService, holdingUploadService);
   }
 

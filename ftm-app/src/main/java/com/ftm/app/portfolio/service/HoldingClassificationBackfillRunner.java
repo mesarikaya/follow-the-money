@@ -29,11 +29,11 @@ public class HoldingClassificationBackfillRunner {
   }
 
   @EventListener(ApplicationReadyEvent.class)
-  public void backfillUnclassifiedHoldings() {
-    int reclassified = holdingUploadService.reclassifyUnmappedHoldings();
+  public void resyncHoldingCategoriesOnStartup() {
+    int reclassified = holdingUploadService.resyncHoldingCategories();
     if (reclassified > 0) {
       log.info(
-          "Startup backfill classified {} previously-unclassified holding(s) against the current"
+          "Startup backfill re-synced {} holding(s) whose category differed from the current"
               + " ticker→category map",
           reclassified);
     }

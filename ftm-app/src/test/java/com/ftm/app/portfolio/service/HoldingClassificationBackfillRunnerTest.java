@@ -18,22 +18,22 @@ class HoldingClassificationBackfillRunnerTest {
   @InjectMocks private HoldingClassificationBackfillRunner runner;
 
   @Test
-  @DisplayName("runs reclassification of unmapped holdings when the application is ready")
+  @DisplayName("re-syncs holding categories when the application is ready")
   void triggersReclassificationOnStartup() {
-    when(holdingUploadService.reclassifyUnmappedHoldings()).thenReturn(2);
+    when(holdingUploadService.resyncHoldingCategories()).thenReturn(2);
 
-    runner.backfillUnclassifiedHoldings();
+    runner.resyncHoldingCategoriesOnStartup();
 
-    verify(holdingUploadService).reclassifyUnmappedHoldings();
+    verify(holdingUploadService).resyncHoldingCategories();
   }
 
   @Test
   @DisplayName("is a no-op observable side effect when nothing needs reclassifying")
   void handlesZeroReclassified() {
-    when(holdingUploadService.reclassifyUnmappedHoldings()).thenReturn(0);
+    when(holdingUploadService.resyncHoldingCategories()).thenReturn(0);
 
-    runner.backfillUnclassifiedHoldings();
+    runner.resyncHoldingCategoriesOnStartup();
 
-    verify(holdingUploadService).reclassifyUnmappedHoldings();
+    verify(holdingUploadService).resyncHoldingCategories();
   }
 }

@@ -253,6 +253,7 @@ export type BacktestRequest = {
   topN: number;
   signalThreshold?: number;
   categoryScope?: "ALL" | "EQUITY_SECTORS_ONLY" | "TOP_LEVEL_ONLY";
+  transactionCostBps?: number;
 };
 
 export const runBacktest = (request: BacktestRequest) =>

@@ -11,6 +11,7 @@ import {
 } from "@/lib/api";
 import PortfolioValueChart from "@/components/PortfolioValueChart";
 import AllocationDonutChart from "@/components/AllocationDonutChart";
+import PortfolioOverview from "@/components/PortfolioOverview";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 
 const ALIGNMENT_CONFIG = {
@@ -395,6 +396,17 @@ export default function PortfolioPage() {
     ? holdings.reduce((sum, h) => sum + (h.marketValueEur ?? 0), 0)
     : null;
 
+  // Overview header inputs: cash vs invested split and the highest-conviction rebalance actions.
+  const cashPct = portfolio
+    ? portfolio.allocations.find((a) => a.categoryId === "CASH")?.allocationPct ?? 0
+    : 0;
+  const investedPct = 100 - cashPct;
+  const topRebalanceActions = portfolio
+    ? [...portfolio.rebalanceSuggestions]
+        .sort((a, b) => Math.abs(b.deltaPct) - Math.abs(a.deltaPct))
+        .slice(0, 5)
+    : [];
+
   const staleCount = holdings ? holdings.filter(isStale).length : 0;
 
   const holdingsSummary = holdings && holdings.length > 0 ? (() => {
@@ -493,6 +505,21 @@ export default function PortfolioPage() {
           <div className="bg-red-900/40 border border-red-700 text-red-300 px-4 py-3 rounded-md text-sm">
             Failed to load portfolio: {loadError}
           </div>
+        )}
+
+        {portfolio && (
+          <PortfolioOverview
+            totalValueLabel={
+              totalEur != null
+                ? `€${totalEur.toLocaleString("de-DE", { maximumFractionDigits: 0 })}`
+                : "—"
+            }
+            alignmentScore={portfolio.alignmentScore}
+            alignmentLabel={portfolio.alignmentLabel}
+            cashPct={cashPct}
+            investedPct={investedPct}
+            actions={topRebalanceActions}
+          />
         )}
 
         {portfolio && (

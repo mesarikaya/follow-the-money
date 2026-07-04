@@ -2,6 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
+  // Real-backend smoke specs run only via playwright.real.config.ts, not the mock setup.
+  testIgnore: ["**/page-health.spec.ts", "**/portfolio-overview.spec.ts"],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

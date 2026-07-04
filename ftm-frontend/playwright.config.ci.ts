@@ -5,6 +5,9 @@ import { defineConfig, devices } from "@playwright/test";
 // the Windows-specific .cmd wrappers used in playwright.config.ts.
 export default defineConfig({
   testDir: "./e2e",
+  // These smoke specs assert against the real backend + a production frontend build
+  // (playwright.real.config.ts); they are not meant to run against the mock backend here.
+  testIgnore: ["**/page-health.spec.ts", "**/portfolio-overview.spec.ts"],
   fullyParallel: false,
   forbidOnly: true,
   retries: 1,

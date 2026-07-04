@@ -897,6 +897,8 @@ test.describe("Dashboard — Screener Snapshot Banner (EP-052)", () => {
 test.describe("Portfolio page — Radar, trend arrows, concentration risk", () => {
   test("shows Radar panel with GOLD as unowned BUY signal", async ({ page }) => {
     await page.goto("/portfolio");
+    // Radar lives inside the "Allocations & Rebalancing" section, collapsed by default — expand it.
+    await page.getByTestId("collapsible-allocations-rebalancing").click();
     // Mock: GOLD tradeSignal=BUY, not in holdings (AAPL + XLK both TECH)
     await expect(page.getByText("Radar · Unowned BUY Signals")).toBeVisible();
     // Radar panel has a BUY badge inside it — verify the panel heading and at least one BUY badge is visible

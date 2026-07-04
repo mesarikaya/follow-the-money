@@ -12,6 +12,7 @@ import {
 import PortfolioValueChart from "@/components/PortfolioValueChart";
 import AllocationDonutChart from "@/components/AllocationDonutChart";
 import PortfolioOverview from "@/components/PortfolioOverview";
+import CollapsibleSection from "@/components/CollapsibleSection";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 
 const ALIGNMENT_CONFIG = {
@@ -523,6 +524,11 @@ export default function PortfolioPage() {
         )}
 
         {portfolio && (
+          <CollapsibleSection
+            title="Allocations & Rebalancing"
+            subtitle="edit target weights · optimal-mix donut · rebalance suggestions · radar"
+            defaultOpen={false}
+          >
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2 bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
               <div className="flex items-center justify-between mb-4">
@@ -788,6 +794,7 @@ export default function PortfolioPage() {
               )}
             </div>
           </div>
+          </CollapsibleSection>
         )}
 
         {!portfolio && !loadError && (
@@ -848,8 +855,7 @@ export default function PortfolioPage() {
           if (rows.length === 0) return null;
 
           return (
-            <section className="space-y-2">
-              <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Sector Exposure vs Target</h2>
+            <CollapsibleSection title="Sector Exposure vs Target" defaultOpen={false}>
               <div className="overflow-x-auto rounded-xl border border-slate-700/60">
                 <table className="w-full text-xs text-left">
                   <thead>
@@ -938,7 +944,7 @@ export default function PortfolioPage() {
                   </tbody>
                 </table>
               </div>
-            </section>
+            </CollapsibleSection>
           );
         })()}
 

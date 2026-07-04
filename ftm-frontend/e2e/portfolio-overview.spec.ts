@@ -21,3 +21,21 @@ test("portfolio overview header renders alignment, split and Do Now", async ({ p
   const alignedMessage = overview.getByText("no rebalance needed", { exact: false });
   expect(hasActions || (await alignedMessage.count()) > 0).toBeTruthy();
 });
+
+test("heavy detail sections are collapsed by default and expand on click", async ({ page }) => {
+  await page.goto("/portfolio", { waitUntil: "networkidle" });
+
+  const allocations = page.getByTestId("collapsible-allocations-rebalancing");
+  const sector = page.getByTestId("collapsible-sector-exposure-vs-target");
+
+  await expect(allocations).toBeVisible();
+  await expect(allocations).toHaveAttribute("aria-expanded", "false");
+  await expect(sector).toBeVisible();
+
+  // Collapsed: the allocation editor's "Allocation Overview" heading is not rendered yet.
+  await expect(page.getByText("Allocation Overview")).toHaveCount(0);
+
+  await allocations.click();
+  await expect(allocations).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByText("Allocation Overview")).toBeVisible();
+});

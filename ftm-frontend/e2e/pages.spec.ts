@@ -91,6 +91,24 @@ test.describe("Portfolio page", () => {
   });
 
   test("deletes a holding via the confirm flow", async ({ page }) => {
+    // Simulate a stateful backend: once AAPL is DELETEd, the holdings GET (which the page
+    // re-fetches after every CRUD) no longer returns it.
+    let deleted = false;
+    await page.route("**/api/v1/portfolio/holdings/AAPL", async (route) => {
+      if (route.request().method() === "DELETE") {
+        deleted = true;
+        await route.fulfill({ status: 204 });
+      } else {
+        await route.continue();
+      }
+    });
+    await page.route("**/api/v1/portfolio/holdings", async (route) => {
+      const resp = await route.fetch();
+      let holdings = await resp.json();
+      if (deleted) holdings = holdings.filter((h: { ticker: string }) => h.ticker !== "AAPL");
+      await route.fulfill({ response: resp, json: holdings });
+    });
+
     await page.goto("/portfolio");
     const table = holdingsTable(page);
     const aaplRow = table.getByRole("row").filter({ hasText: "AAPL" });
@@ -100,7 +118,7 @@ test.describe("Portfolio page", () => {
     // Confirmation appears in-row; confirm with "Yes".
     await aaplRow.getByRole("button", { name: "Yes" }).click();
 
-    // Row is removed optimistically after the DELETE resolves; other holdings remain.
+    // After the delete + reload, AAPL is gone and other holdings remain.
     await expect(table.getByRole("row").filter({ hasText: "AAPL" })).toHaveCount(0);
     await expect(table.getByRole("row").filter({ hasText: "XLK" })).toBeVisible();
   });

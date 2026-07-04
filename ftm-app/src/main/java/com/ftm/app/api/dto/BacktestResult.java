@@ -26,6 +26,10 @@ public record BacktestResult(
     BigDecimal spySharpeRatio,
     BigDecimal spySortinoRatio,
     BigDecimal spyCalmarRatio,
+    BigDecimal equalWeightTotalReturnPct,
+    BigDecimal equalWeightAnnualizedReturnPct,
+    BigDecimal equalWeightMaxDrawdownPct,
+    BigDecimal equalWeightSharpeRatio,
     int tradingDays,
     List<EquityCurvePoint> equityCurve,
     List<RebalanceEvent> rebalanceHistory) {
@@ -51,6 +55,10 @@ public record BacktestResult(
         spySharpeRatio,
         spySortinoRatio,
         spyCalmarRatio,
+        equalWeightTotalReturnPct,
+        equalWeightAnnualizedReturnPct,
+        equalWeightMaxDrawdownPct,
+        equalWeightSharpeRatio,
         tradingDays,
         List.of(),
         List.of());

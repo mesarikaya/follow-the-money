@@ -100,6 +100,15 @@ public class BacktestEngine {
             spyPricesByDate,
             request.transactionCostBps());
 
+    // Equal-weight benchmark: hold every in-scope category with price data, equal-weighted, on the
+    // same rebalance schedule (no trading cost). It answers "does the signal beat naive
+    // diversification?" — selecting a large N here yields the full investable set.
+    Map<LocalDate, List<String>> equalWeightAllocations =
+        allocationComputer.computeAllocations(
+            rebalanceDates, compositesByDate, Integer.MAX_VALUE, null, categoriesWithPriceData);
+    List<EquityCurvePoint> equalWeightCurve =
+        simulatePortfolio(tradingDates, equalWeightAllocations, pricesByDate, spyPricesByDate, 0);
+
     Map<LocalDate, Double> portfolioValueByDate = new HashMap<>();
     for (EquityCurvePoint p : equityCurve) portfolioValueByDate.put(p.date(), p.portfolioValue());
 
@@ -115,7 +124,8 @@ public class BacktestEngine {
             .sorted(Comparator.comparing(RebalanceEvent::date))
             .toList();
 
-    return computeStatistics(request, equityCurve, rebalanceHistory, tradingDates.size());
+    return computeStatistics(
+        request, equityCurve, equalWeightCurve, rebalanceHistory, tradingDates.size());
   }
 
   private List<LocalDate> fetchTradingDates(LocalDate startDate, LocalDate endDate) {
@@ -313,9 +323,10 @@ public class BacktestEngine {
     return equityCurve;
   }
 
-  private BacktestResult computeStatistics(
+  BacktestResult computeStatistics(
       BacktestRequest request,
       List<EquityCurvePoint> equityCurve,
+      List<EquityCurvePoint> equalWeightCurve,
       List<RebalanceEvent> rebalanceHistory,
       int tradingDays) {
     if (equityCurve.isEmpty()) {
@@ -345,6 +356,23 @@ public class BacktestEngine {
     double spySortinoRatio = computeSortinoRatio(equityCurve, true);
     double spyCalmarRatio = computeCalmarRatio(spyAnnualizedReturnPct, spyMaxDrawdownPct);
 
+    // Equal-weight benchmark metrics (portfolioValue column of the equal-weight simulation).
+    BigDecimal equalWeightTotalReturnPct = null;
+    BigDecimal equalWeightAnnualizedReturnPct = null;
+    BigDecimal equalWeightMaxDrawdownPct = null;
+    BigDecimal equalWeightSharpeRatio = null;
+    if (equalWeightCurve != null && !equalWeightCurve.isEmpty()) {
+      double eqwFirst = equalWeightCurve.get(0).portfolioValue();
+      double eqwLast = equalWeightCurve.get(equalWeightCurve.size() - 1).portfolioValue();
+      if (eqwFirst > 0) {
+        equalWeightTotalReturnPct = roundToFour((eqwLast - eqwFirst) / eqwFirst * 100.0);
+        equalWeightAnnualizedReturnPct =
+            roundToFour((Math.pow(eqwLast / eqwFirst, 1.0 / yearsElapsed) - 1.0) * 100.0);
+      }
+      equalWeightMaxDrawdownPct = roundToFour(computeMaxDrawdown(equalWeightCurve, false));
+      equalWeightSharpeRatio = roundToFour(computeSharpeRatio(equalWeightCurve, false));
+    }
+
     return new BacktestResult(
         null, // run_id set by repository after insert
         null, // run_at set by repository
@@ -365,6 +393,10 @@ public class BacktestEngine {
         roundToFour(spySharpeRatio),
         roundToFour(spySortinoRatio),
         roundToFour(spyCalmarRatio),
+        equalWeightTotalReturnPct,
+        equalWeightAnnualizedReturnPct,
+        equalWeightMaxDrawdownPct,
+        equalWeightSharpeRatio,
         tradingDays,
         equityCurve,
         rebalanceHistory);

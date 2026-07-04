@@ -49,6 +49,12 @@ public class BacktestRepository {
         .set(DSL.field("spy_sharpe_ratio"), result.spySharpeRatio())
         .set(DSL.field("spy_sortino_ratio"), result.spySortinoRatio())
         .set(DSL.field("spy_calmar_ratio"), result.spyCalmarRatio())
+        .set(DSL.field("equal_weight_total_return_pct"), result.equalWeightTotalReturnPct())
+        .set(
+            DSL.field("equal_weight_annualized_return_pct"),
+            result.equalWeightAnnualizedReturnPct())
+        .set(DSL.field("equal_weight_max_drawdown_pct"), result.equalWeightMaxDrawdownPct())
+        .set(DSL.field("equal_weight_sharpe_ratio"), result.equalWeightSharpeRatio())
         .set(DSL.field("trading_days"), result.tradingDays())
         .set(DSL.field("equity_curve"), JSONB.valueOf(serializeEquityCurve(result.equityCurve())))
         .execute();
@@ -73,6 +79,10 @@ public class BacktestRepository {
         result.spySharpeRatio(),
         result.spySortinoRatio(),
         result.spyCalmarRatio(),
+        result.equalWeightTotalReturnPct(),
+        result.equalWeightAnnualizedReturnPct(),
+        result.equalWeightMaxDrawdownPct(),
+        result.equalWeightSharpeRatio(),
         result.tradingDays(),
         result.equityCurve(),
         result.rebalanceHistory() != null ? result.rebalanceHistory() : List.of());
@@ -114,6 +124,10 @@ public class BacktestRepository {
         r.get("spy_sharpe_ratio", java.math.BigDecimal.class),
         r.get("spy_sortino_ratio", java.math.BigDecimal.class),
         r.get("spy_calmar_ratio", java.math.BigDecimal.class),
+        r.get("equal_weight_total_return_pct", java.math.BigDecimal.class),
+        r.get("equal_weight_annualized_return_pct", java.math.BigDecimal.class),
+        r.get("equal_weight_max_drawdown_pct", java.math.BigDecimal.class),
+        r.get("equal_weight_sharpe_ratio", java.math.BigDecimal.class),
         Optional.ofNullable(r.get("trading_days", Integer.class)).orElse(0),
         includeEquityCurve ? deserializeEquityCurve(r.get("equity_curve", JSONB.class)) : List.of(),
         List.of());

@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 import static org.mockito.Mockito.mock;
 
+import com.ftm.app.api.dto.BacktestRequest;
+import com.ftm.app.api.dto.BacktestResult;
 import com.ftm.app.api.dto.BacktestResult.EquityCurvePoint;
 import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
@@ -23,7 +25,10 @@ class BacktestEngineTest {
   void setUp() {
     engine =
         new BacktestEngine(
-            mock(SignalRepository.class), mock(DSLContext.class), new AllocationComputer(), new TurnoverCostCalculator());
+            mock(SignalRepository.class),
+            mock(DSLContext.class),
+            new AllocationComputer(),
+            new TurnoverCostCalculator());
   }
 
   // ── computeSortinoRatio ──────────────────────────────────────────────────────
@@ -304,6 +309,63 @@ class BacktestEngineTest {
         engine.simulatePortfolio(dates, allocations, prices, Map.of(), 100);
     assertThat(withCost.get(1).portfolioValue()).isCloseTo(10_890.0, within(0.01));
     assertThat(withCost.get(1).portfolioValue()).isLessThan(free.get(1).portfolioValue());
+  }
+
+  // ── equal-weight benchmark ───────────────────────────────────────────────────
+
+  @Test
+  @DisplayName("computeStatistics derives equal-weight benchmark metrics from its own curve")
+  void computeStatisticsPopulatesEqualWeightMetrics() {
+    var request =
+        new BacktestRequest(
+            LocalDate.parse("2020-01-01"),
+            LocalDate.parse("2020-12-31"),
+            "MONTHLY",
+            5,
+            null,
+            "ALL",
+            0);
+    // Strategy ends +20%; equal-weight rises 10000 → 11000 (+10%) with a dip to 9500 (5% drawdown).
+    List<EquityCurvePoint> strategy =
+        List.of(
+            point("2020-01-02", 10_000, 10_000),
+            point("2020-06-01", 10_500, 10_200),
+            point("2020-12-31", 12_000, 11_000));
+    List<EquityCurvePoint> equalWeight =
+        List.of(
+            point("2020-01-02", 10_000, 10_000),
+            point("2020-06-01", 9_500, 10_200),
+            point("2020-12-31", 11_000, 11_000));
+
+    BacktestResult result =
+        engine.computeStatistics(request, strategy, equalWeight, List.of(), 252);
+
+    assertThat(result.equalWeightTotalReturnPct().doubleValue()).isCloseTo(10.0, within(1e-6));
+    assertThat(result.equalWeightMaxDrawdownPct().doubleValue()).isCloseTo(5.0, within(1e-6));
+    assertThat(result.equalWeightSharpeRatio()).isNotNull();
+    // Kept distinct from the strategy's own +20% total return.
+    assertThat(result.totalReturnPct().doubleValue()).isCloseTo(20.0, within(1e-6));
+  }
+
+  @Test
+  @DisplayName("computeStatistics leaves equal-weight metrics null when its curve is empty")
+  void computeStatisticsHandlesEmptyEqualWeightCurve() {
+    var request =
+        new BacktestRequest(
+            LocalDate.parse("2020-01-01"),
+            LocalDate.parse("2020-12-31"),
+            "MONTHLY",
+            5,
+            null,
+            "ALL",
+            0);
+    List<EquityCurvePoint> strategy =
+        List.of(point("2020-01-02", 10_000, 10_000), point("2020-12-31", 11_000, 11_000));
+
+    BacktestResult result = engine.computeStatistics(request, strategy, List.of(), List.of(), 252);
+
+    assertThat(result.equalWeightTotalReturnPct()).isNull();
+    assertThat(result.equalWeightSharpeRatio()).isNull();
   }
 
   // ── helpers ─────────────────────────────────────────────────────────────────

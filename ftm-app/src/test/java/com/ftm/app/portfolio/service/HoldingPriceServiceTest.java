@@ -150,14 +150,32 @@ class HoldingPriceServiceTest {
   }
 
   @Test
-  @DisplayName("refreshPricesForAllHoldings skips manually-priced holdings")
-  void shouldSkipManuallyPricedHoldings() {
-    Holding manualHolding = holding("RHM", "INDU", "manual");
+  @DisplayName("refreshPricesForAllHoldings refreshes a manually-priced holding when live data exists")
+  void shouldRefreshManualHoldingWhenLiveDataAvailable() {
+    Holding manualHolding = holding("RHM.DE", "INDU", "manual");
+    var chart = chartWithAdjClose(new BigDecimal("1093.00"));
     when(holdingRepository.findAll()).thenReturn(List.of(manualHolding));
+    when(yahooFinanceClient.fetchChart(eq("RHM.DE"), any(LocalDate.class), any(LocalDate.class)))
+        .thenReturn(Optional.of(chart));
 
     holdingPriceService.refreshPricesForAllHoldings();
 
-    verify(yahooFinanceClient, never()).fetchChart(any(), any(), any());
+    verify(holdingRepository)
+        .updatePrice(
+            eq("RHM.DE"), eq(new BigDecimal("1093.00")), any(LocalDate.class), eq("yahoo_finance"));
+  }
+
+  @Test
+  @DisplayName("refreshPricesForAllHoldings keeps a manual price when the provider has no data")
+  void shouldPreserveManualPriceWhenYahooHasNoData() {
+    Holding manualHolding = holding("FISV", "FINL_FINT", "manual");
+    when(holdingRepository.findAll()).thenReturn(List.of(manualHolding));
+    when(yahooFinanceClient.fetchChart(eq("FISV"), any(LocalDate.class), any(LocalDate.class)))
+        .thenReturn(Optional.empty());
+
+    holdingPriceService.refreshPricesForAllHoldings();
+
+    verify(holdingRepository, never()).updatePrice(any(), any(), any(), any());
   }
 
   @Test

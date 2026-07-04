@@ -128,20 +128,21 @@ public class HoldingPriceService {
       log.debug("Skipping price lookup for placeholder ticker: {}", holding.ticker());
       return;
     }
-    // Skip manually-overridden prices so the user's value is not overwritten
-    if ("manual".equals(holding.priceSource())) {
-      log.debug("Skipping price lookup for manually-priced holding: {}", holding.ticker());
-      return;
-    }
 
     LocalDate today = LocalDate.now();
     LocalDate from = today.minusDays(7);
 
+    // Attempt a live price for every real ticker — including manually-priced holdings. A "Refresh
+    // Prices" action is expected to fetch the latest price for all positions; a manually-entered
+    // price is only preserved when the provider has no data for the ticker (e.g. a delisted/renamed
+    // symbol or an untracked asset), so the user's fallback value is never lost.
     Optional<BigDecimal> latestClose = fetchLatestClose(holding.ticker(), from, today);
 
     if (latestClose.isPresent()) {
       holdingRepository.updatePrice(holding.ticker(), latestClose.get(), today, PRICE_SOURCE_YAHOO);
       log.debug("Updated price for {}: {}", holding.ticker(), latestClose.get());
+    } else if ("manual".equals(holding.priceSource())) {
+      log.debug("Keeping manual price for {} — no live data available", holding.ticker());
     } else {
       log.warn("No price found for ticker: {}", holding.ticker());
     }

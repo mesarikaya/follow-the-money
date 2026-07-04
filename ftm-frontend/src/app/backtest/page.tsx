@@ -6,9 +6,12 @@ import { runBacktest, runBacktestSweep, runBacktestFrequencySweep, fetchRecentBa
 import { CATEGORY_ETF_MAP } from "@/lib/sectors";
 import { deriveTradeSignal } from "@/lib/signals";
 
-const DEFAULT_START_DATE = "2021-01-04";
-const DEFAULT_END_DATE   = new Date().toISOString().split("T")[0];
 const DATA_START         = "2019-05-16";
+// Default to the full available history rather than an arbitrary hardcoded year. A fixed 2021
+// start happened to land on the strategy's weakest window (mega-cap concentration era), which made
+// the backtest look broken by default; using all data avoids cherry-picking a sub-period.
+const DEFAULT_START_DATE = DATA_START;
+const DEFAULT_END_DATE   = new Date().toISOString().split("T")[0];
 
 const CHART_W = 640;
 const CHART_H = 200;
@@ -1773,8 +1776,21 @@ export default function BacktesterPage() {
           {/* Right 3 columns: results */}
           <div className="col-span-3 flex flex-col gap-5">
             {runError && (
-              <div className="bg-red-900/40 border border-red-700 text-red-300 px-4 py-3 rounded-md text-sm">
-                {runError}
+              <div className="bg-red-900/40 border border-red-700 text-red-300 px-4 py-3 rounded-md text-sm space-y-1">
+                <div className="font-semibold">Backtest failed</div>
+                <div className="text-red-400/80 text-[11px]">{runError}</div>
+                {(runError.includes("price data") || runError.includes("benchmark")) && (
+                  <div className="text-red-400/60 text-[11px] mt-1">
+                    Tip: the backtest needs historical ETF price data and SPY benchmark history for the
+                    range. Try a more recent start date, or run the ingestion pipeline first.
+                  </div>
+                )}
+                {runError.includes("composite scores") && (
+                  <div className="text-red-400/60 text-[11px] mt-1">
+                    Tip: signal computation hasn&apos;t produced scores for this range. Run signal
+                    computation, or shorten the window to the period with available data.
+                  </div>
+                )}
               </div>
             )}
 

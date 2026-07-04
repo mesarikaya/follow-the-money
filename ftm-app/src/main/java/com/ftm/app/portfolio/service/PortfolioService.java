@@ -35,27 +35,39 @@ public class PortfolioService {
   private final CategoryRepository categoryRepository;
   private final SignalRepository signalRepository;
   private final AlignmentService alignmentService;
+  private final CategoryHierarchyResolver categoryHierarchyResolver;
 
   public PortfolioService(
       PortfolioRepository portfolioRepository,
       CategoryRepository categoryRepository,
       SignalRepository signalRepository,
-      AlignmentService alignmentService) {
+      AlignmentService alignmentService,
+      CategoryHierarchyResolver categoryHierarchyResolver) {
     this.portfolioRepository = portfolioRepository;
     this.categoryRepository = categoryRepository;
     this.signalRepository = signalRepository;
     this.alignmentService = alignmentService;
+    this.categoryHierarchyResolver = categoryHierarchyResolver;
   }
 
   public PortfolioResponse getPortfolio() {
+    List<Category> allCategories = categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc();
+
     Map<String, Category> categoriesById =
-        categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc().stream()
+        allCategories.stream()
             .filter(c -> c.parentId() == null)
             .collect(Collectors.toMap(c -> c.id().name(), c -> c));
 
-    Map<String, BigDecimal> currentAllocationByCategoryId =
+    Map<String, String> parentByCategoryId = new HashMap<>();
+    allCategories.forEach(c -> parentByCategoryId.put(c.id().name(), c.parentId()));
+
+    // Roll sub-category positions (e.g. INDU_ADEF, SEMI) up into their parent sector so allocations
+    // sum to 100% rather than dropping the sub-category value.
+    Map<String, BigDecimal> rawAllocationByCategoryId =
         portfolioRepository.findAll().stream()
             .collect(Collectors.toMap(p -> p.categoryId().name(), Portfolio::allocationPct));
+    Map<String, BigDecimal> currentAllocationByCategoryId =
+        categoryHierarchyResolver.rollUpToTopLevel(rawAllocationByCategoryId, parentByCategoryId);
 
     Map<String, BigDecimal> compositeScoreByCategoryId =
         signalRepository.findLatestByType(SignalType.COMPOSITE);

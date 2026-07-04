@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,6 +36,8 @@ class PortfolioServiceTest {
   @Mock CategoryRepository categoryRepository;
   @Mock SignalRepository signalRepository;
   @Mock AlignmentService alignmentService;
+  // Real resolver — the rollup logic is pure and covered by its own test; here it must behave.
+  @Spy CategoryHierarchyResolver categoryHierarchyResolver = new CategoryHierarchyResolver();
   @InjectMocks PortfolioService portfolioService;
 
   private Category techCategory() {
@@ -181,5 +184,40 @@ class PortfolioServiceTest {
 
     assertThat(result.allocations()).hasSize(1);
     assertThat(result.allocations().get(0).categoryId()).isEqualTo("TECH");
+  }
+
+  @Test
+  @DisplayName("getPortfolio rolls a sub-category holding's allocation up into its parent sector")
+  void shouldRollSubCategoryAllocationIntoParent() {
+    Category semiSubSector =
+        new Category(
+            CategoryId.SEMI,
+            "Semiconductors",
+            CategoryType.EQUITY_SECTOR,
+            "SMH",
+            "XLK",
+            101,
+            true,
+            "TECH");
+    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
+        .thenReturn(List.of(techCategory(), semiSubSector));
+    when(portfolioRepository.findAll())
+        .thenReturn(
+            List.of(
+                new Portfolio(CategoryId.TECH, new BigDecimal("70.00"), OffsetDateTime.now(), null),
+                new Portfolio(
+                    CategoryId.SEMI, new BigDecimal("30.00"), OffsetDateTime.now(), null)));
+    when(signalRepository.findLatestByType(any())).thenReturn(Map.of());
+    when(signalRepository.findRealizedVolatility20d()).thenReturn(Map.of());
+    when(alignmentService.computeVolatilityAdjustedOptimalAllocation(any(), any()))
+        .thenReturn(Map.of());
+    when(alignmentService.computeAlignmentScore(any(), any())).thenReturn(BigDecimal.ZERO);
+
+    PortfolioResponse result = portfolioService.getPortfolio();
+
+    // Only the parent sector is listed, and it carries the summed 70 + 30 = 100.
+    assertThat(result.allocations()).hasSize(1);
+    assertThat(result.allocations().get(0).categoryId()).isEqualTo("TECH");
+    assertThat(result.allocations().get(0).allocationPct()).isEqualByComparingTo("100.00");
   }
 }

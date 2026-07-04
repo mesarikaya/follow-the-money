@@ -7,7 +7,7 @@ export default defineConfig({
   testDir: "./e2e",
   // These smoke specs assert against the real backend + a production frontend build
   // (playwright.real.config.ts); they are not meant to run against the mock backend here.
-  testIgnore: ["**/page-health.spec.ts", "**/portfolio-overview.spec.ts"],
+  testIgnore: ["**/page-health.spec.ts", "**/portfolio-overview.spec.ts", "**/backtest-equal-weight.spec.ts"],
   fullyParallel: false,
   forbidOnly: true,
   retries: 1,

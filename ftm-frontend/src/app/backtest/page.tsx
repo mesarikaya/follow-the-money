@@ -1931,8 +1931,8 @@ export default function BacktesterPage() {
                   <RiskAttributionPanel curve={result.equityCurve} />
                 )}
 
-                {/* Side-by-side metrics: Strategy | SPY */}
-                <div className="grid grid-cols-2 gap-4">
+                {/* Side-by-side metrics: Strategy | Equal-Weight | SPY */}
+                <div className={`grid gap-4 ${result.equalWeightTotalReturnPct != null ? "grid-cols-1 md:grid-cols-3" : "grid-cols-2"}`}>
                   <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
                     <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-4 flex items-center gap-1.5">
                       <span className="w-3 h-3 rounded-sm bg-blue-500 inline-block" />
@@ -1955,6 +1955,29 @@ export default function BacktesterPage() {
                       })()}
                     </div>
                   </div>
+                  {result.equalWeightTotalReturnPct != null && (
+                  <div className="bg-slate-800/50 border border-amber-700/40 rounded-xl p-4">
+                    <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-4 flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded-sm bg-amber-500 inline-block" />
+                      Equal-Weight
+                      <span
+                        className="text-[10px] text-slate-600 cursor-help normal-case font-normal"
+                        title="Holds every in-scope category equal-weighted on the same rebalance schedule (no cost). If the strategy can't beat this, the composite signal adds no value over naive diversification."
+                      >(?)</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <MetricCard label="Total Return" value={formatPct(result.equalWeightTotalReturnPct)} color={(result.equalWeightTotalReturnPct ?? 0) > result.totalReturnPct ? lossColor : "text-amber-200"} tooltip="Equal-weight benchmark cumulative return. Red if it beat the strategy." />
+                      <MetricCard label="Ann. Return" value={formatPct(result.equalWeightAnnualizedReturnPct)} color="text-amber-200" tooltip="Equal-weight CAGR over the backtest period." />
+                      <MetricCard label="Max Drawdown" value={result.equalWeightMaxDrawdownPct != null ? `-${result.equalWeightMaxDrawdownPct.toFixed(2)}%` : "—"} color="text-amber-200" tooltip="Largest peak-to-trough decline for the equal-weight benchmark." />
+                      <MetricCard label="Sharpe Ratio" value={formatDecimal(result.equalWeightSharpeRatio)} color={(result.equalWeightSharpeRatio ?? 0) > (result.sharpeRatio ?? 0) ? lossColor : "text-amber-200"} tooltip="Equal-weight risk-adjusted return. Red if it beat the strategy's Sharpe." />
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-slate-700/50 text-[10px] text-slate-500">
+                      {(result.equalWeightTotalReturnPct ?? 0) > result.totalReturnPct
+                        ? "⚠ Signal underperforms naive diversification"
+                        : "Signal beats equal-weight"}
+                    </div>
+                  </div>
+                  )}
                   <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
                     <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-4 flex items-center gap-1.5">
                       <span className="w-3 h-3 rounded-sm bg-slate-500 inline-block" />

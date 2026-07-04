@@ -241,6 +241,10 @@ export type BacktestResult = {
   spySharpeRatio: number;
   spySortinoRatio: number | null;
   spyCalmarRatio: number | null;
+  equalWeightTotalReturnPct: number | null;
+  equalWeightAnnualizedReturnPct: number | null;
+  equalWeightMaxDrawdownPct: number | null;
+  equalWeightSharpeRatio: number | null;
   tradingDays: number;
   equityCurve: EquityCurvePoint[];
   rebalanceHistory: RebalanceEvent[];

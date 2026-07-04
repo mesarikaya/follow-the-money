@@ -14,12 +14,16 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
   public static final String HTTPS_FTM_LOCAL_ERRORS_VALIDATION =
       "https://ftm.local/errors/validation";
+  public static final String HTTPS_FTM_LOCAL_ERRORS_NOT_FOUND =
+      "https://ftm.local/errors/not-found";
+  public static final String RESOURCE_NOT_FOUND = "Resource not found";
   public static final String VALIDATION_FAILED = "Validation failed";
   private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
   private static final HttpStatusCode NOT_FOUND = HttpStatusCode.valueOf(404);
@@ -29,8 +33,21 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(NoSuchElementException.class)
   public ProblemDetail handleNotFound(NoSuchElementException ex, WebRequest request) {
     ProblemDetail problem = ProblemDetail.forStatusAndDetail(NOT_FOUND, ex.getMessage());
-    problem.setType(URI.create("https://ftm.local/errors/not-found"));
-    problem.setTitle("Resource not found");
+    problem.setType(URI.create(HTTPS_FTM_LOCAL_ERRORS_NOT_FOUND));
+    problem.setTitle(RESOURCE_NOT_FOUND);
+    problem.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
+    return problem;
+  }
+
+  // An unmatched request path (no controller mapping, no static resource) is a genuine 404 —
+  // the catch-all Exception handler below would otherwise report it as 500 and log a noisy
+  // stack trace for what is a benign missing-route hit.
+  @ExceptionHandler(NoResourceFoundException.class)
+  public ProblemDetail handleNoResourceFound(NoResourceFoundException ex, WebRequest request) {
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(NOT_FOUND, "No resource found for the requested path");
+    problem.setType(URI.create(HTTPS_FTM_LOCAL_ERRORS_NOT_FOUND));
+    problem.setTitle(RESOURCE_NOT_FOUND);
     problem.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
     return problem;
   }

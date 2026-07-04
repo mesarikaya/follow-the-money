@@ -1377,6 +1377,8 @@ export default function BacktesterPage() {
   const [categoryScope, setCategoryScope] = useState<"ALL" | "EQUITY_SECTORS_ONLY" | "TOP_LEVEL_ONLY">("TOP_LEVEL_ONLY");
   const [topN, setTopN] = useState(5);
   const [signalThreshold, setSignalThreshold] = useState("");
+  // Realistic default trading cost (10 bps ≈ round-trip commission + spread for liquid ETFs).
+  const [transactionCostBps, setTransactionCostBps] = useState(10);
   const [result, setResult] = useState<BacktestResult | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
@@ -1407,6 +1409,7 @@ export default function BacktesterPage() {
         topN,
         signalThreshold: signalThreshold ? parseFloat(signalThreshold) : undefined,
         categoryScope,
+        transactionCostBps,
       });
       setResult(data);
       setRecentRuns(prev => [data, ...prev.filter(r => r.runId !== data.runId).slice(0, 9)]);
@@ -1427,6 +1430,7 @@ export default function BacktesterPage() {
         rebalanceFrequency,
         signalThreshold: signalThreshold ? parseFloat(signalThreshold) : undefined,
         categoryScope,
+        transactionCostBps,
       });
       setSweepResults(data);
     } catch {} finally {
@@ -1444,6 +1448,7 @@ export default function BacktesterPage() {
         topN,
         signalThreshold: signalThreshold ? parseFloat(signalThreshold) : undefined,
         categoryScope,
+        transactionCostBps,
       });
       setFreqSweepResults(data);
     } catch {} finally {
@@ -1745,6 +1750,22 @@ export default function BacktesterPage() {
                     className={`${inputCls} placeholder-slate-600`}
                   />
                   <p className="text-[10px] text-slate-600 mt-1">Categories below threshold → cash instead</p>
+                </div>
+                <div>
+                  <label className={labelCls}>
+                    Transaction Cost (bps)
+                    <span className="text-slate-600 ml-1 cursor-help" title="Trading cost charged on turnover at each rebalance (1 bp = 0.01%). ~10 bps is realistic for liquid ETFs; set 0 for a frictionless comparison.">(?)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="500"
+                    step="1"
+                    value={transactionCostBps}
+                    onChange={(e) => setTransactionCostBps(Math.max(0, Math.min(500, parseInt(e.target.value) || 0)))}
+                    className={inputCls}
+                  />
+                  <p className="text-[10px] text-slate-600 mt-1">Charged on turnover per rebalance · 0 = frictionless</p>
                 </div>
                 <button
                   onClick={handleRun}

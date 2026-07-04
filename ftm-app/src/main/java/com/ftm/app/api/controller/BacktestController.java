@@ -66,7 +66,8 @@ public class BacktestController {
               frequency,
               request.topN(),
               request.signalThreshold(),
-              request.categoryScope());
+              request.categoryScope(),
+              request.transactionCostBps());
       results.add(backtestEngine.run(swept).stripped());
     }
     return results;
@@ -85,7 +86,8 @@ public class BacktestController {
               request.rebalanceFrequency(),
               n,
               request.signalThreshold(),
-              request.categoryScope());
+              request.categoryScope(),
+              request.transactionCostBps());
       results.add(backtestEngine.run(swept).stripped());
     }
     return results;

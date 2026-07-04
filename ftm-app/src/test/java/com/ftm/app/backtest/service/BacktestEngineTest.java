@@ -23,7 +23,7 @@ class BacktestEngineTest {
   void setUp() {
     engine =
         new BacktestEngine(
-            mock(SignalRepository.class), mock(DSLContext.class), new AllocationComputer());
+            mock(SignalRepository.class), mock(DSLContext.class), new AllocationComputer(), new TurnoverCostCalculator());
   }
 
   // ── computeSortinoRatio ──────────────────────────────────────────────────────
@@ -283,6 +283,27 @@ class BacktestEngineTest {
     List<EquityCurvePoint> curve = engine.simulatePortfolio(dates, allocations, prices, Map.of());
 
     assertThat(curve.get(1).portfolioValue()).isCloseTo(11_000.0, within(0.01));
+  }
+
+  @Test
+  @DisplayName("simulate: transaction cost drags the return below the frictionless result")
+  void simulateTransactionCostReducesReturn() {
+    var dates = dates("2023-01-02", "2023-01-03");
+    var allocations = Map.of(date("2023-01-02"), List.of("TECH"));
+    var prices =
+        Map.of(
+            date("2023-01-02"), Map.of("TECH", bd(100)),
+            date("2023-01-03"), Map.of("TECH", bd(110)));
+
+    // Frictionless: enter cash→TECH, +10% → 11000.
+    List<EquityCurvePoint> free = engine.simulatePortfolio(dates, allocations, prices, Map.of(), 0);
+    assertThat(free.get(1).portfolioValue()).isCloseTo(11_000.0, within(0.01));
+
+    // 100 bps on the initial full-turnover entry: 10000*(1-0.01)=9900, then +10% → 10890.
+    List<EquityCurvePoint> withCost =
+        engine.simulatePortfolio(dates, allocations, prices, Map.of(), 100);
+    assertThat(withCost.get(1).portfolioValue()).isCloseTo(10_890.0, within(0.01));
+    assertThat(withCost.get(1).portfolioValue()).isLessThan(free.get(1).portfolioValue());
   }
 
   // ── helpers ─────────────────────────────────────────────────────────────────

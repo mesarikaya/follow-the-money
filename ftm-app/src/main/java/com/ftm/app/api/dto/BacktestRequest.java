@@ -12,9 +12,11 @@ public record BacktestRequest(
     @NotNull String rebalanceFrequency,
     @Min(1) @Max(19) int topN,
     BigDecimal signalThreshold,
-    String categoryScope) {
+    String categoryScope,
+    @Min(0) @Max(500) Integer transactionCostBps) {
   public BacktestRequest {
     if (topN == 0) topN = 5;
     if (categoryScope == null || categoryScope.isBlank()) categoryScope = "ALL";
+    if (transactionCostBps == null) transactionCostBps = 0;
   }
 }

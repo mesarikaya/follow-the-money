@@ -67,7 +67,8 @@ class BacktestControllerTest {
             "MONTHLY",
             5,
             new BigDecimal("0.5"),
-            "ALL");
+            "ALL",
+            0);
     BacktestResult result = sampleResult(runId);
     when(backtestEngine.run(any(BacktestRequest.class))).thenReturn(result);
     when(backtestRepository.save(result)).thenReturn(result);
@@ -88,7 +89,7 @@ class BacktestControllerTest {
     UUID runId = UUID.randomUUID();
     BacktestRequest request =
         new BacktestRequest(
-            LocalDate.of(2022, 1, 1), LocalDate.of(2023, 1, 1), "QUARTERLY", 3, null, null);
+            LocalDate.of(2022, 1, 1), LocalDate.of(2023, 1, 1), "QUARTERLY", 3, null, null, null);
     BacktestResult result = sampleResult(runId);
     when(backtestEngine.run(any(BacktestRequest.class))).thenReturn(result);
     when(backtestRepository.save(result)).thenReturn(result);
@@ -140,7 +141,7 @@ class BacktestControllerTest {
   void shouldReturnFrequencySweepResults() throws Exception {
     BacktestRequest request =
         new BacktestRequest(
-            LocalDate.of(2022, 1, 1), LocalDate.of(2024, 1, 1), "MONTHLY", 5, null, null);
+            LocalDate.of(2022, 1, 1), LocalDate.of(2024, 1, 1), "MONTHLY", 5, null, null, null);
     when(backtestEngine.run(any(BacktestRequest.class))).thenReturn(sampleResult(null));
 
     mockMvc
@@ -157,7 +158,7 @@ class BacktestControllerTest {
   void shouldReturnSweepResults() throws Exception {
     BacktestRequest request =
         new BacktestRequest(
-            LocalDate.of(2022, 1, 1), LocalDate.of(2024, 1, 1), "MONTHLY", 5, null, null);
+            LocalDate.of(2022, 1, 1), LocalDate.of(2024, 1, 1), "MONTHLY", 5, null, null, null);
     // engine.run() is called once per topN value; stub for any topN
     when(backtestEngine.run(any(BacktestRequest.class))).thenReturn(sampleResult(null));
 

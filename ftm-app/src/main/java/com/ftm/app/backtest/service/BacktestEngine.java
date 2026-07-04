@@ -39,12 +39,17 @@ public class BacktestEngine {
   private final SignalRepository signalRepository;
   private final DSLContext dsl;
   private final AllocationComputer allocationComputer;
+  private final TurnoverCostCalculator turnoverCostCalculator;
 
   public BacktestEngine(
-      SignalRepository signalRepository, DSLContext dsl, AllocationComputer allocationComputer) {
+      SignalRepository signalRepository,
+      DSLContext dsl,
+      AllocationComputer allocationComputer,
+      TurnoverCostCalculator turnoverCostCalculator) {
     this.signalRepository = signalRepository;
     this.dsl = dsl;
     this.allocationComputer = allocationComputer;
+    this.turnoverCostCalculator = turnoverCostCalculator;
   }
 
   public BacktestResult run(BacktestRequest request) {
@@ -88,7 +93,12 @@ public class BacktestEngine {
             categoriesWithPriceData);
 
     List<EquityCurvePoint> equityCurve =
-        simulatePortfolio(tradingDates, allocationsByRebalanceDate, pricesByDate, spyPricesByDate);
+        simulatePortfolio(
+            tradingDates,
+            allocationsByRebalanceDate,
+            pricesByDate,
+            spyPricesByDate,
+            request.transactionCostBps());
 
     Map<LocalDate, Double> portfolioValueByDate = new HashMap<>();
     for (EquityCurvePoint p : equityCurve) portfolioValueByDate.put(p.date(), p.portfolioValue());
@@ -211,7 +221,18 @@ public class BacktestEngine {
       Map<LocalDate, List<String>> allocationsByRebalanceDate,
       Map<LocalDate, Map<String, BigDecimal>> pricesByDate,
       Map<LocalDate, BigDecimal> spyPricesByDate) {
+    return simulatePortfolio(
+        tradingDates, allocationsByRebalanceDate, pricesByDate, spyPricesByDate, null);
+  }
 
+  List<EquityCurvePoint> simulatePortfolio(
+      List<LocalDate> tradingDates,
+      Map<LocalDate, List<String>> allocationsByRebalanceDate,
+      Map<LocalDate, Map<String, BigDecimal>> pricesByDate,
+      Map<LocalDate, BigDecimal> spyPricesByDate,
+      Integer transactionCostBps) {
+
+    int costBps = transactionCostBps == null ? 0 : transactionCostBps;
     List<EquityCurvePoint> equityCurve = new ArrayList<>();
     if (tradingDates.isEmpty()) return equityCurve;
 
@@ -239,6 +260,10 @@ public class BacktestEngine {
         // Record entry prices for new allocation
         Map<String, BigDecimal> prices = pricesByDate.get(tradingDate);
         if (prices != null) {
+          // Charge trading cost on the turnover before the new period starts compounding.
+          double costFraction =
+              turnoverCostCalculator.costFraction(currentAllocation, newAllocation, costBps);
+          portfolioValue *= (1.0 - costFraction);
           portfolioValueAtPeriodStart = portfolioValue;
           entryPrices.clear();
           for (String categoryId : newAllocation) {

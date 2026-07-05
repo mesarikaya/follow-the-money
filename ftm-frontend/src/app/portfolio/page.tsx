@@ -14,6 +14,7 @@ import AllocationDonutChart from "@/components/AllocationDonutChart";
 import PortfolioOverview from "@/components/PortfolioOverview";
 import CollapsibleSection from "@/components/CollapsibleSection";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
+import { getParentSectorId } from "@/lib/sectors";
 
 const ALIGNMENT_CONFIG = {
   ALIGNED:    { label: "Aligned",    colorClass: "text-emerald-400", barClass: "bg-emerald-500" },
@@ -829,19 +830,23 @@ export default function PortfolioPage() {
           for (const h of holdings) {
             const val = h.marketValueEur ?? 0;
             if (!h.categoryId) { unclassifiedEur += val; continue; }
-            if (!grouped[h.categoryId]) {
-              const cat = categoryById[h.categoryId];
-              const alloc = portfolio.allocations.find(a => a.categoryId === h.categoryId);
+            // Roll sub-category holdings (INDU_ADEF, SEMI, ...) up to their parent sector so they
+            // group under the top-level sector (with its signal/target) instead of raw sub-sector
+            // rows with no data. Asset classes (CASH, GOLD, ...) fall through to themselves.
+            const sectorId = getParentSectorId(h.categoryId) ?? h.categoryId;
+            if (!grouped[sectorId]) {
+              const cat = categoryById[sectorId];
+              const alloc = portfolio.allocations.find(a => a.categoryId === sectorId);
               const sig = cat ? ((cat.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(cat)) : null;
-              grouped[h.categoryId] = {
-                name: cat?.name ?? alloc?.categoryName ?? h.categoryId,
+              grouped[sectorId] = {
+                name: cat?.name ?? alloc?.categoryName ?? sectorId,
                 totalEur: 0,
                 signal: sig,
                 score: cat?.compositeScore != null ? Math.round(cat.compositeScore * 100) : null,
                 targetPct: alloc?.optimalAllocationPct ?? null,
               };
             }
-            grouped[h.categoryId].totalEur += val;
+            grouped[sectorId].totalEur += val;
           }
 
           const rows = Object.entries(grouped)

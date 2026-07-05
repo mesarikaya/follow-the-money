@@ -24,6 +24,7 @@ import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -219,5 +220,45 @@ class PortfolioServiceTest {
     assertThat(result.allocations()).hasSize(1);
     assertThat(result.allocations().get(0).categoryId()).isEqualTo("TECH");
     assertThat(result.allocations().get(0).allocationPct()).isEqualByComparingTo("100.00");
+  }
+
+  @Test
+  @DisplayName("optimal/alignment universe excludes sub-category and factor composites")
+  @SuppressWarnings("unchecked")
+  void topLevelCompositeUniverseExcludesSubCategories() {
+    Category semiSubSector =
+        new Category(
+            CategoryId.SEMI,
+            "Semiconductors",
+            CategoryType.EQUITY_SECTOR,
+            "SMH",
+            "XLK",
+            101,
+            true,
+            "TECH");
+    when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
+        .thenReturn(List.of(techCategory(), semiSubSector));
+    when(portfolioRepository.findAll()).thenReturn(List.of());
+    // Composite universe includes a top-level (TECH) and a sub-category (SEMI); only TECH is a
+    // portfolio category, so SEMI must be excluded from the optimal/alignment universe.
+    when(signalRepository.findLatestByType(SignalType.COMPOSITE))
+        .thenReturn(Map.of("TECH", new BigDecimal("0.80"), "SEMI", new BigDecimal("0.90")));
+    when(signalRepository.findLatestByType(SignalType.RRG_QUADRANT)).thenReturn(Map.of());
+    when(signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_20D)).thenReturn(Map.of());
+    when(signalRepository.findRealizedVolatility20d()).thenReturn(Map.of());
+    when(alignmentService.computeVolatilityAdjustedOptimalAllocation(any(), any()))
+        .thenReturn(Map.of());
+    when(alignmentService.computeAlignmentScore(any(), any())).thenReturn(BigDecimal.ZERO);
+
+    portfolioService.getPortfolio();
+
+    ArgumentCaptor<Map<String, BigDecimal>> optimalUniverse = ArgumentCaptor.forClass(Map.class);
+    verify(alignmentService)
+        .computeVolatilityAdjustedOptimalAllocation(optimalUniverse.capture(), any());
+    assertThat(optimalUniverse.getValue()).containsKey("TECH").doesNotContainKey("SEMI");
+
+    ArgumentCaptor<Map<String, BigDecimal>> alignmentUniverse = ArgumentCaptor.forClass(Map.class);
+    verify(alignmentService).computeAlignmentScore(any(), alignmentUniverse.capture());
+    assertThat(alignmentUniverse.getValue()).containsKey("TECH").doesNotContainKey("SEMI");
   }
 }

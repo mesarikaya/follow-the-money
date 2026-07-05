@@ -72,6 +72,15 @@ public class PortfolioService {
     Map<String, BigDecimal> compositeScoreByCategoryId =
         signalRepository.findLatestByType(SignalType.COMPOSITE);
 
+    // The portfolio view is over top-level categories only, so the optimal/alignment universe must
+    // be restricted to them. Otherwise factor and sub-sector composites (USMV, SEMI, ...) leak in,
+    // making optimal targets sum to <100% and surfacing rebalance suggestions for categories that
+    // are not part of the top-level allocation (e.g. USMV).
+    Map<String, BigDecimal> topLevelCompositeScoreByCategoryId =
+        compositeScoreByCategoryId.entrySet().stream()
+            .filter(e -> categoriesById.containsKey(e.getKey()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
     Map<String, BigDecimal> rrgQuadrantByCategoryId =
         signalRepository.findLatestByType(SignalType.RRG_QUADRANT);
 
@@ -83,11 +92,11 @@ public class PortfolioService {
 
     Map<String, BigDecimal> optimalAllocationByCategoryId =
         alignmentService.computeVolatilityAdjustedOptimalAllocation(
-            compositeScoreByCategoryId, realizedVol20dByCategoryId);
+            topLevelCompositeScoreByCategoryId, realizedVol20dByCategoryId);
 
     BigDecimal alignmentScore =
         alignmentService.computeAlignmentScore(
-            currentAllocationByCategoryId, compositeScoreByCategoryId);
+            currentAllocationByCategoryId, topLevelCompositeScoreByCategoryId);
 
     String alignmentLabel = resolveAlignmentLabel(alignmentScore);
 

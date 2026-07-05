@@ -18,8 +18,10 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
 import org.jooq.Condition;
@@ -36,20 +38,28 @@ public class BacktestEngine {
   private static final double INITIAL_PORTFOLIO_VALUE = 10_000.0;
   private static final double TRADING_DAYS_PER_YEAR = 252.0;
 
+  // Trailing 200-trading-day moving average for the absolute-momentum regime filter, with a
+  // calendar buffer wide enough to cover ~200 trading days of history before the backtest start.
+  private static final int TREND_FILTER_MA_DAYS = 200;
+  private static final int TREND_FILTER_LOOKBACK_BUFFER_DAYS = 400;
+
   private final SignalRepository signalRepository;
   private final DSLContext dsl;
   private final AllocationComputer allocationComputer;
   private final TurnoverCostCalculator turnoverCostCalculator;
+  private final MarketRegimeFilter marketRegimeFilter;
 
   public BacktestEngine(
       SignalRepository signalRepository,
       DSLContext dsl,
       AllocationComputer allocationComputer,
-      TurnoverCostCalculator turnoverCostCalculator) {
+      TurnoverCostCalculator turnoverCostCalculator,
+      MarketRegimeFilter marketRegimeFilter) {
     this.signalRepository = signalRepository;
     this.dsl = dsl;
     this.allocationComputer = allocationComputer;
     this.turnoverCostCalculator = turnoverCostCalculator;
+    this.marketRegimeFilter = marketRegimeFilter;
   }
 
   public BacktestResult run(BacktestRequest request) {
@@ -92,6 +102,11 @@ public class BacktestEngine {
             request.signalThreshold(),
             categoriesWithPriceData,
             request.invertSignal());
+
+    if (request.trendFilter()) {
+      allocationsByRebalanceDate =
+          applyTrendFilter(allocationsByRebalanceDate, request.startDate(), request.endDate());
+    }
 
     List<EquityCurvePoint> equityCurve =
         simulatePortfolio(
@@ -184,6 +199,29 @@ public class BacktestEngine {
               }
             });
     return result;
+  }
+
+  /**
+   * Dual-momentum overlay: on each rebalance date the market must be risk-on (SPY at/above its
+   * trailing MA) to stay invested; risk-off dates are moved to cash (empty allocation). Uses a
+   * buffered price history so the MA is available from the first rebalance.
+   */
+  private Map<LocalDate, List<String>> applyTrendFilter(
+      Map<LocalDate, List<String>> allocationsByRebalanceDate,
+      LocalDate startDate,
+      LocalDate endDate) {
+    NavigableMap<LocalDate, BigDecimal> regimePrices =
+        new TreeMap<>(
+            fetchSpyPricesByDate(startDate.minusDays(TREND_FILTER_LOOKBACK_BUFFER_DAYS), endDate));
+    Map<LocalDate, List<String>> filtered = new LinkedHashMap<>();
+    allocationsByRebalanceDate.forEach(
+        (date, allocation) ->
+            filtered.put(
+                date,
+                marketRegimeFilter.isRiskOn(date, regimePrices, TREND_FILTER_MA_DAYS)
+                    ? allocation
+                    : List.of()));
+    return filtered;
   }
 
   private Map<LocalDate, BigDecimal> fetchSpyPricesByDate(LocalDate startDate, LocalDate endDate) {

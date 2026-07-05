@@ -61,6 +61,30 @@ class AllocationComputerTest {
   }
 
   @Test
+  @DisplayName("invertSignal selects the lowest-scoring categories (contrarian)")
+  void shouldSelectBottomNWhenInverted() {
+    LocalDate date = LocalDate.of(2023, 1, 2);
+    Map<LocalDate, Map<String, BigDecimal>> composites =
+        Map.of(
+            date,
+            Map.of(
+                "TECH",
+                new BigDecimal("0.90"),
+                "FINL",
+                new BigDecimal("0.70"),
+                "HLTH",
+                new BigDecimal("0.80")));
+    Set<String> withPriceData = Set.of("TECH", "FINL", "HLTH");
+
+    Map<LocalDate, List<String>> result =
+        computer.computeAllocations(List.of(date), composites, 2, null, withPriceData, true);
+
+    // Lowest two by score, ascending: FINL (0.70) then HLTH (0.80).
+    assertThat(result.get(date)).containsExactly("FINL", "HLTH");
+    assertThat(result.get(date)).doesNotContain("TECH");
+  }
+
+  @Test
   @DisplayName("applies signal threshold to exclude low-scoring categories")
   void shouldApplySignalThreshold() {
     LocalDate date = LocalDate.of(2023, 1, 2);

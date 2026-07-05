@@ -2,6 +2,7 @@ package com.ftm.app.backtest.service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +25,27 @@ public class AllocationComputer {
       int topN,
       BigDecimal signalThreshold,
       Set<String> categoriesWithPriceData) {
+    return computeAllocations(
+        rebalanceDates, compositesByDate, topN, signalThreshold, categoriesWithPriceData, false);
+  }
+
+  /**
+   * @param invertSignal when true, selects the <em>lowest</em>-scoring categories (contrarian) —
+   *     used to test whether the composite signal is anti-predictive at the rebalance horizon.
+   */
+  public Map<LocalDate, List<String>> computeAllocations(
+      List<LocalDate> rebalanceDates,
+      Map<LocalDate, Map<String, BigDecimal>> compositesByDate,
+      int topN,
+      BigDecimal signalThreshold,
+      Set<String> categoriesWithPriceData,
+      boolean invertSignal) {
+
+    // Momentum default picks highest scores; contrarian picks lowest.
+    Comparator<Map.Entry<String, BigDecimal>> byScore =
+        invertSignal
+            ? Map.Entry.comparingByValue()
+            : Map.Entry.<String, BigDecimal>comparingByValue().reversed();
 
     Map<LocalDate, List<String>> allocations = new LinkedHashMap<>();
     List<String> lastAllocation = List.of();
@@ -42,7 +64,7 @@ public class AllocationComputer {
               // been ingested would otherwise make the portfolio flatline with 0% returns.
               .filter(e -> categoriesWithPriceData.contains(e.getKey()))
               .filter(e -> signalThreshold == null || e.getValue().compareTo(signalThreshold) >= 0)
-              .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
+              .sorted(byScore)
               .limit(topN)
               .map(Map.Entry::getKey)
               .toList();

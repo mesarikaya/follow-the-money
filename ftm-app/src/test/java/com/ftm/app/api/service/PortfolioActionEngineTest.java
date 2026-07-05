@@ -6,6 +6,7 @@ import com.ftm.app.api.dto.CategorySummaryDto;
 import com.ftm.app.api.dto.HoldingActionDto;
 import com.ftm.app.api.dto.HoldingDto;
 import com.ftm.app.domain.CategoryId;
+import com.ftm.app.portfolio.service.CategoryHierarchyResolver;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -15,7 +16,8 @@ import org.junit.jupiter.api.Test;
 
 class PortfolioActionEngineTest {
 
-  private final PortfolioActionEngine engine = new PortfolioActionEngine();
+  private final PortfolioActionEngine engine =
+      new PortfolioActionEngine(new CategoryHierarchyResolver());
 
   // ------------------------------------------------------------------ builders
 
@@ -93,6 +95,43 @@ class PortfolioActionEngineTest {
     assertThat(action.action()).isEqualTo("EXIT");
     assertThat(action.urgency()).isEqualTo(1);
     assertThat(action.portfolioPct()).isGreaterThan(new BigDecimal("5.00"));
+  }
+
+  // ------------------------------------------------------- sub-category roll-up
+
+  @Test
+  @DisplayName("rolls a sub-category holding up to its parent sector instead of UNCLASSIFIED")
+  void shouldRollSubCategoryHoldingUpToParentSector() {
+    // LMT is tagged with the sub-category INDU_ADEF; the category map only has the parent INDU.
+    HoldingDto lmt = holding("LMT", "Lockheed Martin", "INDU_ADEF", new BigDecimal("4000"));
+    CategorySummaryDto indu =
+        category(CategoryId.INDU, "BUY", new BigDecimal("0.70"), "4", new BigDecimal("0.02"), 72);
+
+    List<HoldingActionDto> actions =
+        engine.deriveActions(
+            List.of(lmt),
+            Map.of("INDU", indu),
+            Map.of("INDU_ADEF", "INDU"),
+            new BigDecimal("100000"));
+
+    assertThat(actions).hasSize(1);
+    HoldingActionDto action = actions.get(0);
+    assertThat(action.action()).isEqualTo("HOLD"); // BUY signal → HOLD (ride it), not UNCLASSIFIED
+    assertThat(action.categoryId()).isEqualTo("INDU");
+  }
+
+  @Test
+  @DisplayName("without a hierarchy map, an unmapped sub-category holding stays UNCLASSIFIED")
+  void shouldReturnUnclassifiedForSubCategoryWithoutHierarchy() {
+    HoldingDto lmt = holding("LMT", "Lockheed Martin", "INDU_ADEF", new BigDecimal("4000"));
+    CategorySummaryDto indu =
+        category(CategoryId.INDU, "BUY", new BigDecimal("0.70"), "4", new BigDecimal("0.02"), 72);
+
+    // 3-arg overload: no parent map → direct INDU_ADEF lookup misses → UNCLASSIFIED.
+    List<HoldingActionDto> actions =
+        engine.deriveActions(List.of(lmt), Map.of("INDU", indu), new BigDecimal("100000"));
+
+    assertThat(actions.get(0).action()).isEqualTo("UNCLASSIFIED");
   }
 
   // ------------------------------------------------------------------ TRIM

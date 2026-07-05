@@ -3,6 +3,7 @@ package com.ftm.app.api.service;
 import com.ftm.app.api.dto.CategorySummaryDto;
 import com.ftm.app.api.dto.HoldingActionDto;
 import com.ftm.app.api.dto.HoldingDto;
+import com.ftm.app.portfolio.service.CategoryHierarchyResolver;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Comparator;
@@ -30,21 +31,40 @@ public class PortfolioActionEngine {
   private static final BigDecimal EXIT_THRESHOLD_PCT = new BigDecimal("5.00");
   private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
 
+  private final CategoryHierarchyResolver categoryHierarchyResolver;
+
+  public PortfolioActionEngine(CategoryHierarchyResolver categoryHierarchyResolver) {
+    this.categoryHierarchyResolver = categoryHierarchyResolver;
+  }
+
+  /**
+   * No-hierarchy overload — resolves categories by direct lookup only (no sub-category roll-up).
+   */
+  public List<HoldingActionDto> deriveActions(
+      List<HoldingDto> holdings,
+      Map<String, CategorySummaryDto> categoriesById,
+      BigDecimal totalPortfolioEur) {
+    return deriveActions(holdings, categoriesById, Map.of(), totalPortfolioEur);
+  }
+
   /**
    * Derives an ordered action list for the given holdings.
    *
    * @param holdings current portfolio holdings
-   * @param categoriesById CategorySummaryDto map keyed by categoryId string
+   * @param categoriesById CategorySummaryDto map keyed by top-level categoryId string
+   * @param parentByCategoryId categoryId→parentId map used to roll a holding's sub-category (e.g.
+   *     INDU_ADEF, SEMI) up to its parent sector so it isn't reported UNCLASSIFIED
    * @param totalPortfolioEur total portfolio EUR value; must be positive
    * @return actions sorted by urgency ascending (EXIT first)
    */
   public List<HoldingActionDto> deriveActions(
       List<HoldingDto> holdings,
       Map<String, CategorySummaryDto> categoriesById,
+      Map<String, String> parentByCategoryId,
       BigDecimal totalPortfolioEur) {
 
     return holdings.stream()
-        .map(holding -> toAction(holding, categoriesById, totalPortfolioEur))
+        .map(holding -> toAction(holding, categoriesById, parentByCategoryId, totalPortfolioEur))
         .sorted(Comparator.comparingInt(HoldingActionDto::urgency))
         .toList();
   }
@@ -52,10 +72,17 @@ public class PortfolioActionEngine {
   private HoldingActionDto toAction(
       HoldingDto holding,
       Map<String, CategorySummaryDto> categoriesById,
+      Map<String, String> parentByCategoryId,
       BigDecimal totalPortfolioEur) {
 
+    // A holding tagged with a sub-category (INDU_ADEF, SEMI, ...) resolves to its parent sector's
+    // summary, which is what the top-level category map contains.
+    String resolvedCategoryId =
+        holding.categoryId() != null
+            ? categoryHierarchyResolver.topLevelAncestorId(holding.categoryId(), parentByCategoryId)
+            : null;
     CategorySummaryDto category =
-        holding.categoryId() != null ? categoriesById.get(holding.categoryId()) : null;
+        resolvedCategoryId != null ? categoriesById.get(resolvedCategoryId) : null;
 
     BigDecimal portfolioPct = computePortfolioPct(holding.marketValueEur(), totalPortfolioEur);
 

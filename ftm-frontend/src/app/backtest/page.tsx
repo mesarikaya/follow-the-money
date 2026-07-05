@@ -1376,6 +1376,7 @@ export default function BacktesterPage() {
   const [rebalanceFrequency, setRebalanceFrequency] = useState<"WEEKLY" | "MONTHLY" | "QUARTERLY">("MONTHLY");
   const [categoryScope, setCategoryScope] = useState<"ALL" | "EQUITY_SECTORS_ONLY" | "TOP_LEVEL_ONLY">("TOP_LEVEL_ONLY");
   const [topN, setTopN] = useState(5);
+  const [signalSource, setSignalSource] = useState<"COMPOSITE" | "MOMENTUM_12_1">("COMPOSITE");
   const [signalThreshold, setSignalThreshold] = useState("");
   // Realistic default trading cost (10 bps ≈ round-trip commission + spread for liquid ETFs).
   const [transactionCostBps, setTransactionCostBps] = useState(10);
@@ -1410,6 +1411,7 @@ export default function BacktesterPage() {
         signalThreshold: signalThreshold ? parseFloat(signalThreshold) : undefined,
         categoryScope,
         transactionCostBps,
+        signalSource,
       });
       setResult(data);
       setRecentRuns(prev => [data, ...prev.filter(r => r.runId !== data.runId).slice(0, 9)]);
@@ -1431,6 +1433,7 @@ export default function BacktesterPage() {
         signalThreshold: signalThreshold ? parseFloat(signalThreshold) : undefined,
         categoryScope,
         transactionCostBps,
+        signalSource,
       });
       setSweepResults(data);
     } catch {} finally {
@@ -1449,6 +1452,7 @@ export default function BacktesterPage() {
         signalThreshold: signalThreshold ? parseFloat(signalThreshold) : undefined,
         categoryScope,
         transactionCostBps,
+        signalSource,
       });
       setFreqSweepResults(data);
     } catch {} finally {
@@ -1725,6 +1729,24 @@ export default function BacktesterPage() {
                     {categoryScope === "EQUITY_SECTORS_ONLY" && "Tech vs Financials vs Energy etc. — pure GICS rotation"}
                     {categoryScope === "TOP_LEVEL_ONLY" && "Can rotate to Gold/TLT/BIL in risk-off regimes"}
                     {categoryScope === "ALL" && "Broadest universe — sub-sectors may dilute signals"}
+                  </p>
+                </div>
+                <div>
+                  <label className={labelCls}>
+                    Signal Source
+                    <span className="text-slate-600 ml-1 cursor-help" title="Which score ranks the categories. 'Composite' is the multi-factor theory model. '12-1 Momentum' is the classic trailing-12-month return that skips the most recent month (Jegadeesh-Titman) — validated as the stronger sector-selection signal, especially in rotational regimes. Needs ~1 year of price history before it produces a signal.">(?)</span>
+                  </label>
+                  <select
+                    value={signalSource}
+                    onChange={(e) => setSignalSource(e.target.value as "COMPOSITE" | "MOMENTUM_12_1")}
+                    className="w-full text-xs bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-slate-200 focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="COMPOSITE">Composite (theory model)</option>
+                    <option value="MOMENTUM_12_1">12-1 Momentum (skip-month)</option>
+                  </select>
+                  <p className="text-[10px] text-slate-600 mt-1">
+                    {signalSource === "COMPOSITE" && "Multi-factor blend (RS, persistence, RRG). Rank-1 has historically underperformed."}
+                    {signalSource === "MOMENTUM_12_1" && "Trailing 12m return, skipping last month. Stronger selection signal; needs ~1yr history."}
                   </p>
                 </div>
                 <div>

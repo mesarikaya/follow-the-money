@@ -67,7 +67,10 @@ public class BacktestController {
               request.topN(),
               request.signalThreshold(),
               request.categoryScope(),
-              request.transactionCostBps());
+              request.transactionCostBps(),
+              request.invertSignal(),
+              request.trendFilter(),
+              request.signalSource());
       results.add(backtestEngine.run(swept).stripped());
     }
     return results;
@@ -87,7 +90,10 @@ public class BacktestController {
               n,
               request.signalThreshold(),
               request.categoryScope(),
-              request.transactionCostBps());
+              request.transactionCostBps(),
+              request.invertSignal(),
+              request.trendFilter(),
+              request.signalSource());
       results.add(backtestEngine.run(swept).stripped());
     }
     return results;

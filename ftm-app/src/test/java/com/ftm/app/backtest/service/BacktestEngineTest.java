@@ -29,7 +29,8 @@ class BacktestEngineTest {
             mock(DSLContext.class),
             new AllocationComputer(),
             new TurnoverCostCalculator(),
-            new MarketRegimeFilter());
+            new MarketRegimeFilter(),
+            new MomentumScoreComputer());
   }
 
   // ── computeSortinoRatio ──────────────────────────────────────────────────────

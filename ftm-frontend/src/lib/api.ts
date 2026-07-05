@@ -258,6 +258,9 @@ export type BacktestRequest = {
   signalThreshold?: number;
   categoryScope?: "ALL" | "EQUITY_SECTORS_ONLY" | "TOP_LEVEL_ONLY";
   transactionCostBps?: number;
+  invertSignal?: boolean;
+  trendFilter?: boolean;
+  signalSource?: "COMPOSITE" | "MOMENTUM_12_1";
 };
 
 export const runBacktest = (request: BacktestRequest) =>

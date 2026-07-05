@@ -110,8 +110,7 @@ class PortfolioServiceTest {
         .thenReturn(Map.of("TECH", new BigDecimal("0.80")));
     when(signalRepository.findLatestByType(SignalType.RRG_QUADRANT)).thenReturn(Map.of());
     when(signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_20D)).thenReturn(Map.of());
-    when(signalRepository.findRealizedVolatility20d()).thenReturn(Map.of());
-    when(alignmentService.computeVolatilityAdjustedOptimalAllocation(any(), any()))
+    when(alignmentService.computeCompositeOptimalAllocation(any()))
         .thenReturn(Map.of("TECH", new BigDecimal("100.00")));
     when(alignmentService.computeAlignmentScore(any(), any())).thenReturn(new BigDecimal("0.75"));
 
@@ -129,9 +128,7 @@ class PortfolioServiceTest {
     when(signalRepository.findLatestByType(SignalType.COMPOSITE)).thenReturn(Map.of());
     when(signalRepository.findLatestByType(SignalType.RRG_QUADRANT)).thenReturn(Map.of());
     when(signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_20D)).thenReturn(Map.of());
-    when(signalRepository.findRealizedVolatility20d()).thenReturn(Map.of());
-    when(alignmentService.computeVolatilityAdjustedOptimalAllocation(any(), any()))
-        .thenReturn(Map.of());
+    when(alignmentService.computeCompositeOptimalAllocation(any())).thenReturn(Map.of());
     when(alignmentService.computeAlignmentScore(any(), any())).thenReturn(new BigDecimal("0.55"));
 
     PortfolioResponse result = portfolioService.getPortfolio();
@@ -149,9 +146,7 @@ class PortfolioServiceTest {
     when(signalRepository.findLatestByType(eq(SignalType.RRG_QUADRANT))).thenReturn(Map.of());
     when(signalRepository.findLatestByType(eq(SignalType.COMPOSITE_TREND_20D)))
         .thenReturn(Map.of());
-    when(signalRepository.findRealizedVolatility20d()).thenReturn(Map.of());
-    when(alignmentService.computeVolatilityAdjustedOptimalAllocation(any(), any()))
-        .thenReturn(Map.of());
+    when(alignmentService.computeCompositeOptimalAllocation(any())).thenReturn(Map.of());
     when(alignmentService.computeAlignmentScore(any(), any())).thenReturn(new BigDecimal("0.20"));
 
     PortfolioResponse result = portfolioService.getPortfolio();
@@ -176,9 +171,7 @@ class PortfolioServiceTest {
         .thenReturn(List.of(techCategory(), subSector));
     when(portfolioRepository.findAll()).thenReturn(List.of());
     when(signalRepository.findLatestByType(any())).thenReturn(Map.of());
-    when(signalRepository.findRealizedVolatility20d()).thenReturn(Map.of());
-    when(alignmentService.computeVolatilityAdjustedOptimalAllocation(any(), any()))
-        .thenReturn(Map.of());
+    when(alignmentService.computeCompositeOptimalAllocation(any())).thenReturn(Map.of());
     when(alignmentService.computeAlignmentScore(any(), any())).thenReturn(BigDecimal.ZERO);
 
     PortfolioResponse result = portfolioService.getPortfolio();
@@ -209,9 +202,7 @@ class PortfolioServiceTest {
                 new Portfolio(
                     CategoryId.SEMI, new BigDecimal("30.00"), OffsetDateTime.now(), null)));
     when(signalRepository.findLatestByType(any())).thenReturn(Map.of());
-    when(signalRepository.findRealizedVolatility20d()).thenReturn(Map.of());
-    when(alignmentService.computeVolatilityAdjustedOptimalAllocation(any(), any()))
-        .thenReturn(Map.of());
+    when(alignmentService.computeCompositeOptimalAllocation(any())).thenReturn(Map.of());
     when(alignmentService.computeAlignmentScore(any(), any())).thenReturn(BigDecimal.ZERO);
 
     PortfolioResponse result = portfolioService.getPortfolio();
@@ -245,16 +236,13 @@ class PortfolioServiceTest {
         .thenReturn(Map.of("TECH", new BigDecimal("0.80"), "SEMI", new BigDecimal("0.90")));
     when(signalRepository.findLatestByType(SignalType.RRG_QUADRANT)).thenReturn(Map.of());
     when(signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_20D)).thenReturn(Map.of());
-    when(signalRepository.findRealizedVolatility20d()).thenReturn(Map.of());
-    when(alignmentService.computeVolatilityAdjustedOptimalAllocation(any(), any()))
-        .thenReturn(Map.of());
+    when(alignmentService.computeCompositeOptimalAllocation(any())).thenReturn(Map.of());
     when(alignmentService.computeAlignmentScore(any(), any())).thenReturn(BigDecimal.ZERO);
 
     portfolioService.getPortfolio();
 
     ArgumentCaptor<Map<String, BigDecimal>> optimalUniverse = ArgumentCaptor.forClass(Map.class);
-    verify(alignmentService)
-        .computeVolatilityAdjustedOptimalAllocation(optimalUniverse.capture(), any());
+    verify(alignmentService).computeCompositeOptimalAllocation(optimalUniverse.capture());
     assertThat(optimalUniverse.getValue()).containsKey("TECH").doesNotContainKey("SEMI");
 
     ArgumentCaptor<Map<String, BigDecimal>> alignmentUniverse = ArgumentCaptor.forClass(Map.class);

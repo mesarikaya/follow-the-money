@@ -1064,7 +1064,7 @@ function RebalanceTimeline({ events }: { events: RebalanceEvent[] }) {
         </tbody>
       </table>
       <p className="mt-2 text-[10px] text-slate-600">
-        Hypothetical equal-weighted positions. Rotation strategy exits all positions and buys the top-N sectors by composite score on each rebalance date. No transaction costs, slippage, or taxes modeled.
+        Hypothetical equal-weighted positions. Rotation strategy exits all positions and buys the top-N sectors by composite score on each rebalance date. Transaction costs are charged on turnover at each rebalance (configurable in Strategy Parameters); slippage and taxes are not modeled.
       </p>
     </div>
   );
@@ -1865,7 +1865,7 @@ export default function BacktesterPage() {
                     <DrawdownChart curve={result.equityCurve} />
                   </div>
                   <div className="text-[10px] text-slate-600 mt-1 text-center">
-                    Hypothetical · Equal-weighted top-{topN} composite score categories · No transaction costs modeled · Blue ticks = rebalance events · Lower panel = rolling drawdown from peak
+                    Hypothetical · Equal-weighted top-{topN} composite score categories · {transactionCostBps > 0 ? `${transactionCostBps} bps transaction cost on turnover` : "No transaction costs (0 bps)"} · Blue ticks = rebalance events · Lower panel = rolling drawdown from peak
                   </div>
                 </div>
 

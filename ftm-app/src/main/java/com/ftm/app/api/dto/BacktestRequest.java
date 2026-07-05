@@ -14,14 +14,19 @@ public record BacktestRequest(
     BigDecimal signalThreshold,
     String categoryScope,
     @Min(0) @Max(500) Integer transactionCostBps,
-    boolean invertSignal) {
+    Boolean invertSignal,
+    Boolean trendFilter) {
   public BacktestRequest {
     if (topN == 0) topN = 5;
     if (categoryScope == null || categoryScope.isBlank()) categoryScope = "ALL";
     if (transactionCostBps == null) transactionCostBps = 0;
+    // Boolean (not primitive) so an omitted JSON field deserializes as null → defaulted here,
+    // rather than failing Jackson's null-to-primitive mapping.
+    if (invertSignal == null) invertSignal = false;
+    if (trendFilter == null) trendFilter = false;
   }
 
-  /** Convenience constructor defaulting to the momentum (non-inverted) signal. */
+  /** Convenience constructor defaulting to momentum (non-inverted) with no trend filter. */
   public BacktestRequest(
       LocalDate startDate,
       LocalDate endDate,
@@ -38,6 +43,7 @@ public record BacktestRequest(
         signalThreshold,
         categoryScope,
         transactionCostBps,
+        false,
         false);
   }
 }

@@ -90,7 +90,8 @@ public class BacktestEngine {
             compositesByDate,
             request.topN(),
             request.signalThreshold(),
-            categoriesWithPriceData);
+            categoriesWithPriceData,
+            request.invertSignal());
 
     List<EquityCurvePoint> equityCurve =
         simulatePortfolio(

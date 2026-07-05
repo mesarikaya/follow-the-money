@@ -87,12 +87,12 @@ public class PortfolioService {
     Map<String, BigDecimal> compositeTrend20dByCategoryId =
         signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_20D);
 
-    Map<String, BigDecimal> realizedVol20dByCategoryId =
-        signalRepository.findRealizedVolatility20d();
-
+    // Signal-driven optimal: allocate proportionally to composite score (matches the UI's
+    // "Composite-optimal target" tooltip). The volatility-adjusted variant collapsed to ~87%
+    // bonds/cash and 0% in BUY-signal equity sectors — an artifact of dividing by tiny bond
+    // volatility — which directly contradicted the per-holding BUY/HOLD actions.
     Map<String, BigDecimal> optimalAllocationByCategoryId =
-        alignmentService.computeVolatilityAdjustedOptimalAllocation(
-            topLevelCompositeScoreByCategoryId, realizedVol20dByCategoryId);
+        alignmentService.computeCompositeOptimalAllocation(topLevelCompositeScoreByCategoryId);
 
     BigDecimal alignmentScore =
         alignmentService.computeAlignmentScore(

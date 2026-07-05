@@ -19,12 +19,14 @@ function formatDate(isoString: string | null): string {
 export default async function StatusBar() {
   const statuses = await fetchLatestIngestStatus().catch(() => []);
 
-  const pricesEntry = statuses.find((s) => s.source === "PRICES");
-  const macroEntry  = statuses.find((s) => s.source === "MACRO");
+  // The API returns source/status lowercase ("prices"/"macro"/"success"); compare
+  // case-insensitively so the footer shows the real ingestion time instead of "never".
+  const pricesEntry = statuses.find((s) => s.source?.toUpperCase() === "PRICES");
+  const macroEntry  = statuses.find((s) => s.source?.toUpperCase() === "MACRO");
 
   const lastIngestionAt = pricesEntry?.finishedAt ?? macroEntry?.finishedAt ?? null;
-  const pricesOk  = pricesEntry?.status === "SUCCESS";
-  const macroOk   = macroEntry?.status === "SUCCESS";
+  const pricesOk  = pricesEntry?.status?.toUpperCase() === "SUCCESS";
+  const macroOk   = macroEntry?.status?.toUpperCase() === "SUCCESS";
 
   return (
     <footer className="bg-slate-800 border-t border-slate-700 px-6 py-2 flex items-center gap-6 text-xs text-slate-500 shrink-0 flex-wrap">

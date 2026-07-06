@@ -13,8 +13,15 @@ import PortfolioValueChart from "@/components/PortfolioValueChart";
 import AllocationDonutChart from "@/components/AllocationDonutChart";
 import PortfolioOverview from "@/components/PortfolioOverview";
 import CollapsibleSection from "@/components/CollapsibleSection";
+import SectorExposureSection from "@/components/portfolio/SectorExposureSection";
+import { SIGNAL_CONFIG } from "@/components/portfolio/signalStyles";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 import { getParentSectorId } from "@/lib/sectors";
+import {
+  currencySymbol, isStale, unrealizedPnl, maxAllocationPct, weightedMomentumPct,
+  simulatedAlignmentPercent, topRebalanceActions, computeHoldingsPnl, findConcentrationRisk,
+  sectorExposureRows,
+} from "@/lib/portfolio/portfolioMetrics";
 
 const ALIGNMENT_CONFIG = {
   ALIGNED:    { label: "Aligned",    colorClass: "text-emerald-400", barClass: "bg-emerald-500" },
@@ -36,39 +43,8 @@ const COMPOSITE_SCORE_TOOLTIP =
   "Composite signal score (0–100): a weighted combination of relative-strength, momentum, " +
   "and macro-regime signals for this category. Higher = stronger current signal.";
 
-const SIGNAL_CONFIG: Record<TradeSignal, { className: string }> = {
-  BUY:    { className: "bg-green-500/20 text-green-300 border border-green-500/40" },
-  WATCH:  { className: "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30" },
-  HOLD:   { className: "bg-slate-600/30 text-slate-400 border border-slate-500/30" },
-  REDUCE: { className: "bg-red-500/15 text-red-400 border border-red-500/30" },
-};
-
 type SortField = "ticker" | "categoryId" | "quantity" | "avgCostLocal" | "currentPriceLocal" | "marketValueEur" | "unrealizedPnlPct";
 type SortDir = "asc" | "desc";
-
-function currencySymbol(currency: string | undefined): string {
-  switch (currency) {
-    case "EUR": return "€";
-    case "GBP": return "£";
-    case "GBX": return "p";
-    case "SEK": return "kr";
-    default:    return "$";
-  }
-}
-
-function isStale(holding: HoldingDto): boolean {
-  if (!holding.priceSource) return true;
-  if (!holding.priceDate) return true;
-  const priceAge = Date.now() - new Date(holding.priceDate).getTime();
-  return priceAge > 3 * 24 * 60 * 60 * 1000;
-}
-
-function unrealizedPnl(h: HoldingDto): { pct: number; absLocal: number } | null {
-  if (h.currentPriceLocal == null || h.avgCostLocal == null || h.avgCostLocal === 0) return null;
-  const pct = (h.currentPriceLocal - h.avgCostLocal) / h.avgCostLocal;
-  const absLocal = (h.currentPriceLocal - h.avgCostLocal) * h.quantity;
-  return { pct, absLocal };
-}
 
 function AllocationBar({ currentPct, optimalPct, maxPct }: { currentPct: number; optimalPct: number | null; maxPct: number }) {
   const currentWidth = maxPct > 0 ? (currentPct / maxPct) * 100 : 0;
@@ -355,46 +331,17 @@ export default function PortfolioPage() {
   };
 
   const isValidTotal = Math.abs(totalAllocation - 100) <= 0.5;
-  const maxAllocationPct = portfolio
-    ? Math.max(...portfolio.allocations.map((a) => Math.max(a.allocationPct, a.optimalAllocationPct ?? 0)), 1)
-    : 100;
+  const maxBarPct = portfolio ? maxAllocationPct(portfolio.allocations) : 100;
 
   const alignmentScorePercent = portfolio ? Math.round(portfolio.alignmentScore * 100) : 0;
+  const simulatedAlignment = portfolio ? simulatedAlignmentPercent(portfolio) : null;
 
-  const simulatedAlignmentPercent = portfolio && portfolio.rebalanceSuggestions.length > 0 ? (() => {
-    const simAlloc: Record<string, number> = {};
-    portfolio.allocations.forEach(a => { simAlloc[a.categoryId] = a.allocationPct; });
-    portfolio.rebalanceSuggestions.forEach(s => {
-      if (simAlloc[s.categoryId] !== undefined) {
-        simAlloc[s.categoryId] = Math.max(0, simAlloc[s.categoryId] + s.deltaPct);
-      }
-    });
-    let overlap = 0;
-    portfolio.allocations.forEach(a => {
-      if (a.optimalAllocationPct == null) return;
-      overlap += Math.min(simAlloc[a.categoryId] ?? 0, a.optimalAllocationPct);
-    });
-    return Math.round(Math.min(overlap, 100));
-  })() : null;
-
-  // Allocation-weighted 12-1 momentum of the current vs the optimal (momentum-driven) portfolio —
-  // kept consistent with the recommendation signal (was composite-weighted, which mixed signals).
+  // Allocation-weighted 12-1 momentum of the current vs the optimal (momentum-driven) portfolio.
   const portfolioMomentumPct = portfolio
-    ? Math.round(
-        portfolio.allocations.reduce((sum, entry) => {
-          const allocation = parseFloat(editedAllocations[entry.categoryId] ?? "0") || 0;
-          return sum + (allocation / 100) * (entry.momentumPct ?? 0);
-        }, 0)
-      )
+    ? weightedMomentumPct(portfolio.allocations, (entry) => parseFloat(editedAllocations[entry.categoryId] ?? "0") || 0)
     : null;
-
   const optimalMomentumPct = portfolio
-    ? Math.round(
-        portfolio.allocations.reduce((sum, entry) => {
-          const optimal = entry.optimalAllocationPct ?? 0;
-          return sum + (optimal / 100) * (entry.momentumPct ?? 0);
-        }, 0)
-      )
+    ? weightedMomentumPct(portfolio.allocations, (entry) => entry.optimalAllocationPct ?? 0)
     : null;
 
   const totalEur = holdings
@@ -406,26 +353,10 @@ export default function PortfolioPage() {
     ? portfolio.allocations.find((a) => a.categoryId === "CASH")?.allocationPct ?? 0
     : 0;
   const investedPct = 100 - cashPct;
-  const topRebalanceActions = portfolio
-    ? [...portfolio.rebalanceSuggestions]
-        .sort((a, b) => Math.abs(b.deltaPct) - Math.abs(a.deltaPct))
-        .slice(0, 5)
-    : [];
+  const topActions = portfolio ? topRebalanceActions(portfolio) : [];
 
   const staleCount = holdings ? holdings.filter(isStale).length : 0;
-
-  const holdingsSummary = holdings && holdings.length > 0 ? (() => {
-    let totalPnlEur = 0;
-    let totalCostEur = 0;
-    for (const h of holdings) {
-      if (h.currentPriceLocal == null || h.avgCostLocal == null || h.avgCostLocal === 0 || h.marketValueEur == null) continue;
-      const pnlPct = (h.currentPriceLocal - h.avgCostLocal) / h.currentPriceLocal;
-      totalPnlEur += h.marketValueEur * pnlPct;
-      totalCostEur += h.marketValueEur * (h.avgCostLocal / h.currentPriceLocal);
-    }
-    const totalPnlPct = totalCostEur > 0 ? totalPnlEur / totalCostEur : null;
-    return { totalPnlEur, totalPnlPct };
-  })() : null;
+  const holdingsSummary = holdings ? computeHoldingsPnl(holdings) : null;
 
   const radarSignals = (() => {
     if (!holdings) return [] as (typeof categoryById)[string][];
@@ -437,21 +368,8 @@ export default function PortfolioPage() {
       .slice(0, 5);
   })();
 
-  const concentrationRisk = (() => {
-    if (!holdings || !totalEur || totalEur === 0) return null;
-    const sectorEur: Record<string, { name: string; eur: number }> = {};
-    for (const h of holdings) {
-      if (!h.categoryId || h.marketValueEur == null) continue;
-      if (!sectorEur[h.categoryId]) {
-        sectorEur[h.categoryId] = { name: categoryById[h.categoryId]?.name ?? h.categoryId, eur: 0 };
-      }
-      sectorEur[h.categoryId].eur += h.marketValueEur;
-    }
-    const top = Object.entries(sectorEur)
-      .map(([id, data]) => ({ id, ...data, pct: (data.eur / totalEur) * 100 }))
-      .sort((a, b) => b.pct - a.pct)[0];
-    return top && top.pct > 40 ? top : null;
-  })();
+  const concentrationRisk =
+    holdings && totalEur != null ? findConcentrationRisk(holdings, categoryById, totalEur) : null;
 
   return (
     <div className="flex flex-col h-full">
@@ -548,7 +466,7 @@ export default function PortfolioPage() {
             alignmentLabel={portfolio.alignmentLabel}
             cashPct={cashPct}
             investedPct={investedPct}
-            actions={topRebalanceActions}
+            actions={topActions}
           />
         )}
 
@@ -624,7 +542,7 @@ export default function PortfolioPage() {
                     <AllocationBar
                       currentPct={parseFloat(editedAllocations[entry.categoryId] ?? "0") || 0}
                       optimalPct={entry.optimalAllocationPct}
-                      maxPct={maxAllocationPct}
+                      maxPct={maxBarPct}
                     />
                     <div className="flex items-center gap-1 shrink-0">
                       <input
@@ -690,12 +608,12 @@ export default function PortfolioPage() {
                 >
                   (?)
                 </span>
-                {simulatedAlignmentPercent !== null && (
+                {simulatedAlignment !== null && (
                   <span
                     className="ml-auto text-[10px] text-slate-500"
                     title="Approximate alignment score after implementing all suggestions (uses vol-adjusted optimal, may differ slightly from server-computed score)"
                   >
-                    if applied: <span className={`font-semibold ${simulatedAlignmentPercent >= 70 ? "text-emerald-400" : simulatedAlignmentPercent >= 40 ? "text-amber-400" : "text-red-400"}`}>{simulatedAlignmentPercent}%</span> ~aligned
+                    if applied: <span className={`font-semibold ${simulatedAlignment >= 70 ? "text-emerald-400" : simulatedAlignment >= 40 ? "text-amber-400" : "text-red-400"}`}>{simulatedAlignment}%</span> ~aligned
                   </span>
                 )}
               </div>
@@ -867,133 +785,8 @@ export default function PortfolioPage() {
 
         {/* Sector Exposure Rollup */}
         {holdings && holdings.length > 0 && portfolio && totalEur != null && totalEur > 0 && (() => {
-          const grouped: Record<string, { name: string; totalEur: number; signal: TradeSignal | null; score: number | null; targetPct: number | null }> = {};
-          let unclassifiedEur = 0;
-
-          for (const h of holdings) {
-            const val = h.marketValueEur ?? 0;
-            if (!h.categoryId) { unclassifiedEur += val; continue; }
-            // Roll sub-category holdings (INDU_ADEF, SEMI, ...) up to their parent sector so they
-            // group under the top-level sector (with its signal/target) instead of raw sub-sector
-            // rows with no data. Asset classes (CASH, GOLD, ...) fall through to themselves.
-            const sectorId = getParentSectorId(h.categoryId) ?? h.categoryId;
-            if (!grouped[sectorId]) {
-              const cat = categoryById[sectorId];
-              const alloc = portfolio.allocations.find(a => a.categoryId === sectorId);
-              const sig = cat ? ((cat.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(cat)) : null;
-              grouped[sectorId] = {
-                name: cat?.name ?? alloc?.categoryName ?? sectorId,
-                totalEur: 0,
-                signal: sig,
-                score: cat?.compositeScore != null ? Math.round(cat.compositeScore * 100) : null,
-                targetPct: alloc?.optimalAllocationPct ?? null,
-              };
-            }
-            grouped[sectorId].totalEur += val;
-          }
-
-          const rows = Object.entries(grouped)
-            .map(([id, data]) => ({
-              id,
-              ...data,
-              actualPct: (data.totalEur / totalEur) * 100,
-            }))
-            .sort((a, b) => b.totalEur - a.totalEur);
-
-          if (rows.length === 0) return null;
-
-          return (
-            <CollapsibleSection title="Sector Exposure vs Target" defaultOpen={false}>
-              <div className="overflow-x-auto rounded-xl border border-slate-700/60">
-                <table className="w-full text-xs text-left">
-                  <thead>
-                    <tr className="border-b border-slate-700/60 bg-slate-800/60 text-slate-500 uppercase tracking-wider text-[10px]">
-                      <th className="px-3 py-2">Sector</th>
-                      <th className="px-3 py-2 text-center">Signal</th>
-                      <th className="px-3 py-2 text-right">Actual</th>
-                      <th className="px-3 py-2 text-right">Target</th>
-                      <th className="px-3 py-2 text-right">Gap</th>
-                      <th className="px-3 py-2 text-right">Value</th>
-                      <th className="px-3 py-2">Exposure bar</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {rows.map(row => {
-                      const gap = row.targetPct != null ? row.actualPct - row.targetPct : null;
-                      const isOver = gap != null && gap > 2;
-                      const isUnder = gap != null && gap < -2;
-                      const sig = row.signal;
-                      const cfg = sig ? SIGNAL_CONFIG[sig] : null;
-                      const actionNeeded =
-                        (sig === "BUY" && isUnder) ? "underweight BUY — consider adding" :
-                        (sig === "REDUCE" && isOver) ? "overweight REDUCE — consider trimming" :
-                        null;
-                      return (
-                        <tr key={row.id} className={`hover:bg-slate-800/30 transition-colors ${actionNeeded ? "bg-amber-950/10" : ""}`}>
-                          <td className="px-3 py-2 text-slate-300 font-medium">
-                            <span className="font-mono text-blue-400 text-[10px] mr-1">{row.id}</span>
-                            <span className="text-slate-400">{row.name}</span>
-                            {actionNeeded && (
-                              <span className="ml-2 text-[9px] text-amber-400">{actionNeeded}</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            {cfg && sig ? (
-                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${cfg.className}`}>{sig}</span>
-                            ) : (
-                              <span className="text-slate-700">—</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono tabular-nums text-slate-200">{row.actualPct.toFixed(1)}%</td>
-                          <td className="px-3 py-2 text-right font-mono tabular-nums text-slate-500">
-                            {row.targetPct != null ? `${row.targetPct.toFixed(1)}%` : "—"}
-                          </td>
-                          <td className={`px-3 py-2 text-right font-mono tabular-nums font-semibold ${
-                            gap == null ? "text-slate-700" :
-                            isOver ? "text-amber-400" :
-                            isUnder ? "text-cyan-400" : "text-slate-500"
-                          }`}>
-                            {gap != null ? `${gap > 0 ? "+" : ""}${gap.toFixed(1)}%` : "—"}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono tabular-nums text-emerald-400">
-                            €{row.totalEur.toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                          </td>
-                          <td className="px-3 py-2 min-w-[120px]">
-                            <div className="relative h-2 bg-slate-700/60 rounded-full overflow-visible">
-                              <div
-                                className={`h-full rounded-full ${sig === "BUY" ? "bg-green-500/60" : sig === "REDUCE" ? "bg-red-500/60" : "bg-blue-500/50"}`}
-                                style={{ width: `${Math.min(row.actualPct * 2, 100)}%` }}
-                              />
-                              {row.targetPct != null && (
-                                <div
-                                  className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-emerald-500/80 rounded"
-                                  style={{ left: `${Math.min(row.targetPct * 2, 100)}%` }}
-                                  title={`Target: ${row.targetPct.toFixed(1)}%`}
-                                />
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {unclassifiedEur > 0 && (
-                      <tr className="hover:bg-slate-800/30">
-                        <td className="px-3 py-2 text-amber-400 text-[10px]">Unclassified</td>
-                        <td className="px-3 py-2" />
-                        <td className="px-3 py-2 text-right font-mono tabular-nums text-amber-400">{((unclassifiedEur / totalEur) * 100).toFixed(1)}%</td>
-                        <td className="px-3 py-2" />
-                        <td className="px-3 py-2" />
-                        <td className="px-3 py-2 text-right font-mono tabular-nums text-amber-400">
-                          €{unclassifiedEur.toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                        </td>
-                        <td className="px-3 py-2" />
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </CollapsibleSection>
-          );
+          const { rows, unclassifiedEur } = sectorExposureRows(holdings, portfolio, categoryById, totalEur);
+          return <SectorExposureSection rows={rows} unclassifiedEur={unclassifiedEur} totalEur={totalEur} />;
         })()}
 
         {concentrationRisk && (

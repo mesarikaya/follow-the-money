@@ -1,5 +1,7 @@
 package com.ftm.app.alerts.service;
 
+import com.ftm.app.alerts.evaluator.AlertEvaluationContext;
+import com.ftm.app.alerts.evaluator.MacroRegimeShiftAlertEvaluator;
 import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.alerts.repository.AlertRulesRepository;
 import com.ftm.app.api.repository.CategoryRepository;
@@ -51,7 +53,6 @@ public class AlertRulesEngine {
   private static final String RULE_RRG_TRANSITION = "rrg_transition";
   private static final String RULE_COMPOSITE_BREAKOUT = "composite_breakout";
   private static final String RULE_COMPOSITE_BREAKDOWN = "composite_breakdown";
-  private static final String RULE_MACRO_REGIME_SHIFT = "macro_regime_shift";
   private static final String RULE_RS_ACCEL_CROSSOVER = "rs_accel_crossover";
   private static final String RULE_PERSISTENCE_LOW = "persistence_low";
   private static final String RULE_BREADTH_VELOCITY_ACCEL = "breadth_velocity_accel";
@@ -221,19 +222,25 @@ public class AlertRulesEngine {
   private final CategoryRepository categoryRepository;
   private final ThemeRepository themeRepository;
 
+  // Rules being migrated out of this class into their own AlertEvaluator components (see the
+  // clean-code refactoring plan). The engine still orchestrates; each extracted rule is one class.
+  private final MacroRegimeShiftAlertEvaluator macroRegimeShiftAlertEvaluator;
+
   public AlertRulesEngine(
       AlertRepository alertRepository,
       AlertRulesRepository alertRulesRepository,
       RotationEventRepository rotationEventRepository,
       SignalRepository signalRepository,
       CategoryRepository categoryRepository,
-      ThemeRepository themeRepository) {
+      ThemeRepository themeRepository,
+      MacroRegimeShiftAlertEvaluator macroRegimeShiftAlertEvaluator) {
     this.alertRepository = alertRepository;
     this.alertRulesRepository = alertRulesRepository;
     this.rotationEventRepository = rotationEventRepository;
     this.signalRepository = signalRepository;
     this.categoryRepository = categoryRepository;
     this.themeRepository = themeRepository;
+    this.macroRegimeShiftAlertEvaluator = macroRegimeShiftAlertEvaluator;
   }
 
   @EventListener
@@ -248,9 +255,12 @@ public class AlertRulesEngine {
 
     int alertsResolved = resolveStaleAlerts(signalDate, topLevelCategoryIds);
 
+    AlertEvaluationContext context =
+        new AlertEvaluationContext(signalDate, topLevelCategoryIds, equityCategoryIds);
+
     int alertsCreated = 0;
     alertsCreated += evaluateRotationEventAlerts(signalDate);
-    alertsCreated += evaluateMacroRegimeShift(signalDate);
+    alertsCreated += macroRegimeShiftAlertEvaluator.evaluate(context);
     alertsCreated += evaluateRsAccelerationCrossover(signalDate, topLevelCategoryIds);
     alertsCreated += evaluatePersistenceLow(signalDate, equityCategoryIds);
     alertsCreated += evaluateBreadthVelocity(signalDate, equityCategoryIds);
@@ -527,52 +537,6 @@ public class AlertRulesEngine {
       }
     }
     return count;
-  }
-
-  private int evaluateMacroRegimeShift(LocalDate signalDate) {
-    Optional<AlertRule> macroRule = alertRulesRepository.findById(RULE_MACRO_REGIME_SHIFT);
-    if (!macroRule.map(AlertRule::enabled).orElse(false)) return 0;
-    Severity severity = macroRule.map(AlertRule::severity).orElse(Severity.WARNING);
-
-    Map<String, BigDecimal> currentRegimeSignals =
-        signalRepository.findByTypeAndDate(SignalType.MACRO_REGIME, signalDate);
-    if (currentRegimeSignals.isEmpty()) return 0;
-
-    BigDecimal currentRegimeOrdinal =
-        currentRegimeSignals.values().stream().findFirst().orElse(null);
-    if (currentRegimeOrdinal == null) return 0;
-
-    LocalDate previousSignalDate =
-        signalRepository.findPreviousSignalDate(SignalType.MACRO_REGIME, signalDate);
-    if (previousSignalDate == null) return 0;
-
-    Map<String, BigDecimal> previousRegimeSignals =
-        signalRepository.findByTypeAndDate(SignalType.MACRO_REGIME, previousSignalDate);
-    BigDecimal previousRegimeOrdinal =
-        previousRegimeSignals.values().stream().findFirst().orElse(null);
-
-    if (previousRegimeOrdinal != null
-        && currentRegimeOrdinal.compareTo(previousRegimeOrdinal) != 0
-        && !alertRepository.existsActiveAlert(RULE_MACRO_REGIME_SHIFT, null)) {
-
-      String previousRegimeName = resolveRegimeName(previousRegimeOrdinal.intValue());
-      String currentRegimeName = resolveRegimeName(currentRegimeOrdinal.intValue());
-
-      alertRepository.insert(
-          new Alert(
-              OffsetDateTime.now(),
-              null,
-              RULE_MACRO_REGIME_SHIFT,
-              severity,
-              String.format(
-                  "Macro regime shifted from %s to %s", previousRegimeName, currentRegimeName),
-              String.format(
-                  "{\"previousRegime\":\"%s\",\"currentRegime\":\"%s\",\"signalDate\":\"%s\"}",
-                  previousRegimeName, currentRegimeName, signalDate),
-              AlertStatus.ACTIVE));
-      return 1;
-    }
-    return 0;
   }
 
   private boolean isRrgTransitionEvent(RotationEventType eventType) {
@@ -2186,7 +2150,7 @@ public class AlertRulesEngine {
 
     int regimeOrdinal = regimeRaw.intValue();
     boolean isRiskOff = RISK_OFF_REGIME_ORDINALS.contains(regimeOrdinal);
-    String regimeName = resolveRegimeName(regimeOrdinal);
+    String regimeName = MacroRegime.nameForOrdinal(regimeOrdinal);
 
     Map<String, BigDecimal> rrgMap =
         signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
@@ -2927,11 +2891,6 @@ public class AlertRulesEngine {
     if (fading) return "FADING";
     if (score < 0.35) return "WEAK";
     return "NEUTRAL";
-  }
-
-  private String resolveRegimeName(int ordinal) {
-    MacroRegime[] values = MacroRegime.values();
-    return ordinal >= 0 && ordinal < values.length ? values[ordinal].name() : "UNKNOWN";
   }
 
   /**

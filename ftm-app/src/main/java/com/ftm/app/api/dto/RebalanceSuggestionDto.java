@@ -11,4 +11,5 @@ public record RebalanceSuggestionDto(
     BigDecimal deltaPct,
     String tradeSignal,
     Integer compositeScorePct,
+    Integer momentumPct,
     boolean signalAligned) {}

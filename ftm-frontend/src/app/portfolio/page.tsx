@@ -376,20 +376,22 @@ export default function PortfolioPage() {
     return Math.round(Math.min(overlap, 100));
   })() : null;
 
-  const portfolioSignalScore = portfolio
+  // Allocation-weighted 12-1 momentum of the current vs the optimal (momentum-driven) portfolio —
+  // kept consistent with the recommendation signal (was composite-weighted, which mixed signals).
+  const portfolioMomentumPct = portfolio
     ? Math.round(
         portfolio.allocations.reduce((sum, entry) => {
           const allocation = parseFloat(editedAllocations[entry.categoryId] ?? "0") || 0;
-          return sum + (allocation / 100) * (entry.compositeScore ?? 0) * 100;
+          return sum + (allocation / 100) * (entry.momentumPct ?? 0);
         }, 0)
       )
     : null;
 
-  const optimalSignalScore = portfolio
+  const optimalMomentumPct = portfolio
     ? Math.round(
         portfolio.allocations.reduce((sum, entry) => {
           const optimal = entry.optimalAllocationPct ?? 0;
-          return sum + (optimal / 100) * (entry.compositeScore ?? 0) * 100;
+          return sum + (optimal / 100) * (entry.momentumPct ?? 0);
         }, 0)
       )
     : null;
@@ -461,22 +463,22 @@ export default function PortfolioPage() {
         </h1>
         {portfolio && (
           <div className="flex items-center gap-6">
-            {portfolioSignalScore !== null && portfolioSignalScore > 0 && (
+            {portfolioMomentumPct !== null && (
               <div
                 className="flex items-center gap-2"
-                title={`Portfolio Signal Strength: weighted-average composite score of your current allocation.\nFormula: Σ(allocationPct × categoryCompositeScore) / 100.\nOptimal target: ${optimalSignalScore}/100 (if perfectly allocated by composite score).`}
+                title={`Portfolio Momentum: allocation-weighted 12-1 momentum of your current holdings.\nFormula: Σ(allocationPct × category 12-1 momentum) / 100.\nMomentum-optimal target: ${optimalMomentumPct}% (if allocated per the recommendation).`}
               >
                 <span className="text-[10px] text-slate-500 uppercase tracking-widest" style={{ fontFamily: "var(--font-rajdhani)", fontWeight: 600 }}>
-                  Signal
+                  Momentum
                 </span>
                 <span
-                  className={`text-sm font-mono font-semibold ${portfolioSignalScore >= 65 ? "text-green-400" : portfolioSignalScore >= 45 ? "text-yellow-400" : "text-red-400"}`}
+                  className={`text-sm font-mono font-semibold ${portfolioMomentumPct > 0 ? "text-emerald-400" : portfolioMomentumPct < 0 ? "text-red-400" : "text-yellow-400"}`}
                 >
-                  {portfolioSignalScore}
+                  {portfolioMomentumPct > 0 ? "+" : ""}{portfolioMomentumPct}%
                 </span>
-                {optimalSignalScore !== null && optimalSignalScore > 0 && (
+                {optimalMomentumPct !== null && (
                   <span className="text-[10px] text-slate-600">
-                    / <span className="text-slate-500">{optimalSignalScore} opt</span>
+                    / <span className="text-slate-500">{optimalMomentumPct > 0 ? "+" : ""}{optimalMomentumPct}% opt</span>
                   </span>
                 )}
               </div>
@@ -568,9 +570,9 @@ export default function PortfolioPage() {
                 <span className="flex items-center gap-1">
                   <div className="w-3 h-1.5 bg-blue-500 rounded-sm" /> Current allocation
                 </span>
-                <span className="flex items-center gap-1" title={COMPOSITE_OPTIMAL_TOOLTIP}>
+                <span className="flex items-center gap-1" title="Momentum-optimal target: equal-weight the top-5 categories by 12-1 momentum (positive only; none positive → cash). A rules-based rotation that clearly beat the prior composite signal in testing. Note: it does not beat buy-and-hold in a mega-cap-led bull, and the strongest evidence is for equity-sector rotation — treat it as disciplined rotation, not a market-beating guarantee.">
                   <div className="w-3 h-1.5 bg-emerald-500/70 rounded-sm" />
-                  <span className="cursor-help">Composite-optimal target (?)</span>
+                  <span className="cursor-help">Momentum-optimal target (?)</span>
                 </span>
               </div>
 
@@ -581,6 +583,9 @@ export default function PortfolioPage() {
                 <span className="w-16 shrink-0" />
                 <span className="text-[10px] text-slate-600 w-6 text-right shrink-0 cursor-help" title={COMPOSITE_SCORE_TOOLTIP}>
                   CS
+                </span>
+                <span className="text-[10px] text-slate-600 w-10 text-right shrink-0 cursor-help" title="12-1 momentum: trailing 12-month return skipping the last month. This is what drives the BUY/HOLD/REDUCE signal and the optimal target.">
+                  Mom
                 </span>
                 <span className="text-[10px] text-slate-600 w-14 text-center shrink-0">Signal</span>
               </div>
@@ -612,6 +617,18 @@ export default function PortfolioPage() {
                       title={entry.compositeScore != null ? COMPOSITE_SCORE_TOOLTIP : "No composite score available yet — run signal computation first"}
                     >
                       {entry.compositeScore != null ? Math.round(entry.compositeScore * 100) : "—"}
+                    </span>
+                    <span
+                      className={`w-10 text-xs font-mono text-right shrink-0 ${
+                        entry.momentumPct == null
+                          ? "text-slate-600"
+                          : entry.momentumPct >= 0
+                            ? "text-emerald-400"
+                            : "text-red-400"
+                      }`}
+                      title="12-1 momentum (trailing 12m return, skipping the last month) — the signal driving the recommendation"
+                    >
+                      {entry.momentumPct == null ? "—" : `${entry.momentumPct >= 0 ? "+" : ""}${entry.momentumPct}%`}
                     </span>
                     {(() => {
                       const sig = (entry.tradeSignal as TradeSignal | null) ?? deriveTradeSignal({ compositeScore: entry.compositeScore, rrgQuadrant: null, compositeTrend20d: null });

@@ -14,6 +14,7 @@ public record PortfolioResponse(
       String categoryType,
       BigDecimal allocationPct,
       BigDecimal compositeScore,
+      Integer momentumPct,
       BigDecimal optimalAllocationPct,
       String tradeSignal) {}
 }

@@ -113,6 +113,66 @@ public class AlignmentService {
     return result;
   }
 
+  private static final BigDecimal HUNDRED = new BigDecimal("100");
+
+  /**
+   * Equal-weights the top-{@code topN} categories by 12-1 momentum, restricted to <em>positive</em>
+   * momentum — the exact strategy validated in the backtest (equal-weight top-N rotation with an
+   * absolute-momentum filter). Non-positive momentum is never held: if fewer than {@code topN}
+   * sectors are positive only those are held; if none are, the result is empty (all cash — the
+   * defensive dual-momentum outcome).
+   */
+  public Map<String, BigDecimal> computeMomentumRankOptimalAllocation(
+      Map<String, BigDecimal> momentumByCategoryId, int topN) {
+
+    List<String> selected =
+        momentumByCategoryId.entrySet().stream()
+            .filter(e -> e.getValue() != null && e.getValue().signum() > 0)
+            .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
+            .limit(topN)
+            .map(Map.Entry::getKey)
+            .toList();
+
+    if (selected.isEmpty()) {
+      return Map.of();
+    }
+
+    BigDecimal equalWeight =
+        HUNDRED.divide(BigDecimal.valueOf(selected.size()), 2, RoundingMode.HALF_UP);
+    Map<String, BigDecimal> optimalAllocationByCategoryId = new LinkedHashMap<>();
+    for (String categoryId : selected) {
+      optimalAllocationByCategoryId.put(categoryId, equalWeight);
+    }
+    return optimalAllocationByCategoryId;
+  }
+
+  /**
+   * Portfolio-overlap alignment against an explicit optimal allocation (in percent), rather than
+   * deriving the optimal from scores. Score = Σ min(actual_i, optimal_i) / 100 — "what fraction of
+   * the portfolio is already placed where the strategy wants it."
+   */
+  public BigDecimal computeAlignmentScoreAgainstOptimal(
+      Map<String, BigDecimal> allocationPercentageByCategoryId,
+      Map<String, BigDecimal> optimalAllocationPercentageByCategoryId) {
+
+    if (optimalAllocationPercentageByCategoryId.isEmpty()) {
+      return BigDecimal.ZERO;
+    }
+
+    BigDecimal overlapSum = BigDecimal.ZERO;
+    for (Map.Entry<String, BigDecimal> entry :
+        optimalAllocationPercentageByCategoryId.entrySet()) {
+      BigDecimal actualPct =
+          allocationPercentageByCategoryId.getOrDefault(entry.getKey(), BigDecimal.ZERO);
+      overlapSum = overlapSum.add(actualPct.min(entry.getValue()));
+    }
+
+    return overlapSum
+        .divide(HUNDRED, 4, RoundingMode.HALF_UP)
+        .min(BigDecimal.ONE)
+        .max(BigDecimal.ZERO);
+  }
+
   public Map<String, BigDecimal> computeCompositeOptimalAllocation(
       Map<String, BigDecimal> compositeScoreByCategoryId) {
 

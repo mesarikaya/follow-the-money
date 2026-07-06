@@ -32,9 +32,6 @@ public class PortfolioService {
   private static final BigDecimal ALIGNMENT_SCORE_GREEN_THRESHOLD = new BigDecimal("0.70");
   private static final BigDecimal ALIGNMENT_SCORE_YELLOW_THRESHOLD = new BigDecimal("0.40");
 
-  // Hold the top 3 positive-momentum equity sectors — the backtest's best, most robust config
-  // (Sharpe ~0.96 across sub-periods; top-3 beat top-5 on the equity-sector universe).
-  private static final int MOMENTUM_TOP_N = 3;
   private static final BigDecimal HUNDRED = new BigDecimal("100");
 
   private final PortfolioRepository portfolioRepository;
@@ -59,7 +56,12 @@ public class PortfolioService {
     this.liveMomentumScoreService = liveMomentumScoreService;
   }
 
+  /** Portfolio view with recommendations from the default (equity-sector) selection universe. */
   public PortfolioResponse getPortfolio() {
+    return getPortfolio(PortfolioSelectionUniverse.EQUITY_SECTORS);
+  }
+
+  public PortfolioResponse getPortfolio(PortfolioSelectionUniverse selectionUniverse) {
     List<Category> allCategories = categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc();
 
     Map<String, Category> categoriesById =
@@ -90,19 +92,20 @@ public class PortfolioService {
             .filter(e -> categoriesById.containsKey(e.getKey()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    // Selection universe = equity sectors only. Momentum's sector-selection edge validated cleanly
-    // on equity sectors (top-3 Sharpe ~0.96, robust across sub-periods); adding metals/bonds diluted
-    // it to ~0.46 with parabolic-run whipsaw (e.g. silver). Downside is still covered: the
-    // absolute-momentum filter rotates to cash when every equity sector is falling.
-    Map<String, BigDecimal> equitySectorMomentumByCategoryId =
-        topLevelMomentumByCategoryId.entrySet().stream()
-            .filter(e -> categoriesById.get(e.getKey()).type() == CategoryType.EQUITY_SECTOR)
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    // Selection universe drives the optimal. EQUITY_SECTORS (default) is where momentum's edge
+    // validated cleanly (top-3 Sharpe ~0.96); ALL_TOP_LEVEL adds gold/metals/bonds for dual-momentum
+    // rotation (top-5 — more names to tame metals whipsaw). Either way the absolute-momentum filter
+    // rotates to cash when nothing in the universe has positive momentum.
+    Map<String, BigDecimal> selectionMomentumByCategoryId =
+        selectionUniverse == PortfolioSelectionUniverse.EQUITY_SECTORS
+            ? topLevelMomentumByCategoryId.entrySet().stream()
+                .filter(e -> categoriesById.get(e.getKey()).type() == CategoryType.EQUITY_SECTOR)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
+            : topLevelMomentumByCategoryId;
 
-    // Optimal = equal-weight the top-N positive-momentum equity sectors (the validated strategy).
     Map<String, BigDecimal> optimalAllocationByCategoryId =
         alignmentService.computeMomentumRankOptimalAllocation(
-            equitySectorMomentumByCategoryId, MOMENTUM_TOP_N);
+            selectionMomentumByCategoryId, selectionUniverse.holdCount());
 
     BigDecimal alignmentScore =
         alignmentService.computeAlignmentScoreAgainstOptimal(

@@ -2,6 +2,7 @@ package com.ftm.app.api.controller;
 
 import com.ftm.app.api.dto.PortfolioEntryDto;
 import com.ftm.app.api.dto.PortfolioResponse;
+import com.ftm.app.portfolio.service.PortfolioSelectionUniverse;
 import com.ftm.app.portfolio.service.PortfolioService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,15 +24,19 @@ public class PortfolioController {
 
   @GetMapping
   @Operation(summary = "Current portfolio with per-holding metrics and gap analysis")
-  public PortfolioResponse getPortfolio() {
-    return portfolioService.getPortfolio();
+  public PortfolioResponse getPortfolio(
+      @RequestParam(name = "selectionUniverse", defaultValue = "EQUITY_SECTORS")
+          PortfolioSelectionUniverse selectionUniverse) {
+    return portfolioService.getPortfolio(selectionUniverse);
   }
 
   @PutMapping
   @Operation(summary = "Replace the entire portfolio with the submitted entries")
   public ResponseEntity<PortfolioResponse> savePortfolio(
-      @Valid @RequestBody List<@Valid PortfolioEntryDto> entries) {
+      @Valid @RequestBody List<@Valid PortfolioEntryDto> entries,
+      @RequestParam(name = "selectionUniverse", defaultValue = "EQUITY_SECTORS")
+          PortfolioSelectionUniverse selectionUniverse) {
     portfolioService.savePortfolio(entries);
-    return ResponseEntity.ok(portfolioService.getPortfolio());
+    return ResponseEntity.ok(portfolioService.getPortfolio(selectionUniverse));
   }
 }

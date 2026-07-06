@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
-  fetchPortfolio, savePortfolio, PortfolioResponse, PortfolioAllocationEntry,
+  fetchPortfolio, savePortfolio, PortfolioResponse, PortfolioAllocationEntry, PortfolioSelectionUniverse,
   fetchHoldings, uploadHoldings, downloadHoldingsTemplate, refreshHoldingPrices,
   HoldingDto, HoldingsUploadResponse, updateHolding, deleteHolding, createHolding,
   fetchPriceLevels, PriceLevelDto, fetchWinRates, SignalWinRateDto,
@@ -95,6 +95,7 @@ function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: 
 
 export default function PortfolioPage() {
   const [portfolio, setPortfolio] = useState<PortfolioResponse | null>(null);
+  const [selectionUniverse, setSelectionUniverse] = useState<PortfolioSelectionUniverse>("EQUITY_SECTORS");
   const [priceLevelByCategory, setPriceLevelByCategory] = useState<Record<string, PriceLevelDto>>({});
   const [winRateByCategory, setWinRateByCategory] = useState<Record<string, SignalWinRateDto>>({});
   const [categoryById, setCategoryById] = useState<Record<string, CategorySummary>>({});
@@ -130,7 +131,7 @@ export default function PortfolioPage() {
 
   const loadPortfolio = useCallback(async () => {
     try {
-      const data = await fetchPortfolio();
+      const data = await fetchPortfolio(selectionUniverse);
       setPortfolio(data);
       const initialAllocations: Record<string, string> = {};
       data.allocations.forEach((entry) => {
@@ -142,7 +143,7 @@ export default function PortfolioPage() {
     } catch (error) {
       setLoadError(String(error));
     }
-  }, []);
+  }, [selectionUniverse]);
 
   // Re-fetch everything derived from holdings after any CRUD (add/edit/delete/upload/refresh)
   // so holdings, allocations, the alignment/summary panels, and Recommended Actions stay in sync.
@@ -196,7 +197,7 @@ export default function PortfolioPage() {
     setIsSaving(true);
     setSaveError(null);
     try {
-      const updated = await savePortfolio(entries);
+      const updated = await savePortfolio(entries, selectionUniverse);
       setPortfolio(updated);
       setIsDirty(false);
     } catch (error) {
@@ -510,6 +511,31 @@ export default function PortfolioPage() {
             Failed to load portfolio: {loadError}
           </div>
         )}
+
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-xs text-slate-500 uppercase tracking-wider">Recommendation universe</span>
+          <div className="inline-flex rounded-md border border-slate-700 overflow-hidden text-xs font-medium">
+            <button
+              onClick={() => setSelectionUniverse("EQUITY_SECTORS")}
+              className={`px-3 py-1.5 transition-colors ${selectionUniverse === "EQUITY_SECTORS" ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}
+              title="Top-3 equity sectors by 12-1 momentum — the strongest, most robust validated config (Sharpe ~0.96). Rotates to cash in a broad equity selloff."
+            >
+              Equity sectors · top-3
+            </button>
+            <button
+              onClick={() => setSelectionUniverse("ALL_TOP_LEVEL")}
+              className={`px-3 py-1.5 border-l border-slate-700 transition-colors ${selectionUniverse === "ALL_TOP_LEVEL" ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}
+              title="Top-5 across all top-level categories incl. gold, metals & bonds — dual-momentum rotation. Weaker out-of-sample evidence (Sharpe ~0.46) and can chase parabolic moves like silver."
+            >
+              + Metals &amp; Bonds · top-5
+            </button>
+          </div>
+          <span className="text-[10px] text-slate-600">
+            {selectionUniverse === "EQUITY_SECTORS"
+              ? "Validated config — rotates among equity sectors, to cash in broad selloffs."
+              : "Dual-momentum — can rotate into gold / metals / bonds; weaker evidence, higher whipsaw risk."}
+          </span>
+        </div>
 
         {portfolio && (
           <PortfolioOverview

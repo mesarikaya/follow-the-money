@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ftm.app.api.dto.PortfolioEntryDto;
 import com.ftm.app.api.dto.PortfolioResponse;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
+import com.ftm.app.portfolio.service.PortfolioSelectionUniverse;
 import com.ftm.app.portfolio.service.PortfolioService;
 import java.math.BigDecimal;
 import java.util.List;
@@ -55,7 +56,8 @@ class PortfolioControllerTest {
   @Test
   @DisplayName("GET /portfolio returns 200 with portfolio response")
   void shouldReturnPortfolio() throws Exception {
-    when(portfolioService.getPortfolio()).thenReturn(emptyPortfolio());
+    when(portfolioService.getPortfolio(any(PortfolioSelectionUniverse.class)))
+        .thenReturn(emptyPortfolio());
 
     mockMvc
         .perform(get("/portfolio"))
@@ -65,13 +67,27 @@ class PortfolioControllerTest {
   }
 
   @Test
+  @DisplayName("GET /portfolio binds selectionUniverse and passes it to the service")
+  void shouldBindSelectionUniverse() throws Exception {
+    when(portfolioService.getPortfolio(any(PortfolioSelectionUniverse.class)))
+        .thenReturn(emptyPortfolio());
+
+    mockMvc
+        .perform(get("/portfolio").param("selectionUniverse", "ALL_TOP_LEVEL"))
+        .andExpect(status().isOk());
+
+    verify(portfolioService).getPortfolio(PortfolioSelectionUniverse.ALL_TOP_LEVEL);
+  }
+
+  @Test
   @DisplayName("PUT /portfolio saves entries and returns updated portfolio")
   void shouldSavePortfolio() throws Exception {
     List<PortfolioEntryDto> entries =
         List.of(
             new PortfolioEntryDto("TECH", new BigDecimal("60.0")),
             new PortfolioEntryDto("GOLD", new BigDecimal("40.0")));
-    when(portfolioService.getPortfolio()).thenReturn(emptyPortfolio());
+    when(portfolioService.getPortfolio(any(PortfolioSelectionUniverse.class)))
+        .thenReturn(emptyPortfolio());
 
     mockMvc
         .perform(

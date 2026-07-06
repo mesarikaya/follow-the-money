@@ -41,7 +41,9 @@ test.describe("Dashboard shell", () => {
   test("refresh button triggers ingestion and shows confirmation", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: /Refresh/ }).click();
-    await expect(page.getByText(/Started/)).toBeVisible();
+    // The button polls the run to completion; it shows "Refreshing…" immediately and then a
+    // result ("Added N new rows" or "Already up to date — no new market data").
+    await expect(page.getByText(/Refreshing|Added|no new market data/i)).toBeVisible();
   });
 
   test("shows type badges on category rows", async ({ page }) => {

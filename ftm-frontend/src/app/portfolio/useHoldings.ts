@@ -8,6 +8,9 @@ import { unrealizedPnl } from "@/lib/portfolio/portfolioMetrics";
 export type SortField = "ticker" | "categoryId" | "quantity" | "avgCostLocal" | "currentPriceLocal" | "marketValueEur" | "unrealizedPnlPct";
 export type SortDir = "asc" | "desc";
 
+/** Everything useHoldings exposes — the prop type for the presentational HoldingsSection. */
+export type UseHoldingsResult = ReturnType<typeof useHoldings>;
+
 /**
  * Owns everything about the user's holdings: the list, the add/edit/delete/upload/refresh state,
  * and the handlers that mutate them. The page just renders what this returns.

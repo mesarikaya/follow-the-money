@@ -15,7 +15,8 @@ public record BacktestRequest(
     String categoryScope,
     @Min(0) @Max(500) Integer transactionCostBps,
     Boolean invertSignal,
-    Boolean trendFilter) {
+    Boolean trendFilter,
+    String signalSource) {
   public BacktestRequest {
     if (topN == 0) topN = 5;
     if (categoryScope == null || categoryScope.isBlank()) categoryScope = "ALL";
@@ -24,9 +25,12 @@ public record BacktestRequest(
     // rather than failing Jackson's null-to-primitive mapping.
     if (invertSignal == null) invertSignal = false;
     if (trendFilter == null) trendFilter = false;
+    // Which score drives selection: "COMPOSITE" (the theory model) or "MOMENTUM_12_1" (classic
+    // 12-1 momentum). Defaulted so an omitted field keeps the existing composite behaviour.
+    if (signalSource == null || signalSource.isBlank()) signalSource = "COMPOSITE";
   }
 
-  /** Convenience constructor defaulting to momentum (non-inverted) with no trend filter. */
+  /** Convenience constructor defaulting to the composite signal, non-inverted, no trend filter. */
   public BacktestRequest(
       LocalDate startDate,
       LocalDate endDate,
@@ -44,6 +48,7 @@ public record BacktestRequest(
         categoryScope,
         transactionCostBps,
         false,
-        false);
+        false,
+        "COMPOSITE");
   }
 }

@@ -28,10 +28,34 @@ class BacktestRequestTest {
             "ALL",
             10,
             null,
+            null,
             null);
 
     assertThat(request.invertSignal()).isFalse();
     assertThat(request.trendFilter()).isFalse();
+  }
+
+  @Test
+  @DisplayName("null/blank signalSource defaults to COMPOSITE")
+  void nullSignalSourceDefaultsToComposite() {
+    BacktestRequest defaulted =
+        new BacktestRequest(
+            LocalDate.of(2019, 5, 16), LocalDate.of(2024, 12, 31), "MONTHLY", 5, null, null, null);
+    assertThat(defaulted.signalSource()).isEqualTo("COMPOSITE");
+
+    BacktestRequest blank =
+        new BacktestRequest(
+            LocalDate.of(2019, 5, 16),
+            LocalDate.of(2024, 12, 31),
+            "MONTHLY",
+            5,
+            null,
+            "ALL",
+            0,
+            null,
+            null,
+            "  ");
+    assertThat(blank.signalSource()).isEqualTo("COMPOSITE");
   }
 
   @Test

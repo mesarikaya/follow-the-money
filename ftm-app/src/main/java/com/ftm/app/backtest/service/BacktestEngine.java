@@ -43,23 +43,34 @@ public class BacktestEngine {
   private static final int TREND_FILTER_MA_DAYS = 200;
   private static final int TREND_FILTER_LOOKBACK_BUFFER_DAYS = 400;
 
+  // Classic 12-1 momentum (Jegadeesh-Titman / Asness): a ~12-month (252-trading-day) lookback that
+  // skips the most recent ~1 month (21 trading days) to sidestep short-term reversal. The calendar
+  // buffer must comfortably cover 252 trading days of leading history before the first score date.
+  private static final String SIGNAL_SOURCE_MOMENTUM_12_1 = "MOMENTUM_12_1";
+  private static final int MOMENTUM_LOOKBACK_TRADING_DAYS = 252;
+  private static final int MOMENTUM_SKIP_TRADING_DAYS = 21;
+  private static final int MOMENTUM_LOOKBACK_BUFFER_DAYS = 420;
+
   private final SignalRepository signalRepository;
   private final DSLContext dsl;
   private final AllocationComputer allocationComputer;
   private final TurnoverCostCalculator turnoverCostCalculator;
   private final MarketRegimeFilter marketRegimeFilter;
+  private final MomentumScoreComputer momentumScoreComputer;
 
   public BacktestEngine(
       SignalRepository signalRepository,
       DSLContext dsl,
       AllocationComputer allocationComputer,
       TurnoverCostCalculator turnoverCostCalculator,
-      MarketRegimeFilter marketRegimeFilter) {
+      MarketRegimeFilter marketRegimeFilter,
+      MomentumScoreComputer momentumScoreComputer) {
     this.signalRepository = signalRepository;
     this.dsl = dsl;
     this.allocationComputer = allocationComputer;
     this.turnoverCostCalculator = turnoverCostCalculator;
     this.marketRegimeFilter = marketRegimeFilter;
+    this.momentumScoreComputer = momentumScoreComputer;
   }
 
   public BacktestResult run(BacktestRequest request) {
@@ -75,16 +86,22 @@ public class BacktestEngine {
       throw new IllegalArgumentException("No price data found for the requested date range.");
     }
 
-    Map<LocalDate, Map<String, BigDecimal>> compositesByDate =
-        fetchCompositesByDate(request.startDate(), request.endDate(), request.categoryScope());
+    List<LocalDate> rebalanceDates =
+        computeRebalanceDates(tradingDates, request.rebalanceFrequency());
+
+    // Selection scores: the theory-model COMPOSITE (default) or classic 12-1 MOMENTUM, over the
+    // same category scope so the two signal sources are compared on an identical universe.
+    Map<LocalDate, Map<String, BigDecimal>> signalScoresByDate =
+        resolveSignalScores(request, rebalanceDates);
     Map<LocalDate, Map<String, BigDecimal>> pricesByDate =
         fetchEtfPricesByDate(request.startDate(), request.endDate());
     Map<LocalDate, BigDecimal> spyPricesByDate =
         fetchSpyPricesByDate(request.startDate(), request.endDate());
 
-    if (compositesByDate.isEmpty()) {
+    if (signalScoresByDate.isEmpty()) {
       throw new IllegalArgumentException(
-          "No composite scores found for the date range. Run signal computation first.");
+          "No selection scores found for the date range. Run signal computation first (or widen the"
+              + " range so 12-1 momentum has enough leading price history).");
     }
 
     // Only allocate to categories that have at least one price in the range — sub-sector ETFs
@@ -92,12 +109,10 @@ public class BacktestEngine {
     Set<String> categoriesWithPriceData = new HashSet<>();
     pricesByDate.values().forEach(m -> categoriesWithPriceData.addAll(m.keySet()));
 
-    List<LocalDate> rebalanceDates =
-        computeRebalanceDates(tradingDates, request.rebalanceFrequency());
     Map<LocalDate, List<String>> allocationsByRebalanceDate =
         allocationComputer.computeAllocations(
             rebalanceDates,
-            compositesByDate,
+            signalScoresByDate,
             request.topN(),
             request.signalThreshold(),
             categoriesWithPriceData,
@@ -121,7 +136,7 @@ public class BacktestEngine {
     // diversification?" — selecting a large N here yields the full investable set.
     Map<LocalDate, List<String>> equalWeightAllocations =
         allocationComputer.computeAllocations(
-            rebalanceDates, compositesByDate, Integer.MAX_VALUE, null, categoriesWithPriceData);
+            rebalanceDates, signalScoresByDate, Integer.MAX_VALUE, null, categoriesWithPriceData);
     List<EquityCurvePoint> equalWeightCurve =
         simulatePortfolio(tradingDates, equalWeightAllocations, pricesByDate, spyPricesByDate, 0);
 
@@ -153,17 +168,54 @@ public class BacktestEngine {
         .fetchInto(LocalDate.class);
   }
 
+  /**
+   * Resolves the per-rebalance selection scores for the requested signal source. Defaults to the
+   * theory-model {@code COMPOSITE}; {@code MOMENTUM_12_1} instead derives classic 12-1 momentum from
+   * a buffered price history and restricts it to the same category scope, so the two sources are
+   * evaluated on an identical universe.
+   */
+  private Map<LocalDate, Map<String, BigDecimal>> resolveSignalScores(
+      BacktestRequest request, List<LocalDate> scoreDates) {
+    if (!SIGNAL_SOURCE_MOMENTUM_12_1.equalsIgnoreCase(request.signalSource())) {
+      return fetchCompositesByDate(request.startDate(), request.endDate(), request.categoryScope());
+    }
+
+    NavigableMap<LocalDate, Map<String, BigDecimal>> bufferedPrices =
+        new TreeMap<>(
+            fetchEtfPricesByDate(
+                request.startDate().minusDays(MOMENTUM_LOOKBACK_BUFFER_DAYS), request.endDate()));
+    Map<LocalDate, Map<String, BigDecimal>> momentumScores =
+        momentumScoreComputer.computeMomentumScores(
+            scoreDates, bufferedPrices, MOMENTUM_LOOKBACK_TRADING_DAYS, MOMENTUM_SKIP_TRADING_DAYS);
+
+    Set<String> scopedCategoryIds = fetchScopedCategoryIds(request.categoryScope());
+    momentumScores.values().forEach(scores -> scores.keySet().retainAll(scopedCategoryIds));
+    momentumScores.values().removeIf(Map::isEmpty);
+    return momentumScores;
+  }
+
+  private Set<String> fetchScopedCategoryIds(String categoryScope) {
+    return new HashSet<>(
+        dsl.select(CATEGORIES.ID)
+            .from(CATEGORIES)
+            .where(categoryScopeCondition(categoryScope))
+            .fetchInto(String.class));
+  }
+
+  private Condition categoryScopeCondition(String categoryScope) {
+    return switch (categoryScope.toUpperCase()) {
+      case "EQUITY_SECTORS_ONLY" ->
+          CATEGORIES.TYPE.eq("EQUITY_SECTOR").and(CATEGORIES.PARENT_ID.isNull());
+      case "TOP_LEVEL_ONLY" -> CATEGORIES.PARENT_ID.isNull();
+      default -> DSL.noCondition();
+    };
+  }
+
   private Map<LocalDate, Map<String, BigDecimal>> fetchCompositesByDate(
       LocalDate startDate, LocalDate endDate, String categoryScope) {
     Map<LocalDate, Map<String, BigDecimal>> result = new TreeMap<>();
 
-    Condition scopeCondition =
-        switch (categoryScope.toUpperCase()) {
-          case "EQUITY_SECTORS_ONLY" ->
-              CATEGORIES.TYPE.eq("EQUITY_SECTOR").and(CATEGORIES.PARENT_ID.isNull());
-          case "TOP_LEVEL_ONLY" -> CATEGORIES.PARENT_ID.isNull();
-          default -> DSL.noCondition();
-        };
+    Condition scopeCondition = categoryScopeCondition(categoryScope);
 
     dsl.select(SIGNALS.SIGNAL_DATE, SIGNALS.CATEGORY_ID, SIGNALS.VALUE)
         .from(SIGNALS)

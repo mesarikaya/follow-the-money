@@ -7,7 +7,9 @@ import com.ftm.app.ingestion.client.dto.YahooChartResponse;
 import com.ftm.app.portfolio.repository.HoldingRepository;
 import com.ftm.app.portfolio.repository.PortfolioSnapshotRepository;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -28,6 +30,12 @@ public class HoldingPriceService {
   private static final BigDecimal SYSTEM_DEFAULT_SEK_USD = new BigDecimal("0.092");
   private static final String GBPUSD_TICKER = "GBPUSD=X";
   private static final String SEKUSD_TICKER = "SEKUSD=X";
+  // Yahoo daily bars are timestamped at the exchange open; resolve them on the US market calendar so
+  // the stored price date is the real trading day of the quote, not the day we happened to fetch it.
+  private static final ZoneId MARKET_ZONE = ZoneId.of("America/New_York");
+
+  /** A price paired with the trading date it actually belongs to. */
+  private record DatedPrice(BigDecimal price, LocalDate date) {}
 
   private final HoldingRepository holdingRepository;
   private final YahooFinanceClient yahooFinanceClient;
@@ -136,11 +144,17 @@ public class HoldingPriceService {
     // Prices" action is expected to fetch the latest price for all positions; a manually-entered
     // price is only preserved when the provider has no data for the ticker (e.g. a delisted/renamed
     // symbol or an untracked asset), so the user's fallback value is never lost.
-    Optional<BigDecimal> latestClose = fetchLatestClose(holding.ticker(), from, today);
+    Optional<DatedPrice> latestClose = fetchLatestDatedClose(holding.ticker(), from, today);
 
     if (latestClose.isPresent()) {
-      holdingRepository.updatePrice(holding.ticker(), latestClose.get(), today, PRICE_SOURCE_YAHOO);
-      log.debug("Updated price for {}: {}", holding.ticker(), latestClose.get());
+      DatedPrice quote = latestClose.get();
+      // Stamp the actual trading day of the quote (falling back to today only if Yahoo omitted the
+      // timestamp) so a price that hasn't moved since the last close is visibly dated as such,
+      // rather than looking "fresh as of today" when the market simply hasn't produced a new bar.
+      LocalDate priceDate = quote.date() != null ? quote.date() : today;
+      holdingRepository.updatePrice(
+          holding.ticker(), quote.price(), priceDate, PRICE_SOURCE_YAHOO);
+      log.debug("Updated price for {}: {} ({})", holding.ticker(), quote.price(), priceDate);
     } else if ("manual".equals(holding.priceSource())) {
       log.debug("Keeping manual price for {} — no live data available", holding.ticker());
     } else {
@@ -148,7 +162,12 @@ public class HoldingPriceService {
     }
   }
 
+  /** Latest available adjusted close only (used for FX pairs, where the date is irrelevant). */
   private Optional<BigDecimal> fetchLatestClose(String ticker, LocalDate from, LocalDate to) {
+    return fetchLatestDatedClose(ticker, from, to).map(DatedPrice::price);
+  }
+
+  private Optional<DatedPrice> fetchLatestDatedClose(String ticker, LocalDate from, LocalDate to) {
     try {
       return yahooFinanceClient.fetchChart(ticker, from, to).flatMap(this::extractLatestAdjClose);
     } catch (Exception e) {
@@ -157,7 +176,7 @@ public class HoldingPriceService {
     }
   }
 
-  private Optional<BigDecimal> extractLatestAdjClose(YahooChartResponse response) {
+  private Optional<DatedPrice> extractLatestAdjClose(YahooChartResponse response) {
     if (response.chart() == null
         || response.chart().result() == null
         || response.chart().result().isEmpty()) {
@@ -173,10 +192,15 @@ public class HoldingPriceService {
     if (adjCloses == null || adjCloses.isEmpty()) {
       return Optional.empty();
     }
-    // Walk backwards to find the last non-null entry
+    List<Long> timestamps = result.timestamp();
+    // Walk backwards to the last non-null close and pair it with its own trading day.
     for (int i = adjCloses.size() - 1; i >= 0; i--) {
       if (adjCloses.get(i) != null) {
-        return Optional.of(adjCloses.get(i));
+        LocalDate date = null;
+        if (timestamps != null && i < timestamps.size() && timestamps.get(i) != null) {
+          date = Instant.ofEpochSecond(timestamps.get(i)).atZone(MARKET_ZONE).toLocalDate();
+        }
+        return Optional.of(new DatedPrice(adjCloses.get(i), date));
       }
     }
     return Optional.empty();

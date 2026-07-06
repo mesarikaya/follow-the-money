@@ -137,6 +137,7 @@ export type PortfolioAllocationEntry = {
   categoryType: string;
   allocationPct: number;
   compositeScore: number | null;
+  momentumPct: number | null;
   optimalAllocationPct: number | null;
   tradeSignal: string | null;
 };
@@ -150,6 +151,7 @@ export type RebalanceSuggestion = {
   deltaPct: number;
   tradeSignal: string | null;
   compositeScorePct: number | null;
+  momentumPct: number | null;
   signalAligned: boolean;
 };
 
@@ -196,10 +198,16 @@ export type AlertsResponse = {
   alerts: AlertDto[];
 };
 
-export const fetchPortfolio = () => get<PortfolioResponse>("/api/v1/portfolio");
+export type PortfolioSelectionUniverse = "EQUITY_SECTORS" | "ALL_TOP_LEVEL";
 
-export const savePortfolio = (entries: PortfolioSaveRequest) =>
-  fetch(`${BACKEND}/api/v1/portfolio`, {
+export const fetchPortfolio = (selectionUniverse: PortfolioSelectionUniverse = "EQUITY_SECTORS") =>
+  get<PortfolioResponse>(`/api/v1/portfolio?selectionUniverse=${selectionUniverse}`);
+
+export const savePortfolio = (
+  entries: PortfolioSaveRequest,
+  selectionUniverse: PortfolioSelectionUniverse = "EQUITY_SECTORS",
+) =>
+  fetch(`${BACKEND}/api/v1/portfolio?selectionUniverse=${selectionUniverse}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(entries),

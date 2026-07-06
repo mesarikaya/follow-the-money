@@ -3,7 +3,7 @@ package com.ftm.app.portfolio.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,6 +37,7 @@ class PortfolioServiceTest {
   @Mock CategoryRepository categoryRepository;
   @Mock SignalRepository signalRepository;
   @Mock AlignmentService alignmentService;
+  @Mock LiveMomentumScoreService liveMomentumScoreService;
   // Real resolver — the rollup logic is pure and covered by its own test; here it must behave.
   @Spy CategoryHierarchyResolver categoryHierarchyResolver = new CategoryHierarchyResolver();
   @InjectMocks PortfolioService portfolioService;
@@ -106,13 +107,13 @@ class PortfolioServiceTest {
             List.of(
                 new Portfolio(
                     CategoryId.TECH, new BigDecimal("100.00"), OffsetDateTime.now(), null)));
-    when(signalRepository.findLatestByType(SignalType.COMPOSITE))
-        .thenReturn(Map.of("TECH", new BigDecimal("0.80")));
-    when(signalRepository.findLatestByType(SignalType.RRG_QUADRANT)).thenReturn(Map.of());
-    when(signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_20D)).thenReturn(Map.of());
-    when(alignmentService.computeCompositeOptimalAllocation(any()))
+    when(signalRepository.findLatestByType(SignalType.COMPOSITE)).thenReturn(Map.of());
+    when(liveMomentumScoreService.computeLatestMomentumByCategoryId())
+        .thenReturn(Map.of("TECH", new BigDecimal("0.20")));
+    when(alignmentService.computeMomentumRankOptimalAllocation(any(), anyInt()))
         .thenReturn(Map.of("TECH", new BigDecimal("100.00")));
-    when(alignmentService.computeAlignmentScore(any(), any())).thenReturn(new BigDecimal("0.75"));
+    when(alignmentService.computeAlignmentScoreAgainstOptimal(any(), any()))
+        .thenReturn(new BigDecimal("0.75"));
 
     PortfolioResponse result = portfolioService.getPortfolio();
 
@@ -126,10 +127,11 @@ class PortfolioServiceTest {
         .thenReturn(List.of(techCategory()));
     when(portfolioRepository.findAll()).thenReturn(List.of());
     when(signalRepository.findLatestByType(SignalType.COMPOSITE)).thenReturn(Map.of());
-    when(signalRepository.findLatestByType(SignalType.RRG_QUADRANT)).thenReturn(Map.of());
-    when(signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_20D)).thenReturn(Map.of());
-    when(alignmentService.computeCompositeOptimalAllocation(any())).thenReturn(Map.of());
-    when(alignmentService.computeAlignmentScore(any(), any())).thenReturn(new BigDecimal("0.55"));
+    when(liveMomentumScoreService.computeLatestMomentumByCategoryId()).thenReturn(Map.of());
+    when(alignmentService.computeMomentumRankOptimalAllocation(any(), anyInt()))
+        .thenReturn(Map.of());
+    when(alignmentService.computeAlignmentScoreAgainstOptimal(any(), any()))
+        .thenReturn(new BigDecimal("0.55"));
 
     PortfolioResponse result = portfolioService.getPortfolio();
 
@@ -142,12 +144,12 @@ class PortfolioServiceTest {
     when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
         .thenReturn(List.of(techCategory()));
     when(portfolioRepository.findAll()).thenReturn(List.of());
-    when(signalRepository.findLatestByType(eq(SignalType.COMPOSITE))).thenReturn(Map.of());
-    when(signalRepository.findLatestByType(eq(SignalType.RRG_QUADRANT))).thenReturn(Map.of());
-    when(signalRepository.findLatestByType(eq(SignalType.COMPOSITE_TREND_20D)))
+    when(signalRepository.findLatestByType(SignalType.COMPOSITE)).thenReturn(Map.of());
+    when(liveMomentumScoreService.computeLatestMomentumByCategoryId()).thenReturn(Map.of());
+    when(alignmentService.computeMomentumRankOptimalAllocation(any(), anyInt()))
         .thenReturn(Map.of());
-    when(alignmentService.computeCompositeOptimalAllocation(any())).thenReturn(Map.of());
-    when(alignmentService.computeAlignmentScore(any(), any())).thenReturn(new BigDecimal("0.20"));
+    when(alignmentService.computeAlignmentScoreAgainstOptimal(any(), any()))
+        .thenReturn(new BigDecimal("0.20"));
 
     PortfolioResponse result = portfolioService.getPortfolio();
 
@@ -171,8 +173,11 @@ class PortfolioServiceTest {
         .thenReturn(List.of(techCategory(), subSector));
     when(portfolioRepository.findAll()).thenReturn(List.of());
     when(signalRepository.findLatestByType(any())).thenReturn(Map.of());
-    when(alignmentService.computeCompositeOptimalAllocation(any())).thenReturn(Map.of());
-    when(alignmentService.computeAlignmentScore(any(), any())).thenReturn(BigDecimal.ZERO);
+    when(liveMomentumScoreService.computeLatestMomentumByCategoryId()).thenReturn(Map.of());
+    when(alignmentService.computeMomentumRankOptimalAllocation(any(), anyInt()))
+        .thenReturn(Map.of());
+    when(alignmentService.computeAlignmentScoreAgainstOptimal(any(), any()))
+        .thenReturn(BigDecimal.ZERO);
 
     PortfolioResponse result = portfolioService.getPortfolio();
 
@@ -202,8 +207,11 @@ class PortfolioServiceTest {
                 new Portfolio(
                     CategoryId.SEMI, new BigDecimal("30.00"), OffsetDateTime.now(), null)));
     when(signalRepository.findLatestByType(any())).thenReturn(Map.of());
-    when(alignmentService.computeCompositeOptimalAllocation(any())).thenReturn(Map.of());
-    when(alignmentService.computeAlignmentScore(any(), any())).thenReturn(BigDecimal.ZERO);
+    when(liveMomentumScoreService.computeLatestMomentumByCategoryId()).thenReturn(Map.of());
+    when(alignmentService.computeMomentumRankOptimalAllocation(any(), anyInt()))
+        .thenReturn(Map.of());
+    when(alignmentService.computeAlignmentScoreAgainstOptimal(any(), any()))
+        .thenReturn(BigDecimal.ZERO);
 
     PortfolioResponse result = portfolioService.getPortfolio();
 
@@ -214,9 +222,9 @@ class PortfolioServiceTest {
   }
 
   @Test
-  @DisplayName("optimal/alignment universe excludes sub-category and factor composites")
+  @DisplayName("momentum universe for optimal excludes sub-category composites")
   @SuppressWarnings("unchecked")
-  void topLevelCompositeUniverseExcludesSubCategories() {
+  void topLevelMomentumUniverseExcludesSubCategories() {
     Category semiSubSector =
         new Category(
             CategoryId.SEMI,
@@ -230,23 +238,21 @@ class PortfolioServiceTest {
     when(categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc())
         .thenReturn(List.of(techCategory(), semiSubSector));
     when(portfolioRepository.findAll()).thenReturn(List.of());
-    // Composite universe includes a top-level (TECH) and a sub-category (SEMI); only TECH is a
-    // portfolio category, so SEMI must be excluded from the optimal/alignment universe.
-    when(signalRepository.findLatestByType(SignalType.COMPOSITE))
-        .thenReturn(Map.of("TECH", new BigDecimal("0.80"), "SEMI", new BigDecimal("0.90")));
-    when(signalRepository.findLatestByType(SignalType.RRG_QUADRANT)).thenReturn(Map.of());
-    when(signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_20D)).thenReturn(Map.of());
-    when(alignmentService.computeCompositeOptimalAllocation(any())).thenReturn(Map.of());
-    when(alignmentService.computeAlignmentScore(any(), any())).thenReturn(BigDecimal.ZERO);
+    when(signalRepository.findLatestByType(SignalType.COMPOSITE)).thenReturn(Map.of());
+    // Live momentum covers a top-level (TECH) and a sub-category (SEMI); only TECH is a portfolio
+    // category, so SEMI must be excluded from the momentum universe driving the optimal.
+    when(liveMomentumScoreService.computeLatestMomentumByCategoryId())
+        .thenReturn(Map.of("TECH", new BigDecimal("0.20"), "SEMI", new BigDecimal("0.30")));
+    when(alignmentService.computeMomentumRankOptimalAllocation(any(), anyInt()))
+        .thenReturn(Map.of());
+    when(alignmentService.computeAlignmentScoreAgainstOptimal(any(), any()))
+        .thenReturn(BigDecimal.ZERO);
 
     portfolioService.getPortfolio();
 
-    ArgumentCaptor<Map<String, BigDecimal>> optimalUniverse = ArgumentCaptor.forClass(Map.class);
-    verify(alignmentService).computeCompositeOptimalAllocation(optimalUniverse.capture());
-    assertThat(optimalUniverse.getValue()).containsKey("TECH").doesNotContainKey("SEMI");
-
-    ArgumentCaptor<Map<String, BigDecimal>> alignmentUniverse = ArgumentCaptor.forClass(Map.class);
-    verify(alignmentService).computeAlignmentScore(any(), alignmentUniverse.capture());
-    assertThat(alignmentUniverse.getValue()).containsKey("TECH").doesNotContainKey("SEMI");
+    ArgumentCaptor<Map<String, BigDecimal>> momentumUniverse = ArgumentCaptor.forClass(Map.class);
+    verify(alignmentService)
+        .computeMomentumRankOptimalAllocation(momentumUniverse.capture(), anyInt());
+    assertThat(momentumUniverse.getValue()).containsKey("TECH").doesNotContainKey("SEMI");
   }
 }

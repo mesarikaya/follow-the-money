@@ -5,8 +5,12 @@ import static org.jooq.impl.DSL.max;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Optional;
+import java.util.TreeMap;
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
 
@@ -57,6 +61,37 @@ public class RawPriceRepository {
 
   public int countAll() {
     return dsl.fetchCount(RAW_PRICES);
+  }
+
+  /** The most recent trade date across all categories, or empty if no prices exist. */
+  public Optional<LocalDate> findMaxTradeDate() {
+    return Optional.ofNullable(
+        dsl.select(max(RAW_PRICES.TRADE_DATE)).from(RAW_PRICES).fetchOneInto(LocalDate.class));
+  }
+
+  /**
+   * Adjusted-close history over {@code [from, to]} as a date-sorted map of category→price, suitable
+   * for feeding a price-series calculator (e.g. momentum). Rows with a null adjusted close are
+   * skipped.
+   */
+  public NavigableMap<LocalDate, Map<String, BigDecimal>> findAdjCloseHistory(
+      LocalDate from, LocalDate to) {
+    NavigableMap<LocalDate, Map<String, BigDecimal>> pricesByDate = new TreeMap<>();
+    dsl.select(RAW_PRICES.TRADE_DATE, RAW_PRICES.CATEGORY_ID, RAW_PRICES.ADJ_CLOSE)
+        .from(RAW_PRICES)
+        .where(RAW_PRICES.TRADE_DATE.between(from, to))
+        .orderBy(RAW_PRICES.TRADE_DATE.asc())
+        .fetch()
+        .forEach(
+            row -> {
+              BigDecimal adjClose = row.get(RAW_PRICES.ADJ_CLOSE);
+              if (adjClose != null) {
+                pricesByDate
+                    .computeIfAbsent(row.get(RAW_PRICES.TRADE_DATE), date -> new HashMap<>())
+                    .put(row.get(RAW_PRICES.CATEGORY_ID), adjClose);
+              }
+            });
+    return pricesByDate;
   }
 
   public record Row(

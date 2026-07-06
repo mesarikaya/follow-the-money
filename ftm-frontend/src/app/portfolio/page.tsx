@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
-  fetchPortfolio, savePortfolio, PortfolioResponse, PortfolioAllocationEntry,
+  fetchPortfolio, savePortfolio, PortfolioResponse, PortfolioAllocationEntry, PortfolioSelectionUniverse,
   fetchHoldings, uploadHoldings, downloadHoldingsTemplate, refreshHoldingPrices,
   HoldingDto, HoldingsUploadResponse, updateHolding, deleteHolding, createHolding,
   fetchPriceLevels, PriceLevelDto, fetchWinRates, SignalWinRateDto,
@@ -95,6 +95,7 @@ function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: 
 
 export default function PortfolioPage() {
   const [portfolio, setPortfolio] = useState<PortfolioResponse | null>(null);
+  const [selectionUniverse, setSelectionUniverse] = useState<PortfolioSelectionUniverse>("EQUITY_SECTORS");
   const [priceLevelByCategory, setPriceLevelByCategory] = useState<Record<string, PriceLevelDto>>({});
   const [winRateByCategory, setWinRateByCategory] = useState<Record<string, SignalWinRateDto>>({});
   const [categoryById, setCategoryById] = useState<Record<string, CategorySummary>>({});
@@ -130,7 +131,7 @@ export default function PortfolioPage() {
 
   const loadPortfolio = useCallback(async () => {
     try {
-      const data = await fetchPortfolio();
+      const data = await fetchPortfolio(selectionUniverse);
       setPortfolio(data);
       const initialAllocations: Record<string, string> = {};
       data.allocations.forEach((entry) => {
@@ -142,7 +143,7 @@ export default function PortfolioPage() {
     } catch (error) {
       setLoadError(String(error));
     }
-  }, []);
+  }, [selectionUniverse]);
 
   // Re-fetch everything derived from holdings after any CRUD (add/edit/delete/upload/refresh)
   // so holdings, allocations, the alignment/summary panels, and Recommended Actions stay in sync.
@@ -196,7 +197,7 @@ export default function PortfolioPage() {
     setIsSaving(true);
     setSaveError(null);
     try {
-      const updated = await savePortfolio(entries);
+      const updated = await savePortfolio(entries, selectionUniverse);
       setPortfolio(updated);
       setIsDirty(false);
     } catch (error) {
@@ -376,20 +377,22 @@ export default function PortfolioPage() {
     return Math.round(Math.min(overlap, 100));
   })() : null;
 
-  const portfolioSignalScore = portfolio
+  // Allocation-weighted 12-1 momentum of the current vs the optimal (momentum-driven) portfolio —
+  // kept consistent with the recommendation signal (was composite-weighted, which mixed signals).
+  const portfolioMomentumPct = portfolio
     ? Math.round(
         portfolio.allocations.reduce((sum, entry) => {
           const allocation = parseFloat(editedAllocations[entry.categoryId] ?? "0") || 0;
-          return sum + (allocation / 100) * (entry.compositeScore ?? 0) * 100;
+          return sum + (allocation / 100) * (entry.momentumPct ?? 0);
         }, 0)
       )
     : null;
 
-  const optimalSignalScore = portfolio
+  const optimalMomentumPct = portfolio
     ? Math.round(
         portfolio.allocations.reduce((sum, entry) => {
           const optimal = entry.optimalAllocationPct ?? 0;
-          return sum + (optimal / 100) * (entry.compositeScore ?? 0) * 100;
+          return sum + (optimal / 100) * (entry.momentumPct ?? 0);
         }, 0)
       )
     : null;
@@ -461,22 +464,22 @@ export default function PortfolioPage() {
         </h1>
         {portfolio && (
           <div className="flex items-center gap-6">
-            {portfolioSignalScore !== null && portfolioSignalScore > 0 && (
+            {portfolioMomentumPct !== null && (
               <div
                 className="flex items-center gap-2"
-                title={`Portfolio Signal Strength: weighted-average composite score of your current allocation.\nFormula: Σ(allocationPct × categoryCompositeScore) / 100.\nOptimal target: ${optimalSignalScore}/100 (if perfectly allocated by composite score).`}
+                title={`Portfolio Momentum: allocation-weighted 12-1 momentum of your current holdings.\nFormula: Σ(allocationPct × category 12-1 momentum) / 100.\nMomentum-optimal target: ${optimalMomentumPct}% (if allocated per the recommendation).`}
               >
                 <span className="text-[10px] text-slate-500 uppercase tracking-widest" style={{ fontFamily: "var(--font-rajdhani)", fontWeight: 600 }}>
-                  Signal
+                  Momentum
                 </span>
                 <span
-                  className={`text-sm font-mono font-semibold ${portfolioSignalScore >= 65 ? "text-green-400" : portfolioSignalScore >= 45 ? "text-yellow-400" : "text-red-400"}`}
+                  className={`text-sm font-mono font-semibold ${portfolioMomentumPct > 0 ? "text-emerald-400" : portfolioMomentumPct < 0 ? "text-red-400" : "text-yellow-400"}`}
                 >
-                  {portfolioSignalScore}
+                  {portfolioMomentumPct > 0 ? "+" : ""}{portfolioMomentumPct}%
                 </span>
-                {optimalSignalScore !== null && optimalSignalScore > 0 && (
+                {optimalMomentumPct !== null && (
                   <span className="text-[10px] text-slate-600">
-                    / <span className="text-slate-500">{optimalSignalScore} opt</span>
+                    / <span className="text-slate-500">{optimalMomentumPct > 0 ? "+" : ""}{optimalMomentumPct}% opt</span>
                   </span>
                 )}
               </div>
@@ -508,6 +511,31 @@ export default function PortfolioPage() {
             Failed to load portfolio: {loadError}
           </div>
         )}
+
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-xs text-slate-500 uppercase tracking-wider">Recommendation universe</span>
+          <div className="inline-flex rounded-md border border-slate-700 overflow-hidden text-xs font-medium">
+            <button
+              onClick={() => setSelectionUniverse("EQUITY_SECTORS")}
+              className={`px-3 py-1.5 transition-colors ${selectionUniverse === "EQUITY_SECTORS" ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}
+              title="Top-3 equity sectors by 12-1 momentum — the strongest, most robust validated config (Sharpe ~0.96). Rotates to cash in a broad equity selloff."
+            >
+              Equity sectors · top-3
+            </button>
+            <button
+              onClick={() => setSelectionUniverse("ALL_TOP_LEVEL")}
+              className={`px-3 py-1.5 border-l border-slate-700 transition-colors ${selectionUniverse === "ALL_TOP_LEVEL" ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}
+              title="Top-5 across all top-level categories incl. gold, metals & bonds — dual-momentum rotation. Weaker out-of-sample evidence (Sharpe ~0.46) and can chase parabolic moves like silver."
+            >
+              + Metals &amp; Bonds · top-5
+            </button>
+          </div>
+          <span className="text-[10px] text-slate-600">
+            {selectionUniverse === "EQUITY_SECTORS"
+              ? "Validated config — rotates among equity sectors, to cash in broad selloffs."
+              : "Dual-momentum — can rotate into gold / metals / bonds; weaker evidence, higher whipsaw risk."}
+          </span>
+        </div>
 
         {portfolio && (
           <PortfolioOverview
@@ -568,9 +596,9 @@ export default function PortfolioPage() {
                 <span className="flex items-center gap-1">
                   <div className="w-3 h-1.5 bg-blue-500 rounded-sm" /> Current allocation
                 </span>
-                <span className="flex items-center gap-1" title={COMPOSITE_OPTIMAL_TOOLTIP}>
+                <span className="flex items-center gap-1" title="Momentum-optimal target: the top momentum categories (positive only; none positive → cash), rank-weighted so the strongest gets the largest slice (a mild linear tilt — e.g. 50/33/17 for three). The rank tilt beat a flat equal split in backtesting (Sharpe ~0.87 vs 0.81, robust across sub-periods, no extra drawdown). Note: disciplined rules-based rotation, not a market-beating guarantee.">
                   <div className="w-3 h-1.5 bg-emerald-500/70 rounded-sm" />
-                  <span className="cursor-help">Composite-optimal target (?)</span>
+                  <span className="cursor-help">Momentum-optimal target (?)</span>
                 </span>
               </div>
 
@@ -581,6 +609,9 @@ export default function PortfolioPage() {
                 <span className="w-16 shrink-0" />
                 <span className="text-[10px] text-slate-600 w-6 text-right shrink-0 cursor-help" title={COMPOSITE_SCORE_TOOLTIP}>
                   CS
+                </span>
+                <span className="text-[10px] text-slate-600 w-10 text-right shrink-0 cursor-help" title="12-1 momentum: trailing 12-month return skipping the last month. This is what drives the BUY/HOLD/REDUCE signal and the optimal target.">
+                  Mom
                 </span>
                 <span className="text-[10px] text-slate-600 w-14 text-center shrink-0">Signal</span>
               </div>
@@ -612,6 +643,18 @@ export default function PortfolioPage() {
                       title={entry.compositeScore != null ? COMPOSITE_SCORE_TOOLTIP : "No composite score available yet — run signal computation first"}
                     >
                       {entry.compositeScore != null ? Math.round(entry.compositeScore * 100) : "—"}
+                    </span>
+                    <span
+                      className={`w-10 text-xs font-mono text-right shrink-0 ${
+                        entry.momentumPct == null
+                          ? "text-slate-600"
+                          : entry.momentumPct >= 0
+                            ? "text-emerald-400"
+                            : "text-red-400"
+                      }`}
+                      title="12-1 momentum (trailing 12m return, skipping the last month) — the signal driving the recommendation"
+                    >
+                      {entry.momentumPct == null ? "—" : `${entry.momentumPct >= 0 ? "+" : ""}${entry.momentumPct}%`}
                     </span>
                     {(() => {
                       const sig = (entry.tradeSignal as TradeSignal | null) ?? deriveTradeSignal({ compositeScore: entry.compositeScore, rrgQuadrant: null, compositeTrend20d: null });

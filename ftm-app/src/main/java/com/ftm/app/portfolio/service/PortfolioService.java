@@ -5,9 +5,10 @@ import com.ftm.app.api.dto.PortfolioResponse;
 import com.ftm.app.api.dto.PortfolioResponse.PortfolioAllocationEntry;
 import com.ftm.app.api.dto.RebalanceSuggestionDto;
 import com.ftm.app.api.repository.CategoryRepository;
-import com.ftm.app.api.service.TradeSignalDeriver;
+import com.ftm.app.api.service.MomentumTradeSignalDeriver;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.CategoryId;
+import com.ftm.app.domain.CategoryType;
 import com.ftm.app.domain.Portfolio;
 import com.ftm.app.domain.SignalType;
 import com.ftm.app.portfolio.repository.PortfolioRepository;
@@ -31,26 +32,36 @@ public class PortfolioService {
   private static final BigDecimal ALIGNMENT_SCORE_GREEN_THRESHOLD = new BigDecimal("0.70");
   private static final BigDecimal ALIGNMENT_SCORE_YELLOW_THRESHOLD = new BigDecimal("0.40");
 
+  private static final BigDecimal HUNDRED = new BigDecimal("100");
+
   private final PortfolioRepository portfolioRepository;
   private final CategoryRepository categoryRepository;
   private final SignalRepository signalRepository;
   private final AlignmentService alignmentService;
   private final CategoryHierarchyResolver categoryHierarchyResolver;
+  private final LiveMomentumScoreService liveMomentumScoreService;
 
   public PortfolioService(
       PortfolioRepository portfolioRepository,
       CategoryRepository categoryRepository,
       SignalRepository signalRepository,
       AlignmentService alignmentService,
-      CategoryHierarchyResolver categoryHierarchyResolver) {
+      CategoryHierarchyResolver categoryHierarchyResolver,
+      LiveMomentumScoreService liveMomentumScoreService) {
     this.portfolioRepository = portfolioRepository;
     this.categoryRepository = categoryRepository;
     this.signalRepository = signalRepository;
     this.alignmentService = alignmentService;
     this.categoryHierarchyResolver = categoryHierarchyResolver;
+    this.liveMomentumScoreService = liveMomentumScoreService;
   }
 
+  /** Portfolio view with recommendations from the default (equity-sector) selection universe. */
   public PortfolioResponse getPortfolio() {
+    return getPortfolio(PortfolioSelectionUniverse.EQUITY_SECTORS);
+  }
+
+  public PortfolioResponse getPortfolio(PortfolioSelectionUniverse selectionUniverse) {
     List<Category> allCategories = categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc();
 
     Map<String, Category> categoriesById =
@@ -69,34 +80,36 @@ public class PortfolioService {
     Map<String, BigDecimal> currentAllocationByCategoryId =
         categoryHierarchyResolver.rollUpToTopLevel(rawAllocationByCategoryId, parentByCategoryId);
 
+    // Composite score is kept for on-page context only; it no longer drives the recommendations.
     Map<String, BigDecimal> compositeScoreByCategoryId =
         signalRepository.findLatestByType(SignalType.COMPOSITE);
 
-    // The portfolio view is over top-level categories only, so the optimal/alignment universe must
-    // be restricted to them. Otherwise factor and sub-sector composites (USMV, SEMI, ...) leak in,
-    // making optimal targets sum to <100% and surfacing rebalance suggestions for categories that
-    // are not part of the top-level allocation (e.g. USMV).
-    Map<String, BigDecimal> topLevelCompositeScoreByCategoryId =
-        compositeScoreByCategoryId.entrySet().stream()
+    // Live 12-1 momentum drives the recommendations — the signal that beat the composite
+    // out-of-sample (the composite's top-ranked pick was historically its worst). Computed for every
+    // top-level category (shown in the table), but see the selection universe below.
+    Map<String, BigDecimal> topLevelMomentumByCategoryId =
+        liveMomentumScoreService.computeLatestMomentumByCategoryId().entrySet().stream()
             .filter(e -> categoriesById.containsKey(e.getKey()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    Map<String, BigDecimal> rrgQuadrantByCategoryId =
-        signalRepository.findLatestByType(SignalType.RRG_QUADRANT);
+    // Selection universe drives the optimal. EQUITY_SECTORS (default) is where momentum's edge
+    // validated cleanly (top-3 Sharpe ~0.96); ALL_TOP_LEVEL adds gold/metals/bonds for dual-momentum
+    // rotation (top-5 — more names to tame metals whipsaw). Either way the absolute-momentum filter
+    // rotates to cash when nothing in the universe has positive momentum.
+    Map<String, BigDecimal> selectionMomentumByCategoryId =
+        selectionUniverse == PortfolioSelectionUniverse.EQUITY_SECTORS
+            ? topLevelMomentumByCategoryId.entrySet().stream()
+                .filter(e -> categoriesById.get(e.getKey()).type() == CategoryType.EQUITY_SECTOR)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
+            : topLevelMomentumByCategoryId;
 
-    Map<String, BigDecimal> compositeTrend20dByCategoryId =
-        signalRepository.findLatestByType(SignalType.COMPOSITE_TREND_20D);
-
-    // Signal-driven optimal: allocate proportionally to composite score (matches the UI's
-    // "Composite-optimal target" tooltip). The volatility-adjusted variant collapsed to ~87%
-    // bonds/cash and 0% in BUY-signal equity sectors — an artifact of dividing by tiny bond
-    // volatility — which directly contradicted the per-holding BUY/HOLD actions.
     Map<String, BigDecimal> optimalAllocationByCategoryId =
-        alignmentService.computeCompositeOptimalAllocation(topLevelCompositeScoreByCategoryId);
+        alignmentService.computeMomentumRankOptimalAllocation(
+            selectionMomentumByCategoryId, selectionUniverse.holdCount());
 
     BigDecimal alignmentScore =
-        alignmentService.computeAlignmentScore(
-            currentAllocationByCategoryId, topLevelCompositeScoreByCategoryId);
+        alignmentService.computeAlignmentScoreAgainstOptimal(
+            currentAllocationByCategoryId, optimalAllocationByCategoryId);
 
     String alignmentLabel = resolveAlignmentLabel(alignmentScore);
 
@@ -105,19 +118,17 @@ public class PortfolioService {
             .map(
                 category -> {
                   String categoryId = category.id().name();
-                  BigDecimal compositeScore = compositeScoreByCategoryId.get(categoryId);
-                  BigDecimal rrgQuadrantRaw = rrgQuadrantByCategoryId.get(categoryId);
-                  String rrgQuadrant =
-                      rrgQuadrantRaw != null ? String.valueOf(rrgQuadrantRaw.intValue()) : null;
-                  BigDecimal trend20d = compositeTrend20dByCategoryId.get(categoryId);
+                  BigDecimal momentum = topLevelMomentumByCategoryId.get(categoryId);
+                  boolean selected = optimalAllocationByCategoryId.containsKey(categoryId);
                   return new PortfolioAllocationEntry(
                       categoryId,
                       category.name(),
                       category.type().name(),
                       currentAllocationByCategoryId.getOrDefault(categoryId, BigDecimal.ZERO),
-                      compositeScore,
+                      compositeScoreByCategoryId.get(categoryId),
+                      toPercent(momentum),
                       optimalAllocationByCategoryId.get(categoryId),
-                      TradeSignalDeriver.derive(compositeScore, rrgQuadrant, trend20d));
+                      MomentumTradeSignalDeriver.derive(momentum, selected));
                 })
             .sorted(Comparator.comparing(PortfolioAllocationEntry::categoryId))
             .toList();
@@ -127,9 +138,7 @@ public class PortfolioService {
             categoriesById,
             currentAllocationByCategoryId,
             optimalAllocationByCategoryId,
-            compositeScoreByCategoryId,
-            rrgQuadrantByCategoryId,
-            compositeTrend20dByCategoryId);
+            topLevelMomentumByCategoryId);
 
     log.debug(
         "Portfolio loaded: {} allocations, alignment={}", allocationEntries.size(), alignmentScore);
@@ -179,9 +188,7 @@ public class PortfolioService {
       Map<String, Category> categoriesById,
       Map<String, BigDecimal> currentAllocationByCategoryId,
       Map<String, BigDecimal> optimalAllocationByCategoryId,
-      Map<String, BigDecimal> compositeScoreByCategoryId,
-      Map<String, BigDecimal> rrgQuadrantByCategoryId,
-      Map<String, BigDecimal> compositeTrend20dByCategoryId) {
+      Map<String, BigDecimal> momentumByCategoryId) {
 
     List<RebalanceSuggestionDto> suggestions = new ArrayList<>();
 
@@ -193,64 +200,74 @@ public class PortfolioService {
           currentAllocationByCategoryId.getOrDefault(categoryId, BigDecimal.ZERO);
       BigDecimal delta = optimalPct.subtract(currentPct).setScale(2, RoundingMode.HALF_UP);
       String action = delta.compareTo(BigDecimal.ZERO) >= 0 ? "INCREASE" : "DECREASE";
-      String categoryName =
-          categoriesById.containsKey(categoryId)
-              ? categoriesById.get(categoryId).name()
-              : categoryId;
 
-      BigDecimal compositeScore = compositeScoreByCategoryId.get(categoryId);
-      BigDecimal rrgRaw = rrgQuadrantByCategoryId.get(categoryId);
-      String rrgQuadrant = rrgRaw != null ? String.valueOf(rrgRaw.intValue()) : null;
-      BigDecimal trend20d = compositeTrend20dByCategoryId.get(categoryId);
-      String tradeSignal = TradeSignalDeriver.derive(compositeScore, rrgQuadrant, trend20d);
-      int compositeScorePct =
-          compositeScore != null ? compositeScore.multiply(BigDecimal.valueOf(100)).intValue() : 0;
-
-      // Signal is aligned when: INCREASE backed by BUY, or DECREASE backed by REDUCE
-      boolean signalAligned =
-          ("INCREASE".equals(action) && "BUY".equals(tradeSignal))
-              || ("DECREASE".equals(action) && "REDUCE".equals(tradeSignal));
-
+      // In the optimal set → selected top-N momentum sector, so the signal is BUY.
+      BigDecimal momentum = momentumByCategoryId.get(categoryId);
+      String tradeSignal = MomentumTradeSignalDeriver.derive(momentum, true);
       suggestions.add(
-          new RebalanceSuggestionDto(
-              categoryId,
-              categoryName,
-              action,
-              currentPct,
-              optimalPct,
-              delta,
-              tradeSignal,
-              compositeScorePct,
-              signalAligned));
+          buildSuggestion(
+              categoriesById, categoryId, action, currentPct, optimalPct, delta, tradeSignal,
+              momentum));
     }
 
-    // Untracked categories (CASH/BIL, etc.) with current allocation — always suggest reducing
+    // Categories held but not in the optimal set (untracked cash/BIL, or a sector that fell out of
+    // the top-N) — suggest reducing toward zero.
     for (Map.Entry<String, BigDecimal> entry : currentAllocationByCategoryId.entrySet()) {
       String categoryId = entry.getKey();
       if (optimalAllocationByCategoryId.containsKey(categoryId)) continue;
       BigDecimal currentPct = entry.getValue();
       if (currentPct.compareTo(BigDecimal.ZERO) <= 0) continue;
       BigDecimal delta = BigDecimal.ZERO.subtract(currentPct).setScale(2, RoundingMode.HALF_UP);
-      String categoryName =
-          categoriesById.containsKey(categoryId)
-              ? categoriesById.get(categoryId).name()
-              : categoryId;
+
+      BigDecimal momentum = momentumByCategoryId.get(categoryId);
+      String tradeSignal = MomentumTradeSignalDeriver.derive(momentum, false);
       suggestions.add(
-          new RebalanceSuggestionDto(
-              categoryId,
-              categoryName,
-              "DECREASE",
-              currentPct,
-              BigDecimal.ZERO,
-              delta,
-              null,
-              null,
-              true));
+          buildSuggestion(
+              categoriesById, categoryId, "DECREASE", currentPct, BigDecimal.ZERO, delta,
+              tradeSignal, momentum));
     }
 
     return suggestions.stream()
         .filter(s -> s.deltaPct().abs().compareTo(new BigDecimal("0.5")) > 0)
         .sorted(Comparator.comparing(s -> s.deltaPct().abs(), Comparator.reverseOrder()))
         .toList();
+  }
+
+  private RebalanceSuggestionDto buildSuggestion(
+      Map<String, Category> categoriesById,
+      String categoryId,
+      String action,
+      BigDecimal currentPct,
+      BigDecimal optimalPct,
+      BigDecimal delta,
+      String tradeSignal,
+      BigDecimal momentum) {
+
+    String categoryName =
+        categoriesById.containsKey(categoryId)
+            ? categoriesById.get(categoryId).name()
+            : categoryId;
+
+    // Aligned when the trade matches the signal: adding a BUY, or trimming a REDUCE.
+    boolean signalAligned =
+        ("INCREASE".equals(action) && "BUY".equals(tradeSignal))
+            || ("DECREASE".equals(action) && "REDUCE".equals(tradeSignal));
+
+    return new RebalanceSuggestionDto(
+        categoryId,
+        categoryName,
+        action,
+        currentPct,
+        optimalPct,
+        delta,
+        tradeSignal,
+        null,
+        toPercent(momentum),
+        signalAligned);
+  }
+
+  /** Rounds a momentum return (e.g. 0.1454) to a whole-percent Integer (15); null passes through. */
+  private Integer toPercent(BigDecimal momentum) {
+    return momentum == null ? null : momentum.multiply(HUNDRED).setScale(0, RoundingMode.HALF_UP).intValue();
   }
 }

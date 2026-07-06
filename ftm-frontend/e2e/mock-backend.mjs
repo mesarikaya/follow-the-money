@@ -254,15 +254,15 @@ const FACTOR_ETF_RESPONSE = [
 
 const PORTFOLIO_RESPONSE = {
   allocations: [
-    { categoryId: "TECH", categoryName: "Information Technology", categoryType: "EQUITY_SECTOR",  allocationPct: 30, compositeScore: 0.82, optimalAllocationPct: 35 },
-    { categoryId: "HLTH", categoryName: "Health Care",            categoryType: "EQUITY_SECTOR",  allocationPct: 20, compositeScore: 0.71, optimalAllocationPct: 18 },
-    { categoryId: "GOLD", categoryName: "Gold",                   categoryType: "PRECIOUS_METAL", allocationPct: 10, compositeScore: null, optimalAllocationPct: null },
-    { categoryId: "CASH", categoryName: "Cash & Short-Term",      categoryType: "CASH",           allocationPct: 40, compositeScore: null, optimalAllocationPct: null },
+    { categoryId: "TECH", categoryName: "Information Technology", categoryType: "EQUITY_SECTOR",  allocationPct: 30, compositeScore: 0.82, momentumPct: 24, optimalAllocationPct: 50, tradeSignal: "BUY" },
+    { categoryId: "HLTH", categoryName: "Health Care",            categoryType: "EQUITY_SECTOR",  allocationPct: 20, compositeScore: 0.71, momentumPct: 6,  optimalAllocationPct: null, tradeSignal: "HOLD" },
+    { categoryId: "GOLD", categoryName: "Gold",                   categoryType: "PRECIOUS_METAL", allocationPct: 10, compositeScore: null, momentumPct: -3, optimalAllocationPct: null, tradeSignal: "REDUCE" },
+    { categoryId: "CASH", categoryName: "Cash & Short-Term",      categoryType: "CASH",           allocationPct: 40, compositeScore: null, momentumPct: null, optimalAllocationPct: null, tradeSignal: null },
   ],
   alignmentScore: 0.74,
   alignmentLabel: "ALIGNED",
   rebalanceSuggestions: [
-    { categoryId: "TECH", categoryName: "Information Technology", action: "INCREASE", currentAllocationPct: 30, optimalAllocationPct: 35, deltaPct: 5 },
+    { categoryId: "TECH", categoryName: "Information Technology", action: "INCREASE", currentAllocationPct: 30, optimalAllocationPct: 50, deltaPct: 20, tradeSignal: "BUY", compositeScorePct: null, momentumPct: 24, signalAligned: true },
   ],
 };
 

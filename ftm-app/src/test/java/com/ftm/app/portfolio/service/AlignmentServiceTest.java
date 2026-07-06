@@ -215,4 +215,77 @@ class AlignmentServiceTest {
 
     assertThat(optimal).isEmpty();
   }
+
+  @Test
+  void momentumRankAllocationRankWeightsTopNPositiveSectors() {
+    Map<String, BigDecimal> momentum =
+        Map.of(
+            "XLK", new BigDecimal("0.30"),
+            "XLE", new BigDecimal("0.20"),
+            "XLF", new BigDecimal("0.10"),
+            "XLV", new BigDecimal("0.05"));
+
+    Map<String, BigDecimal> optimal =
+        alignmentService.computeMomentumRankOptimalAllocation(momentum, 3);
+
+    // Top-3 by momentum (XLK > XLE > XLF), linear rank weights 3/2/1 of 6 → 50/33.33/16.67;
+    // XLV drops out. Weights decrease with rank and sum to 100.
+    assertThat(optimal).containsOnlyKeys("XLK", "XLE", "XLF");
+    assertThat(optimal.get("XLK")).isEqualByComparingTo(new BigDecimal("50.00"));
+    assertThat(optimal.get("XLE")).isEqualByComparingTo(new BigDecimal("33.33"));
+    assertThat(optimal.get("XLF")).isEqualByComparingTo(new BigDecimal("16.67"));
+    assertThat(
+            optimal.get("XLK").add(optimal.get("XLE")).add(optimal.get("XLF")))
+        .isEqualByComparingTo(new BigDecimal("100.00"));
+  }
+
+  @Test
+  void momentumRankAllocationExcludesNonPositiveMomentum() {
+    Map<String, BigDecimal> momentum = new java.util.HashMap<>();
+    momentum.put("XLK", new BigDecimal("0.12"));
+    momentum.put("XLE", BigDecimal.ZERO);
+    momentum.put("XLF", new BigDecimal("-0.08"));
+    momentum.put("XLV", null);
+
+    Map<String, BigDecimal> optimal =
+        alignmentService.computeMomentumRankOptimalAllocation(momentum, 5);
+
+    // Only XLK is positive → it takes the whole allocation (absolute-momentum filter).
+    assertThat(optimal).containsOnlyKeys("XLK");
+    assertThat(optimal.get("XLK")).isEqualByComparingTo(new BigDecimal("100.00"));
+  }
+
+  @Test
+  void momentumRankAllocationReturnsEmptyWhenNothingPositive() {
+    Map<String, BigDecimal> momentum =
+        Map.of("XLK", new BigDecimal("-0.02"), "XLF", new BigDecimal("-0.10"));
+
+    Map<String, BigDecimal> optimal =
+        alignmentService.computeMomentumRankOptimalAllocation(momentum, 5);
+
+    // All sectors falling → all cash (defensive dual-momentum outcome).
+    assertThat(optimal).isEmpty();
+  }
+
+  @Test
+  void alignmentAgainstOptimalIsOverlapFraction() {
+    Map<String, BigDecimal> current =
+        Map.of("XLK", new BigDecimal("50"), "XLE", new BigDecimal("10"), "CASH", new BigDecimal("40"));
+    Map<String, BigDecimal> optimal =
+        Map.of("XLK", new BigDecimal("50"), "XLE", new BigDecimal("50"));
+
+    // overlap = min(50,50) + min(10,50) = 50 + 10 = 60 → 0.60. CASH is outside the optimal → 0.
+    BigDecimal score = alignmentService.computeAlignmentScoreAgainstOptimal(current, optimal);
+
+    assertThat(score.doubleValue()).isCloseTo(0.60, within(0.001));
+  }
+
+  @Test
+  void alignmentAgainstEmptyOptimalIsZero() {
+    Map<String, BigDecimal> current = Map.of("XLK", new BigDecimal("100"));
+
+    BigDecimal score = alignmentService.computeAlignmentScoreAgainstOptimal(current, Map.of());
+
+    assertThat(score).isEqualByComparingTo(BigDecimal.ZERO);
+  }
 }

@@ -15,6 +15,11 @@ import PortfolioOverview from "@/components/PortfolioOverview";
 import CollapsibleSection from "@/components/CollapsibleSection";
 import { deriveTradeSignal, TradeSignal } from "@/lib/signals";
 import { getParentSectorId } from "@/lib/sectors";
+import {
+  currencySymbol, isStale, unrealizedPnl, maxAllocationPct, weightedMomentumPct,
+  simulatedAlignmentPercent, topRebalanceActions, computeHoldingsPnl, findConcentrationRisk,
+  sectorExposureRows,
+} from "@/lib/portfolio/portfolioMetrics";
 
 const ALIGNMENT_CONFIG = {
   ALIGNED:    { label: "Aligned",    colorClass: "text-emerald-400", barClass: "bg-emerald-500" },
@@ -45,30 +50,6 @@ const SIGNAL_CONFIG: Record<TradeSignal, { className: string }> = {
 
 type SortField = "ticker" | "categoryId" | "quantity" | "avgCostLocal" | "currentPriceLocal" | "marketValueEur" | "unrealizedPnlPct";
 type SortDir = "asc" | "desc";
-
-function currencySymbol(currency: string | undefined): string {
-  switch (currency) {
-    case "EUR": return "€";
-    case "GBP": return "£";
-    case "GBX": return "p";
-    case "SEK": return "kr";
-    default:    return "$";
-  }
-}
-
-function isStale(holding: HoldingDto): boolean {
-  if (!holding.priceSource) return true;
-  if (!holding.priceDate) return true;
-  const priceAge = Date.now() - new Date(holding.priceDate).getTime();
-  return priceAge > 3 * 24 * 60 * 60 * 1000;
-}
-
-function unrealizedPnl(h: HoldingDto): { pct: number; absLocal: number } | null {
-  if (h.currentPriceLocal == null || h.avgCostLocal == null || h.avgCostLocal === 0) return null;
-  const pct = (h.currentPriceLocal - h.avgCostLocal) / h.avgCostLocal;
-  const absLocal = (h.currentPriceLocal - h.avgCostLocal) * h.quantity;
-  return { pct, absLocal };
-}
 
 function AllocationBar({ currentPct, optimalPct, maxPct }: { currentPct: number; optimalPct: number | null; maxPct: number }) {
   const currentWidth = maxPct > 0 ? (currentPct / maxPct) * 100 : 0;
@@ -355,46 +336,17 @@ export default function PortfolioPage() {
   };
 
   const isValidTotal = Math.abs(totalAllocation - 100) <= 0.5;
-  const maxAllocationPct = portfolio
-    ? Math.max(...portfolio.allocations.map((a) => Math.max(a.allocationPct, a.optimalAllocationPct ?? 0)), 1)
-    : 100;
+  const maxBarPct = portfolio ? maxAllocationPct(portfolio.allocations) : 100;
 
   const alignmentScorePercent = portfolio ? Math.round(portfolio.alignmentScore * 100) : 0;
+  const simulatedAlignment = portfolio ? simulatedAlignmentPercent(portfolio) : null;
 
-  const simulatedAlignmentPercent = portfolio && portfolio.rebalanceSuggestions.length > 0 ? (() => {
-    const simAlloc: Record<string, number> = {};
-    portfolio.allocations.forEach(a => { simAlloc[a.categoryId] = a.allocationPct; });
-    portfolio.rebalanceSuggestions.forEach(s => {
-      if (simAlloc[s.categoryId] !== undefined) {
-        simAlloc[s.categoryId] = Math.max(0, simAlloc[s.categoryId] + s.deltaPct);
-      }
-    });
-    let overlap = 0;
-    portfolio.allocations.forEach(a => {
-      if (a.optimalAllocationPct == null) return;
-      overlap += Math.min(simAlloc[a.categoryId] ?? 0, a.optimalAllocationPct);
-    });
-    return Math.round(Math.min(overlap, 100));
-  })() : null;
-
-  // Allocation-weighted 12-1 momentum of the current vs the optimal (momentum-driven) portfolio —
-  // kept consistent with the recommendation signal (was composite-weighted, which mixed signals).
+  // Allocation-weighted 12-1 momentum of the current vs the optimal (momentum-driven) portfolio.
   const portfolioMomentumPct = portfolio
-    ? Math.round(
-        portfolio.allocations.reduce((sum, entry) => {
-          const allocation = parseFloat(editedAllocations[entry.categoryId] ?? "0") || 0;
-          return sum + (allocation / 100) * (entry.momentumPct ?? 0);
-        }, 0)
-      )
+    ? weightedMomentumPct(portfolio.allocations, (entry) => parseFloat(editedAllocations[entry.categoryId] ?? "0") || 0)
     : null;
-
   const optimalMomentumPct = portfolio
-    ? Math.round(
-        portfolio.allocations.reduce((sum, entry) => {
-          const optimal = entry.optimalAllocationPct ?? 0;
-          return sum + (optimal / 100) * (entry.momentumPct ?? 0);
-        }, 0)
-      )
+    ? weightedMomentumPct(portfolio.allocations, (entry) => entry.optimalAllocationPct ?? 0)
     : null;
 
   const totalEur = holdings
@@ -406,26 +358,10 @@ export default function PortfolioPage() {
     ? portfolio.allocations.find((a) => a.categoryId === "CASH")?.allocationPct ?? 0
     : 0;
   const investedPct = 100 - cashPct;
-  const topRebalanceActions = portfolio
-    ? [...portfolio.rebalanceSuggestions]
-        .sort((a, b) => Math.abs(b.deltaPct) - Math.abs(a.deltaPct))
-        .slice(0, 5)
-    : [];
+  const topActions = portfolio ? topRebalanceActions(portfolio) : [];
 
   const staleCount = holdings ? holdings.filter(isStale).length : 0;
-
-  const holdingsSummary = holdings && holdings.length > 0 ? (() => {
-    let totalPnlEur = 0;
-    let totalCostEur = 0;
-    for (const h of holdings) {
-      if (h.currentPriceLocal == null || h.avgCostLocal == null || h.avgCostLocal === 0 || h.marketValueEur == null) continue;
-      const pnlPct = (h.currentPriceLocal - h.avgCostLocal) / h.currentPriceLocal;
-      totalPnlEur += h.marketValueEur * pnlPct;
-      totalCostEur += h.marketValueEur * (h.avgCostLocal / h.currentPriceLocal);
-    }
-    const totalPnlPct = totalCostEur > 0 ? totalPnlEur / totalCostEur : null;
-    return { totalPnlEur, totalPnlPct };
-  })() : null;
+  const holdingsSummary = holdings ? computeHoldingsPnl(holdings) : null;
 
   const radarSignals = (() => {
     if (!holdings) return [] as (typeof categoryById)[string][];
@@ -437,21 +373,8 @@ export default function PortfolioPage() {
       .slice(0, 5);
   })();
 
-  const concentrationRisk = (() => {
-    if (!holdings || !totalEur || totalEur === 0) return null;
-    const sectorEur: Record<string, { name: string; eur: number }> = {};
-    for (const h of holdings) {
-      if (!h.categoryId || h.marketValueEur == null) continue;
-      if (!sectorEur[h.categoryId]) {
-        sectorEur[h.categoryId] = { name: categoryById[h.categoryId]?.name ?? h.categoryId, eur: 0 };
-      }
-      sectorEur[h.categoryId].eur += h.marketValueEur;
-    }
-    const top = Object.entries(sectorEur)
-      .map(([id, data]) => ({ id, ...data, pct: (data.eur / totalEur) * 100 }))
-      .sort((a, b) => b.pct - a.pct)[0];
-    return top && top.pct > 40 ? top : null;
-  })();
+  const concentrationRisk =
+    holdings && totalEur != null ? findConcentrationRisk(holdings, categoryById, totalEur) : null;
 
   return (
     <div className="flex flex-col h-full">
@@ -548,7 +471,7 @@ export default function PortfolioPage() {
             alignmentLabel={portfolio.alignmentLabel}
             cashPct={cashPct}
             investedPct={investedPct}
-            actions={topRebalanceActions}
+            actions={topActions}
           />
         )}
 
@@ -624,7 +547,7 @@ export default function PortfolioPage() {
                     <AllocationBar
                       currentPct={parseFloat(editedAllocations[entry.categoryId] ?? "0") || 0}
                       optimalPct={entry.optimalAllocationPct}
-                      maxPct={maxAllocationPct}
+                      maxPct={maxBarPct}
                     />
                     <div className="flex items-center gap-1 shrink-0">
                       <input
@@ -690,12 +613,12 @@ export default function PortfolioPage() {
                 >
                   (?)
                 </span>
-                {simulatedAlignmentPercent !== null && (
+                {simulatedAlignment !== null && (
                   <span
                     className="ml-auto text-[10px] text-slate-500"
                     title="Approximate alignment score after implementing all suggestions (uses vol-adjusted optimal, may differ slightly from server-computed score)"
                   >
-                    if applied: <span className={`font-semibold ${simulatedAlignmentPercent >= 70 ? "text-emerald-400" : simulatedAlignmentPercent >= 40 ? "text-amber-400" : "text-red-400"}`}>{simulatedAlignmentPercent}%</span> ~aligned
+                    if applied: <span className={`font-semibold ${simulatedAlignment >= 70 ? "text-emerald-400" : simulatedAlignment >= 40 ? "text-amber-400" : "text-red-400"}`}>{simulatedAlignment}%</span> ~aligned
                   </span>
                 )}
               </div>
@@ -867,39 +790,7 @@ export default function PortfolioPage() {
 
         {/* Sector Exposure Rollup */}
         {holdings && holdings.length > 0 && portfolio && totalEur != null && totalEur > 0 && (() => {
-          const grouped: Record<string, { name: string; totalEur: number; signal: TradeSignal | null; score: number | null; targetPct: number | null }> = {};
-          let unclassifiedEur = 0;
-
-          for (const h of holdings) {
-            const val = h.marketValueEur ?? 0;
-            if (!h.categoryId) { unclassifiedEur += val; continue; }
-            // Roll sub-category holdings (INDU_ADEF, SEMI, ...) up to their parent sector so they
-            // group under the top-level sector (with its signal/target) instead of raw sub-sector
-            // rows with no data. Asset classes (CASH, GOLD, ...) fall through to themselves.
-            const sectorId = getParentSectorId(h.categoryId) ?? h.categoryId;
-            if (!grouped[sectorId]) {
-              const cat = categoryById[sectorId];
-              const alloc = portfolio.allocations.find(a => a.categoryId === sectorId);
-              const sig = cat ? ((cat.tradeSignal as TradeSignal | null) ?? deriveTradeSignal(cat)) : null;
-              grouped[sectorId] = {
-                name: cat?.name ?? alloc?.categoryName ?? sectorId,
-                totalEur: 0,
-                signal: sig,
-                score: cat?.compositeScore != null ? Math.round(cat.compositeScore * 100) : null,
-                targetPct: alloc?.optimalAllocationPct ?? null,
-              };
-            }
-            grouped[sectorId].totalEur += val;
-          }
-
-          const rows = Object.entries(grouped)
-            .map(([id, data]) => ({
-              id,
-              ...data,
-              actualPct: (data.totalEur / totalEur) * 100,
-            }))
-            .sort((a, b) => b.totalEur - a.totalEur);
-
+          const { rows, unclassifiedEur } = sectorExposureRows(holdings, portfolio, categoryById, totalEur);
           if (rows.length === 0) return null;
 
           return (

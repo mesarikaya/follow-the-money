@@ -3,12 +3,12 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   fetchPortfolio, savePortfolio, PortfolioResponse, PortfolioAllocationEntry, PortfolioSelectionUniverse,
-  fetchHoldings, uploadHoldings, downloadHoldingsTemplate, refreshHoldingPrices,
-  HoldingDto, HoldingsUploadResponse, updateHolding, deleteHolding, createHolding,
+  HoldingDto,
   fetchPriceLevels, PriceLevelDto, fetchWinRates, SignalWinRateDto,
   fetchCategories, CategorySummary, fetchPortfolioSnapshots, PortfolioSnapshot,
   fetchPortfolioActions, HoldingActionDto,
 } from "@/lib/api";
+import { useHoldings, SortField, SortDir } from "./useHoldings";
 import PortfolioValueChart from "@/components/PortfolioValueChart";
 import AllocationDonutChart from "@/components/AllocationDonutChart";
 import PortfolioOverview from "@/components/PortfolioOverview";
@@ -43,8 +43,6 @@ const COMPOSITE_SCORE_TOOLTIP =
   "Composite signal score (0–100): a weighted combination of relative-strength, momentum, " +
   "and macro-regime signals for this category. Higher = stronger current signal.";
 
-type SortField = "ticker" | "categoryId" | "quantity" | "avgCostLocal" | "currentPriceLocal" | "marketValueEur" | "unrealizedPnlPct";
-type SortDir = "asc" | "desc";
 
 function AllocationBar({ currentPct, optimalPct, maxPct }: { currentPct: number; optimalPct: number | null; maxPct: number }) {
   const currentWidth = maxPct > 0 ? (currentPct / maxPct) * 100 : 0;
@@ -80,30 +78,8 @@ export default function PortfolioPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
-  const [holdings, setHoldings] = useState<HoldingDto[] | null>(null);
-  const [uploadResult, setUploadResult] = useState<HoldingsUploadResponse | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
-  const [sortField, setSortField] = useState<SortField>("marketValueEur");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [portfolioSnapshots, setPortfolioSnapshots] = useState<PortfolioSnapshot[] | null>(null);
   const [portfolioActions, setPortfolioActions] = useState<HoldingActionDto[] | null>(null);
-  const [editingTicker, setEditingTicker] = useState<string | null>(null);
-  const [editQty, setEditQty] = useState("");
-  const [editPrice, setEditPrice] = useState("");
-  const [editManualPrice, setEditManualPrice] = useState("");
-  const [isSavingHolding, setIsSavingHolding] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [deletingTicker, setDeletingTicker] = useState<string | null>(null);
-  const [confirmDeleteTicker, setConfirmDeleteTicker] = useState<string | null>(null);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [addTicker, setAddTicker] = useState("");
-  const [addCurrency, setAddCurrency] = useState("USD");
-  const [addQty, setAddQty] = useState("");
-  const [addAvgCost, setAddAvgCost] = useState("");
-  const [isAdding, setIsAdding] = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
 
   const loadPortfolio = useCallback(async () => {
     try {
@@ -121,19 +97,28 @@ export default function PortfolioPage() {
     }
   }, [selectionUniverse]);
 
-  // Re-fetch everything derived from holdings after any CRUD (add/edit/delete/upload/refresh)
-  // so holdings, allocations, the alignment/summary panels, and Recommended Actions stay in sync.
-  const reloadPortfolioData = useCallback(async () => {
+  // After any holdings change, refresh the portfolio-level data that depends on them (allocations
+  // and Recommended Actions). Holdings themselves are owned and reloaded by useHoldings.
+  const reloadPortfolioAndActions = useCallback(async () => {
     await Promise.all([
-      fetchHoldings().then(setHoldings).catch(() => {}),
       loadPortfolio(),
       fetchPortfolioActions().then(setPortfolioActions).catch(() => {}),
     ]);
   }, [loadPortfolio]);
 
+  const {
+    holdings, sortedHoldings, sortField, sortDir, handleSort,
+    uploadResult, isUploading, uploadError, handleUpload, handleTemplateDownload,
+    isRefreshingPrices, handleRefreshPrices,
+    editingTicker, editQty, setEditQty, editPrice, setEditPrice, editManualPrice, setEditManualPrice,
+    isSavingHolding, editError, setEditError, startEdit, saveEdit, cancelEdit,
+    deletingTicker, confirmDeleteTicker, setConfirmDeleteTicker, handleDelete,
+    showAddForm, setShowAddForm, addTicker, setAddTicker, addCurrency, setAddCurrency,
+    addQty, setAddQty, addAvgCost, setAddAvgCost, isAdding, addError, setAddError, handleAddHolding,
+  } = useHoldings(reloadPortfolioAndActions);
+
   useEffect(() => {
     loadPortfolio();
-    fetchHoldings().then(setHoldings).catch(() => setHoldings([]));
     fetchPriceLevels().then(levels => {
       const map: Record<string, PriceLevelDto> = {};
       levels.forEach(pl => { map[pl.categoryId] = pl; });
@@ -192,142 +177,6 @@ export default function PortfolioPage() {
     setEditedAllocations(resetAllocations);
     setIsDirty(false);
     setSaveError(null);
-  };
-
-  const handleUpload = async (file: File) => {
-    setIsUploading(true);
-    setUploadError(null);
-    setUploadResult(null);
-    try {
-      const result = await uploadHoldings(file);
-      setUploadResult(result);
-      setHoldings(result.holdings);
-      await reloadPortfolioData();
-    } catch (error) {
-      setUploadError(String(error));
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleRefreshPrices = async () => {
-    setIsRefreshingPrices(true);
-    try {
-      const updated = await refreshHoldingPrices();
-      setHoldings(updated);
-      await reloadPortfolioData();
-    } catch (error) {
-      setUploadError(String(error));
-    } finally {
-      setIsRefreshingPrices(false);
-    }
-  };
-
-  const handleAddHolding = async () => {
-    if (!addTicker.trim() || !addQty) return;
-    setIsAdding(true);
-    setAddError(null);
-    try {
-      const created = await createHolding({
-        ticker: addTicker.trim().toUpperCase(),
-        currency: addCurrency,
-        quantity: parseFloat(addQty),
-        avgCostLocal: addAvgCost ? parseFloat(addAvgCost) : undefined,
-      });
-      setHoldings((prev) => prev ? [...prev, created] : [created]);
-      setShowAddForm(false);
-      setAddTicker(""); setAddCurrency("USD"); setAddQty(""); setAddAvgCost("");
-      await reloadPortfolioData();
-    } catch (error) {
-      setAddError(String(error));
-    } finally {
-      setIsAdding(false);
-    }
-  };
-
-  const handleTemplateDownload = async () => {
-    const res = await downloadHoldingsTemplate();
-    if (!res.ok) return;
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "holdings-template.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleSort = (field: SortField) => {
-    if (field === sortField) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortField(field);
-      setSortDir("desc");
-    }
-  };
-
-  const sortedHoldings = holdings ? [...holdings].sort((a, b) => {
-    if (sortField === "unrealizedPnlPct") {
-      const aP = unrealizedPnl(a)?.pct ?? (sortDir === "asc" ? Infinity : -Infinity);
-      const bP = unrealizedPnl(b)?.pct ?? (sortDir === "asc" ? Infinity : -Infinity);
-      return sortDir === "asc" ? aP - bP : bP - aP;
-    }
-    const aVal = a[sortField] ?? (sortDir === "asc" ? Infinity : -Infinity);
-    const bVal = b[sortField] ?? (sortDir === "asc" ? Infinity : -Infinity);
-    if (typeof aVal === "string" && typeof bVal === "string") {
-      return sortDir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-    }
-    const aNum = Number(aVal);
-    const bNum = Number(bVal);
-    return sortDir === "asc" ? aNum - bNum : bNum - aNum;
-  }) : null;
-
-  const startEdit = (h: HoldingDto) => {
-    setEditingTicker(h.ticker);
-    setEditQty(String(h.quantity));
-    setEditPrice(h.avgCostLocal != null ? String(h.avgCostLocal) : "");
-    setEditManualPrice(h.currentPriceLocal != null ? String(h.currentPriceLocal) : "");
-  };
-
-  const cancelEdit = () => {
-    setEditingTicker(null);
-    setEditQty("");
-    setEditPrice("");
-    setEditManualPrice("");
-  };
-
-  const saveEdit = async (ticker: string) => {
-    setIsSavingHolding(true);
-    setEditError(null);
-    try {
-      const updated = await updateHolding(ticker, {
-        quantity: parseFloat(editQty),
-        avgCostLocal: editPrice ? parseFloat(editPrice) : undefined,
-        currentPriceLocal: editManualPrice ? parseFloat(editManualPrice) : undefined,
-      });
-      setEditingTicker(null);
-      setHoldings((prev) => prev ? prev.map((h) => h.ticker === ticker ? updated : h) : prev);
-      await reloadPortfolioData();
-    } catch (error) {
-      setEditError(String(error));
-    } finally {
-      setIsSavingHolding(false);
-    }
-  };
-
-  const handleDelete = async (ticker: string) => {
-    setDeletingTicker(ticker);
-    setEditError(null);
-    try {
-      await deleteHolding(ticker);
-      setHoldings((prev) => prev ? prev.filter((h) => h.ticker !== ticker) : prev);
-      setConfirmDeleteTicker(null);
-      await reloadPortfolioData();
-    } catch (error) {
-      setEditError(String(error));
-    } finally {
-      setDeletingTicker(null);
-    }
   };
 
   const isValidTotal = Math.abs(totalAllocation - 100) <= 0.5;

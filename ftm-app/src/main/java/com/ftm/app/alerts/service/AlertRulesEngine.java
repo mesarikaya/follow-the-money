@@ -2,6 +2,8 @@ package com.ftm.app.alerts.service;
 
 import com.ftm.app.alerts.evaluator.AlertEvaluationContext;
 import com.ftm.app.alerts.evaluator.MacroRegimeShiftAlertEvaluator;
+import com.ftm.app.alerts.evaluator.Theme5dAccelerationAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ThemeDistributeWarningAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeMomentumAlertEvaluator;
 import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.alerts.repository.AlertRulesRepository;
@@ -134,15 +136,6 @@ public class AlertRulesEngine {
   private static final double THEME_REDUCE_FIRE_FRACTION = 0.50;
   private static final double THEME_BUY_RESOLVE_FRACTION = 0.35;
   private static final double THEME_REDUCE_RESOLVE_FRACTION = 0.35;
-  private static final String RULE_THEME_5D_ACCELERATION = "theme_5d_acceleration";
-  // Fires when 5d trend exceeds 20d trend by >= 0.008 (momentum regime change signal)
-  private static final double THEME_5D_ACCEL_DELTA_THRESHOLD = 0.008;
-  private static final double THEME_5D_ACCEL_DELTA_RESOLVE = 0.003;
-  private static final String RULE_THEME_DISTRIBUTE_WARNING = "theme_distribute_warning";
-  // Fires when score >= 0.65 (BUY) but flow is significantly negative — potential distribution top
-  private static final double THEME_DISTRIBUTE_SCORE_THRESHOLD = 0.65;
-  private static final double THEME_DISTRIBUTE_FLOW_THRESHOLD = -0.5;
-  private static final double THEME_DISTRIBUTE_FLOW_RESOLVE = 0.0;
   private static final String RULE_THEME_PHASE_BREAKOUT_ENTRY = "theme_phase_breakout_entry";
   // Fires when a theme transitions INTO the BREAKOUT phase (was not BREAKOUT 5 trading days ago)
   private static final int THEME_PHASE_LOOKBACK_DAYS = 5;
@@ -220,6 +213,8 @@ public class AlertRulesEngine {
   // clean-code refactoring plan). The engine still orchestrates; each extracted rule is one class.
   private final MacroRegimeShiftAlertEvaluator macroRegimeShiftAlertEvaluator;
   private final ThemeMomentumAlertEvaluator themeMomentumAlertEvaluator;
+  private final Theme5dAccelerationAlertEvaluator theme5dAccelerationAlertEvaluator;
+  private final ThemeDistributeWarningAlertEvaluator themeDistributeWarningAlertEvaluator;
 
   public AlertRulesEngine(
       AlertRepository alertRepository,
@@ -229,7 +224,9 @@ public class AlertRulesEngine {
       CategoryRepository categoryRepository,
       ThemeRepository themeRepository,
       MacroRegimeShiftAlertEvaluator macroRegimeShiftAlertEvaluator,
-      ThemeMomentumAlertEvaluator themeMomentumAlertEvaluator) {
+      ThemeMomentumAlertEvaluator themeMomentumAlertEvaluator,
+      Theme5dAccelerationAlertEvaluator theme5dAccelerationAlertEvaluator,
+      ThemeDistributeWarningAlertEvaluator themeDistributeWarningAlertEvaluator) {
     this.alertRepository = alertRepository;
     this.alertRulesRepository = alertRulesRepository;
     this.rotationEventRepository = rotationEventRepository;
@@ -238,6 +235,8 @@ public class AlertRulesEngine {
     this.themeRepository = themeRepository;
     this.macroRegimeShiftAlertEvaluator = macroRegimeShiftAlertEvaluator;
     this.themeMomentumAlertEvaluator = themeMomentumAlertEvaluator;
+    this.theme5dAccelerationAlertEvaluator = theme5dAccelerationAlertEvaluator;
+    this.themeDistributeWarningAlertEvaluator = themeDistributeWarningAlertEvaluator;
   }
 
   @EventListener
@@ -281,8 +280,8 @@ public class AlertRulesEngine {
     alertsCreated += evaluateSubSectorBullConfluence(signalDate, equityCategoryIds);
     alertsCreated += evaluateThemeSignalTransitions(signalDate);
     alertsCreated += themeMomentumAlertEvaluator.evaluate(context);
-    alertsCreated += evaluateTheme5dAcceleration(signalDate);
-    alertsCreated += evaluateThemeDistributeWarning(signalDate);
+    alertsCreated += theme5dAccelerationAlertEvaluator.evaluate(context);
+    alertsCreated += themeDistributeWarningAlertEvaluator.evaluate(context);
     alertsCreated += evaluateThemePhaseBreakoutEntry(signalDate);
     alertsCreated += evaluateThemeFailedBreakout(signalDate);
     alertsCreated += evaluateThemeSetupAcceleration(signalDate);
@@ -2479,147 +2478,6 @@ public class AlertRulesEngine {
    * collapses below -0.010. Captures rapid theme rotation momentum before the signal transitions.
    * Each theme gets its own active alert slot via theme_id discriminator.
    */
-  private int evaluateTheme5dAcceleration(LocalDate signalDate) {
-    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_5D_ACCELERATION);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-
-    Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
-    if (constituentsByTheme.isEmpty()) return 0;
-
-    Map<String, BigDecimal> trend5dMap =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, signalDate);
-    Map<String, BigDecimal> trend20dMap =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, signalDate);
-    if (trend5dMap.isEmpty() || trend20dMap.isEmpty()) return 0;
-
-    int count = 0;
-    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
-      String themeId = entry.getKey();
-      List<String> ids = entry.getValue();
-      if (ids.isEmpty()) continue;
-
-      OptionalDouble avg5d =
-          ids.stream()
-              .map(trend5dMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      OptionalDouble avg20d =
-          ids.stream()
-              .map(trend20dMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      if (avg5d.isEmpty() || avg20d.isEmpty()) continue;
-
-      double delta = avg5d.getAsDouble() - avg20d.getAsDouble();
-      boolean hasActive =
-          alertRepository.existsActiveAlertForTheme(RULE_THEME_5D_ACCELERATION, themeId);
-
-      if (delta >= THEME_5D_ACCEL_DELTA_THRESHOLD && !hasActive) {
-        Severity severity = rule.map(AlertRule::severity).orElse(Severity.ACTION);
-        alertRepository.insert(
-            new Alert(
-                null,
-                OffsetDateTime.now(),
-                null,
-                themeId,
-                RULE_THEME_5D_ACCELERATION,
-                severity,
-                String.format(
-                    "%s theme momentum accelerating: 5d trend +%dpt/day ahead of 20d — regime shift in progress",
-                    themeId, (int) Math.round(delta * 100)),
-                String.format(
-                    "{\"themeId\":\"%s\",\"delta5d20d\":%.4f,\"avg5d\":%.4f,\"avg20d\":%.4f,\"signalDate\":\"%s\"}",
-                    themeId, delta, avg5d.getAsDouble(), avg20d.getAsDouble(), signalDate),
-                AlertStatus.ACTIVE,
-                null,
-                null));
-        count++;
-        log.info(
-            "theme_5d_acceleration: theme={} delta={}pt/day",
-            themeId,
-            (int) Math.round(delta * 100));
-      } else if (hasActive && delta < THEME_5D_ACCEL_DELTA_RESOLVE) {
-        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_5D_ACCELERATION, themeId);
-        log.info("theme_5d_acceleration: resolved theme={} (acceleration normalised)", themeId);
-      }
-    }
-    return count;
-  }
-
-  private int evaluateThemeDistributeWarning(LocalDate signalDate) {
-    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_DISTRIBUTE_WARNING);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-
-    Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
-    if (constituentsByTheme.isEmpty()) return 0;
-
-    Map<String, BigDecimal> compositeMap =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    Map<String, BigDecimal> flowMap =
-        signalRepository.findByTypeAndDate(SignalType.FLOW_20D, signalDate);
-    if (compositeMap.isEmpty() || flowMap.isEmpty()) return 0;
-
-    int count = 0;
-    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
-      String themeId = entry.getKey();
-      List<String> ids = entry.getValue();
-      if (ids.isEmpty()) continue;
-
-      OptionalDouble avgComposite =
-          ids.stream()
-              .map(compositeMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      OptionalDouble avgFlow =
-          ids.stream()
-              .map(flowMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      if (avgComposite.isEmpty() || avgFlow.isEmpty()) continue;
-
-      double score = avgComposite.getAsDouble();
-      double flow = avgFlow.getAsDouble();
-      boolean hasActive =
-          alertRepository.existsActiveAlertForTheme(RULE_THEME_DISTRIBUTE_WARNING, themeId);
-
-      if (score >= THEME_DISTRIBUTE_SCORE_THRESHOLD
-          && flow <= THEME_DISTRIBUTE_FLOW_THRESHOLD
-          && !hasActive) {
-        Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
-        alertRepository.insert(
-            new Alert(
-                null,
-                OffsetDateTime.now(),
-                null,
-                themeId,
-                RULE_THEME_DISTRIBUTE_WARNING,
-                severity,
-                String.format(
-                    "%s theme may be distributing: score %d (BUY territory) but 20d flow %.2fσ — smart money exiting",
-                    themeId, (int) Math.round(score * 100), flow),
-                String.format(
-                    "{\"themeId\":\"%s\",\"avgScore\":%.4f,\"avgFlow\":%.4f,\"signalDate\":\"%s\"}",
-                    themeId, score, flow, signalDate),
-                AlertStatus.ACTIVE,
-                null,
-                null));
-        count++;
-        log.info(
-            "theme_distribute_warning: theme={} score={} flow={}",
-            themeId,
-            (int) Math.round(score * 100),
-            flow);
-      } else if (hasActive && flow > THEME_DISTRIBUTE_FLOW_RESOLVE) {
-        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_DISTRIBUTE_WARNING, themeId);
-        log.info("theme_distribute_warning: resolved theme={} (flow normalising)", themeId);
-      }
-    }
-    return count;
-  }
 
   /**
    * Fires when a theme transitions INTO the BREAKOUT phase. Compares the current phase (computed

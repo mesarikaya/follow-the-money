@@ -11,6 +11,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ftm.app.alerts.evaluator.MacroRegimeShiftAlertEvaluator;
+import com.ftm.app.alerts.evaluator.Theme5dAccelerationAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ThemeDistributeWarningAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeMomentumAlertEvaluator;
 import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.alerts.repository.AlertRulesRepository;
@@ -72,6 +74,10 @@ class AlertRulesEngineTest {
             new MacroRegimeShiftAlertEvaluator(
                 alertRulesRepository, signalRepository, alertRepository),
             new ThemeMomentumAlertEvaluator(
+                alertRulesRepository, themeRepository, signalRepository, alertRepository),
+            new Theme5dAccelerationAlertEvaluator(
+                alertRulesRepository, themeRepository, signalRepository, alertRepository),
+            new ThemeDistributeWarningAlertEvaluator(
                 alertRulesRepository, themeRepository, signalRepository, alertRepository));
     // resolveStaleAlerts always calls these; lenient prevents PotentialStubbingProblem
     // in tests that stub other SignalTypes (RS_60, RS_120, MACRO_REGIME).

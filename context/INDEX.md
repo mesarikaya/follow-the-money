@@ -48,6 +48,7 @@ A local-first investment dashboard that tracks capital flows across 19 investabl
 4. `roadmap.md` — milestones, epics, acceptance criteria
 5. `vision.md` — why we're building this (rarely needs re-reading)
 6. `constraints.md` — hard non-negotiables
+7. `plans/clean-code-refactoring-plan.md` — SOLID/Clean-Code restructuring plan (backend + frontend)
 
 ---
 

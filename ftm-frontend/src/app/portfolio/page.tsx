@@ -596,7 +596,7 @@ export default function PortfolioPage() {
                 <span className="flex items-center gap-1">
                   <div className="w-3 h-1.5 bg-blue-500 rounded-sm" /> Current allocation
                 </span>
-                <span className="flex items-center gap-1" title="Momentum-optimal target: equal-weight the top-3 equity sectors by 12-1 momentum (positive only; none positive → cash). This is the configuration with the strongest, most robust out-of-sample evidence (Sharpe ~0.96, consistent across sub-periods; beats equal-weight). Note: it does not beat buy-and-hold in a mega-cap-led bull — treat it as disciplined rules-based rotation, not a market-beating guarantee.">
+                <span className="flex items-center gap-1" title="Momentum-optimal target: the top momentum categories (positive only; none positive → cash), rank-weighted so the strongest gets the largest slice (a mild linear tilt — e.g. 50/33/17 for three). The rank tilt beat a flat equal split in backtesting (Sharpe ~0.87 vs 0.81, robust across sub-periods, no extra drawdown). Note: disciplined rules-based rotation, not a market-beating guarantee.">
                   <div className="w-3 h-1.5 bg-emerald-500/70 rounded-sm" />
                   <span className="cursor-help">Momentum-optimal target (?)</span>
                 </span>

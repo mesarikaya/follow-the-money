@@ -217,7 +217,7 @@ class AlignmentServiceTest {
   }
 
   @Test
-  void momentumRankAllocationEqualWeightsTopNPositiveSectors() {
+  void momentumRankAllocationRankWeightsTopNPositiveSectors() {
     Map<String, BigDecimal> momentum =
         Map.of(
             "XLK", new BigDecimal("0.30"),
@@ -228,10 +228,15 @@ class AlignmentServiceTest {
     Map<String, BigDecimal> optimal =
         alignmentService.computeMomentumRankOptimalAllocation(momentum, 3);
 
-    // Top-3 by momentum (XLK, XLE, XLF), equal-weighted; XLV drops out.
+    // Top-3 by momentum (XLK > XLE > XLF), linear rank weights 3/2/1 of 6 → 50/33.33/16.67;
+    // XLV drops out. Weights decrease with rank and sum to 100.
     assertThat(optimal).containsOnlyKeys("XLK", "XLE", "XLF");
-    assertThat(optimal.get("XLK")).isEqualByComparingTo(new BigDecimal("33.33"));
-    assertThat(optimal.get("XLF")).isEqualByComparingTo(new BigDecimal("33.33"));
+    assertThat(optimal.get("XLK")).isEqualByComparingTo(new BigDecimal("50.00"));
+    assertThat(optimal.get("XLE")).isEqualByComparingTo(new BigDecimal("33.33"));
+    assertThat(optimal.get("XLF")).isEqualByComparingTo(new BigDecimal("16.67"));
+    assertThat(
+            optimal.get("XLK").add(optimal.get("XLE")).add(optimal.get("XLF")))
+        .isEqualByComparingTo(new BigDecimal("100.00"));
   }
 
   @Test

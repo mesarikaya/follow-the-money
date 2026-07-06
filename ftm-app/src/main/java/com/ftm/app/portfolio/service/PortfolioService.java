@@ -8,6 +8,7 @@ import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.api.service.MomentumTradeSignalDeriver;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.CategoryId;
+import com.ftm.app.domain.CategoryType;
 import com.ftm.app.domain.Portfolio;
 import com.ftm.app.domain.SignalType;
 import com.ftm.app.portfolio.repository.PortfolioRepository;
@@ -31,9 +32,9 @@ public class PortfolioService {
   private static final BigDecimal ALIGNMENT_SCORE_GREEN_THRESHOLD = new BigDecimal("0.70");
   private static final BigDecimal ALIGNMENT_SCORE_YELLOW_THRESHOLD = new BigDecimal("0.40");
 
-  // Hold the top 5 positive-momentum sectors — the backtest's risk-adjusted sweet spot (Sharpe stays
-  // high while diversifying away single-sector blow-up risk of top-1).
-  private static final int MOMENTUM_TOP_N = 5;
+  // Hold the top 3 positive-momentum equity sectors — the backtest's best, most robust config
+  // (Sharpe ~0.96 across sub-periods; top-3 beat top-5 on the equity-sector universe).
+  private static final int MOMENTUM_TOP_N = 3;
   private static final BigDecimal HUNDRED = new BigDecimal("100");
 
   private final PortfolioRepository portfolioRepository;
@@ -81,20 +82,27 @@ public class PortfolioService {
     Map<String, BigDecimal> compositeScoreByCategoryId =
         signalRepository.findLatestByType(SignalType.COMPOSITE);
 
-    // Live 12-1 momentum drives the recommendations — validated out-of-sample as the stronger
-    // sector-selection signal (the composite's top-ranked pick was historically its worst).
-    // Restricted to top-level categories — the portfolio's allocation universe — so optimal targets
-    // and per-holding signals key on the same set and sum sensibly.
+    // Live 12-1 momentum drives the recommendations — the signal that beat the composite
+    // out-of-sample (the composite's top-ranked pick was historically its worst). Computed for every
+    // top-level category (shown in the table), but see the selection universe below.
     Map<String, BigDecimal> topLevelMomentumByCategoryId =
         liveMomentumScoreService.computeLatestMomentumByCategoryId().entrySet().stream()
             .filter(e -> categoriesById.containsKey(e.getKey()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    // Optimal = equal-weight the top-N positive-momentum sectors (the validated rotation strategy,
-    // with an absolute-momentum filter so falling sectors are dropped to cash).
+    // Selection universe = equity sectors only. Momentum's sector-selection edge validated cleanly
+    // on equity sectors (top-3 Sharpe ~0.96, robust across sub-periods); adding metals/bonds diluted
+    // it to ~0.46 with parabolic-run whipsaw (e.g. silver). Downside is still covered: the
+    // absolute-momentum filter rotates to cash when every equity sector is falling.
+    Map<String, BigDecimal> equitySectorMomentumByCategoryId =
+        topLevelMomentumByCategoryId.entrySet().stream()
+            .filter(e -> categoriesById.get(e.getKey()).type() == CategoryType.EQUITY_SECTOR)
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    // Optimal = equal-weight the top-N positive-momentum equity sectors (the validated strategy).
     Map<String, BigDecimal> optimalAllocationByCategoryId =
         alignmentService.computeMomentumRankOptimalAllocation(
-            topLevelMomentumByCategoryId, MOMENTUM_TOP_N);
+            equitySectorMomentumByCategoryId, MOMENTUM_TOP_N);
 
     BigDecimal alignmentScore =
         alignmentService.computeAlignmentScoreAgainstOptimal(

@@ -1714,7 +1714,7 @@ export default function BacktesterPage() {
                 <div>
                   <label className={labelCls}>
                     Universe
-                    <span className="text-slate-600 ml-1 cursor-help" title="Which categories compete for allocation. 'Equity Sectors Only' forces TECH/HLTH/FINL etc. to compete against each other — use for pure sector rotation. 'All Top-Level' adds Gold, Bonds, and Cash as defensive alternatives. 'All' also includes sub-sectors and factor ETFs.">(?)</span>
+                    <span className="text-slate-600 ml-1 cursor-help" title="Which categories compete for allocation. 'Equity Sectors Only' forces TECH/HLTH/FINL etc. to compete against each other — use for pure sector rotation (this is what the live portfolio recommendations use). 'All Top-Level' adds Gold, Metals (Silver/Miners), Bonds, and Cash as defensive alternatives — use this to test dual-momentum rotation into metals & bonds. 'All' also includes sub-sectors and factor ETFs.">(?)</span>
                   </label>
                   <select
                     value={categoryScope}
@@ -1722,12 +1722,12 @@ export default function BacktesterPage() {
                     className="w-full text-xs bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-slate-200 focus:border-blue-500 focus:outline-none"
                   >
                     <option value="EQUITY_SECTORS_ONLY">Equity Sectors Only (GICS)</option>
-                    <option value="TOP_LEVEL_ONLY">All Top-Level (+ Gold, Bonds)</option>
+                    <option value="TOP_LEVEL_ONLY">All Top-Level (+ Gold, Metals, Bonds)</option>
                     <option value="ALL">All (incl. Sub-Sectors)</option>
                   </select>
                   <p className="text-[10px] text-slate-600 mt-1">
-                    {categoryScope === "EQUITY_SECTORS_ONLY" && "Tech vs Financials vs Energy etc. — pure GICS rotation"}
-                    {categoryScope === "TOP_LEVEL_ONLY" && "Can rotate to Gold/TLT/BIL in risk-off regimes"}
+                    {categoryScope === "EQUITY_SECTORS_ONLY" && "Tech vs Financials vs Energy etc. — pure GICS rotation (live-recommendation universe)"}
+                    {categoryScope === "TOP_LEVEL_ONLY" && "Adds Gold/Silver/Miners/TLT/BIL — test dual-momentum rotation in risk-off regimes"}
                     {categoryScope === "ALL" && "Broadest universe — sub-sectors may dilute signals"}
                   </p>
                 </div>

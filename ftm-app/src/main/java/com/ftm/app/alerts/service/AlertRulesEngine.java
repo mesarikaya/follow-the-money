@@ -2,6 +2,8 @@ package com.ftm.app.alerts.service;
 
 import com.ftm.app.alerts.evaluator.AlertEvaluationContext;
 import com.ftm.app.alerts.evaluator.MacroRegimeShiftAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ScorePercentileExtremeAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ScoreVelocityAlertEvaluator;
 import com.ftm.app.alerts.evaluator.Theme5dAccelerationAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeDistributeWarningAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeFailedBreakoutAlertEvaluator;
@@ -90,8 +92,6 @@ public class AlertRulesEngine {
   private static final double RS_BREADTH_FIRE_FRACTION = 0.60;
   private static final double RS_BREADTH_RESOLVE_FRACTION = 0.45;
   private static final String RULE_RRG_RS_DIVERGENCE = "rrg_rs_divergence";
-  private static final String RULE_SCORE_PERCENTILE_EXTREME = "score_percentile_extreme";
-  private static final String RULE_SCORE_VELOCITY = "score_velocity";
   private static final String RULE_MULTI_ALERT_BULL = "multi_alert_bull_confluence";
   private static final int BULL_CONFLUENCE_THRESHOLD = 3;
   private static final List<String> BULL_ALERT_RULES =
@@ -103,14 +103,6 @@ public class AlertRulesEngine {
           "rs_aligned_bull",
           "breadth_velocity_accel",
           "composite_breakout");
-  private static final BigDecimal SCORE_VELOCITY_SURGE_THRESHOLD = new BigDecimal("0.12");
-  private static final BigDecimal SCORE_VELOCITY_CRASH_THRESHOLD = new BigDecimal("-0.12");
-  private static final BigDecimal SCORE_VELOCITY_SURGE_RESOLVE = new BigDecimal("0.05");
-  private static final BigDecimal SCORE_VELOCITY_CRASH_RESOLVE = new BigDecimal("-0.05");
-  private static final double SCORE_PERCENTILE_HIGH_FIRE = 0.90;
-  private static final double SCORE_PERCENTILE_LOW_FIRE = 0.10;
-  private static final double SCORE_PERCENTILE_HIGH_RESOLVE = 0.80;
-  private static final double SCORE_PERCENTILE_LOW_RESOLVE = 0.20;
   private static final BigDecimal FLOW_SURGE_Z_THRESHOLD = new BigDecimal("2.0");
   private static final BigDecimal FLOW_SURGE_RESOLVE_THRESHOLD = new BigDecimal("1.0");
   private static final BigDecimal PRE_BUY_FLOW_SURGE_Z_THRESHOLD = new BigDecimal("1.5");
@@ -178,6 +170,8 @@ public class AlertRulesEngine {
   private final ThemeSignalTransitionsAlertEvaluator themeSignalTransitionsAlertEvaluator;
   private final ThemeSetupAccelerationAlertEvaluator themeSetupAccelerationAlertEvaluator;
   private final ThemeFailedBreakoutAlertEvaluator themeFailedBreakoutAlertEvaluator;
+  private final ScorePercentileExtremeAlertEvaluator scorePercentileExtremeAlertEvaluator;
+  private final ScoreVelocityAlertEvaluator scoreVelocityAlertEvaluator;
 
   public AlertRulesEngine(
       AlertRepository alertRepository,
@@ -196,7 +190,9 @@ public class AlertRulesEngine {
       ThemeMomentumExhaustionAlertEvaluator themeMomentumExhaustionAlertEvaluator,
       ThemeSignalTransitionsAlertEvaluator themeSignalTransitionsAlertEvaluator,
       ThemeSetupAccelerationAlertEvaluator themeSetupAccelerationAlertEvaluator,
-      ThemeFailedBreakoutAlertEvaluator themeFailedBreakoutAlertEvaluator) {
+      ThemeFailedBreakoutAlertEvaluator themeFailedBreakoutAlertEvaluator,
+      ScorePercentileExtremeAlertEvaluator scorePercentileExtremeAlertEvaluator,
+      ScoreVelocityAlertEvaluator scoreVelocityAlertEvaluator) {
     this.alertRepository = alertRepository;
     this.alertRulesRepository = alertRulesRepository;
     this.rotationEventRepository = rotationEventRepository;
@@ -214,6 +210,8 @@ public class AlertRulesEngine {
     this.themeSignalTransitionsAlertEvaluator = themeSignalTransitionsAlertEvaluator;
     this.themeSetupAccelerationAlertEvaluator = themeSetupAccelerationAlertEvaluator;
     this.themeFailedBreakoutAlertEvaluator = themeFailedBreakoutAlertEvaluator;
+    this.scorePercentileExtremeAlertEvaluator = scorePercentileExtremeAlertEvaluator;
+    this.scoreVelocityAlertEvaluator = scoreVelocityAlertEvaluator;
   }
 
   @EventListener
@@ -249,8 +247,8 @@ public class AlertRulesEngine {
     alertsCreated += evaluatePreBuyFlowSurge(signalDate, topLevelCategoryIds);
     alertsCreated += evaluateRsBreadthExtreme(signalDate, equityCategoryIds);
     alertsCreated += evaluateRrgRsDivergence(signalDate, equityCategoryIds);
-    alertsCreated += evaluateScorePercentileExtreme(equityCategoryIds);
-    alertsCreated += evaluateScoreVelocity(signalDate, topLevelCategoryIds);
+    alertsCreated += scorePercentileExtremeAlertEvaluator.evaluate(context);
+    alertsCreated += scoreVelocityAlertEvaluator.evaluate(context);
     alertsCreated += evaluateCrossHorizonRsDivergence(signalDate, equityCategoryIds);
     alertsCreated += evaluateMacroSectorMismatch(signalDate, equityCategoryIds);
     alertsCreated += evaluateSubSectorBreadthDivergence(signalDate, equityCategoryIds);
@@ -1789,163 +1787,7 @@ public class AlertRulesEngine {
     return count;
   }
 
-  /**
-   * Fires when a sector's composite score reaches a 252-day extreme: &ge; 90th percentile
-   * (historically stretched high) or &le; 10th percentile (historically depressed). Helps identify
-   * sectors with mean-reversion risk or historic turnaround opportunities. Resolves when percentile
-   * retreats from the extreme zone back to 20th–80th percentile range.
-   */
-  private int evaluateScorePercentileExtreme(Set<String> equityCategoryIds) {
-    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_SCORE_PERCENTILE_EXTREME);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-    Severity severity = rule.map(AlertRule::severity).orElse(Severity.INFO);
 
-    Map<String, BigDecimal> percentiles = signalRepository.findScorePercentile252d();
-    if (percentiles.isEmpty()) return 0;
-
-    int count = 0;
-    for (String categoryId : equityCategoryIds) {
-      BigDecimal pct = percentiles.get(categoryId);
-      if (pct == null) continue;
-      double p = pct.doubleValue();
-
-      boolean isHigh = p >= SCORE_PERCENTILE_HIGH_FIRE;
-      boolean isLow = p <= SCORE_PERCENTILE_LOW_FIRE;
-      boolean hasActive =
-          alertRepository.existsActiveAlert(RULE_SCORE_PERCENTILE_EXTREME, categoryId);
-      boolean isExtreme = isHigh || isLow;
-      boolean isNormal = p < SCORE_PERCENTILE_HIGH_RESOLVE && p > SCORE_PERCENTILE_LOW_RESOLVE;
-
-      if (isExtreme && !hasActive) {
-        CategoryId catId;
-        try {
-          catId = CategoryId.valueOf(categoryId);
-        } catch (IllegalArgumentException e) {
-          log.debug("score_percentile_extreme: skipping unknown CategoryId={}", categoryId);
-          continue;
-        }
-        String direction = isHigh ? "HIGH" : "LOW";
-        String message =
-            isHigh
-                ? String.format(
-                    "%s composite at 252d HIGH (%.0fth pct) — historically stretched, mean-reversion risk",
-                    categoryId, p * 100)
-                : String.format(
-                    "%s composite at 252d LOW (%.0fth pct) — historically depressed, turnaround watch",
-                    categoryId, p * 100);
-        String snapshot =
-            String.format("{\"percentile252d\":%.4f,\"direction\":\"%s\"}", p, direction);
-        alertRepository.insert(
-            new Alert(
-                OffsetDateTime.now(),
-                catId,
-                RULE_SCORE_PERCENTILE_EXTREME,
-                severity,
-                message,
-                snapshot,
-                AlertStatus.ACTIVE));
-        log.info(
-            "score_percentile_extreme: category={} direction={} percentile={}",
-            categoryId,
-            direction,
-            p);
-        count++;
-      } else if (isNormal && hasActive) {
-        alertRepository.resolveAlertsByRuleAndCategory(RULE_SCORE_PERCENTILE_EXTREME, categoryId);
-        log.info(
-            "score_percentile_extreme: resolved for category={} (percentile={} returned to normal)",
-            categoryId,
-            p);
-      }
-    }
-    return count;
-  }
-
-  /**
-   * Fires when a sector's composite score moves &ge; 12 pts in either direction over 5 trading
-   * days. A SURGE (trend &ge; +12 pts) captures rapid momentum acceleration independent of the
-   * current score level — a sector at 45 rising 14 pts/5d is fundamentally different from one
-   * drifting up 2 pts/5d. A CRASH (trend &le; -12 pts) provides early warning of sudden
-   * deterioration before the formal REDUCE signal triggers. Resolves when the 5-day trend moderates
-   * back inside the ±5 pt normal range.
-   */
-  private int evaluateScoreVelocity(LocalDate signalDate, Set<String> topLevelCategoryIds) {
-    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_SCORE_VELOCITY);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-    Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
-
-    Map<String, BigDecimal> trend5d =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, signalDate);
-    Map<String, BigDecimal> composites =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    if (trend5d.isEmpty()) return 0;
-
-    int count = 0;
-    for (String categoryId : topLevelCategoryIds) {
-      BigDecimal trend = trend5d.get(categoryId);
-      BigDecimal composite = composites.get(categoryId);
-      if (trend == null) continue;
-
-      boolean isSurge = trend.compareTo(SCORE_VELOCITY_SURGE_THRESHOLD) >= 0;
-      boolean isCrash = trend.compareTo(SCORE_VELOCITY_CRASH_THRESHOLD) <= 0;
-      boolean hasActive = alertRepository.existsActiveAlert(RULE_SCORE_VELOCITY, categoryId);
-      boolean isExtreme = isSurge || isCrash;
-      boolean isNormal =
-          trend.compareTo(SCORE_VELOCITY_SURGE_RESOLVE) < 0
-              && trend.compareTo(SCORE_VELOCITY_CRASH_RESOLVE) > 0;
-
-      if (isExtreme && !hasActive) {
-        CategoryId catId;
-        try {
-          catId = CategoryId.valueOf(categoryId);
-        } catch (IllegalArgumentException e) {
-          log.debug("score_velocity: skipping unknown CategoryId={}", categoryId);
-          continue;
-        }
-        int scorePts = composite != null ? Math.round(composite.floatValue() * 100) : -1;
-        int trendPts = Math.abs(Math.round(trend.floatValue() * 100));
-        String direction = isSurge ? "SURGE" : "CRASH";
-        String message =
-            isSurge
-                ? String.format(
-                    "%s score velocity SURGE: +%dpts in 5 days (now %d) — rapid momentum acceleration",
-                    categoryId, trendPts, scorePts)
-                : String.format(
-                    "%s score velocity CRASH: -%dpts in 5 days (now %d) — rapid momentum deterioration",
-                    categoryId, trendPts, scorePts);
-        String snapshot =
-            String.format(
-                "{\"trend5d\":%.4f,\"composite\":%.4f,\"direction\":\"%s\",\"signalDate\":\"%s\"}",
-                trend.doubleValue(),
-                composite != null ? composite.doubleValue() : 0.0,
-                direction,
-                signalDate);
-        alertRepository.insert(
-            new Alert(
-                OffsetDateTime.now(),
-                catId,
-                RULE_SCORE_VELOCITY,
-                severity,
-                message,
-                snapshot,
-                AlertStatus.ACTIVE));
-        log.info(
-            "score_velocity: category={} direction={} trend5d={} composite={}",
-            categoryId,
-            direction,
-            trend,
-            composite);
-        count++;
-      } else if (isNormal && hasActive) {
-        alertRepository.resolveAlertsByRuleAndCategory(RULE_SCORE_VELOCITY, categoryId);
-        log.info(
-            "score_velocity: resolved for category={} (trend5d={} returned to normal)",
-            categoryId,
-            trend);
-      }
-    }
-    return count;
-  }
 
   /**
    * Meta-alert: fires when a single sector has &ge; 3 bullish alerts simultaneously active.

@@ -4,10 +4,12 @@ import com.ftm.app.alerts.evaluator.AlertEvaluationContext;
 import com.ftm.app.alerts.evaluator.MacroRegimeShiftAlertEvaluator;
 import com.ftm.app.alerts.evaluator.Theme5dAccelerationAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeDistributeWarningAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ThemeFailedBreakoutAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeMomentumAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeMomentumExhaustionAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemePeerDivergenceAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeScorePriceDivergenceAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ThemeSetupAccelerationAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeSignalTransitionsAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeStrongBreakoutAlertEvaluator;
 import com.ftm.app.alerts.repository.AlertRepository;
@@ -138,19 +140,6 @@ public class AlertRulesEngine {
   private static final String RULE_THEME_PHASE_BREAKOUT_ENTRY = "theme_phase_breakout_entry";
   // Fires when a theme transitions INTO the BREAKOUT phase (was not BREAKOUT 5 trading days ago)
   private static final int THEME_PHASE_LOOKBACK_DAYS = 5;
-  private static final String RULE_THEME_SETUP_ACCELERATION = "theme_setup_acceleration";
-  // Fires when a theme is in SETUP (avg score 0.52-0.64) and 5d trend >= 0.008 — pre-breakout
-  // warning
-  private static final double THEME_SETUP_SCORE_MIN = 0.52;
-  private static final double THEME_SETUP_SCORE_MAX = 0.65;
-  private static final double THEME_SETUP_ACCEL_MIN_5D = 0.008;
-  private static final double THEME_SETUP_RESOLVE_SCORE_LOW = 0.48;
-  private static final double THEME_SETUP_RESOLVE_TREND_LOW = 0.003;
-  private static final String RULE_THEME_FAILED_BREAKOUT = "theme_failed_breakout";
-  // Fires when avg score drops from >=0.65 (BUY zone) to <0.57 within THEME_PHASE_LOOKBACK_DAYS
-  private static final double THEME_FAILED_BREAKOUT_DROP_BELOW = 0.57;
-  private static final double THEME_FAILED_BREAKOUT_WAS_ABOVE = 0.65;
-  private static final double THEME_FAILED_BREAKOUT_RESOLVE_ABOVE = 0.62;
   // Fires when >=75% of sub-sectors are in Leading/Improving RRG (broad internal participation)
   private static final double SUB_SECTOR_BULL_CONFLUENCE_FIRE_FRACTION = 0.75;
   private static final double SUB_SECTOR_BULL_CONFLUENCE_RESOLVE_FRACTION = 0.55;
@@ -187,6 +176,8 @@ public class AlertRulesEngine {
   private final ThemeStrongBreakoutAlertEvaluator themeStrongBreakoutAlertEvaluator;
   private final ThemeMomentumExhaustionAlertEvaluator themeMomentumExhaustionAlertEvaluator;
   private final ThemeSignalTransitionsAlertEvaluator themeSignalTransitionsAlertEvaluator;
+  private final ThemeSetupAccelerationAlertEvaluator themeSetupAccelerationAlertEvaluator;
+  private final ThemeFailedBreakoutAlertEvaluator themeFailedBreakoutAlertEvaluator;
 
   public AlertRulesEngine(
       AlertRepository alertRepository,
@@ -203,7 +194,9 @@ public class AlertRulesEngine {
       ThemeScorePriceDivergenceAlertEvaluator themeScorePriceDivergenceAlertEvaluator,
       ThemeStrongBreakoutAlertEvaluator themeStrongBreakoutAlertEvaluator,
       ThemeMomentumExhaustionAlertEvaluator themeMomentumExhaustionAlertEvaluator,
-      ThemeSignalTransitionsAlertEvaluator themeSignalTransitionsAlertEvaluator) {
+      ThemeSignalTransitionsAlertEvaluator themeSignalTransitionsAlertEvaluator,
+      ThemeSetupAccelerationAlertEvaluator themeSetupAccelerationAlertEvaluator,
+      ThemeFailedBreakoutAlertEvaluator themeFailedBreakoutAlertEvaluator) {
     this.alertRepository = alertRepository;
     this.alertRulesRepository = alertRulesRepository;
     this.rotationEventRepository = rotationEventRepository;
@@ -219,6 +212,8 @@ public class AlertRulesEngine {
     this.themeStrongBreakoutAlertEvaluator = themeStrongBreakoutAlertEvaluator;
     this.themeMomentumExhaustionAlertEvaluator = themeMomentumExhaustionAlertEvaluator;
     this.themeSignalTransitionsAlertEvaluator = themeSignalTransitionsAlertEvaluator;
+    this.themeSetupAccelerationAlertEvaluator = themeSetupAccelerationAlertEvaluator;
+    this.themeFailedBreakoutAlertEvaluator = themeFailedBreakoutAlertEvaluator;
   }
 
   @EventListener
@@ -265,8 +260,8 @@ public class AlertRulesEngine {
     alertsCreated += theme5dAccelerationAlertEvaluator.evaluate(context);
     alertsCreated += themeDistributeWarningAlertEvaluator.evaluate(context);
     alertsCreated += evaluateThemePhaseBreakoutEntry(signalDate);
-    alertsCreated += evaluateThemeFailedBreakout(signalDate);
-    alertsCreated += evaluateThemeSetupAcceleration(signalDate);
+    alertsCreated += themeFailedBreakoutAlertEvaluator.evaluate(context);
+    alertsCreated += themeSetupAccelerationAlertEvaluator.evaluate(context);
     alertsCreated += evaluateThemePhaseFading(signalDate);
     alertsCreated += themeMomentumExhaustionAlertEvaluator.evaluate(context);
     alertsCreated += evaluateThemeRecoverySignal(signalDate);
@@ -2359,18 +2354,6 @@ public class AlertRulesEngine {
   }
 
   /**
-   * Fires when a theme's majority signal transitions to BUY or REDUCE (≥50% of constituents). Uses
-   * null category_id + theme_id discriminator so each theme gets its own active alert slot.
-   * Resolves when the bullish or bearish fraction drops below the resolve threshold.
-   */
-
-  /**
-   * Fires when a theme's average COMPOSITE_TREND_20D across constituents surges above +0.010 or
-   * collapses below -0.010. Captures rapid theme rotation momentum before the signal transitions.
-   * Each theme gets its own active alert slot via theme_id discriminator.
-   */
-
-  /**
    * Fires when a theme transitions INTO the BREAKOUT phase. Compares the current phase (computed
    * from today's avg COMPOSITE + TREND_5D + TREND_20D) with the phase 5 trading days ago. Fires
    * only on the first day the theme enters BREAKOUT. Resolves when the theme exits BREAKOUT and is
@@ -2544,205 +2527,6 @@ public class AlertRulesEngine {
     if (score < 0.35) return "WEAK";
     return "NEUTRAL";
   }
-
-  /**
-   * Fires when a theme's avg composite drops from BUY territory (>=0.65) to below 0.57 within 5
-   * trading days — the failed-breakout / momentum-reversal exit signal.
-   *
-   * <p>Resolves when the theme recovers to >= 0.62 (back in SETUP/approaching BUY).
-   */
-  private int evaluateThemeFailedBreakout(LocalDate signalDate) {
-    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_FAILED_BREAKOUT);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-
-    Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
-    if (constituentsByTheme.isEmpty()) return 0;
-
-    Map<String, BigDecimal> currentComposite =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    if (currentComposite.isEmpty()) return 0;
-
-    boolean priorDataLoaded = false;
-    Map<String, BigDecimal> priorComposite = Map.of();
-
-    int count = 0;
-    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
-      String themeId = entry.getKey();
-      List<String> ids = entry.getValue();
-      if (ids.isEmpty()) continue;
-
-      OptionalDouble avgCurrentScore =
-          ids.stream()
-              .map(currentComposite::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      if (avgCurrentScore.isEmpty()) continue;
-
-      double score = avgCurrentScore.getAsDouble();
-      boolean hasActive =
-          alertRepository.existsActiveAlertForTheme(RULE_THEME_FAILED_BREAKOUT, themeId);
-
-      if (score < THEME_FAILED_BREAKOUT_DROP_BELOW && !hasActive) {
-        if (!priorDataLoaded) {
-          LocalDate priorDate =
-              findNthPreviousSignalDate(
-                  SignalType.COMPOSITE, signalDate, THEME_PHASE_LOOKBACK_DAYS);
-          if (priorDate != null) {
-            priorComposite = signalRepository.findByTypeAndDate(SignalType.COMPOSITE, priorDate);
-          }
-          priorDataLoaded = true;
-        }
-
-        OptionalDouble avgPriorScore =
-            ids.stream()
-                .map(priorComposite::get)
-                .filter(v -> v != null)
-                .mapToDouble(BigDecimal::doubleValue)
-                .average();
-
-        if (avgPriorScore.isPresent()
-            && avgPriorScore.getAsDouble() >= THEME_FAILED_BREAKOUT_WAS_ABOVE) {
-          Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
-          int currentPct = (int) Math.round(score * 100);
-          int priorPct = (int) Math.round(avgPriorScore.getAsDouble() * 100);
-          int dropPts = priorPct - currentPct;
-          alertRepository.insert(
-              new Alert(
-                  null,
-                  OffsetDateTime.now(),
-                  null,
-                  themeId,
-                  RULE_THEME_FAILED_BREAKOUT,
-                  severity,
-                  String.format(
-                      "%s failed breakout: dropped %dpt (%d→%d) in %dd — exits favored over new entries",
-                      themeId, dropPts, priorPct, currentPct, THEME_PHASE_LOOKBACK_DAYS),
-                  String.format(
-                      "{\"themeId\":\"%s\",\"priorScore\":%.4f,\"currentScore\":%.4f,\"dropPts\":%d,\"signalDate\":\"%s\"}",
-                      themeId, avgPriorScore.getAsDouble(), score, dropPts, signalDate),
-                  AlertStatus.ACTIVE,
-                  null,
-                  null));
-          count++;
-          log.info(
-              "theme_failed_breakout: theme={} prior={}pt current={}pt drop={}pt",
-              themeId,
-              priorPct,
-              currentPct,
-              dropPts);
-        }
-      } else if (hasActive && score >= THEME_FAILED_BREAKOUT_RESOLVE_ABOVE) {
-        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_FAILED_BREAKOUT, themeId);
-        log.info(
-            "theme_failed_breakout: resolved theme={} (score recovered to {})",
-            themeId,
-            (int) Math.round(score * 100));
-      }
-    }
-    return count;
-  }
-
-  /**
-   * Fires when a theme is in SETUP phase (avg composite score 0.52–0.64) and the 5-day composite
-   * trend is strongly upward (>= 0.008 pt/day). This is the pre-breakout early-entry signal — it
-   * fires before theme_phase_breakout_entry, giving advance notice to watch or accumulate.
-   *
-   * <p>Resolves when the theme either breaks into BUY territory (>= 0.65 — phase_breakout_entry
-   * takes over) or the setup fails (score < 0.48 or 5d trend falls below 0.003).
-   */
-  private int evaluateThemeSetupAcceleration(LocalDate signalDate) {
-    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_SETUP_ACCELERATION);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-
-    Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
-    if (constituentsByTheme.isEmpty()) return 0;
-
-    Map<String, BigDecimal> compositeMap =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    Map<String, BigDecimal> trend5dMap =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, signalDate);
-    if (compositeMap.isEmpty()) return 0;
-
-    int count = 0;
-    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
-      String themeId = entry.getKey();
-      List<String> ids = entry.getValue();
-      if (ids.isEmpty()) continue;
-
-      OptionalDouble avgComposite =
-          ids.stream()
-              .map(compositeMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      OptionalDouble avgTrend5d =
-          ids.stream()
-              .map(trend5dMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      if (avgComposite.isEmpty() || avgTrend5d.isEmpty()) continue;
-
-      double score = avgComposite.getAsDouble();
-      double trend5d = avgTrend5d.getAsDouble();
-      boolean hasActive =
-          alertRepository.existsActiveAlertForTheme(RULE_THEME_SETUP_ACCELERATION, themeId);
-
-      boolean inSetup = score >= THEME_SETUP_SCORE_MIN && score < THEME_SETUP_SCORE_MAX;
-      boolean accelerating = trend5d >= THEME_SETUP_ACCEL_MIN_5D;
-
-      if (inSetup && accelerating && !hasActive) {
-        Severity severity = rule.map(AlertRule::severity).orElse(Severity.ACTION);
-        int scorePct = (int) Math.round(score * 100);
-        int ptsToBreakout = (int) Math.round((0.65 - score) * 100);
-        alertRepository.insert(
-            new Alert(
-                null,
-                OffsetDateTime.now(),
-                null,
-                themeId,
-                RULE_THEME_SETUP_ACCELERATION,
-                severity,
-                String.format(
-                    "%s pre-breakout: score %d in SETUP, 5d momentum +%.1fpt/day — %dpt from BUY entry",
-                    themeId, scorePct, trend5d * 100, ptsToBreakout),
-                String.format(
-                    "{\"themeId\":\"%s\",\"score\":%.4f,\"trend5d\":%.4f,\"ptsToBreakout\":%d,\"signalDate\":\"%s\"}",
-                    themeId, score, trend5d, ptsToBreakout, signalDate),
-                AlertStatus.ACTIVE,
-                null,
-                null));
-        count++;
-        log.info(
-            "theme_setup_acceleration: theme={} score={} trend5d={}",
-            themeId,
-            scorePct,
-            String.format("%.3f", trend5d));
-      } else if (hasActive
-          && (score >= THEME_SETUP_SCORE_MAX
-              || score < THEME_SETUP_RESOLVE_SCORE_LOW
-              || trend5d < THEME_SETUP_RESOLVE_TREND_LOW)) {
-        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_SETUP_ACCELERATION, themeId);
-        log.info(
-            "theme_setup_acceleration: resolved theme={} (score={} trend5d={})",
-            themeId,
-            (int) Math.round(score * 100),
-            String.format("%.3f", trend5d));
-      }
-    }
-    return count;
-  }
-
-  /**
-   * Fires when a BUY-zone theme (avg composite >= 0.65) loses momentum on BOTH short (5d) and long
-   * (20d) horizons simultaneously. Provides an early "consider reducing" signal before the score
-   * actually drops below the BUY threshold.
-   *
-   * <p>Resolves when the theme's 5d trend recovers above THEME_EXHAUSTION_RESOLVE_5D (momentum
-   * resumed) or score drops below THEME_EXHAUSTION_RESOLVE_SCORE (theme_failed_breakout or
-   * theme_dominant_signal_transition take over).
-   */
 
   /**
    * Fires the first time a theme enters the FADING phase (was not FADING N trading days ago, now
@@ -2998,18 +2782,4 @@ public class AlertRulesEngine {
     return count;
   }
 
-  /**
-   * Fires when a theme's composite score reaches >= 0.70 (well above BUY threshold) while it was
-   * below 0.65 (not in BUY territory) 20 trading days ago. Confirms sustained breakout
-   * follow-through — not just a brief score spike above 0.65 that quickly reversed.
-   *
-   * <p>Resolves when score drops back below 0.65.
-   */
-
-  /**
-   * Fires when a theme has ≥3 constituents with signals, the max−min composite spread exceeds 30
-   * pts, and the theme average score is above 0.40 (theme is active). Indicates internal rotation —
-   * one or more sub-sectors leading while others lag, signalling a potential catch-up or narrowing
-   * opportunity. Resolves when spread falls below 20 pts.
-   */
 }

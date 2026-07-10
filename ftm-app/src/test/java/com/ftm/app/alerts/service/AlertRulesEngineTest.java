@@ -16,7 +16,9 @@ import com.ftm.app.alerts.evaluator.ThemeDistributeWarningAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeMomentumAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemePeerDivergenceAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeMomentumExhaustionAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ThemeFailedBreakoutAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeScorePriceDivergenceAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ThemeSetupAccelerationAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeSignalTransitionsAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeStrongBreakoutAlertEvaluator;
 import com.ftm.app.alerts.repository.AlertRepository;
@@ -93,6 +95,10 @@ class AlertRulesEngineTest {
             new ThemeMomentumExhaustionAlertEvaluator(
                 alertRulesRepository, themeRepository, signalRepository, alertRepository),
             new ThemeSignalTransitionsAlertEvaluator(
+                alertRulesRepository, themeRepository, signalRepository, alertRepository),
+            new ThemeSetupAccelerationAlertEvaluator(
+                alertRulesRepository, themeRepository, signalRepository, alertRepository),
+            new ThemeFailedBreakoutAlertEvaluator(
                 alertRulesRepository, themeRepository, signalRepository, alertRepository));
     // resolveStaleAlerts always calls these; lenient prevents PotentialStubbingProblem
     // in tests that stub other SignalTypes (RS_60, RS_120, MACRO_REGIME).

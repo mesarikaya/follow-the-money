@@ -5,8 +5,10 @@ import com.ftm.app.alerts.evaluator.MacroRegimeShiftAlertEvaluator;
 import com.ftm.app.alerts.evaluator.Theme5dAccelerationAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeDistributeWarningAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeMomentumAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ThemeMomentumExhaustionAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemePeerDivergenceAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeScorePriceDivergenceAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ThemeSignalTransitionsAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeStrongBreakoutAlertEvaluator;
 import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.alerts.repository.AlertRulesRepository;
@@ -133,12 +135,6 @@ public class AlertRulesEngine {
   private static final double SUB_SECTOR_BREADTH_RESOLVE_FRACTION = 0.55;
   private static final int SUB_SECTOR_MIN_COUNT = 2;
   private static final String RULE_SUB_SECTOR_BULL_CONFLUENCE = "sub_sector_bull_confluence";
-  private static final String RULE_THEME_SIGNAL_TRANSITION = "theme_dominant_signal_transition";
-  // Fires when a theme's dominant signal transitions to BUY or REDUCE
-  private static final double THEME_BUY_FIRE_FRACTION = 0.50;
-  private static final double THEME_REDUCE_FIRE_FRACTION = 0.50;
-  private static final double THEME_BUY_RESOLVE_FRACTION = 0.35;
-  private static final double THEME_REDUCE_RESOLVE_FRACTION = 0.35;
   private static final String RULE_THEME_PHASE_BREAKOUT_ENTRY = "theme_phase_breakout_entry";
   // Fires when a theme transitions INTO the BREAKOUT phase (was not BREAKOUT 5 trading days ago)
   private static final int THEME_PHASE_LOOKBACK_DAYS = 5;
@@ -162,14 +158,6 @@ public class AlertRulesEngine {
   // Fires when a theme transitions INTO FADING phase (was not FADING N trading days ago, now is).
   // Resolves when phase exits FADING (score recovers above 0.55 or trend turns positive).
   private static final double THEME_FADING_RESOLVE_SCORE = 0.55;
-  private static final String RULE_THEME_MOMENTUM_EXHAUSTION = "theme_momentum_exhaustion";
-  // Fires when a BUY-zone theme (score>=0.65) shows negative 5d AND 20d trends simultaneously —
-  // early exit signal before the score actually crosses below BUY threshold.
-  private static final double THEME_EXHAUSTION_MIN_SCORE = 0.65;
-  private static final double THEME_EXHAUSTION_MAX_5D = -0.005;
-  private static final double THEME_EXHAUSTION_MAX_20D = 0.0;
-  private static final double THEME_EXHAUSTION_RESOLVE_5D = 0.002;
-  private static final double THEME_EXHAUSTION_RESOLVE_SCORE = 0.60;
   private static final String RULE_THEME_RECOVERY_SIGNAL = "theme_recovery_signal";
   // Fires when a FADING/WEAK theme shows recovery: score in 35-55, 5d trend turns positive (>0.003)
   // while 20d was still negative 5 days ago — confirms nascent recovery before full phase shift.
@@ -197,6 +185,8 @@ public class AlertRulesEngine {
   private final ThemePeerDivergenceAlertEvaluator themePeerDivergenceAlertEvaluator;
   private final ThemeScorePriceDivergenceAlertEvaluator themeScorePriceDivergenceAlertEvaluator;
   private final ThemeStrongBreakoutAlertEvaluator themeStrongBreakoutAlertEvaluator;
+  private final ThemeMomentumExhaustionAlertEvaluator themeMomentumExhaustionAlertEvaluator;
+  private final ThemeSignalTransitionsAlertEvaluator themeSignalTransitionsAlertEvaluator;
 
   public AlertRulesEngine(
       AlertRepository alertRepository,
@@ -211,7 +201,9 @@ public class AlertRulesEngine {
       ThemeDistributeWarningAlertEvaluator themeDistributeWarningAlertEvaluator,
       ThemePeerDivergenceAlertEvaluator themePeerDivergenceAlertEvaluator,
       ThemeScorePriceDivergenceAlertEvaluator themeScorePriceDivergenceAlertEvaluator,
-      ThemeStrongBreakoutAlertEvaluator themeStrongBreakoutAlertEvaluator) {
+      ThemeStrongBreakoutAlertEvaluator themeStrongBreakoutAlertEvaluator,
+      ThemeMomentumExhaustionAlertEvaluator themeMomentumExhaustionAlertEvaluator,
+      ThemeSignalTransitionsAlertEvaluator themeSignalTransitionsAlertEvaluator) {
     this.alertRepository = alertRepository;
     this.alertRulesRepository = alertRulesRepository;
     this.rotationEventRepository = rotationEventRepository;
@@ -225,6 +217,8 @@ public class AlertRulesEngine {
     this.themePeerDivergenceAlertEvaluator = themePeerDivergenceAlertEvaluator;
     this.themeScorePriceDivergenceAlertEvaluator = themeScorePriceDivergenceAlertEvaluator;
     this.themeStrongBreakoutAlertEvaluator = themeStrongBreakoutAlertEvaluator;
+    this.themeMomentumExhaustionAlertEvaluator = themeMomentumExhaustionAlertEvaluator;
+    this.themeSignalTransitionsAlertEvaluator = themeSignalTransitionsAlertEvaluator;
   }
 
   @EventListener
@@ -266,7 +260,7 @@ public class AlertRulesEngine {
     alertsCreated += evaluateMacroSectorMismatch(signalDate, equityCategoryIds);
     alertsCreated += evaluateSubSectorBreadthDivergence(signalDate, equityCategoryIds);
     alertsCreated += evaluateSubSectorBullConfluence(signalDate, equityCategoryIds);
-    alertsCreated += evaluateThemeSignalTransitions(signalDate);
+    alertsCreated += themeSignalTransitionsAlertEvaluator.evaluate(context);
     alertsCreated += themeMomentumAlertEvaluator.evaluate(context);
     alertsCreated += theme5dAccelerationAlertEvaluator.evaluate(context);
     alertsCreated += themeDistributeWarningAlertEvaluator.evaluate(context);
@@ -274,7 +268,7 @@ public class AlertRulesEngine {
     alertsCreated += evaluateThemeFailedBreakout(signalDate);
     alertsCreated += evaluateThemeSetupAcceleration(signalDate);
     alertsCreated += evaluateThemePhaseFading(signalDate);
-    alertsCreated += evaluateThemeMomentumExhaustion(signalDate);
+    alertsCreated += themeMomentumExhaustionAlertEvaluator.evaluate(context);
     alertsCreated += evaluateThemeRecoverySignal(signalDate);
     alertsCreated += themeStrongBreakoutAlertEvaluator.evaluate(context);
     alertsCreated += themePeerDivergenceAlertEvaluator.evaluate(context);
@@ -2369,97 +2363,6 @@ public class AlertRulesEngine {
    * null category_id + theme_id discriminator so each theme gets its own active alert slot.
    * Resolves when the bullish or bearish fraction drops below the resolve threshold.
    */
-  private int evaluateThemeSignalTransitions(LocalDate signalDate) {
-    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_SIGNAL_TRANSITION);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-    Severity severity = rule.map(AlertRule::severity).orElse(Severity.ACTION);
-
-    Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
-    if (constituentsByTheme.isEmpty()) return 0;
-
-    Map<String, BigDecimal> compositeMap =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    if (compositeMap.isEmpty()) return 0;
-
-    int count = 0;
-    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
-      String themeId = entry.getKey();
-      List<String> ids = entry.getValue();
-      if (ids.isEmpty()) continue;
-
-      long buyCount =
-          ids.stream()
-              .map(compositeMap::get)
-              .filter(s -> s != null && s.compareTo(BUY_SCORE_THRESHOLD) >= 0)
-              .count();
-      long reduceCount =
-          ids.stream()
-              .map(compositeMap::get)
-              .filter(s -> s != null && s.compareTo(REDUCE_SCORE_THRESHOLD) < 0)
-              .count();
-      int total = ids.size();
-
-      double buyFraction = (double) buyCount / total;
-      double reduceFraction = (double) reduceCount / total;
-      boolean isBuyMajority = buyFraction >= THEME_BUY_FIRE_FRACTION;
-      boolean isReduceMajority = reduceFraction >= THEME_REDUCE_FIRE_FRACTION;
-
-      boolean hasActive =
-          alertRepository.existsActiveAlertForTheme(RULE_THEME_SIGNAL_TRANSITION, themeId);
-
-      if (isBuyMajority && !isReduceMajority && !hasActive) {
-        alertRepository.insert(
-            new Alert(
-                null,
-                OffsetDateTime.now(),
-                null,
-                themeId,
-                RULE_THEME_SIGNAL_TRANSITION,
-                severity,
-                String.format(
-                    "%s theme entered BUY: %d/%d constituents above BUY threshold — cross-sector rotation confirmed",
-                    themeId, buyCount, total),
-                String.format(
-                    "{\"themeId\":\"%s\",\"buyFraction\":%.2f,\"buyCount\":%d,\"total\":%d,\"signalDate\":\"%s\"}",
-                    themeId, buyFraction, buyCount, total, signalDate),
-                AlertStatus.ACTIVE,
-                null,
-                null));
-        count++;
-        log.info(
-            "theme_signal_transition BUY: theme={} buyFraction={}% ({}/{})",
-            themeId, Math.round(buyFraction * 100), buyCount, total);
-
-      } else if (isReduceMajority && !isBuyMajority && !hasActive) {
-        alertRepository.insert(
-            new Alert(
-                null,
-                OffsetDateTime.now(),
-                null,
-                themeId,
-                RULE_THEME_SIGNAL_TRANSITION,
-                severity,
-                String.format(
-                    "%s theme entered REDUCE: %d/%d constituents below REDUCE threshold — theme rotation reversing",
-                    themeId, reduceCount, total),
-                String.format(
-                    "{\"themeId\":\"%s\",\"reduceFraction\":%.2f,\"reduceCount\":%d,\"total\":%d,\"signalDate\":\"%s\"}",
-                    themeId, reduceFraction, reduceCount, total, signalDate),
-                AlertStatus.ACTIVE,
-                null,
-                null));
-        count++;
-        log.info(
-            "theme_signal_transition REDUCE: theme={} reduceFraction={}% ({}/{})",
-            themeId, Math.round(reduceFraction * 100), reduceCount, total);
-
-      } else if (hasActive && !isBuyMajority && !isReduceMajority) {
-        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_SIGNAL_TRANSITION, themeId);
-        log.info("theme_signal_transition: resolved theme={} (signal neutralised)", themeId);
-      }
-    }
-    return count;
-  }
 
   /**
    * Fires when a theme's average COMPOSITE_TREND_20D across constituents surges above +0.010 or
@@ -2840,98 +2743,6 @@ public class AlertRulesEngine {
    * resumed) or score drops below THEME_EXHAUSTION_RESOLVE_SCORE (theme_failed_breakout or
    * theme_dominant_signal_transition take over).
    */
-  private int evaluateThemeMomentumExhaustion(LocalDate signalDate) {
-    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_MOMENTUM_EXHAUSTION);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-
-    Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
-    if (constituentsByTheme.isEmpty()) return 0;
-
-    Map<String, BigDecimal> compositeMap =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    Map<String, BigDecimal> trend5dMap =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, signalDate);
-    Map<String, BigDecimal> trend20dMap =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, signalDate);
-    if (compositeMap.isEmpty()) return 0;
-
-    int count = 0;
-    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
-      String themeId = entry.getKey();
-      List<String> ids = entry.getValue();
-      if (ids.isEmpty()) continue;
-
-      OptionalDouble avgComposite =
-          ids.stream()
-              .map(compositeMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      OptionalDouble avgTrend5d =
-          ids.stream()
-              .map(trend5dMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      OptionalDouble avgTrend20d =
-          ids.stream()
-              .map(trend20dMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-
-      if (avgComposite.isEmpty() || avgTrend5d.isEmpty() || avgTrend20d.isEmpty()) continue;
-
-      double score = avgComposite.getAsDouble();
-      double trend5d = avgTrend5d.getAsDouble();
-      double trend20d = avgTrend20d.getAsDouble();
-      boolean hasActive =
-          alertRepository.existsActiveAlertForTheme(RULE_THEME_MOMENTUM_EXHAUSTION, themeId);
-
-      boolean isExhausting =
-          score >= THEME_EXHAUSTION_MIN_SCORE
-              && trend5d < THEME_EXHAUSTION_MAX_5D
-              && trend20d < THEME_EXHAUSTION_MAX_20D;
-
-      if (isExhausting && !hasActive) {
-        Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
-        int scorePct = (int) Math.round(score * 100);
-        alertRepository.insert(
-            new Alert(
-                null,
-                OffsetDateTime.now(),
-                null,
-                themeId,
-                RULE_THEME_MOMENTUM_EXHAUSTION,
-                severity,
-                String.format(
-                    "%s momentum exhaustion: score %d (BUY zone) but 5d=%.1fpt/day, 20d=%.1fpt/day — both trends negative, consider reducing",
-                    themeId, scorePct, trend5d * 100, trend20d * 100),
-                String.format(
-                    "{\"themeId\":\"%s\",\"score\":%.4f,\"trend5d\":%.4f,\"trend20d\":%.4f,\"signalDate\":\"%s\"}",
-                    themeId, score, trend5d, trend20d, signalDate),
-                AlertStatus.ACTIVE,
-                null,
-                null));
-        count++;
-        log.info(
-            "theme_momentum_exhaustion: theme={} score={} trend5d={} trend20d={}",
-            themeId,
-            scorePct,
-            String.format("%.3f", trend5d),
-            String.format("%.3f", trend20d));
-      } else if (hasActive
-          && (score < THEME_EXHAUSTION_RESOLVE_SCORE || trend5d > THEME_EXHAUSTION_RESOLVE_5D)) {
-        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_MOMENTUM_EXHAUSTION, themeId);
-        log.info(
-            "theme_momentum_exhaustion: resolved theme={} (score={} trend5d={})",
-            themeId,
-            (int) Math.round(score * 100),
-            String.format("%.3f", trend5d));
-      }
-    }
-    return count;
-  }
 
   /**
    * Fires the first time a theme enters the FADING phase (was not FADING N trading days ago, now

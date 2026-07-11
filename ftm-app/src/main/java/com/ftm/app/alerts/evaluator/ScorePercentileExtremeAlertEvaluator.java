@@ -10,6 +10,7 @@ import com.ftm.app.domain.Severity;
 import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -49,67 +50,122 @@ public class ScorePercentileExtremeAlertEvaluator implements AlertEvaluator {
   @Override
   public int evaluate(AlertEvaluationContext context) {
     Optional<AlertRule> rule = alertRulesRepository.findById(RULE_SCORE_PERCENTILE_EXTREME);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-    Severity severity = rule.map(AlertRule::severity).orElse(Severity.INFO);
+    if (!rule.map(AlertRule::enabled).orElse(false)) {
+      return 0;
+    }
 
     Map<String, BigDecimal> percentiles = signalRepository.findScorePercentile252d();
-    if (percentiles.isEmpty()) return 0;
-
-    int count = 0;
-    for (String categoryId : context.equityCategoryIds()) {
-      BigDecimal pct = percentiles.get(categoryId);
-      if (pct == null) continue;
-      double p = pct.doubleValue();
-
-      boolean isHigh = p >= SCORE_PERCENTILE_HIGH_FIRE;
-      boolean isLow = p <= SCORE_PERCENTILE_LOW_FIRE;
-      boolean hasActive =
-          alertRepository.existsActiveAlert(RULE_SCORE_PERCENTILE_EXTREME, categoryId);
-      boolean isExtreme = isHigh || isLow;
-      boolean isNormal = p < SCORE_PERCENTILE_HIGH_RESOLVE && p > SCORE_PERCENTILE_LOW_RESOLVE;
-
-      if (isExtreme && !hasActive) {
-        CategoryId catId;
-        try {
-          catId = CategoryId.valueOf(categoryId);
-        } catch (IllegalArgumentException e) {
-          log.debug("score_percentile_extreme: skipping unknown CategoryId={}", categoryId);
-          continue;
-        }
-        String direction = isHigh ? "HIGH" : "LOW";
-        String message =
-            isHigh
-                ? String.format(
-                    "%s composite at 252d HIGH (%.0fth pct) — historically stretched, mean-reversion risk",
-                    categoryId, p * 100)
-                : String.format(
-                    "%s composite at 252d LOW (%.0fth pct) — historically depressed, turnaround watch",
-                    categoryId, p * 100);
-        String snapshot =
-            String.format("{\"percentile252d\":%.4f,\"direction\":\"%s\"}", p, direction);
-        alertRepository.insert(
-            new Alert(
-                OffsetDateTime.now(),
-                catId,
-                RULE_SCORE_PERCENTILE_EXTREME,
-                severity,
-                message,
-                snapshot,
-                AlertStatus.ACTIVE));
-        log.info(
-            "score_percentile_extreme: category={} direction={} percentile={}",
-            categoryId,
-            direction,
-            p);
-        count++;
-      } else if (isNormal && hasActive) {
-        alertRepository.resolveAlertsByRuleAndCategory(RULE_SCORE_PERCENTILE_EXTREME, categoryId);
-        log.info(
-            "score_percentile_extreme: resolved for category={} (percentile={} returned to normal)",
-            categoryId,
-            p);
-      }
+    if (percentiles.isEmpty()) {
+      return 0;
     }
-    return count;
+
+    Severity severity = rule.map(AlertRule::severity).orElse(Severity.INFO);
+    List<Assessment> assessed =
+        context.equityCategoryIds().stream()
+            .map(categoryId -> assess(categoryId, percentiles))
+            .flatMap(Optional::stream)
+            .toList();
+
+    assessed.stream().filter(Assessment::shouldFire).forEach(a -> fire(a, severity));
+    assessed.stream().filter(Assessment::shouldResolve).forEach(this::resolve);
+    return (int) assessed.stream().filter(Assessment::shouldFire).count();
+  }
+
+  private Optional<Assessment> assess(String categoryId, Map<String, BigDecimal> percentiles) {
+    BigDecimal pct = percentiles.get(categoryId);
+    if (pct == null) {
+      return Optional.empty();
+    }
+    double percentile = pct.doubleValue();
+    boolean active = alertRepository.existsActiveAlert(RULE_SCORE_PERCENTILE_EXTREME, categoryId);
+    return Optional.of(
+        new Assessment(
+            categoryId,
+            knownCategory(categoryId),
+            percentile,
+            extreme(percentile),
+            isNormal(percentile),
+            active));
+  }
+
+  private Optional<Extreme> extreme(double percentile) {
+    return percentile >= SCORE_PERCENTILE_HIGH_FIRE
+        ? Optional.of(Extreme.HIGH)
+        : percentile <= SCORE_PERCENTILE_LOW_FIRE ? Optional.of(Extreme.LOW) : Optional.empty();
+  }
+
+  private boolean isNormal(double percentile) {
+    return percentile < SCORE_PERCENTILE_HIGH_RESOLVE && percentile > SCORE_PERCENTILE_LOW_RESOLVE;
+  }
+
+  private void fire(Assessment assessment, Severity severity) {
+    Extreme extreme = assessment.extreme().orElseThrow();
+    double percentile = assessment.percentile();
+    alertRepository.insert(
+        new Alert(
+            OffsetDateTime.now(),
+            assessment.category().orElseThrow(),
+            RULE_SCORE_PERCENTILE_EXTREME,
+            severity,
+            extreme.message(assessment.categoryId(), percentile),
+            String.format("{\"percentile252d\":%.4f,\"direction\":\"%s\"}", percentile, extreme.name()),
+            AlertStatus.ACTIVE));
+    log.info(
+        "score_percentile_extreme: category={} direction={} percentile={}",
+        assessment.categoryId(),
+        extreme.name(),
+        percentile);
+  }
+
+  private void resolve(Assessment assessment) {
+    alertRepository.resolveAlertsByRuleAndCategory(
+        RULE_SCORE_PERCENTILE_EXTREME, assessment.categoryId());
+    log.info(
+        "score_percentile_extreme: resolved for category={} (percentile={} returned to normal)",
+        assessment.categoryId(),
+        assessment.percentile());
+  }
+
+  private Optional<CategoryId> knownCategory(String categoryId) {
+    try {
+      return Optional.of(CategoryId.valueOf(categoryId));
+    } catch (IllegalArgumentException e) {
+      log.debug("score_percentile_extreme: skipping unknown CategoryId={}", categoryId);
+      return Optional.empty();
+    }
+  }
+
+  /** One sector's 252-day percentile verdict for the day. */
+  private record Assessment(
+      String categoryId,
+      Optional<CategoryId> category,
+      double percentile,
+      Optional<Extreme> extreme,
+      boolean normal,
+      boolean hasActiveAlert) {
+
+    boolean shouldFire() {
+      return extreme.isPresent() && category.isPresent() && !hasActiveAlert;
+    }
+
+    boolean shouldResolve() {
+      return normal && hasActiveAlert;
+    }
+  }
+
+  private enum Extreme {
+    HIGH(
+        "%s composite at 252d HIGH (%.0fth pct) — historically stretched, mean-reversion risk"),
+    LOW("%s composite at 252d LOW (%.0fth pct) — historically depressed, turnaround watch");
+
+    private final String messageTemplate;
+
+    Extreme(String messageTemplate) {
+      this.messageTemplate = messageTemplate;
+    }
+
+    String message(String categoryId, double percentile) {
+      return String.format(messageTemplate, categoryId, percentile * 100);
+    }
   }
 }

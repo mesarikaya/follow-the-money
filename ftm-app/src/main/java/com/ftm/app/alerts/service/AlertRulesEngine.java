@@ -13,6 +13,7 @@ import com.ftm.app.alerts.evaluator.RsAccelerationCrossoverAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsAlignedAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsBreadthExtremeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScoreApproachingSignalEvaluator;
+import com.ftm.app.alerts.evaluator.SubSectorBreadthAlertEvaluator;
 import com.ftm.app.alerts.evaluator.TradeSignalTransitionsAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScorePercentileExtremeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScoreVelocityAlertEvaluator;
@@ -109,18 +110,9 @@ public class AlertRulesEngine {
   private static final int BREADTH_VELOCITY_THRESHOLD_PP = 10;
   private static final BigDecimal BUY_SCORE_THRESHOLD = new BigDecimal("0.65");
   private static final BigDecimal REDUCE_SCORE_THRESHOLD = new BigDecimal("0.35");
-  private static final String RULE_SUB_SECTOR_BREADTH_DIV = "sub_sector_breadth_divergence";
-  // Fires when <40% of sub-sectors are in Leading/Improving RRG while parent has a BUY signal
-  private static final double SUB_SECTOR_BREADTH_FIRE_FRACTION = 0.40;
-  private static final double SUB_SECTOR_BREADTH_RESOLVE_FRACTION = 0.55;
-  private static final int SUB_SECTOR_MIN_COUNT = 2;
-  private static final String RULE_SUB_SECTOR_BULL_CONFLUENCE = "sub_sector_bull_confluence";
   private static final String RULE_THEME_PHASE_BREAKOUT_ENTRY = "theme_phase_breakout_entry";
   // Fires when a theme transitions INTO the BREAKOUT phase (was not BREAKOUT 5 trading days ago)
   private static final int THEME_PHASE_LOOKBACK_DAYS = 5;
-  // Fires when >=75% of sub-sectors are in Leading/Improving RRG (broad internal participation)
-  private static final double SUB_SECTOR_BULL_CONFLUENCE_FIRE_FRACTION = 0.75;
-  private static final double SUB_SECTOR_BULL_CONFLUENCE_RESOLVE_FRACTION = 0.55;
   private static final String RULE_THEME_PHASE_FADING = "theme_phase_fading";
   // Fires when a theme transitions INTO FADING phase (was not FADING N trading days ago, now is).
   // Resolves when phase exits FADING (score recovers above 0.55 or trend turns positive).
@@ -171,6 +163,7 @@ public class AlertRulesEngine {
   private final TradeSignalTransitionsAlertEvaluator tradeSignalTransitionsAlertEvaluator;
   private final CrossHorizonRsDivergenceAlertEvaluator crossHorizonRsDivergenceAlertEvaluator;
   private final MacroSectorMismatchAlertEvaluator macroSectorMismatchAlertEvaluator;
+  private final SubSectorBreadthAlertEvaluator subSectorBreadthAlertEvaluator;
 
   public AlertRulesEngine(
       AlertRepository alertRepository,
@@ -204,7 +197,8 @@ public class AlertRulesEngine {
       RrgRsDivergenceAlertEvaluator rrgRsDivergenceAlertEvaluator,
       TradeSignalTransitionsAlertEvaluator tradeSignalTransitionsAlertEvaluator,
       CrossHorizonRsDivergenceAlertEvaluator crossHorizonRsDivergenceAlertEvaluator,
-      MacroSectorMismatchAlertEvaluator macroSectorMismatchAlertEvaluator) {
+      MacroSectorMismatchAlertEvaluator macroSectorMismatchAlertEvaluator,
+      SubSectorBreadthAlertEvaluator subSectorBreadthAlertEvaluator) {
     this.alertRepository = alertRepository;
     this.alertRulesRepository = alertRulesRepository;
     this.rotationEventRepository = rotationEventRepository;
@@ -237,6 +231,7 @@ public class AlertRulesEngine {
     this.tradeSignalTransitionsAlertEvaluator = tradeSignalTransitionsAlertEvaluator;
     this.crossHorizonRsDivergenceAlertEvaluator = crossHorizonRsDivergenceAlertEvaluator;
     this.macroSectorMismatchAlertEvaluator = macroSectorMismatchAlertEvaluator;
+    this.subSectorBreadthAlertEvaluator = subSectorBreadthAlertEvaluator;
   }
 
   @EventListener
@@ -272,8 +267,7 @@ public class AlertRulesEngine {
     alertsCreated += scoreVelocityAlertEvaluator.evaluate(context);
     alertsCreated += crossHorizonRsDivergenceAlertEvaluator.evaluate(context);
     alertsCreated += macroSectorMismatchAlertEvaluator.evaluate(context);
-    alertsCreated += evaluateSubSectorBreadthDivergence(signalDate, equityCategoryIds);
-    alertsCreated += evaluateSubSectorBullConfluence(signalDate, equityCategoryIds);
+    alertsCreated += subSectorBreadthAlertEvaluator.evaluate(context);
     alertsCreated += themeSignalTransitionsAlertEvaluator.evaluate(context);
     alertsCreated += themeMomentumAlertEvaluator.evaluate(context);
     alertsCreated += theme5dAccelerationAlertEvaluator.evaluate(context);
@@ -637,176 +631,7 @@ public class AlertRulesEngine {
 
 
 
-  /**
-   * Fires when a sector has an active BUY trade signal but less than 40% of its sub-sectors are in
-   * Leading/Improving RRG quadrants — the sector-level signal lacks internal breadth confirmation.
-   * This pattern warns that the top-level momentum may be driven by a minority of sub-sectors and
-   * could be fragile.
-   *
-   * <p>Resolves when sub-sector breadth recovers to ≥55% or the parent sector's BUY signal is gone.
-   */
-  private int evaluateSubSectorBreadthDivergence(
-      LocalDate signalDate, Set<String> equityCategoryIds) {
-    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_SUB_SECTOR_BREADTH_DIV);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-    Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
 
-    Map<String, BigDecimal> rrgMap =
-        signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
-
-    int count = 0;
-    for (String categoryId : equityCategoryIds) {
-      List<String> subIds;
-      try {
-        subIds =
-            categoryRepository.findSubCategoriesByParentId(categoryId).stream()
-                .map(c -> c.id().name())
-                .toList();
-      } catch (IllegalArgumentException e) {
-        log.debug(
-            "sub_sector_breadth_divergence: skipping {}, sub-category enum mismatch", categoryId);
-        continue;
-      }
-
-      boolean hasActive =
-          alertRepository.existsActiveAlert(RULE_SUB_SECTOR_BREADTH_DIV, categoryId);
-
-      if (subIds.size() < SUB_SECTOR_MIN_COUNT) {
-        if (hasActive) {
-          alertRepository.resolveAlertsByRuleAndCategory(RULE_SUB_SECTOR_BREADTH_DIV, categoryId);
-        }
-        continue;
-      }
-
-      List<BigDecimal> subQuadrants =
-          subIds.stream().map(rrgMap::get).filter(q -> q != null).toList();
-      if (subQuadrants.size() < SUB_SECTOR_MIN_COUNT) continue;
-
-      long bullishCount =
-          subQuadrants.stream().filter(q -> q.intValue() == 3 || q.intValue() == 4).count();
-      double breadth = (double) bullishCount / subQuadrants.size();
-
-      boolean hasBuyAlert = alertRepository.existsActiveAlert(RULE_TRADE_SIGNAL_BUY, categoryId);
-      boolean weakBreadth = breadth < SUB_SECTOR_BREADTH_FIRE_FRACTION;
-
-      if (hasBuyAlert && weakBreadth && !hasActive) {
-        CategoryId catId;
-        try {
-          catId = CategoryId.valueOf(categoryId);
-        } catch (IllegalArgumentException e) {
-          continue;
-        }
-        String message =
-            String.format(
-                "%s BUY signal has weak sub-sector breadth: only %d%% of sub-sectors are in Leading/Improving RRG (%d/%d) — sector signal may lack internal confirmation",
-                categoryId, Math.round(breadth * 100), (int) bullishCount, subQuadrants.size());
-        String snapshot =
-            String.format(
-                "{\"parentSignal\":\"BUY\",\"subBreadth\":%.2f,\"bullishCount\":%d,\"totalSubSectors\":%d,\"signalDate\":\"%s\"}",
-                breadth, (int) bullishCount, subQuadrants.size(), signalDate);
-        alertRepository.insert(
-            new Alert(
-                OffsetDateTime.now(),
-                catId,
-                RULE_SUB_SECTOR_BREADTH_DIV,
-                severity,
-                message,
-                snapshot,
-                AlertStatus.ACTIVE));
-        log.info(
-            "sub_sector_breadth_divergence: fired category={} breadth={}% ({}/{})",
-            categoryId, Math.round(breadth * 100), (int) bullishCount, subQuadrants.size());
-        count++;
-      } else if (hasActive && (!hasBuyAlert || breadth >= SUB_SECTOR_BREADTH_RESOLVE_FRACTION)) {
-        alertRepository.resolveAlertsByRuleAndCategory(RULE_SUB_SECTOR_BREADTH_DIV, categoryId);
-        log.info(
-            "sub_sector_breadth_divergence: resolved category={} hasBuyAlert={} breadth={}%",
-            categoryId, hasBuyAlert, Math.round(breadth * 100));
-      }
-    }
-    return count;
-  }
-
-  private int evaluateSubSectorBullConfluence(LocalDate signalDate, Set<String> equityCategoryIds) {
-    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_SUB_SECTOR_BULL_CONFLUENCE);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-    Severity severity = rule.map(AlertRule::severity).orElse(Severity.INFO);
-
-    Map<String, BigDecimal> rrgMap =
-        signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
-
-    int count = 0;
-    for (String categoryId : equityCategoryIds) {
-      List<String> subIds;
-      try {
-        subIds =
-            categoryRepository.findSubCategoriesByParentId(categoryId).stream()
-                .map(c -> c.id().name())
-                .toList();
-      } catch (IllegalArgumentException e) {
-        log.debug(
-            "sub_sector_bull_confluence: skipping {}, sub-category enum mismatch", categoryId);
-        continue;
-      }
-
-      boolean hasActive =
-          alertRepository.existsActiveAlert(RULE_SUB_SECTOR_BULL_CONFLUENCE, categoryId);
-
-      if (subIds.size() < SUB_SECTOR_MIN_COUNT) {
-        if (hasActive) {
-          alertRepository.resolveAlertsByRuleAndCategory(
-              RULE_SUB_SECTOR_BULL_CONFLUENCE, categoryId);
-        }
-        continue;
-      }
-
-      List<BigDecimal> subQuadrants =
-          subIds.stream().map(rrgMap::get).filter(q -> q != null).toList();
-      if (subQuadrants.size() < SUB_SECTOR_MIN_COUNT) continue;
-
-      long bullishCount =
-          subQuadrants.stream().filter(q -> q.intValue() == 3 || q.intValue() == 4).count();
-      double breadth = (double) bullishCount / subQuadrants.size();
-
-      boolean broadConfluence = breadth >= SUB_SECTOR_BULL_CONFLUENCE_FIRE_FRACTION;
-
-      if (broadConfluence && !hasActive) {
-        CategoryId catId;
-        try {
-          catId = CategoryId.valueOf(categoryId);
-        } catch (IllegalArgumentException e) {
-          continue;
-        }
-        String message =
-            String.format(
-                "%s has broad sub-sector confluence: %d%% of sub-sectors in Leading/Improving RRG (%d/%d) — internally confirmed sector rotation",
-                categoryId, Math.round(breadth * 100), (int) bullishCount, subQuadrants.size());
-        String snapshot =
-            String.format(
-                "{\"subBreadth\":%.2f,\"bullishCount\":%d,\"totalSubSectors\":%d,\"signalDate\":\"%s\"}",
-                breadth, (int) bullishCount, subQuadrants.size(), signalDate);
-        alertRepository.insert(
-            new Alert(
-                OffsetDateTime.now(),
-                catId,
-                RULE_SUB_SECTOR_BULL_CONFLUENCE,
-                severity,
-                message,
-                snapshot,
-                AlertStatus.ACTIVE));
-        log.info(
-            "sub_sector_bull_confluence: fired category={} breadth={}% ({}/{})",
-            categoryId, Math.round(breadth * 100), (int) bullishCount, subQuadrants.size());
-        count++;
-      } else if (hasActive && breadth < SUB_SECTOR_BULL_CONFLUENCE_RESOLVE_FRACTION) {
-        alertRepository.resolveAlertsByRuleAndCategory(RULE_SUB_SECTOR_BULL_CONFLUENCE, categoryId);
-        log.info(
-            "sub_sector_bull_confluence: resolved category={} breadth={}%",
-            categoryId, Math.round(breadth * 100));
-      }
-    }
-    return count;
-  }
 
   /**
    * Fires when a theme transitions INTO the BREAKOUT phase. Compares the current phase (computed
@@ -1237,5 +1062,6 @@ public class AlertRulesEngine {
     return count;
   }
 }
+
 
 

@@ -56,87 +56,116 @@ public class ThemeSetupAccelerationAlertEvaluator implements AlertEvaluator {
 
   @Override
   public int evaluate(AlertEvaluationContext context) {
-    LocalDate signalDate = context.signalDate();
-
     Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_SETUP_ACCELERATION);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+    if (!rule.map(AlertRule::enabled).orElse(false)) {
+      return 0;
+    }
 
     Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
-    if (constituentsByTheme.isEmpty()) return 0;
-
-    Map<String, BigDecimal> compositeMap =
+    LocalDate signalDate = context.signalDate();
+    Map<String, BigDecimal> composite =
         signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    Map<String, BigDecimal> trend5dMap =
+    Map<String, BigDecimal> trend5d =
         signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, signalDate);
-    if (compositeMap.isEmpty()) return 0;
+    if (constituentsByTheme.isEmpty() || composite.isEmpty()) {
+      return 0;
+    }
 
-    int count = 0;
-    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
-      String themeId = entry.getKey();
-      List<String> ids = entry.getValue();
-      if (ids.isEmpty()) continue;
+    Severity severity = rule.map(AlertRule::severity).orElse(Severity.ACTION);
+    List<Setup> setups =
+        constituentsByTheme.entrySet().stream()
+            .map(entry -> assess(entry.getKey(), entry.getValue(), composite, trend5d))
+            .flatMap(Optional::stream)
+            .toList();
 
-      OptionalDouble avgComposite =
-          ids.stream()
-              .map(compositeMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      OptionalDouble avgTrend5d =
-          ids.stream()
-              .map(trend5dMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      if (avgComposite.isEmpty() || avgTrend5d.isEmpty()) continue;
+    setups.stream().filter(Setup::shouldFire).forEach(s -> fire(s, severity, signalDate));
+    setups.stream().filter(Setup::shouldResolve).forEach(this::resolve);
+    return (int) setups.stream().filter(Setup::shouldFire).count();
+  }
 
-      double score = avgComposite.getAsDouble();
-      double trend5d = avgTrend5d.getAsDouble();
-      boolean hasActive =
-          alertRepository.existsActiveAlertForTheme(RULE_THEME_SETUP_ACCELERATION, themeId);
+  private Optional<Setup> assess(
+      String themeId,
+      List<String> constituentIds,
+      Map<String, BigDecimal> composite,
+      Map<String, BigDecimal> trend5d) {
+    if (constituentIds.isEmpty()) {
+      return Optional.empty();
+    }
+    OptionalDouble avgComposite = averageOf(constituentIds, composite);
+    OptionalDouble avgTrend5d = averageOf(constituentIds, trend5d);
+    if (avgComposite.isEmpty() || avgTrend5d.isEmpty()) {
+      return Optional.empty();
+    }
+    boolean active = alertRepository.existsActiveAlertForTheme(RULE_THEME_SETUP_ACCELERATION, themeId);
+    return Optional.of(new Setup(themeId, avgComposite.getAsDouble(), avgTrend5d.getAsDouble(), active));
+  }
 
-      boolean inSetup = score >= THEME_SETUP_SCORE_MIN && score < THEME_SETUP_SCORE_MAX;
-      boolean accelerating = trend5d >= THEME_SETUP_ACCEL_MIN_5D;
+  private OptionalDouble averageOf(List<String> ids, Map<String, BigDecimal> values) {
+    return ids.stream()
+        .map(values::get)
+        .filter(value -> value != null)
+        .mapToDouble(BigDecimal::doubleValue)
+        .average();
+  }
 
-      if (inSetup && accelerating && !hasActive) {
-        Severity severity = rule.map(AlertRule::severity).orElse(Severity.ACTION);
-        int scorePct = (int) Math.round(score * 100);
-        int ptsToBreakout = (int) Math.round((0.65 - score) * 100);
-        alertRepository.insert(
-            new Alert(
-                null,
-                OffsetDateTime.now(),
-                null,
-                themeId,
-                RULE_THEME_SETUP_ACCELERATION,
-                severity,
-                String.format(
-                    "%s pre-breakout: score %d in SETUP, 5d momentum +%.1fpt/day — %dpt from BUY entry",
-                    themeId, scorePct, trend5d * 100, ptsToBreakout),
-                String.format(
-                    "{\"themeId\":\"%s\",\"score\":%.4f,\"trend5d\":%.4f,\"ptsToBreakout\":%d,\"signalDate\":\"%s\"}",
-                    themeId, score, trend5d, ptsToBreakout, signalDate),
-                AlertStatus.ACTIVE,
-                null,
-                null));
-        count++;
-        log.info(
-            "theme_setup_acceleration: theme={} score={} trend5d={}",
+  private void fire(Setup setup, Severity severity, LocalDate signalDate) {
+    String themeId = setup.themeId();
+    alertRepository.insert(
+        new Alert(
+            null,
+            OffsetDateTime.now(),
+            null,
             themeId,
-            scorePct,
-            String.format("%.3f", trend5d));
-      } else if (hasActive
+            RULE_THEME_SETUP_ACCELERATION,
+            severity,
+            String.format(
+                "%s pre-breakout: score %d in SETUP, 5d momentum +%.1fpt/day — %dpt from BUY entry",
+                themeId, setup.scorePercent(), setup.trend5d() * 100, setup.pointsToBreakout()),
+            String.format(
+                "{\"themeId\":\"%s\",\"score\":%.4f,\"trend5d\":%.4f,\"ptsToBreakout\":%d,\"signalDate\":\"%s\"}",
+                themeId, setup.score(), setup.trend5d(), setup.pointsToBreakout(), signalDate),
+            AlertStatus.ACTIVE,
+            null,
+            null));
+    log.info(
+        "theme_setup_acceleration: theme={} score={} trend5d={}",
+        themeId,
+        setup.scorePercent(),
+        String.format("%.3f", setup.trend5d()));
+  }
+
+  private void resolve(Setup setup) {
+    alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_SETUP_ACCELERATION, setup.themeId());
+    log.info(
+        "theme_setup_acceleration: resolved theme={} (score={} trend5d={})",
+        setup.themeId(),
+        setup.scorePercent(),
+        String.format("%.3f", setup.trend5d()));
+  }
+
+  /** A theme's pre-breakout setup reading for the day. */
+  private record Setup(String themeId, double score, double trend5d, boolean hasActiveAlert) {
+
+    int scorePercent() {
+      return (int) Math.round(score * 100);
+    }
+
+    int pointsToBreakout() {
+      return (int) Math.round((0.65 - score) * 100);
+    }
+
+    boolean shouldFire() {
+      return score >= THEME_SETUP_SCORE_MIN
+          && score < THEME_SETUP_SCORE_MAX
+          && trend5d >= THEME_SETUP_ACCEL_MIN_5D
+          && !hasActiveAlert;
+    }
+
+    boolean shouldResolve() {
+      return hasActiveAlert
           && (score >= THEME_SETUP_SCORE_MAX
               || score < THEME_SETUP_RESOLVE_SCORE_LOW
-              || trend5d < THEME_SETUP_RESOLVE_TREND_LOW)) {
-        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_SETUP_ACCELERATION, themeId);
-        log.info(
-            "theme_setup_acceleration: resolved theme={} (score={} trend5d={})",
-            themeId,
-            (int) Math.round(score * 100),
-            String.format("%.3f", trend5d));
-      }
+              || trend5d < THEME_SETUP_RESOLVE_TREND_LOW);
     }
-    return count;
   }
 }

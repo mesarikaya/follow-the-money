@@ -54,96 +54,99 @@ public class ThemeFailedBreakoutAlertEvaluator implements AlertEvaluator {
 
   @Override
   public int evaluate(AlertEvaluationContext context) {
-    LocalDate signalDate = context.signalDate();
-
     Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_FAILED_BREAKOUT);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+    if (!rule.map(AlertRule::enabled).orElse(false)) {
+      return 0;
+    }
 
     Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
-    if (constituentsByTheme.isEmpty()) return 0;
-
-    Map<String, BigDecimal> currentComposite =
+    LocalDate signalDate = context.signalDate();
+    Map<String, BigDecimal> current =
         signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    if (currentComposite.isEmpty()) return 0;
-
-    boolean priorDataLoaded = false;
-    Map<String, BigDecimal> priorComposite = Map.of();
-
-    int count = 0;
-    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
-      String themeId = entry.getKey();
-      List<String> ids = entry.getValue();
-      if (ids.isEmpty()) continue;
-
-      OptionalDouble avgCurrentScore =
-          ids.stream()
-              .map(currentComposite::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      if (avgCurrentScore.isEmpty()) continue;
-
-      double score = avgCurrentScore.getAsDouble();
-      boolean hasActive =
-          alertRepository.existsActiveAlertForTheme(RULE_THEME_FAILED_BREAKOUT, themeId);
-
-      if (score < THEME_FAILED_BREAKOUT_DROP_BELOW && !hasActive) {
-        if (!priorDataLoaded) {
-          LocalDate priorDate =
-              findNthPreviousSignalDate(SignalType.COMPOSITE, signalDate, THEME_PHASE_LOOKBACK_DAYS);
-          if (priorDate != null) {
-            priorComposite = signalRepository.findByTypeAndDate(SignalType.COMPOSITE, priorDate);
-          }
-          priorDataLoaded = true;
-        }
-
-        OptionalDouble avgPriorScore =
-            ids.stream()
-                .map(priorComposite::get)
-                .filter(v -> v != null)
-                .mapToDouble(BigDecimal::doubleValue)
-                .average();
-
-        if (avgPriorScore.isPresent()
-            && avgPriorScore.getAsDouble() >= THEME_FAILED_BREAKOUT_WAS_ABOVE) {
-          Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
-          int currentPct = (int) Math.round(score * 100);
-          int priorPct = (int) Math.round(avgPriorScore.getAsDouble() * 100);
-          int dropPts = priorPct - currentPct;
-          alertRepository.insert(
-              new Alert(
-                  null,
-                  OffsetDateTime.now(),
-                  null,
-                  themeId,
-                  RULE_THEME_FAILED_BREAKOUT,
-                  severity,
-                  String.format(
-                      "%s failed breakout: dropped %dpt (%d→%d) in %dd — exits favored over new entries",
-                      themeId, dropPts, priorPct, currentPct, THEME_PHASE_LOOKBACK_DAYS),
-                  String.format(
-                      "{\"themeId\":\"%s\",\"priorScore\":%.4f,\"currentScore\":%.4f,\"dropPts\":%d,\"signalDate\":\"%s\"}",
-                      themeId, avgPriorScore.getAsDouble(), score, dropPts, signalDate),
-                  AlertStatus.ACTIVE,
-                  null,
-                  null));
-          count++;
-          log.info(
-              "theme_failed_breakout: theme={} prior={}pt current={}pt drop={}pt",
-              themeId,
-              priorPct,
-              currentPct,
-              dropPts);
-        }
-      } else if (hasActive && score >= THEME_FAILED_BREAKOUT_RESOLVE_ABOVE) {
-        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_FAILED_BREAKOUT, themeId);
-        log.info(
-            "theme_failed_breakout: resolved theme={} (score recovered to {})",
-            themeId,
-            (int) Math.round(score * 100));
-      }
+    if (constituentsByTheme.isEmpty() || current.isEmpty()) {
+      return 0;
     }
-    return count;
+
+    Map<String, BigDecimal> prior = loadPriorComposite(signalDate);
+    Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
+    List<Breakdown> breakdowns =
+        constituentsByTheme.entrySet().stream()
+            .map(entry -> assess(entry.getKey(), entry.getValue(), current, prior))
+            .flatMap(Optional::stream)
+            .toList();
+
+    breakdowns.stream().filter(Breakdown::shouldFire).forEach(b -> fire(b, severity, signalDate));
+    breakdowns.stream().filter(Breakdown::shouldResolve).forEach(this::resolve);
+    return (int) breakdowns.stream().filter(Breakdown::shouldFire).count();
+  }
+
+  private Optional<Breakdown> assess(
+      String themeId,
+      List<String> constituentIds,
+      Map<String, BigDecimal> current,
+      Map<String, BigDecimal> prior) {
+    OptionalDouble avgCurrent = averageOf(constituentIds, current);
+    if (avgCurrent.isEmpty()) {
+      return Optional.empty();
+    }
+    OptionalDouble avgPrior = averageOf(constituentIds, prior);
+    boolean active = alertRepository.existsActiveAlertForTheme(RULE_THEME_FAILED_BREAKOUT, themeId);
+    Double priorScore = avgPrior.isPresent() ? avgPrior.getAsDouble() : null;
+    return Optional.of(new Breakdown(themeId, avgCurrent.getAsDouble(), priorScore, active));
+  }
+
+  private OptionalDouble averageOf(List<String> ids, Map<String, BigDecimal> values) {
+    return ids.stream()
+        .map(values::get)
+        .filter(value -> value != null)
+        .mapToDouble(BigDecimal::doubleValue)
+        .average();
+  }
+
+  private void fire(Breakdown breakdown, Severity severity, LocalDate signalDate) {
+    String themeId = breakdown.themeId();
+    int currentPct = breakdown.currentPercent();
+    int priorPct = breakdown.priorPercent();
+    int dropPts = priorPct - currentPct;
+    alertRepository.insert(
+        new Alert(
+            null,
+            OffsetDateTime.now(),
+            null,
+            themeId,
+            RULE_THEME_FAILED_BREAKOUT,
+            severity,
+            String.format(
+                "%s failed breakout: dropped %dpt (%d→%d) in %dd — exits favored over new entries",
+                themeId, dropPts, priorPct, currentPct, THEME_PHASE_LOOKBACK_DAYS),
+            String.format(
+                "{\"themeId\":\"%s\",\"priorScore\":%.4f,\"currentScore\":%.4f,\"dropPts\":%d,\"signalDate\":\"%s\"}",
+                themeId, breakdown.priorScore(), breakdown.currentScore(), dropPts, signalDate),
+            AlertStatus.ACTIVE,
+            null,
+            null));
+    log.info(
+        "theme_failed_breakout: theme={} prior={}pt current={}pt drop={}pt",
+        themeId,
+        priorPct,
+        currentPct,
+        dropPts);
+  }
+
+  private void resolve(Breakdown breakdown) {
+    alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_FAILED_BREAKOUT, breakdown.themeId());
+    log.info(
+        "theme_failed_breakout: resolved theme={} (score recovered to {})",
+        breakdown.themeId(),
+        breakdown.currentPercent());
+  }
+
+  private Map<String, BigDecimal> loadPriorComposite(LocalDate signalDate) {
+    LocalDate priorDate =
+        findNthPreviousSignalDate(SignalType.COMPOSITE, signalDate, THEME_PHASE_LOOKBACK_DAYS);
+    return priorDate != null
+        ? signalRepository.findByTypeAndDate(SignalType.COMPOSITE, priorDate)
+        : Map.of();
   }
 
   /** The signal date {@code n} steps before {@code date}, or null if history runs out first. */
@@ -151,8 +154,33 @@ public class ThemeFailedBreakoutAlertEvaluator implements AlertEvaluator {
     LocalDate result = date;
     for (int i = 0; i < n; i++) {
       result = signalRepository.findPreviousSignalDate(type, result);
-      if (result == null) return null;
+      if (result == null) {
+        return null;
+      }
     }
     return result;
+  }
+
+  /** A theme's breakdown reading: today's score vs its score ~5 days ago. */
+  private record Breakdown(String themeId, double currentScore, Double priorScore, boolean hasActiveAlert) {
+
+    int currentPercent() {
+      return (int) Math.round(currentScore * 100);
+    }
+
+    int priorPercent() {
+      return (int) Math.round(priorScore * 100);
+    }
+
+    boolean shouldFire() {
+      return currentScore < THEME_FAILED_BREAKOUT_DROP_BELOW
+          && !hasActiveAlert
+          && priorScore != null
+          && priorScore >= THEME_FAILED_BREAKOUT_WAS_ABOVE;
+    }
+
+    boolean shouldResolve() {
+      return hasActiveAlert && currentScore >= THEME_FAILED_BREAKOUT_RESOLVE_ABOVE;
+    }
   }
 }

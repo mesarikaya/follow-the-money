@@ -56,97 +56,118 @@ public class ThemeMomentumExhaustionAlertEvaluator implements AlertEvaluator {
 
   @Override
   public int evaluate(AlertEvaluationContext context) {
-    LocalDate signalDate = context.signalDate();
-
     Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_MOMENTUM_EXHAUSTION);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+    if (!rule.map(AlertRule::enabled).orElse(false)) {
+      return 0;
+    }
 
     Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
-    if (constituentsByTheme.isEmpty()) return 0;
-
-    Map<String, BigDecimal> compositeMap =
+    LocalDate signalDate = context.signalDate();
+    Map<String, BigDecimal> composite =
         signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    Map<String, BigDecimal> trend5dMap =
+    Map<String, BigDecimal> trend5d =
         signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, signalDate);
-    Map<String, BigDecimal> trend20dMap =
+    Map<String, BigDecimal> trend20d =
         signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, signalDate);
-    if (compositeMap.isEmpty()) return 0;
-
-    int count = 0;
-    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
-      String themeId = entry.getKey();
-      List<String> ids = entry.getValue();
-      if (ids.isEmpty()) continue;
-
-      OptionalDouble avgComposite =
-          ids.stream()
-              .map(compositeMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      OptionalDouble avgTrend5d =
-          ids.stream()
-              .map(trend5dMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      OptionalDouble avgTrend20d =
-          ids.stream()
-              .map(trend20dMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-
-      if (avgComposite.isEmpty() || avgTrend5d.isEmpty() || avgTrend20d.isEmpty()) continue;
-
-      double score = avgComposite.getAsDouble();
-      double trend5d = avgTrend5d.getAsDouble();
-      double trend20d = avgTrend20d.getAsDouble();
-      boolean hasActive =
-          alertRepository.existsActiveAlertForTheme(RULE_THEME_MOMENTUM_EXHAUSTION, themeId);
-
-      boolean isExhausting =
-          score >= THEME_EXHAUSTION_MIN_SCORE
-              && trend5d < THEME_EXHAUSTION_MAX_5D
-              && trend20d < THEME_EXHAUSTION_MAX_20D;
-
-      if (isExhausting && !hasActive) {
-        Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
-        int scorePct = (int) Math.round(score * 100);
-        alertRepository.insert(
-            new Alert(
-                null,
-                OffsetDateTime.now(),
-                null,
-                themeId,
-                RULE_THEME_MOMENTUM_EXHAUSTION,
-                severity,
-                String.format(
-                    "%s momentum exhaustion: score %d (BUY zone) but 5d=%.1fpt/day, 20d=%.1fpt/day — both trends negative, consider reducing",
-                    themeId, scorePct, trend5d * 100, trend20d * 100),
-                String.format(
-                    "{\"themeId\":\"%s\",\"score\":%.4f,\"trend5d\":%.4f,\"trend20d\":%.4f,\"signalDate\":\"%s\"}",
-                    themeId, score, trend5d, trend20d, signalDate),
-                AlertStatus.ACTIVE,
-                null,
-                null));
-        count++;
-        log.info(
-            "theme_momentum_exhaustion: theme={} score={} trend5d={} trend20d={}",
-            themeId,
-            scorePct,
-            String.format("%.3f", trend5d),
-            String.format("%.3f", trend20d));
-      } else if (hasActive
-          && (score < THEME_EXHAUSTION_RESOLVE_SCORE || trend5d > THEME_EXHAUSTION_RESOLVE_5D)) {
-        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_MOMENTUM_EXHAUSTION, themeId);
-        log.info(
-            "theme_momentum_exhaustion: resolved theme={} (score={} trend5d={})",
-            themeId,
-            (int) Math.round(score * 100),
-            String.format("%.3f", trend5d));
-      }
+    if (constituentsByTheme.isEmpty() || composite.isEmpty()) {
+      return 0;
     }
-    return count;
+
+    Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
+    List<Exhaustion> exhaustions =
+        constituentsByTheme.entrySet().stream()
+            .map(entry -> assess(entry.getKey(), entry.getValue(), composite, trend5d, trend20d))
+            .flatMap(Optional::stream)
+            .toList();
+
+    exhaustions.stream().filter(Exhaustion::shouldFire).forEach(e -> fire(e, severity, signalDate));
+    exhaustions.stream().filter(Exhaustion::shouldResolve).forEach(this::resolve);
+    return (int) exhaustions.stream().filter(Exhaustion::shouldFire).count();
+  }
+
+  private Optional<Exhaustion> assess(
+      String themeId,
+      List<String> constituentIds,
+      Map<String, BigDecimal> composite,
+      Map<String, BigDecimal> trend5d,
+      Map<String, BigDecimal> trend20d) {
+    if (constituentIds.isEmpty()) {
+      return Optional.empty();
+    }
+    OptionalDouble avgComposite = averageOf(constituentIds, composite);
+    OptionalDouble avgTrend5d = averageOf(constituentIds, trend5d);
+    OptionalDouble avgTrend20d = averageOf(constituentIds, trend20d);
+    if (avgComposite.isEmpty() || avgTrend5d.isEmpty() || avgTrend20d.isEmpty()) {
+      return Optional.empty();
+    }
+    boolean active = alertRepository.existsActiveAlertForTheme(RULE_THEME_MOMENTUM_EXHAUSTION, themeId);
+    return Optional.of(
+        new Exhaustion(
+            themeId, avgComposite.getAsDouble(), avgTrend5d.getAsDouble(), avgTrend20d.getAsDouble(), active));
+  }
+
+  private OptionalDouble averageOf(List<String> ids, Map<String, BigDecimal> values) {
+    return ids.stream()
+        .map(values::get)
+        .filter(value -> value != null)
+        .mapToDouble(BigDecimal::doubleValue)
+        .average();
+  }
+
+  private void fire(Exhaustion exhaustion, Severity severity, LocalDate signalDate) {
+    String themeId = exhaustion.themeId();
+    alertRepository.insert(
+        new Alert(
+            null,
+            OffsetDateTime.now(),
+            null,
+            themeId,
+            RULE_THEME_MOMENTUM_EXHAUSTION,
+            severity,
+            String.format(
+                "%s momentum exhaustion: score %d (BUY zone) but 5d=%.1fpt/day, 20d=%.1fpt/day — both trends negative, consider reducing",
+                themeId, exhaustion.scorePercent(), exhaustion.trend5d() * 100, exhaustion.trend20d() * 100),
+            String.format(
+                "{\"themeId\":\"%s\",\"score\":%.4f,\"trend5d\":%.4f,\"trend20d\":%.4f,\"signalDate\":\"%s\"}",
+                themeId, exhaustion.score(), exhaustion.trend5d(), exhaustion.trend20d(), signalDate),
+            AlertStatus.ACTIVE,
+            null,
+            null));
+    log.info(
+        "theme_momentum_exhaustion: theme={} score={} trend5d={} trend20d={}",
+        themeId,
+        exhaustion.scorePercent(),
+        String.format("%.3f", exhaustion.trend5d()),
+        String.format("%.3f", exhaustion.trend20d()));
+  }
+
+  private void resolve(Exhaustion exhaustion) {
+    alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_MOMENTUM_EXHAUSTION, exhaustion.themeId());
+    log.info(
+        "theme_momentum_exhaustion: resolved theme={} (score={} trend5d={})",
+        exhaustion.themeId(),
+        exhaustion.scorePercent(),
+        String.format("%.3f", exhaustion.trend5d()));
+  }
+
+  /** A theme's average score-vs-trend reading for the day. */
+  private record Exhaustion(
+      String themeId, double score, double trend5d, double trend20d, boolean hasActiveAlert) {
+
+    int scorePercent() {
+      return (int) Math.round(score * 100);
+    }
+
+    boolean shouldFire() {
+      return score >= THEME_EXHAUSTION_MIN_SCORE
+          && trend5d < THEME_EXHAUSTION_MAX_5D
+          && trend20d < THEME_EXHAUSTION_MAX_20D
+          && !hasActiveAlert;
+    }
+
+    boolean shouldResolve() {
+      return hasActiveAlert
+          && (score < THEME_EXHAUSTION_RESOLVE_SCORE || trend5d > THEME_EXHAUSTION_RESOLVE_5D);
+    }
   }
 }

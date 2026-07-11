@@ -12,6 +12,7 @@ import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -65,9 +66,10 @@ public class ScoreApproachingSignalEvaluator implements AlertEvaluator {
   }
 
   private int evaluateApproachingBuy(AlertEvaluationContext context) {
-    Optional<AlertRule> approachRule = alertRulesRepository.findById(RULE_SCORE_APPROACHING_BUY);
-    if (!approachRule.map(AlertRule::enabled).orElse(false)) return 0;
-    Severity severity = approachRule.map(AlertRule::severity).orElse(Severity.INFO);
+    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_SCORE_APPROACHING_BUY);
+    if (!rule.map(AlertRule::enabled).orElse(false)) {
+      return 0;
+    }
 
     LocalDate signalDate = context.signalDate();
     Map<String, BigDecimal> composite =
@@ -77,60 +79,24 @@ public class ScoreApproachingSignalEvaluator implements AlertEvaluator {
     Map<String, BigDecimal> trend20d =
         signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, signalDate);
     Map<String, BigDecimal> prevComposite = previousComposite(signalDate);
+    Severity severity = rule.map(AlertRule::severity).orElse(Severity.INFO);
 
-    int count = 0;
-    for (String categoryId : context.topLevelCategoryIds()) {
-      BigDecimal score = composite.get(categoryId);
-      if (score == null) continue;
+    List<Approach> approaches =
+        context.topLevelCategoryIds().stream()
+            .map(categoryId -> assessBuy(categoryId, composite, prevComposite, rrgQuadrant, trend20d))
+            .flatMap(Optional::stream)
+            .filter(approach -> notSuppressed(approach, RULE_SCORE_APPROACHING_BUY, RULE_TRADE_SIGNAL_BUY))
+            .toList();
 
-      boolean inApproachZone =
-          score.compareTo(APPROACHING_BUY_LOWER) >= 0 && score.compareTo(BUY_SCORE_THRESHOLD) < 0;
-      if (!inApproachZone) continue;
-
-      BigDecimal prevScore = prevComposite.get(categoryId);
-      boolean wasBelow = prevScore == null || prevScore.compareTo(APPROACHING_BUY_LOWER) < 0;
-      if (!wasBelow) continue;
-
-      if (alertRepository.existsActiveAlert(RULE_SCORE_APPROACHING_BUY, categoryId)) continue;
-      if (alertRepository.existsActiveAlert(RULE_TRADE_SIGNAL_BUY, categoryId)) continue;
-
-      CategoryId catId = parseCategory(categoryId, "score_approaching_buy");
-      if (catId == null) continue;
-
-      int scorePct = toPercent(score);
-      int ptsNeeded = toPercent(BUY_SCORE_THRESHOLD) - scorePct;
-      int rrgInt = rrgQuadrant(rrgQuadrant, categoryId);
-      BigDecimal trend = trend20d.get(categoryId);
-      String trendPart =
-          trend != null && trend.compareTo(BigDecimal.ZERO) > 0 ? ", 20d trend positive" : "";
-
-      alertRepository.insert(
-          new Alert(
-              OffsetDateTime.now(),
-              catId,
-              RULE_SCORE_APPROACHING_BUY,
-              severity,
-              String.format(
-                  "%s approaching BUY threshold: score %d (need +%d pts for ≥65), RRG %s%s",
-                  categoryId, scorePct, ptsNeeded, rrgLabel(rrgInt), trendPart),
-              String.format(
-                  "{\"score\":%d,\"ptsNeeded\":%d,\"rrgQuadrant\":%d,\"signalDate\":\"%s\"}",
-                  scorePct, ptsNeeded, rrgInt, signalDate),
-              AlertStatus.ACTIVE));
-      count++;
-      log.info(
-          "score_approaching_buy: category={} score={} ptsNeeded={}",
-          categoryId,
-          scorePct,
-          ptsNeeded);
-    }
-    return count;
+    approaches.forEach(approach -> fireBuy(approach, severity, signalDate));
+    return approaches.size();
   }
 
   private int evaluateApproachingReduce(AlertEvaluationContext context) {
-    Optional<AlertRule> approachRule = alertRulesRepository.findById(RULE_SCORE_APPROACHING_REDUCE);
-    if (!approachRule.map(AlertRule::enabled).orElse(false)) return 0;
-    Severity severity = approachRule.map(AlertRule::severity).orElse(Severity.WARNING);
+    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_SCORE_APPROACHING_REDUCE);
+    if (!rule.map(AlertRule::enabled).orElse(false)) {
+      return 0;
+    }
 
     LocalDate signalDate = context.signalDate();
     Map<String, BigDecimal> composite =
@@ -138,52 +104,118 @@ public class ScoreApproachingSignalEvaluator implements AlertEvaluator {
     Map<String, BigDecimal> rrgQuadrant =
         signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
     Map<String, BigDecimal> prevComposite = previousComposite(signalDate);
+    Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
 
-    int count = 0;
-    for (String categoryId : context.topLevelCategoryIds()) {
-      BigDecimal score = composite.get(categoryId);
-      if (score == null) continue;
+    List<Approach> approaches =
+        context.topLevelCategoryIds().stream()
+            .map(categoryId -> assessReduce(categoryId, composite, prevComposite, rrgQuadrant))
+            .flatMap(Optional::stream)
+            .filter(
+                approach ->
+                    notSuppressed(approach, RULE_SCORE_APPROACHING_REDUCE, RULE_TRADE_SIGNAL_REDUCE))
+            .toList();
 
-      boolean inApproachZone =
-          score.compareTo(REDUCE_SCORE_THRESHOLD) >= 0
-              && score.compareTo(APPROACHING_REDUCE_UPPER) <= 0;
-      if (!inApproachZone) continue;
+    approaches.forEach(approach -> fireReduce(approach, severity, signalDate));
+    return approaches.size();
+  }
 
-      BigDecimal prevScore = prevComposite.get(categoryId);
-      boolean wasAbove = prevScore == null || prevScore.compareTo(APPROACHING_REDUCE_UPPER) > 0;
-      if (!wasAbove) continue;
-
-      if (alertRepository.existsActiveAlert(RULE_SCORE_APPROACHING_REDUCE, categoryId)) continue;
-      if (alertRepository.existsActiveAlert(RULE_TRADE_SIGNAL_REDUCE, categoryId)) continue;
-
-      CategoryId catId = parseCategory(categoryId, "score_approaching_reduce");
-      if (catId == null) continue;
-
-      int scorePct = toPercent(score);
-      int ptsBuffer = scorePct - toPercent(REDUCE_SCORE_THRESHOLD);
-      int rrgInt = rrgQuadrant(rrgQuadrant, categoryId);
-
-      alertRepository.insert(
-          new Alert(
-              OffsetDateTime.now(),
-              catId,
-              RULE_SCORE_APPROACHING_REDUCE,
-              severity,
-              String.format(
-                  "%s approaching REDUCE threshold: score %d (only %d pts above REDUCE zone ≤34), RRG %s — monitor for further deterioration",
-                  categoryId, scorePct, ptsBuffer, rrgLabel(rrgInt)),
-              String.format(
-                  "{\"score\":%d,\"ptsBuffer\":%d,\"rrgQuadrant\":%d,\"signalDate\":\"%s\"}",
-                  scorePct, ptsBuffer, rrgInt, signalDate),
-              AlertStatus.ACTIVE));
-      count++;
-      log.info(
-          "score_approaching_reduce: category={} score={} ptsBuffer={}",
-          categoryId,
-          scorePct,
-          ptsBuffer);
+  private Optional<Approach> assessBuy(
+      String categoryId,
+      Map<String, BigDecimal> composite,
+      Map<String, BigDecimal> prevComposite,
+      Map<String, BigDecimal> rrgQuadrant,
+      Map<String, BigDecimal> trend20d) {
+    BigDecimal score = composite.get(categoryId);
+    if (score == null) {
+      return Optional.empty();
     }
-    return count;
+    boolean inApproachZone =
+        score.compareTo(APPROACHING_BUY_LOWER) >= 0 && score.compareTo(BUY_SCORE_THRESHOLD) < 0;
+    BigDecimal prevScore = prevComposite.get(categoryId);
+    boolean wasBelow = prevScore == null || prevScore.compareTo(APPROACHING_BUY_LOWER) < 0;
+    if (!inApproachZone || !wasBelow) {
+      return Optional.empty();
+    }
+    return knownCategory(categoryId, RULE_SCORE_APPROACHING_BUY)
+        .map(
+            category ->
+                new Approach(
+                    categoryId, category, score, quadrant(rrgQuadrant, categoryId), trend20d.get(categoryId)));
+  }
+
+  private Optional<Approach> assessReduce(
+      String categoryId,
+      Map<String, BigDecimal> composite,
+      Map<String, BigDecimal> prevComposite,
+      Map<String, BigDecimal> rrgQuadrant) {
+    BigDecimal score = composite.get(categoryId);
+    if (score == null) {
+      return Optional.empty();
+    }
+    boolean inApproachZone =
+        score.compareTo(REDUCE_SCORE_THRESHOLD) >= 0 && score.compareTo(APPROACHING_REDUCE_UPPER) <= 0;
+    BigDecimal prevScore = prevComposite.get(categoryId);
+    boolean wasAbove = prevScore == null || prevScore.compareTo(APPROACHING_REDUCE_UPPER) > 0;
+    if (!inApproachZone || !wasAbove) {
+      return Optional.empty();
+    }
+    return knownCategory(categoryId, RULE_SCORE_APPROACHING_REDUCE)
+        .map(category -> new Approach(categoryId, category, score, quadrant(rrgQuadrant, categoryId), null));
+  }
+
+  /** Not already alerted, and not superseded by the formal trade signal in that direction. */
+  private boolean notSuppressed(Approach approach, String approachRule, String tradeSignalRule) {
+    return !alertRepository.existsActiveAlert(approachRule, approach.categoryId())
+        && !alertRepository.existsActiveAlert(tradeSignalRule, approach.categoryId());
+  }
+
+  private void fireBuy(Approach approach, Severity severity, LocalDate signalDate) {
+    int scorePct = toPercent(approach.score());
+    int ptsNeeded = toPercent(BUY_SCORE_THRESHOLD) - scorePct;
+    BigDecimal trend = approach.trend20d();
+    String trendPart =
+        trend != null && trend.compareTo(BigDecimal.ZERO) > 0 ? ", 20d trend positive" : "";
+    alertRepository.insert(
+        new Alert(
+            OffsetDateTime.now(),
+            approach.category(),
+            RULE_SCORE_APPROACHING_BUY,
+            severity,
+            String.format(
+                "%s approaching BUY threshold: score %d (need +%d pts for ≥65), RRG %s%s",
+                approach.categoryId(), scorePct, ptsNeeded, rrgLabel(approach.quadrant()), trendPart),
+            String.format(
+                "{\"score\":%d,\"ptsNeeded\":%d,\"rrgQuadrant\":%d,\"signalDate\":\"%s\"}",
+                scorePct, ptsNeeded, approach.quadrant(), signalDate),
+            AlertStatus.ACTIVE));
+    log.info(
+        "score_approaching_buy: category={} score={} ptsNeeded={}",
+        approach.categoryId(),
+        scorePct,
+        ptsNeeded);
+  }
+
+  private void fireReduce(Approach approach, Severity severity, LocalDate signalDate) {
+    int scorePct = toPercent(approach.score());
+    int ptsBuffer = scorePct - toPercent(REDUCE_SCORE_THRESHOLD);
+    alertRepository.insert(
+        new Alert(
+            OffsetDateTime.now(),
+            approach.category(),
+            RULE_SCORE_APPROACHING_REDUCE,
+            severity,
+            String.format(
+                "%s approaching REDUCE threshold: score %d (only %d pts above REDUCE zone ≤34), RRG %s — monitor for further deterioration",
+                approach.categoryId(), scorePct, ptsBuffer, rrgLabel(approach.quadrant())),
+            String.format(
+                "{\"score\":%d,\"ptsBuffer\":%d,\"rrgQuadrant\":%d,\"signalDate\":\"%s\"}",
+                scorePct, ptsBuffer, approach.quadrant(), signalDate),
+            AlertStatus.ACTIVE));
+    log.info(
+        "score_approaching_reduce: category={} score={} ptsBuffer={}",
+        approach.categoryId(),
+        scorePct,
+        ptsBuffer);
   }
 
   private Map<String, BigDecimal> previousComposite(LocalDate signalDate) {
@@ -193,26 +225,26 @@ public class ScoreApproachingSignalEvaluator implements AlertEvaluator {
         : Map.of();
   }
 
-  private CategoryId parseCategory(String categoryId, String ruleId) {
+  private Optional<CategoryId> knownCategory(String categoryId, String ruleId) {
     try {
-      return CategoryId.valueOf(categoryId);
+      return Optional.of(CategoryId.valueOf(categoryId));
     } catch (IllegalArgumentException e) {
       log.debug("{}: skipping unknown CategoryId={}", ruleId, categoryId);
-      return null;
+      return Optional.empty();
     }
   }
 
-  private int toPercent(BigDecimal score) {
-    return score.multiply(ONE_HUNDRED).intValue();
+  private int toPercent(BigDecimal value) {
+    return value.multiply(ONE_HUNDRED).intValue();
   }
 
-  private int rrgQuadrant(Map<String, BigDecimal> rrgQuadrant, String categoryId) {
+  private int quadrant(Map<String, BigDecimal> rrgQuadrant, String categoryId) {
     BigDecimal rrg = rrgQuadrant.get(categoryId);
     return rrg != null ? rrg.intValue() : 0;
   }
 
-  private String rrgLabel(int rrgQuadrant) {
-    return switch (rrgQuadrant) {
+  private String rrgLabel(int quadrant) {
+    return switch (quadrant) {
       case 4 -> "Leading";
       case 3 -> "Improving";
       case 2 -> "Weakening";
@@ -220,4 +252,8 @@ public class ScoreApproachingSignalEvaluator implements AlertEvaluator {
       default -> "Unknown";
     };
   }
+
+  /** A sector entering an approach zone; {@code trend20d} is null for the REDUCE direction. */
+  private record Approach(
+      String categoryId, CategoryId category, BigDecimal score, int quadrant, BigDecimal trend20d) {}
 }

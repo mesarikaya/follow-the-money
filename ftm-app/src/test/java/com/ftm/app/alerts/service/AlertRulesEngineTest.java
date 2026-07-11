@@ -14,6 +14,9 @@ import com.ftm.app.alerts.evaluator.BreadthVelocityAlertEvaluator;
 import com.ftm.app.alerts.evaluator.HighConvictionAlertEvaluator;
 import com.ftm.app.alerts.evaluator.MacroRegimeShiftAlertEvaluator;
 import com.ftm.app.alerts.evaluator.PersistenceLowAlertEvaluator;
+import com.ftm.app.alerts.evaluator.PreBuyFlowSurgeAlertEvaluator;
+import com.ftm.app.alerts.evaluator.RrgRsDivergenceAlertEvaluator;
+import com.ftm.app.alerts.evaluator.RsAccelerationCrossoverAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsAlignedAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsBreadthExtremeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScoreApproachingSignalEvaluator;
@@ -125,6 +128,12 @@ class AlertRulesEngineTest {
             new ScoreApproachingSignalEvaluator(
                 alertRulesRepository, signalRepository, alertRepository),
             new HighConvictionAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+            new RsAccelerationCrossoverAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+            new PreBuyFlowSurgeAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+            new RrgRsDivergenceAlertEvaluator(
                 alertRulesRepository, signalRepository, alertRepository));
     // resolveStaleAlerts always calls these; lenient prevents PotentialStubbingProblem
     // in tests that stub other SignalTypes (RS_60, RS_120, MACRO_REGIME).

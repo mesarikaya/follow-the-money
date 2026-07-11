@@ -5,6 +5,9 @@ import com.ftm.app.alerts.evaluator.BreadthVelocityAlertEvaluator;
 import com.ftm.app.alerts.evaluator.HighConvictionAlertEvaluator;
 import com.ftm.app.alerts.evaluator.MacroRegimeShiftAlertEvaluator;
 import com.ftm.app.alerts.evaluator.PersistenceLowAlertEvaluator;
+import com.ftm.app.alerts.evaluator.PreBuyFlowSurgeAlertEvaluator;
+import com.ftm.app.alerts.evaluator.RrgRsDivergenceAlertEvaluator;
+import com.ftm.app.alerts.evaluator.RsAccelerationCrossoverAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsAlignedAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsBreadthExtremeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScoreApproachingSignalEvaluator;
@@ -71,7 +74,6 @@ public class AlertRulesEngine {
   private static final String RULE_RRG_TRANSITION = "rrg_transition";
   private static final String RULE_COMPOSITE_BREAKOUT = "composite_breakout";
   private static final String RULE_COMPOSITE_BREAKDOWN = "composite_breakdown";
-  private static final String RULE_RS_ACCEL_CROSSOVER = "rs_accel_crossover";
   private static final String RULE_PERSISTENCE_LOW = "persistence_low";
   private static final String RULE_BREADTH_VELOCITY_ACCEL = "breadth_velocity_accel";
   private static final String RULE_BREADTH_VELOCITY_DECEL = "breadth_velocity_decel";
@@ -84,7 +86,6 @@ public class AlertRulesEngine {
   private static final String RULE_RS_ALIGNED_BULL = "rs_aligned_bull";
   private static final String RULE_RS_ALIGNED_BEAR = "rs_aligned_bear";
   private static final String RULE_PRE_BUY_FLOW_SURGE = "pre_buy_flow_surge";
-  private static final String RULE_RRG_RS_DIVERGENCE = "rrg_rs_divergence";
   private static final String RULE_MULTI_ALERT_BULL = "multi_alert_bull_confluence";
   private static final int BULL_CONFLUENCE_THRESHOLD = 3;
   private static final List<String> BULL_ALERT_RULES =
@@ -98,7 +99,6 @@ public class AlertRulesEngine {
           "composite_breakout");
   private static final BigDecimal FLOW_SURGE_Z_THRESHOLD = new BigDecimal("2.0");
   private static final BigDecimal FLOW_SURGE_RESOLVE_THRESHOLD = new BigDecimal("1.0");
-  private static final BigDecimal PRE_BUY_FLOW_SURGE_Z_THRESHOLD = new BigDecimal("1.5");
   private static final BigDecimal PRE_BUY_FLOW_SURGE_RESOLVE_Z = new BigDecimal("0.8");
   private static final BigDecimal DETERIORATION_RECOVERY_THRESHOLD = new BigDecimal("-0.02");
   private static final BigDecimal APPROACHING_BUY_LOWER = new BigDecimal("0.55");
@@ -170,6 +170,9 @@ public class AlertRulesEngine {
   private final RsAlignedAlertEvaluator rsAlignedAlertEvaluator;
   private final ScoreApproachingSignalEvaluator scoreApproachingSignalEvaluator;
   private final HighConvictionAlertEvaluator highConvictionAlertEvaluator;
+  private final RsAccelerationCrossoverAlertEvaluator rsAccelerationCrossoverAlertEvaluator;
+  private final PreBuyFlowSurgeAlertEvaluator preBuyFlowSurgeAlertEvaluator;
+  private final RrgRsDivergenceAlertEvaluator rrgRsDivergenceAlertEvaluator;
 
   public AlertRulesEngine(
       AlertRepository alertRepository,
@@ -197,7 +200,10 @@ public class AlertRulesEngine {
       BreadthVelocityAlertEvaluator breadthVelocityAlertEvaluator,
       RsAlignedAlertEvaluator rsAlignedAlertEvaluator,
       ScoreApproachingSignalEvaluator scoreApproachingSignalEvaluator,
-      HighConvictionAlertEvaluator highConvictionAlertEvaluator) {
+      HighConvictionAlertEvaluator highConvictionAlertEvaluator,
+      RsAccelerationCrossoverAlertEvaluator rsAccelerationCrossoverAlertEvaluator,
+      PreBuyFlowSurgeAlertEvaluator preBuyFlowSurgeAlertEvaluator,
+      RrgRsDivergenceAlertEvaluator rrgRsDivergenceAlertEvaluator) {
     this.alertRepository = alertRepository;
     this.alertRulesRepository = alertRulesRepository;
     this.rotationEventRepository = rotationEventRepository;
@@ -224,6 +230,9 @@ public class AlertRulesEngine {
     this.rsAlignedAlertEvaluator = rsAlignedAlertEvaluator;
     this.scoreApproachingSignalEvaluator = scoreApproachingSignalEvaluator;
     this.highConvictionAlertEvaluator = highConvictionAlertEvaluator;
+    this.rsAccelerationCrossoverAlertEvaluator = rsAccelerationCrossoverAlertEvaluator;
+    this.preBuyFlowSurgeAlertEvaluator = preBuyFlowSurgeAlertEvaluator;
+    this.rrgRsDivergenceAlertEvaluator = rrgRsDivergenceAlertEvaluator;
   }
 
   @EventListener
@@ -244,7 +253,7 @@ public class AlertRulesEngine {
     int alertsCreated = 0;
     alertsCreated += evaluateRotationEventAlerts(signalDate);
     alertsCreated += macroRegimeShiftAlertEvaluator.evaluate(context);
-    alertsCreated += evaluateRsAccelerationCrossover(signalDate, topLevelCategoryIds);
+    alertsCreated += rsAccelerationCrossoverAlertEvaluator.evaluate(context);
     alertsCreated += persistenceLowAlertEvaluator.evaluate(context);
     alertsCreated += breadthVelocityAlertEvaluator.evaluate(context);
     alertsCreated += evaluateTradeSignalTransitions(signalDate, topLevelCategoryIds);
@@ -252,9 +261,9 @@ public class AlertRulesEngine {
     alertsCreated += highConvictionAlertEvaluator.evaluate(context);
     alertsCreated += signalDeteriorationAlertEvaluator.evaluate(context);
     alertsCreated += rsAlignedAlertEvaluator.evaluate(context);
-    alertsCreated += evaluatePreBuyFlowSurge(signalDate, topLevelCategoryIds);
+    alertsCreated += preBuyFlowSurgeAlertEvaluator.evaluate(context);
     alertsCreated += rsBreadthExtremeAlertEvaluator.evaluate(context);
-    alertsCreated += evaluateRrgRsDivergence(signalDate, equityCategoryIds);
+    alertsCreated += rrgRsDivergenceAlertEvaluator.evaluate(context);
     alertsCreated += scorePercentileExtremeAlertEvaluator.evaluate(context);
     alertsCreated += scoreVelocityAlertEvaluator.evaluate(context);
     alertsCreated += evaluateCrossHorizonRsDivergence(signalDate, equityCategoryIds);
@@ -550,86 +559,6 @@ public class AlertRulesEngine {
         rotationEvent.eventType().name(), rotationEvent.confidence(), rotationEvent.detectedDate());
   }
 
-  private int evaluateRsAccelerationCrossover(
-      LocalDate signalDate, Set<String> topLevelCategoryIds) {
-    Optional<AlertRule> rsAccelRule = alertRulesRepository.findById(RULE_RS_ACCEL_CROSSOVER);
-    if (!rsAccelRule.map(AlertRule::enabled).orElse(false)) return 0;
-    Severity severity = rsAccelRule.map(AlertRule::severity).orElse(Severity.INFO);
-
-    Map<String, BigDecimal> currentRs60 =
-        signalRepository.findByTypeAndDate(SignalType.RS_60, signalDate);
-    Map<String, BigDecimal> currentRs120 =
-        signalRepository.findByTypeAndDate(SignalType.RS_120, signalDate);
-    if (currentRs60.isEmpty() || currentRs120.isEmpty()) return 0;
-
-    LocalDate prevDate = signalRepository.findPreviousSignalDate(SignalType.RS_60, signalDate);
-    if (prevDate == null) return 0;
-
-    Map<String, BigDecimal> prevRs60 =
-        signalRepository.findByTypeAndDate(SignalType.RS_60, prevDate);
-    Map<String, BigDecimal> prevRs120 =
-        signalRepository.findByTypeAndDate(SignalType.RS_120, prevDate);
-
-    int count = 0;
-    for (String categoryId : currentRs60.keySet()) {
-      if (!topLevelCategoryIds.contains(categoryId)) continue;
-      BigDecimal rs60 = currentRs60.get(categoryId);
-      BigDecimal rs120 = currentRs120.get(categoryId);
-      BigDecimal prevRs60Val = prevRs60.get(categoryId);
-      BigDecimal prevRs120Val = prevRs120.get(categoryId);
-
-      if (rs60 == null || rs120 == null || prevRs60Val == null || prevRs120Val == null) continue;
-
-      boolean nowAbove = rs60.compareTo(rs120) > 0;
-      boolean wasAbove = prevRs60Val.compareTo(prevRs120Val) > 0;
-      if (nowAbove == wasAbove) continue;
-
-      CategoryId catId;
-      try {
-        catId = CategoryId.valueOf(categoryId);
-      } catch (IllegalArgumentException e) {
-        log.debug("rs_accel_crossover: skipping unknown CategoryId={}", categoryId);
-        continue;
-      }
-
-      if (!alertRepository.existsActiveAlert(RULE_RS_ACCEL_CROSSOVER, categoryId)) {
-        String message =
-            nowAbove
-                ? String.format(
-                    "%s RS-60 crossed above RS-120 — near-term momentum accelerating beyond long-term baseline",
-                    categoryId)
-                : String.format(
-                    "%s RS-60 crossed below RS-120 — near-term momentum decelerating below long-term baseline",
-                    categoryId);
-        String snapshot =
-            String.format(
-                "{\"direction\":\"%s\",\"rs60\":%.4f,\"rs120\":%.4f,\"prevRs60\":%.4f,\"prevRs120\":%.4f,\"signalDate\":\"%s\"}",
-                nowAbove ? "bullish" : "bearish",
-                rs60,
-                rs120,
-                prevRs60Val,
-                prevRs120Val,
-                signalDate);
-        alertRepository.insert(
-            new Alert(
-                OffsetDateTime.now(),
-                catId,
-                RULE_RS_ACCEL_CROSSOVER,
-                severity,
-                message,
-                snapshot,
-                AlertStatus.ACTIVE));
-        count++;
-        log.info(
-            "rs_accel_crossover alert: category={} direction={} rs60={} rs120={}",
-            categoryId,
-            nowAbove ? "bullish" : "bearish",
-            rs60,
-            rs120);
-      }
-    }
-    return count;
-  }
 
   private int evaluateTradeSignalTransitions(
       LocalDate signalDate, Set<String> topLevelCategoryIds) {
@@ -762,178 +691,7 @@ public class AlertRulesEngine {
 
 
 
-  /**
-   * Fires when a sector is in the pre-BUY approach zone (score 0.55–0.65) AND institutional flow is
-   * surging (FLOW_20D z-score ≥ 1.5). This combination means institutional money is moving in
-   * before the composite score crosses the full BUY threshold — a leading indicator for an imminent
-   * BUY signal. Resolves when score exits the approach zone (either drops back or reaches full
-   * BUY), or when the flow surge dissipates (z < 0.8).
-   */
-  private int evaluatePreBuyFlowSurge(LocalDate signalDate, Set<String> topLevelCategoryIds) {
-    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_PRE_BUY_FLOW_SURGE);
-    if (rule.isEmpty() || !rule.get().enabled()) return 0;
-    Severity severity = rule.get().severity();
 
-    Map<String, BigDecimal> composite =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    Map<String, BigDecimal> flow20d =
-        signalRepository.findByTypeAndDate(SignalType.FLOW_20D, signalDate);
-    Map<String, BigDecimal> rrgQuadrant =
-        signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
-    if (composite.isEmpty() || flow20d.isEmpty()) return 0;
-
-    int count = 0;
-    for (String categoryId : topLevelCategoryIds) {
-      BigDecimal score = composite.get(categoryId);
-      BigDecimal flowZ = flow20d.get(categoryId);
-      if (score == null || flowZ == null) continue;
-
-      boolean inApproachZone =
-          score.compareTo(APPROACHING_BUY_LOWER) >= 0 && score.compareTo(BUY_SCORE_THRESHOLD) < 0;
-      boolean flowSurging = flowZ.compareTo(PRE_BUY_FLOW_SURGE_Z_THRESHOLD) >= 0;
-      if (!inApproachZone || !flowSurging) continue;
-      if (alertRepository.existsActiveAlert(RULE_PRE_BUY_FLOW_SURGE, categoryId)) continue;
-      if (alertRepository.existsActiveAlert(RULE_TRADE_SIGNAL_BUY, categoryId)) continue;
-
-      CategoryId catId;
-      try {
-        catId = CategoryId.valueOf(categoryId);
-      } catch (IllegalArgumentException e) {
-        log.debug("pre_buy_flow_surge: skipping unknown CategoryId={}", categoryId);
-        continue;
-      }
-
-      int scorePct = score.multiply(BigDecimal.valueOf(100)).intValue();
-      int ptsNeeded = BUY_SCORE_THRESHOLD.multiply(BigDecimal.valueOf(100)).intValue() - scorePct;
-      BigDecimal rrg = rrgQuadrant.get(categoryId);
-      int rrgInt = rrg != null ? rrg.intValue() : 0;
-      String rrgLabel =
-          switch (rrgInt) {
-            case 4 -> "Leading";
-            case 3 -> "Improving";
-            case 2 -> "Weakening";
-            case 1 -> "Lagging";
-            default -> "Unknown";
-          };
-
-      alertRepository.insert(
-          new Alert(
-              OffsetDateTime.now(),
-              catId,
-              RULE_PRE_BUY_FLOW_SURGE,
-              severity,
-              String.format(
-                  "%s pre-BUY flow surge: score=%d (need +%dpts for BUY), flow z=+%.1fσ — institutions positioning ahead of signal, RRG %s",
-                  categoryId, scorePct, ptsNeeded, flowZ.doubleValue(), rrgLabel),
-              String.format(
-                  "{\"score\":%d,\"ptsNeeded\":%d,\"flowZ\":%.2f,\"rrgQuadrant\":%d,\"signalDate\":\"%s\"}",
-                  scorePct, ptsNeeded, flowZ.doubleValue(), rrgInt, signalDate),
-              AlertStatus.ACTIVE));
-      count++;
-      log.info(
-          "pre_buy_flow_surge: category={} score={} ptsNeeded={} flowZ={}",
-          categoryId,
-          scorePct,
-          ptsNeeded,
-          flowZ);
-    }
-    return count;
-  }
-
-  /**
-   * Fires when RRG quadrant direction contradicts RS-20 vs RS-60 momentum direction.
-   *
-   * <ul>
-   *   <li>Bearish divergence: sector in Leading (4) or Improving (3) — RRG says strong — but RS-20
-   *       &lt; RS-60 meaning short-term momentum is already cracking. Early warning that the sector
-   *       is about to roll over into Weakening.
-   *   <li>Bullish divergence: sector in Lagging (1) or Weakening (2) — RRG says weak — but RS-20
-   *       &gt; RS-60 meaning short-term momentum has already turned up. Early recovery signal
-   *       before the RRG chart catches up.
-   * </ul>
-   *
-   * Resolves when divergence closes (RS-20/RS-60 relationship aligns with RRG direction).
-   */
-  private int evaluateRrgRsDivergence(LocalDate signalDate, Set<String> equityCategoryIds) {
-    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_RRG_RS_DIVERGENCE);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-
-    Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
-
-    Map<String, BigDecimal> rrgMap =
-        signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
-    Map<String, BigDecimal> rs20Map =
-        signalRepository.findByTypeAndDate(SignalType.RS_20, signalDate);
-    Map<String, BigDecimal> rs60Map =
-        signalRepository.findByTypeAndDate(SignalType.RS_60, signalDate);
-
-    if (rrgMap.isEmpty() || rs20Map.isEmpty() || rs60Map.isEmpty()) return 0;
-
-    int count = 0;
-    for (String categoryId : equityCategoryIds) {
-      BigDecimal rrgRaw = rrgMap.get(categoryId);
-      BigDecimal rs20 = rs20Map.get(categoryId);
-      BigDecimal rs60 = rs60Map.get(categoryId);
-      if (rrgRaw == null || rs20 == null || rs60 == null) continue;
-
-      int rrg = rrgRaw.intValue();
-      boolean rrgBullish = rrg == 3 || rrg == 4; // Improving or Leading
-      boolean rrgBearish = rrg == 1 || rrg == 2; // Lagging or Weakening
-      int rsCmp = rs20.compareTo(rs60);
-      boolean rsMomentumBullish = rsCmp > 0; // RS-20 > RS-60: short-term outpacing medium-term
-      boolean rsMomentumBearish = rsCmp < 0;
-
-      boolean bearishDivergence = rrgBullish && rsMomentumBearish; // RRG says strong, RS cracks
-      boolean bullishDivergence = rrgBearish && rsMomentumBullish; // RRG says weak, RS recovers
-
-      boolean hasActive = alertRepository.existsActiveAlert(RULE_RRG_RS_DIVERGENCE, categoryId);
-      boolean anyDivergence = bearishDivergence || bullishDivergence;
-
-      if (anyDivergence && !hasActive) {
-        CategoryId catId;
-        try {
-          catId = CategoryId.valueOf(categoryId);
-        } catch (IllegalArgumentException e) {
-          log.debug("rrg_rs_divergence: skipping unknown CategoryId={}", categoryId);
-          continue;
-        }
-        String rrgLabel =
-            rrg == 4 ? "Leading" : rrg == 3 ? "Improving" : rrg == 2 ? "Weakening" : "Lagging";
-        String divergenceType = bearishDivergence ? "BEARISH DIVERGENCE" : "BULLISH DIVERGENCE";
-        String explanation =
-            bearishDivergence
-                ? String.format(
-                    "RRG %s (Q%d) but RS-20 already below RS-60 — momentum cracking before chart shows it",
-                    rrgLabel, rrg)
-                : String.format(
-                    "RRG %s (Q%d) but RS-20 already above RS-60 — momentum recovering before chart shows it",
-                    rrgLabel, rrg);
-        alertRepository.insert(
-            new Alert(
-                OffsetDateTime.now(),
-                catId,
-                RULE_RRG_RS_DIVERGENCE,
-                severity,
-                String.format("%s %s: %s", categoryId, divergenceType, explanation),
-                String.format(
-                    "{\"rrgQuadrant\":%d,\"rs20\":%.4f,\"rs60\":%.4f,\"divergenceType\":\"%s\",\"signalDate\":\"%s\"}",
-                    rrg, rs20.doubleValue(), rs60.doubleValue(), divergenceType, signalDate),
-                AlertStatus.ACTIVE));
-        log.info(
-            "rrg_rs_divergence: category={} type={} rrg={} rs20={} rs60={}",
-            categoryId,
-            divergenceType,
-            rrg,
-            rs20,
-            rs60);
-        count++;
-      } else if (!anyDivergence && hasActive) {
-        alertRepository.resolveAlertsByRuleAndCategory(RULE_RRG_RS_DIVERGENCE, categoryId);
-        log.info("rrg_rs_divergence: resolved for category={} (divergence closed)", categoryId);
-      }
-    }
-    return count;
-  }
 
   /**
    * Meta-alert: fires when a single sector has &ge; 3 bullish alerts simultaneously active.
@@ -1770,3 +1528,4 @@ public class AlertRulesEngine {
     return count;
   }
 }
+

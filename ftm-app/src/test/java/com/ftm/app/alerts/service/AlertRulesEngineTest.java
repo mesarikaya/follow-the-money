@@ -22,6 +22,7 @@ import com.ftm.app.alerts.evaluator.RsAccelerationCrossoverAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsAlignedAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsBreadthExtremeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScoreApproachingSignalEvaluator;
+import com.ftm.app.alerts.evaluator.SubSectorBreadthAlertEvaluator;
 import com.ftm.app.alerts.evaluator.TradeSignalTransitionsAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScorePercentileExtremeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScoreVelocityAlertEvaluator;
@@ -143,7 +144,9 @@ class AlertRulesEngineTest {
             new CrossHorizonRsDivergenceAlertEvaluator(
                 alertRulesRepository, signalRepository, alertRepository),
             new MacroSectorMismatchAlertEvaluator(
-                alertRulesRepository, signalRepository, alertRepository));
+                alertRulesRepository, signalRepository, alertRepository),
+            new SubSectorBreadthAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository, categoryRepository));
     // resolveStaleAlerts always calls these; lenient prevents PotentialStubbingProblem
     // in tests that stub other SignalTypes (RS_60, RS_120, MACRO_REGIME).
     // Tests that need meaningful values for these types override these stubs inline.

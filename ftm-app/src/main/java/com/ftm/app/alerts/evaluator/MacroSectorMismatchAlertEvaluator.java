@@ -13,6 +13,7 @@ import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -55,75 +56,118 @@ public class MacroSectorMismatchAlertEvaluator implements AlertEvaluator {
   @Override
   public int evaluate(AlertEvaluationContext context) {
     Optional<AlertRule> rule = alertRulesRepository.findById(RULE_MACRO_SECTOR_MISMATCH);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-    Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
+    if (!rule.map(AlertRule::enabled).orElse(false)) {
+      return 0;
+    }
 
     LocalDate signalDate = context.signalDate();
-    Map<String, BigDecimal> regimeSignals =
-        signalRepository.findByTypeAndDate(SignalType.MACRO_REGIME, signalDate);
-    if (regimeSignals.isEmpty()) return 0;
-
-    BigDecimal regimeRaw = regimeSignals.values().stream().findFirst().orElse(null);
-    if (regimeRaw == null) return 0;
-
-    int regimeOrdinal = regimeRaw.intValue();
-    boolean isRiskOff = RISK_OFF_REGIME_ORDINALS.contains(regimeOrdinal);
-    String regimeName = MacroRegime.nameForOrdinal(regimeOrdinal);
-
+    Optional<Regime> regime = loadRegime(signalDate);
     Map<String, BigDecimal> rrgMap =
         signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
-    if (rrgMap.isEmpty()) return 0;
+    if (regime.isEmpty() || rrgMap.isEmpty()) {
+      return 0;
+    }
 
-    int count = 0;
-    for (String categoryId : context.equityCategoryIds()) {
-      if (!CYCLICAL_CATEGORY_IDS.contains(categoryId)) continue;
+    Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
+    List<Assessment> assessed =
+        context.equityCategoryIds().stream()
+            .filter(CYCLICAL_CATEGORY_IDS::contains)
+            .map(categoryId -> assess(categoryId, rrgMap, regime.get()))
+            .flatMap(Optional::stream)
+            .toList();
 
-      BigDecimal rrgRaw = rrgMap.get(categoryId);
-      if (rrgRaw == null) continue;
+    assessed.stream()
+        .filter(Assessment::shouldFire)
+        .forEach(assessment -> fire(assessment, severity, regime.get(), signalDate));
+    assessed.stream()
+        .filter(Assessment::shouldResolve)
+        .forEach(assessment -> resolve(assessment, regime.get()));
+    return (int) assessed.stream().filter(Assessment::shouldFire).count();
+  }
 
-      int rrg = rrgRaw.intValue();
-      boolean isBullishQuadrant = rrg == 3 || rrg == 4;
-      boolean hasMismatch = isRiskOff && isBullishQuadrant;
-      boolean hasActive = alertRepository.existsActiveAlert(RULE_MACRO_SECTOR_MISMATCH, categoryId);
+  private Optional<Assessment> assess(String categoryId, Map<String, BigDecimal> rrgMap, Regime regime) {
+    BigDecimal rrgRaw = rrgMap.get(categoryId);
+    if (rrgRaw == null) {
+      return Optional.empty();
+    }
+    int quadrant = rrgRaw.intValue();
+    boolean mismatch = regime.riskOff() && (quadrant == 3 || quadrant == 4);
+    boolean active = alertRepository.existsActiveAlert(RULE_MACRO_SECTOR_MISMATCH, categoryId);
+    return Optional.of(new Assessment(categoryId, knownCategory(categoryId), quadrant, mismatch, active));
+  }
 
-      if (hasMismatch && !hasActive) {
-        CategoryId catId;
-        try {
-          catId = CategoryId.valueOf(categoryId);
-        } catch (IllegalArgumentException e) {
-          log.debug("macro_sector_mismatch: skipping unknown CategoryId={}", categoryId);
-          continue;
-        }
-        String quadrantLabel = rrg == 4 ? "Leading" : "Improving";
-        String message =
+  private void fire(Assessment assessment, Severity severity, Regime regime, LocalDate signalDate) {
+    int quadrant = assessment.quadrant();
+    String quadrantLabel = quadrant == 4 ? "Leading" : "Improving";
+    alertRepository.insert(
+        new Alert(
+            OffsetDateTime.now(),
+            assessment.category().orElseThrow(),
+            RULE_MACRO_SECTOR_MISMATCH,
+            severity,
             String.format(
                 "%s cyclical sector in %s RRG while macro regime is %s — anomalous leadership; watch for reversal or early recovery signal",
-                categoryId, quadrantLabel, regimeName);
-        String snapshot =
+                assessment.categoryId(), quadrantLabel, regime.name()),
             String.format(
                 "{\"regimeOrdinal\":%d,\"regime\":\"%s\",\"rrgQuadrant\":%d,\"categoryType\":\"cyclical\",\"signalDate\":\"%s\"}",
-                regimeOrdinal, regimeName, rrg, signalDate);
-        alertRepository.insert(
-            new Alert(
-                OffsetDateTime.now(),
-                catId,
-                RULE_MACRO_SECTOR_MISMATCH,
-                severity,
-                message,
-                snapshot,
-                AlertStatus.ACTIVE));
-        count++;
-        log.info(
-            "macro_sector_mismatch: category={} rrg={} regime={}", categoryId, rrg, regimeName);
-      } else if (!hasMismatch && hasActive) {
-        alertRepository.resolveAlertsByRuleAndCategory(RULE_MACRO_SECTOR_MISMATCH, categoryId);
-        log.info(
-            "macro_sector_mismatch: resolved for category={} (regime={} or rrg={} changed)",
-            categoryId,
-            regimeName,
-            rrg);
-      }
+                regime.ordinal(), regime.name(), quadrant, signalDate),
+            AlertStatus.ACTIVE));
+    log.info(
+        "macro_sector_mismatch: category={} rrg={} regime={}",
+        assessment.categoryId(),
+        quadrant,
+        regime.name());
+  }
+
+  private void resolve(Assessment assessment, Regime regime) {
+    alertRepository.resolveAlertsByRuleAndCategory(
+        RULE_MACRO_SECTOR_MISMATCH, assessment.categoryId());
+    log.info(
+        "macro_sector_mismatch: resolved for category={} (regime={} or rrg={} changed)",
+        assessment.categoryId(),
+        regime.name(),
+        assessment.quadrant());
+  }
+
+  private Optional<CategoryId> knownCategory(String categoryId) {
+    try {
+      return Optional.of(CategoryId.valueOf(categoryId));
+    } catch (IllegalArgumentException e) {
+      log.debug("macro_sector_mismatch: skipping unknown CategoryId={}", categoryId);
+      return Optional.empty();
     }
-    return count;
+  }
+
+  private Optional<Regime> loadRegime(LocalDate signalDate) {
+    Map<String, BigDecimal> regimeSignals =
+        signalRepository.findByTypeAndDate(SignalType.MACRO_REGIME, signalDate);
+    return regimeSignals.values().stream()
+        .findFirst()
+        .map(BigDecimal::intValue)
+        .map(ordinal -> new Regime(ordinal, RISK_OFF_REGIME_ORDINALS.contains(ordinal)));
+  }
+
+  /** The day's macro regime: its ordinal, resolved name, and whether it is risk-off. */
+  private record Regime(int ordinal, boolean riskOff) {
+    String name() {
+      return MacroRegime.nameForOrdinal(ordinal);
+    }
+  }
+
+  /** One cyclical sector's mismatch verdict for the day. */
+  private record Assessment(
+      String categoryId,
+      Optional<CategoryId> category,
+      int quadrant,
+      boolean mismatch,
+      boolean hasActiveAlert) {
+
+    boolean shouldFire() {
+      return mismatch && category.isPresent() && !hasActiveAlert;
+    }
+
+    boolean shouldResolve() {
+      return !mismatch && hasActiveAlert;
+    }
   }
 }

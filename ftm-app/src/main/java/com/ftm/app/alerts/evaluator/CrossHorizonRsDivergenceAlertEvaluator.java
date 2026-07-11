@@ -12,6 +12,7 @@ import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -56,83 +57,141 @@ public class CrossHorizonRsDivergenceAlertEvaluator implements AlertEvaluator {
   @Override
   public int evaluate(AlertEvaluationContext context) {
     Optional<AlertRule> rule = alertRulesRepository.findById(RULE_CROSS_HORIZON_RS_DIV);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-    Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
+    if (!rule.map(AlertRule::enabled).orElse(false)) {
+      return 0;
+    }
 
     LocalDate signalDate = context.signalDate();
-    Map<String, BigDecimal> rs20Map =
-        signalRepository.findByTypeAndDate(SignalType.RS_20, signalDate);
-    Map<String, BigDecimal> rs60Map =
-        signalRepository.findByTypeAndDate(SignalType.RS_60, signalDate);
-    Map<String, BigDecimal> rs120Map =
-        signalRepository.findByTypeAndDate(SignalType.RS_120, signalDate);
-    if (rs20Map.isEmpty() || rs60Map.isEmpty() || rs120Map.isEmpty()) return 0;
+    Snapshot snapshot = loadSnapshot(signalDate);
+    if (snapshot.isIncomplete()) {
+      return 0;
+    }
 
-    int count = 0;
-    for (String categoryId : context.equityCategoryIds()) {
-      BigDecimal rs20 = rs20Map.get(categoryId);
-      BigDecimal rs60 = rs60Map.get(categoryId);
-      BigDecimal rs120 = rs120Map.get(categoryId);
-      if (rs20 == null || rs60 == null || rs120 == null) continue;
+    Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
+    List<Assessment> assessed =
+        context.equityCategoryIds().stream()
+            .map(categoryId -> assess(categoryId, snapshot))
+            .flatMap(Optional::stream)
+            .toList();
 
-      double r20 = rs20.doubleValue();
-      double r60 = rs60.doubleValue();
-      double r120 = rs120.doubleValue();
+    assessed.stream().filter(Assessment::shouldFire).forEach(a -> fire(a, severity, signalDate));
+    assessed.stream().filter(Assessment::shouldResolve).forEach(this::resolve);
+    return (int) assessed.stream().filter(Assessment::shouldFire).count();
+  }
 
-      boolean shortTermBull = r20 > r60 + CROSS_HORIZON_RS_MIN_GAP;
-      boolean shortTermBear = r20 < r60 - CROSS_HORIZON_RS_MIN_GAP;
-      boolean medTermBull = r60 > r120 + CROSS_HORIZON_RS_MIN_GAP;
-      boolean medTermBear = r60 < r120 - CROSS_HORIZON_RS_MIN_GAP;
+  private Optional<Assessment> assess(String categoryId, Snapshot snapshot) {
+    BigDecimal rs20 = snapshot.rs20().get(categoryId);
+    BigDecimal rs60 = snapshot.rs60().get(categoryId);
+    BigDecimal rs120 = snapshot.rs120().get(categoryId);
+    if (rs20 == null || rs60 == null || rs120 == null) {
+      return Optional.empty();
+    }
+    Optional<Divergence> divergence = detect(rs20.doubleValue(), rs60.doubleValue(), rs120.doubleValue());
+    boolean active = alertRepository.existsActiveAlert(RULE_CROSS_HORIZON_RS_DIV, categoryId);
+    return Optional.of(
+        new Assessment(categoryId, knownCategory(categoryId), rs20, rs60, rs120, divergence, active));
+  }
 
-      boolean counterTrendBounce = shortTermBull && medTermBear; // strength in weak sector
-      boolean pullbackInBull = shortTermBear && medTermBull; // weakness in strong sector
-      boolean hasDivergence = counterTrendBounce || pullbackInBull;
-      boolean hasActive = alertRepository.existsActiveAlert(RULE_CROSS_HORIZON_RS_DIV, categoryId);
+  private Optional<Divergence> detect(double rs20, double rs60, double rs120) {
+    boolean shortTermBull = rs20 > rs60 + CROSS_HORIZON_RS_MIN_GAP;
+    boolean shortTermBear = rs20 < rs60 - CROSS_HORIZON_RS_MIN_GAP;
+    boolean medTermBull = rs60 > rs120 + CROSS_HORIZON_RS_MIN_GAP;
+    boolean medTermBear = rs60 < rs120 - CROSS_HORIZON_RS_MIN_GAP;
+    return shortTermBull && medTermBear
+        ? Optional.of(Divergence.COUNTER_TREND_BOUNCE)
+        : shortTermBear && medTermBull ? Optional.of(Divergence.PULLBACK_IN_BULL) : Optional.empty();
+  }
 
-      if (hasDivergence && !hasActive) {
-        CategoryId catId;
-        try {
-          catId = CategoryId.valueOf(categoryId);
-        } catch (IllegalArgumentException e) {
-          log.debug("cross_horizon_rs_divergence: skipping unknown CategoryId={}", categoryId);
-          continue;
-        }
-        String divergenceType = counterTrendBounce ? "COUNTER_TREND_BOUNCE" : "PULLBACK_IN_BULL";
-        String message =
-            counterTrendBounce
-                ? String.format(
-                    "%s short-term RS spiking while medium-term RS downtrend persists — counter-trend bounce, fading risk",
-                    categoryId)
-                : String.format(
-                    "%s short-term RS softening while medium-term RS uptrend intact — pullback in a bull, potential entry",
-                    categoryId);
-        String snapshot =
+  private void fire(Assessment assessment, Severity severity, LocalDate signalDate) {
+    Divergence divergence = assessment.divergence().orElseThrow();
+    alertRepository.insert(
+        new Alert(
+            OffsetDateTime.now(),
+            assessment.category().orElseThrow(),
+            RULE_CROSS_HORIZON_RS_DIV,
+            severity,
+            divergence.message(assessment.categoryId()),
             String.format(
                 "{\"rs20\":%.4f,\"rs60\":%.4f,\"rs120\":%.4f,\"divergenceType\":\"%s\",\"signalDate\":\"%s\"}",
-                r20, r60, r120, divergenceType, signalDate);
-        alertRepository.insert(
-            new Alert(
-                OffsetDateTime.now(),
-                catId,
-                RULE_CROSS_HORIZON_RS_DIV,
-                severity,
-                message,
-                snapshot,
-                AlertStatus.ACTIVE));
-        count++;
-        log.info(
-            "cross_horizon_rs_divergence: category={} type={} rs20={} rs60={} rs120={}",
-            categoryId,
-            divergenceType,
-            rs20,
-            rs60,
-            rs120);
-      } else if (!hasDivergence && hasActive) {
-        alertRepository.resolveAlertsByRuleAndCategory(RULE_CROSS_HORIZON_RS_DIV, categoryId);
-        log.info(
-            "cross_horizon_rs_divergence: resolved for category={} (horizons aligned)", categoryId);
-      }
+                assessment.rs20().doubleValue(),
+                assessment.rs60().doubleValue(),
+                assessment.rs120().doubleValue(),
+                divergence.name(),
+                signalDate),
+            AlertStatus.ACTIVE));
+    log.info(
+        "cross_horizon_rs_divergence: category={} type={} rs20={} rs60={} rs120={}",
+        assessment.categoryId(),
+        divergence.name(),
+        assessment.rs20(),
+        assessment.rs60(),
+        assessment.rs120());
+  }
+
+  private void resolve(Assessment assessment) {
+    alertRepository.resolveAlertsByRuleAndCategory(RULE_CROSS_HORIZON_RS_DIV, assessment.categoryId());
+    log.info(
+        "cross_horizon_rs_divergence: resolved for category={} (horizons aligned)",
+        assessment.categoryId());
+  }
+
+  private Optional<CategoryId> knownCategory(String categoryId) {
+    try {
+      return Optional.of(CategoryId.valueOf(categoryId));
+    } catch (IllegalArgumentException e) {
+      log.debug("cross_horizon_rs_divergence: skipping unknown CategoryId={}", categoryId);
+      return Optional.empty();
     }
-    return count;
+  }
+
+  private Snapshot loadSnapshot(LocalDate signalDate) {
+    return new Snapshot(
+        signalRepository.findByTypeAndDate(SignalType.RS_20, signalDate),
+        signalRepository.findByTypeAndDate(SignalType.RS_60, signalDate),
+        signalRepository.findByTypeAndDate(SignalType.RS_120, signalDate));
+  }
+
+  /** The three RS-horizon maps needed on a single date. */
+  private record Snapshot(
+      Map<String, BigDecimal> rs20, Map<String, BigDecimal> rs60, Map<String, BigDecimal> rs120) {
+    boolean isIncomplete() {
+      return rs20.isEmpty() || rs60.isEmpty() || rs120.isEmpty();
+    }
+  }
+
+  /** One sector's cross-horizon verdict for the day. */
+  private record Assessment(
+      String categoryId,
+      Optional<CategoryId> category,
+      BigDecimal rs20,
+      BigDecimal rs60,
+      BigDecimal rs120,
+      Optional<Divergence> divergence,
+      boolean hasActiveAlert) {
+
+    boolean shouldFire() {
+      return divergence.isPresent() && category.isPresent() && !hasActiveAlert;
+    }
+
+    boolean shouldResolve() {
+      return divergence.isEmpty() && hasActiveAlert;
+    }
+  }
+
+  private enum Divergence {
+    COUNTER_TREND_BOUNCE(
+        "%s short-term RS spiking while medium-term RS downtrend persists — counter-trend bounce, fading risk"),
+    PULLBACK_IN_BULL(
+        "%s short-term RS softening while medium-term RS uptrend intact — pullback in a bull, potential entry");
+
+    private final String messageTemplate;
+
+    Divergence(String messageTemplate) {
+      this.messageTemplate = messageTemplate;
+    }
+
+    String message(String categoryId) {
+      return String.format(messageTemplate, categoryId);
+    }
   }
 }

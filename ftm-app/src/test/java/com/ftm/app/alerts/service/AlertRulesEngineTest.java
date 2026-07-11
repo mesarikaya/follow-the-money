@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ftm.app.alerts.evaluator.BreadthVelocityAlertEvaluator;
+import com.ftm.app.alerts.evaluator.HighConvictionAlertEvaluator;
 import com.ftm.app.alerts.evaluator.MacroRegimeShiftAlertEvaluator;
 import com.ftm.app.alerts.evaluator.PersistenceLowAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsAlignedAlertEvaluator;
@@ -122,6 +123,8 @@ class AlertRulesEngineTest {
                 alertRulesRepository, signalRepository, alertRepository),
             new RsAlignedAlertEvaluator(alertRulesRepository, signalRepository, alertRepository),
             new ScoreApproachingSignalEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+            new HighConvictionAlertEvaluator(
                 alertRulesRepository, signalRepository, alertRepository));
     // resolveStaleAlerts always calls these; lenient prevents PotentialStubbingProblem
     // in tests that stub other SignalTypes (RS_60, RS_120, MACRO_REGIME).

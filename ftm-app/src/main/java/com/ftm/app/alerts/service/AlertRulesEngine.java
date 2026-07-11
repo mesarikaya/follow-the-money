@@ -6,6 +6,7 @@ import com.ftm.app.alerts.evaluator.MacroRegimeShiftAlertEvaluator;
 import com.ftm.app.alerts.evaluator.PersistenceLowAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsAlignedAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsBreadthExtremeAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ScoreApproachingSignalEvaluator;
 import com.ftm.app.alerts.evaluator.ScorePercentileExtremeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScoreVelocityAlertEvaluator;
 import com.ftm.app.alerts.evaluator.SignalDeteriorationAlertEvaluator;
@@ -110,7 +111,6 @@ public class AlertRulesEngine {
   private static final BigDecimal PRE_BUY_FLOW_SURGE_RESOLVE_Z = new BigDecimal("0.8");
   private static final BigDecimal DETERIORATION_RECOVERY_THRESHOLD = new BigDecimal("-0.02");
   private static final BigDecimal APPROACHING_BUY_LOWER = new BigDecimal("0.55");
-  private static final BigDecimal APPROACHING_REDUCE_UPPER = new BigDecimal("0.45");
   private static final BigDecimal PERSISTENCE_RECOVERY_THRESHOLD = new BigDecimal("8");
   private static final int BREADTH_VELOCITY_THRESHOLD_PP = 10;
   private static final BigDecimal BUY_SCORE_THRESHOLD = new BigDecimal("0.65");
@@ -177,6 +177,7 @@ public class AlertRulesEngine {
   private final PersistenceLowAlertEvaluator persistenceLowAlertEvaluator;
   private final BreadthVelocityAlertEvaluator breadthVelocityAlertEvaluator;
   private final RsAlignedAlertEvaluator rsAlignedAlertEvaluator;
+  private final ScoreApproachingSignalEvaluator scoreApproachingSignalEvaluator;
 
   public AlertRulesEngine(
       AlertRepository alertRepository,
@@ -202,7 +203,8 @@ public class AlertRulesEngine {
       RsBreadthExtremeAlertEvaluator rsBreadthExtremeAlertEvaluator,
       PersistenceLowAlertEvaluator persistenceLowAlertEvaluator,
       BreadthVelocityAlertEvaluator breadthVelocityAlertEvaluator,
-      RsAlignedAlertEvaluator rsAlignedAlertEvaluator) {
+      RsAlignedAlertEvaluator rsAlignedAlertEvaluator,
+      ScoreApproachingSignalEvaluator scoreApproachingSignalEvaluator) {
     this.alertRepository = alertRepository;
     this.alertRulesRepository = alertRulesRepository;
     this.rotationEventRepository = rotationEventRepository;
@@ -227,6 +229,7 @@ public class AlertRulesEngine {
     this.persistenceLowAlertEvaluator = persistenceLowAlertEvaluator;
     this.breadthVelocityAlertEvaluator = breadthVelocityAlertEvaluator;
     this.rsAlignedAlertEvaluator = rsAlignedAlertEvaluator;
+    this.scoreApproachingSignalEvaluator = scoreApproachingSignalEvaluator;
   }
 
   @EventListener
@@ -251,8 +254,7 @@ public class AlertRulesEngine {
     alertsCreated += persistenceLowAlertEvaluator.evaluate(context);
     alertsCreated += breadthVelocityAlertEvaluator.evaluate(context);
     alertsCreated += evaluateTradeSignalTransitions(signalDate, topLevelCategoryIds);
-    alertsCreated += evaluateApproachingBuySignal(signalDate, topLevelCategoryIds);
-    alertsCreated += evaluateApproachingReduceSignal(signalDate, topLevelCategoryIds);
+    alertsCreated += scoreApproachingSignalEvaluator.evaluate(context);
     alertsCreated += evaluateHighConvictionBuy(signalDate, topLevelCategoryIds);
     alertsCreated += evaluateHighConvictionCluster(signalDate, topLevelCategoryIds);
     alertsCreated += evaluateHighConvictionReduceCluster(signalDate, topLevelCategoryIds);
@@ -762,167 +764,7 @@ public class AlertRulesEngine {
     return count;
   }
 
-  private int evaluateApproachingBuySignal(LocalDate signalDate, Set<String> topLevelCategoryIds) {
-    Optional<AlertRule> approachRule = alertRulesRepository.findById(RULE_SCORE_APPROACHING_BUY);
-    if (!approachRule.map(AlertRule::enabled).orElse(false)) return 0;
-    Severity severity = approachRule.map(AlertRule::severity).orElse(Severity.INFO);
 
-    Map<String, BigDecimal> composite =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    Map<String, BigDecimal> rrgQuadrant =
-        signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
-    Map<String, BigDecimal> trend20d =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, signalDate);
-
-    LocalDate prevDate = signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, signalDate);
-    Map<String, BigDecimal> prevComposite =
-        prevDate != null
-            ? signalRepository.findByTypeAndDate(SignalType.COMPOSITE, prevDate)
-            : Map.of();
-
-    int count = 0;
-    for (String categoryId : topLevelCategoryIds) {
-      BigDecimal score = composite.get(categoryId);
-      if (score == null) continue;
-
-      boolean inApproachZone =
-          score.compareTo(APPROACHING_BUY_LOWER) >= 0 && score.compareTo(BUY_SCORE_THRESHOLD) < 0;
-      if (!inApproachZone) continue;
-
-      BigDecimal prevScore = prevComposite.get(categoryId);
-      boolean wasBelow = prevScore == null || prevScore.compareTo(APPROACHING_BUY_LOWER) < 0;
-      if (!wasBelow) continue;
-
-      if (alertRepository.existsActiveAlert(RULE_SCORE_APPROACHING_BUY, categoryId)) continue;
-      if (alertRepository.existsActiveAlert(RULE_TRADE_SIGNAL_BUY, categoryId)) continue;
-
-      CategoryId catId;
-      try {
-        catId = CategoryId.valueOf(categoryId);
-      } catch (IllegalArgumentException e) {
-        log.debug("score_approaching_buy: skipping unknown CategoryId={}", categoryId);
-        continue;
-      }
-
-      int scorePct = score.multiply(BigDecimal.valueOf(100)).intValue();
-      int ptsNeeded = BUY_SCORE_THRESHOLD.multiply(BigDecimal.valueOf(100)).intValue() - scorePct;
-      BigDecimal rrg = rrgQuadrant.get(categoryId);
-      int rrgInt = rrg != null ? rrg.intValue() : 0;
-      String rrgLabel =
-          switch (rrgInt) {
-            case 4 -> "Leading";
-            case 3 -> "Improving";
-            case 2 -> "Weakening";
-            case 1 -> "Lagging";
-            default -> "Unknown";
-          };
-      BigDecimal trend = trend20d.get(categoryId);
-      String trendPart =
-          trend != null && trend.compareTo(BigDecimal.ZERO) > 0 ? ", 20d trend positive" : "";
-
-      alertRepository.insert(
-          new Alert(
-              OffsetDateTime.now(),
-              catId,
-              RULE_SCORE_APPROACHING_BUY,
-              severity,
-              String.format(
-                  "%s approaching BUY threshold: score %d (need +%d pts for ≥65), RRG %s%s",
-                  categoryId, scorePct, ptsNeeded, rrgLabel, trendPart),
-              String.format(
-                  "{\"score\":%d,\"ptsNeeded\":%d,\"rrgQuadrant\":%d,\"signalDate\":\"%s\"}",
-                  scorePct, ptsNeeded, rrgInt, signalDate),
-              AlertStatus.ACTIVE));
-      count++;
-      log.info(
-          "score_approaching_buy: category={} score={} ptsNeeded={}",
-          categoryId,
-          scorePct,
-          ptsNeeded);
-    }
-    return count;
-  }
-
-  private int evaluateApproachingReduceSignal(
-      LocalDate signalDate, Set<String> topLevelCategoryIds) {
-    Optional<AlertRule> approachRule = alertRulesRepository.findById(RULE_SCORE_APPROACHING_REDUCE);
-    if (!approachRule.map(AlertRule::enabled).orElse(false)) return 0;
-    Severity severity = approachRule.map(AlertRule::severity).orElse(Severity.WARNING);
-
-    Map<String, BigDecimal> composite =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    Map<String, BigDecimal> rrgQuadrant =
-        signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
-
-    LocalDate prevDate = signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, signalDate);
-    Map<String, BigDecimal> prevComposite =
-        prevDate != null
-            ? signalRepository.findByTypeAndDate(SignalType.COMPOSITE, prevDate)
-            : Map.of();
-
-    int count = 0;
-    for (String categoryId : topLevelCategoryIds) {
-      BigDecimal score = composite.get(categoryId);
-      if (score == null) continue;
-
-      boolean inApproachZone =
-          score.compareTo(REDUCE_SCORE_THRESHOLD) >= 0
-              && score.compareTo(APPROACHING_REDUCE_UPPER) <= 0;
-      if (!inApproachZone) continue;
-
-      BigDecimal prevScore = prevComposite.get(categoryId);
-      boolean wasAbove = prevScore == null || prevScore.compareTo(APPROACHING_REDUCE_UPPER) > 0;
-      if (!wasAbove) continue;
-
-      if (alertRepository.existsActiveAlert(RULE_SCORE_APPROACHING_REDUCE, categoryId)) continue;
-      if (alertRepository.existsActiveAlert(RULE_TRADE_SIGNAL_REDUCE, categoryId)) continue;
-
-      CategoryId catId;
-      try {
-        catId = CategoryId.valueOf(categoryId);
-      } catch (IllegalArgumentException e) {
-        log.debug("score_approaching_reduce: skipping unknown CategoryId={}", categoryId);
-        continue;
-      }
-
-      int scorePct = score.multiply(BigDecimal.valueOf(100)).intValue();
-      int ptsBuffer =
-          scorePct - REDUCE_SCORE_THRESHOLD.multiply(BigDecimal.valueOf(100)).intValue();
-      BigDecimal rrg = rrgQuadrant.get(categoryId);
-      int rrgInt = rrg != null ? rrg.intValue() : 0;
-      String rrgLabel =
-          switch (rrgInt) {
-            case 4 -> "Leading";
-            case 3 -> "Improving";
-            case 2 -> "Weakening";
-            case 1 -> "Lagging";
-            default -> "Unknown";
-          };
-
-      alertRepository.insert(
-          new Alert(
-              OffsetDateTime.now(),
-              catId,
-              RULE_SCORE_APPROACHING_REDUCE,
-              severity,
-              String.format(
-                  "%s approaching REDUCE threshold: score %d (only %d pts above REDUCE zone ≤34), RRG %s — monitor for further deterioration",
-                  categoryId, scorePct, ptsBuffer, rrgLabel),
-              String.format(
-                  "{\"score\":%d,\"ptsBuffer\":%d,\"rrgQuadrant\":%d,\"signalDate\":\"%s\"}",
-                  scorePct, ptsBuffer, rrgInt, signalDate),
-              AlertStatus.ACTIVE));
-      count++;
-      log.info(
-          "score_approaching_reduce: category={} score={} ptsBuffer={}",
-          categoryId,
-          scorePct,
-          ptsBuffer);
-    }
-    return count;
-  }
-
-  /** Fetches all signal maps needed for conviction score computation. */
   private record ConvictionSignalMaps(
       Map<String, BigDecimal> composite,
       Map<String, BigDecimal> rrg,

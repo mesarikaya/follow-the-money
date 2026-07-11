@@ -37,6 +37,11 @@ public class BacktestRepository {
         .set(DSL.field("rebalance_frequency"), result.rebalanceFrequency())
         .set(DSL.field("top_n"), result.topN())
         .set(DSL.field("signal_threshold"), result.signalThreshold())
+        .set(DSL.field("signal_source"), result.signalSource())
+        .set(DSL.field("category_scope"), result.categoryScope())
+        .set(DSL.field("invert_signal"), result.invertSignal())
+        .set(DSL.field("trend_filter"), result.trendFilter())
+        .set(DSL.field("transaction_cost_bps"), result.transactionCostBps())
         .set(DSL.field("total_return_pct"), result.totalReturnPct())
         .set(DSL.field("annualized_return_pct"), result.annualizedReturnPct())
         .set(DSL.field("max_drawdown_pct"), result.maxDrawdownPct())
@@ -67,6 +72,11 @@ public class BacktestRepository {
         result.rebalanceFrequency(),
         result.topN(),
         result.signalThreshold(),
+        result.signalSource(),
+        result.categoryScope(),
+        result.invertSignal(),
+        result.trendFilter(),
+        result.transactionCostBps(),
         result.totalReturnPct(),
         result.annualizedReturnPct(),
         result.maxDrawdownPct(),
@@ -112,6 +122,11 @@ public class BacktestRepository {
         r.get("rebalance_frequency", String.class),
         r.get("top_n", Integer.class),
         r.get("signal_threshold", java.math.BigDecimal.class),
+        r.get("signal_source", String.class),
+        r.get("category_scope", String.class),
+        r.get("invert_signal", Boolean.class),
+        r.get("trend_filter", Boolean.class),
+        r.get("transaction_cost_bps", Integer.class),
         r.get("total_return_pct", java.math.BigDecimal.class),
         r.get("annualized_return_pct", java.math.BigDecimal.class),
         r.get("max_drawdown_pct", java.math.BigDecimal.class),

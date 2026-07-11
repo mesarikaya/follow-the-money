@@ -1370,6 +1370,22 @@ function FrequencySweepTable({ rows, currentFrequency }: { rows: BacktestResult[
   );
 }
 
+/**
+ * Short label for a saved run's selection signal, e.g. "Mom 12-1", "Comp", or "Comp ⤵inv" when the
+ * signal was inverted. Older runs saved before the config was persisted show "—".
+ */
+function signalLabel(run: BacktestResult): string {
+  if (!run.signalSource) return "—";
+  const base = run.signalSource === "MOMENTUM_12_1" ? "Mom 12-1" : "Comp";
+  return run.invertSignal ? `${base} ⤵inv` : base;
+}
+
+/** Compact category-scope label for a saved run, e.g. "Equity" / "All" / "—" for older runs. */
+function scopeLabel(run: BacktestResult): string {
+  if (!run.categoryScope) return "—";
+  return run.categoryScope === "EQUITY_SECTOR" ? "Equity" : run.categoryScope === "ALL" ? "All" : run.categoryScope;
+}
+
 export default function BacktesterPage() {
   const [startDate, setStartDate] = useState(DEFAULT_START_DATE);
   const [endDate, setEndDate] = useState(DEFAULT_END_DATE);
@@ -2122,6 +2138,8 @@ export default function BacktesterPage() {
                         <th className="pb-2 pr-3 font-medium">Range</th>
                         <th className="pb-2 pr-3 font-medium">Freq</th>
                         <th className="pb-2 pr-3 font-medium">N</th>
+                        <th className="pb-2 pr-3 font-medium">Signal</th>
+                        <th className="pb-2 pr-3 font-medium">Scope</th>
                         <th className="pb-2 pr-3 font-medium text-right">Strategy</th>
                         <th className="pb-2 pr-3 font-medium text-right">SPY</th>
                         <th className="pb-2 pr-3 font-medium text-right">Excess</th>
@@ -2145,6 +2163,8 @@ export default function BacktesterPage() {
                             </td>
                             <td className="py-1.5 pr-3 text-slate-500">{run.rebalanceFrequency === "WEEKLY" ? "W" : run.rebalanceFrequency === "QUARTERLY" ? "Q" : "M"}</td>
                             <td className="py-1.5 pr-3 text-slate-500 tabular-nums">{run.topN}</td>
+                            <td className={`py-1.5 pr-3 whitespace-nowrap ${run.signalSource === "MOMENTUM_12_1" ? "text-sky-300" : "text-slate-400"}`}>{signalLabel(run)}</td>
+                            <td className="py-1.5 pr-3 text-slate-500 whitespace-nowrap">{scopeLabel(run)}</td>
                             <td className={`py-1.5 pr-3 font-mono tabular-nums text-right ${run.totalReturnPct >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                               {run.totalReturnPct >= 0 ? "+" : ""}{run.totalReturnPct?.toFixed(1)}%
                             </td>

@@ -11,8 +11,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ftm.app.alerts.evaluator.BreadthVelocityAlertEvaluator;
+import com.ftm.app.alerts.evaluator.CrossHorizonRsDivergenceAlertEvaluator;
 import com.ftm.app.alerts.evaluator.HighConvictionAlertEvaluator;
 import com.ftm.app.alerts.evaluator.MacroRegimeShiftAlertEvaluator;
+import com.ftm.app.alerts.evaluator.MacroSectorMismatchAlertEvaluator;
 import com.ftm.app.alerts.evaluator.PersistenceLowAlertEvaluator;
 import com.ftm.app.alerts.evaluator.PreBuyFlowSurgeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RrgRsDivergenceAlertEvaluator;
@@ -20,6 +22,7 @@ import com.ftm.app.alerts.evaluator.RsAccelerationCrossoverAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsAlignedAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsBreadthExtremeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScoreApproachingSignalEvaluator;
+import com.ftm.app.alerts.evaluator.TradeSignalTransitionsAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScorePercentileExtremeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScoreVelocityAlertEvaluator;
 import com.ftm.app.alerts.evaluator.SignalDeteriorationAlertEvaluator;
@@ -134,6 +137,12 @@ class AlertRulesEngineTest {
             new PreBuyFlowSurgeAlertEvaluator(
                 alertRulesRepository, signalRepository, alertRepository),
             new RrgRsDivergenceAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+            new TradeSignalTransitionsAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+            new CrossHorizonRsDivergenceAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+            new MacroSectorMismatchAlertEvaluator(
                 alertRulesRepository, signalRepository, alertRepository));
     // resolveStaleAlerts always calls these; lenient prevents PotentialStubbingProblem
     // in tests that stub other SignalTypes (RS_60, RS_120, MACRO_REGIME).

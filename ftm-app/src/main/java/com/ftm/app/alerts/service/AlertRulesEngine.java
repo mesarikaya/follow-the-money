@@ -2,8 +2,10 @@ package com.ftm.app.alerts.service;
 
 import com.ftm.app.alerts.evaluator.AlertEvaluationContext;
 import com.ftm.app.alerts.evaluator.BreadthVelocityAlertEvaluator;
+import com.ftm.app.alerts.evaluator.CrossHorizonRsDivergenceAlertEvaluator;
 import com.ftm.app.alerts.evaluator.HighConvictionAlertEvaluator;
 import com.ftm.app.alerts.evaluator.MacroRegimeShiftAlertEvaluator;
+import com.ftm.app.alerts.evaluator.MacroSectorMismatchAlertEvaluator;
 import com.ftm.app.alerts.evaluator.PersistenceLowAlertEvaluator;
 import com.ftm.app.alerts.evaluator.PreBuyFlowSurgeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RrgRsDivergenceAlertEvaluator;
@@ -11,6 +13,7 @@ import com.ftm.app.alerts.evaluator.RsAccelerationCrossoverAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsAlignedAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsBreadthExtremeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScoreApproachingSignalEvaluator;
+import com.ftm.app.alerts.evaluator.TradeSignalTransitionsAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScorePercentileExtremeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScoreVelocityAlertEvaluator;
 import com.ftm.app.alerts.evaluator.SignalDeteriorationAlertEvaluator;
@@ -106,14 +109,6 @@ public class AlertRulesEngine {
   private static final int BREADTH_VELOCITY_THRESHOLD_PP = 10;
   private static final BigDecimal BUY_SCORE_THRESHOLD = new BigDecimal("0.65");
   private static final BigDecimal REDUCE_SCORE_THRESHOLD = new BigDecimal("0.35");
-  private static final String RULE_CROSS_HORIZON_RS_DIV = "cross_horizon_rs_divergence";
-  private static final double CROSS_HORIZON_RS_MIN_GAP = 0.001;
-  private static final String RULE_MACRO_SECTOR_MISMATCH = "macro_sector_mismatch";
-  // Cyclical sectors: leadership in a risk-off macro regime is anomalous and warrants a flag
-  private static final Set<String> CYCLICAL_CATEGORY_IDS =
-      Set.of("TECH", "DISR", "FINL", "INDU", "ENRG", "MATL");
-  // Risk-off macro regime ordinals (STAGFLATION=0, RISK_OFF_FLIGHT=1)
-  private static final Set<Integer> RISK_OFF_REGIME_ORDINALS = Set.of(0, 1);
   private static final String RULE_SUB_SECTOR_BREADTH_DIV = "sub_sector_breadth_divergence";
   // Fires when <40% of sub-sectors are in Leading/Improving RRG while parent has a BUY signal
   private static final double SUB_SECTOR_BREADTH_FIRE_FRACTION = 0.40;
@@ -173,6 +168,9 @@ public class AlertRulesEngine {
   private final RsAccelerationCrossoverAlertEvaluator rsAccelerationCrossoverAlertEvaluator;
   private final PreBuyFlowSurgeAlertEvaluator preBuyFlowSurgeAlertEvaluator;
   private final RrgRsDivergenceAlertEvaluator rrgRsDivergenceAlertEvaluator;
+  private final TradeSignalTransitionsAlertEvaluator tradeSignalTransitionsAlertEvaluator;
+  private final CrossHorizonRsDivergenceAlertEvaluator crossHorizonRsDivergenceAlertEvaluator;
+  private final MacroSectorMismatchAlertEvaluator macroSectorMismatchAlertEvaluator;
 
   public AlertRulesEngine(
       AlertRepository alertRepository,
@@ -203,7 +201,10 @@ public class AlertRulesEngine {
       HighConvictionAlertEvaluator highConvictionAlertEvaluator,
       RsAccelerationCrossoverAlertEvaluator rsAccelerationCrossoverAlertEvaluator,
       PreBuyFlowSurgeAlertEvaluator preBuyFlowSurgeAlertEvaluator,
-      RrgRsDivergenceAlertEvaluator rrgRsDivergenceAlertEvaluator) {
+      RrgRsDivergenceAlertEvaluator rrgRsDivergenceAlertEvaluator,
+      TradeSignalTransitionsAlertEvaluator tradeSignalTransitionsAlertEvaluator,
+      CrossHorizonRsDivergenceAlertEvaluator crossHorizonRsDivergenceAlertEvaluator,
+      MacroSectorMismatchAlertEvaluator macroSectorMismatchAlertEvaluator) {
     this.alertRepository = alertRepository;
     this.alertRulesRepository = alertRulesRepository;
     this.rotationEventRepository = rotationEventRepository;
@@ -233,6 +234,9 @@ public class AlertRulesEngine {
     this.rsAccelerationCrossoverAlertEvaluator = rsAccelerationCrossoverAlertEvaluator;
     this.preBuyFlowSurgeAlertEvaluator = preBuyFlowSurgeAlertEvaluator;
     this.rrgRsDivergenceAlertEvaluator = rrgRsDivergenceAlertEvaluator;
+    this.tradeSignalTransitionsAlertEvaluator = tradeSignalTransitionsAlertEvaluator;
+    this.crossHorizonRsDivergenceAlertEvaluator = crossHorizonRsDivergenceAlertEvaluator;
+    this.macroSectorMismatchAlertEvaluator = macroSectorMismatchAlertEvaluator;
   }
 
   @EventListener
@@ -256,7 +260,7 @@ public class AlertRulesEngine {
     alertsCreated += rsAccelerationCrossoverAlertEvaluator.evaluate(context);
     alertsCreated += persistenceLowAlertEvaluator.evaluate(context);
     alertsCreated += breadthVelocityAlertEvaluator.evaluate(context);
-    alertsCreated += evaluateTradeSignalTransitions(signalDate, topLevelCategoryIds);
+    alertsCreated += tradeSignalTransitionsAlertEvaluator.evaluate(context);
     alertsCreated += scoreApproachingSignalEvaluator.evaluate(context);
     alertsCreated += highConvictionAlertEvaluator.evaluate(context);
     alertsCreated += signalDeteriorationAlertEvaluator.evaluate(context);
@@ -266,8 +270,8 @@ public class AlertRulesEngine {
     alertsCreated += rrgRsDivergenceAlertEvaluator.evaluate(context);
     alertsCreated += scorePercentileExtremeAlertEvaluator.evaluate(context);
     alertsCreated += scoreVelocityAlertEvaluator.evaluate(context);
-    alertsCreated += evaluateCrossHorizonRsDivergence(signalDate, equityCategoryIds);
-    alertsCreated += evaluateMacroSectorMismatch(signalDate, equityCategoryIds);
+    alertsCreated += crossHorizonRsDivergenceAlertEvaluator.evaluate(context);
+    alertsCreated += macroSectorMismatchAlertEvaluator.evaluate(context);
     alertsCreated += evaluateSubSectorBreadthDivergence(signalDate, equityCategoryIds);
     alertsCreated += evaluateSubSectorBullConfluence(signalDate, equityCategoryIds);
     alertsCreated += themeSignalTransitionsAlertEvaluator.evaluate(context);
@@ -560,130 +564,6 @@ public class AlertRulesEngine {
   }
 
 
-  private int evaluateTradeSignalTransitions(
-      LocalDate signalDate, Set<String> topLevelCategoryIds) {
-    Optional<AlertRule> buyRule = alertRulesRepository.findById(RULE_TRADE_SIGNAL_BUY);
-    Optional<AlertRule> reduceRule = alertRulesRepository.findById(RULE_TRADE_SIGNAL_REDUCE);
-
-    boolean buyEnabled = buyRule.map(AlertRule::enabled).orElse(false);
-    boolean reduceEnabled = reduceRule.map(AlertRule::enabled).orElse(false);
-    if (!buyEnabled && !reduceEnabled) return 0;
-
-    Severity buySeverity = buyRule.map(AlertRule::severity).orElse(Severity.ACTION);
-    Severity reduceSeverity = reduceRule.map(AlertRule::severity).orElse(Severity.WARNING);
-
-    Map<String, BigDecimal> composite =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    Map<String, BigDecimal> rrgQuadrant =
-        signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
-    Map<String, BigDecimal> trend20d =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, signalDate);
-
-    LocalDate prevDate = signalRepository.findPreviousSignalDate(SignalType.COMPOSITE, signalDate);
-    Map<String, BigDecimal> prevComposite =
-        prevDate != null
-            ? signalRepository.findByTypeAndDate(SignalType.COMPOSITE, prevDate)
-            : Map.of();
-    Map<String, BigDecimal> prevRrg =
-        prevDate != null
-            ? signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, prevDate)
-            : Map.of();
-    Map<String, BigDecimal> prevTrend =
-        prevDate != null
-            ? signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, prevDate)
-            : Map.of();
-
-    int count = 0;
-    for (String categoryId : topLevelCategoryIds) {
-      BigDecimal score = composite.get(categoryId);
-      BigDecimal rrg = rrgQuadrant.get(categoryId);
-      BigDecimal trend = trend20d.get(categoryId);
-      if (score == null) continue;
-
-      int rrgInt = rrg != null ? rrg.intValue() : 0;
-      boolean buyNow =
-          score.compareTo(BUY_SCORE_THRESHOLD) >= 0
-              && (rrgInt == 3 || rrgInt == 4)
-              && trend != null
-              && trend.compareTo(BigDecimal.ZERO) > 0;
-
-      boolean reduceNow =
-          score.compareTo(REDUCE_SCORE_THRESHOLD) < 0 && (rrgInt == 1 || rrgInt == 2);
-
-      CategoryId catId;
-      try {
-        catId = CategoryId.valueOf(categoryId);
-      } catch (IllegalArgumentException e) {
-        continue;
-      }
-
-      if (buyEnabled && buyNow) {
-        BigDecimal prevScore = prevComposite.get(categoryId);
-        BigDecimal prevRrgVal = prevRrg.get(categoryId);
-        BigDecimal prevTrendVal = prevTrend.get(categoryId);
-        int prevRrgInt = prevRrgVal != null ? prevRrgVal.intValue() : 0;
-        boolean buyPrev =
-            prevScore != null
-                && prevScore.compareTo(BUY_SCORE_THRESHOLD) >= 0
-                && (prevRrgInt == 3 || prevRrgInt == 4)
-                && prevTrendVal != null
-                && prevTrendVal.compareTo(BigDecimal.ZERO) > 0;
-
-        if (!buyPrev && !alertRepository.existsActiveAlert(RULE_TRADE_SIGNAL_BUY, categoryId)) {
-          int scorePct = score.multiply(BigDecimal.valueOf(100)).intValue();
-          String rrgLabel = rrgInt == 4 ? "Leading" : "Improving";
-          alertRepository.insert(
-              new Alert(
-                  OffsetDateTime.now(),
-                  catId,
-                  RULE_TRADE_SIGNAL_BUY,
-                  buySeverity,
-                  String.format(
-                      "%s full BUY signal triggered: score=%d, RRG=%s, 20d trend positive — all three conditions aligned",
-                      categoryId, scorePct, rrgLabel),
-                  String.format(
-                      "{\"score\":%d,\"rrgQuadrant\":%d,\"trend20d\":%.4f,\"signalDate\":\"%s\"}",
-                      scorePct, rrgInt, trend.doubleValue(), signalDate),
-                  AlertStatus.ACTIVE));
-          count++;
-          log.info("trade_signal_buy: category={} score={} rrg={}", categoryId, scorePct, rrgLabel);
-        }
-      }
-
-      if (reduceEnabled && reduceNow) {
-        BigDecimal prevScore = prevComposite.get(categoryId);
-        BigDecimal prevRrgVal = prevRrg.get(categoryId);
-        int prevRrgInt = prevRrgVal != null ? prevRrgVal.intValue() : 0;
-        boolean reducePrev =
-            prevScore != null
-                && prevScore.compareTo(REDUCE_SCORE_THRESHOLD) < 0
-                && (prevRrgInt == 1 || prevRrgInt == 2);
-
-        if (!reducePrev
-            && !alertRepository.existsActiveAlert(RULE_TRADE_SIGNAL_REDUCE, categoryId)) {
-          int scorePct = score.multiply(BigDecimal.valueOf(100)).intValue();
-          String rrgLabel = rrgInt == 1 ? "Lagging" : "Weakening";
-          alertRepository.insert(
-              new Alert(
-                  OffsetDateTime.now(),
-                  catId,
-                  RULE_TRADE_SIGNAL_REDUCE,
-                  reduceSeverity,
-                  String.format(
-                      "%s REDUCE signal: score=%d with %s RRG — consider trimming position",
-                      categoryId, scorePct, rrgLabel),
-                  String.format(
-                      "{\"score\":%d,\"rrgQuadrant\":%d,\"signalDate\":\"%s\"}",
-                      scorePct, rrgInt, signalDate),
-                  AlertStatus.ACTIVE));
-          count++;
-          log.info(
-              "trade_signal_reduce: category={} score={} rrg={}", categoryId, scorePct, rrgLabel);
-        }
-      }
-    }
-    return count;
-  }
 
 
 
@@ -755,178 +635,7 @@ public class AlertRulesEngine {
     return count;
   }
 
-  /**
-   * Fires when a sector's short-term RS direction (RS-20 vs RS-60) contradicts its medium-term RS
-   * direction (RS-60 vs RS-120). This cross-horizon divergence identifies counter-trend moves: a
-   * sector with short-term strength embedded in a medium-term downtrend (fade candidate) or
-   * short-term weakness within a medium-term uptrend (pullback opportunity). Resolves when the two
-   * horizons align again.
-   */
-  private int evaluateCrossHorizonRsDivergence(
-      LocalDate signalDate, Set<String> equityCategoryIds) {
-    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_CROSS_HORIZON_RS_DIV);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-    Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
 
-    Map<String, BigDecimal> rs20Map =
-        signalRepository.findByTypeAndDate(SignalType.RS_20, signalDate);
-    Map<String, BigDecimal> rs60Map =
-        signalRepository.findByTypeAndDate(SignalType.RS_60, signalDate);
-    Map<String, BigDecimal> rs120Map =
-        signalRepository.findByTypeAndDate(SignalType.RS_120, signalDate);
-    if (rs20Map.isEmpty() || rs60Map.isEmpty() || rs120Map.isEmpty()) return 0;
-
-    int count = 0;
-    for (String categoryId : equityCategoryIds) {
-      BigDecimal rs20 = rs20Map.get(categoryId);
-      BigDecimal rs60 = rs60Map.get(categoryId);
-      BigDecimal rs120 = rs120Map.get(categoryId);
-      if (rs20 == null || rs60 == null || rs120 == null) continue;
-
-      double r20 = rs20.doubleValue();
-      double r60 = rs60.doubleValue();
-      double r120 = rs120.doubleValue();
-
-      boolean shortTermBull = r20 > r60 + CROSS_HORIZON_RS_MIN_GAP;
-      boolean shortTermBear = r20 < r60 - CROSS_HORIZON_RS_MIN_GAP;
-      boolean medTermBull = r60 > r120 + CROSS_HORIZON_RS_MIN_GAP;
-      boolean medTermBear = r60 < r120 - CROSS_HORIZON_RS_MIN_GAP;
-
-      // Divergence: short-term direction contradicts medium-term direction
-      boolean counterTrendBounce =
-          shortTermBull && medTermBear; // strength in structurally weak sector
-      boolean pullbackInBull =
-          shortTermBear && medTermBull; // weakness in structurally strong sector
-      boolean hasDivergence = counterTrendBounce || pullbackInBull;
-      boolean hasActive = alertRepository.existsActiveAlert(RULE_CROSS_HORIZON_RS_DIV, categoryId);
-
-      if (hasDivergence && !hasActive) {
-        CategoryId catId;
-        try {
-          catId = CategoryId.valueOf(categoryId);
-        } catch (IllegalArgumentException e) {
-          log.debug("cross_horizon_rs_divergence: skipping unknown CategoryId={}", categoryId);
-          continue;
-        }
-        String divergenceType = counterTrendBounce ? "COUNTER_TREND_BOUNCE" : "PULLBACK_IN_BULL";
-        String message =
-            counterTrendBounce
-                ? String.format(
-                    "%s short-term RS spiking while medium-term RS downtrend persists — counter-trend bounce, fading risk",
-                    categoryId)
-                : String.format(
-                    "%s short-term RS softening while medium-term RS uptrend intact — pullback in a bull, potential entry",
-                    categoryId);
-        String snapshot =
-            String.format(
-                "{\"rs20\":%.4f,\"rs60\":%.4f,\"rs120\":%.4f,\"divergenceType\":\"%s\",\"signalDate\":\"%s\"}",
-                r20, r60, r120, divergenceType, signalDate);
-        alertRepository.insert(
-            new Alert(
-                OffsetDateTime.now(),
-                catId,
-                RULE_CROSS_HORIZON_RS_DIV,
-                severity,
-                message,
-                snapshot,
-                AlertStatus.ACTIVE));
-        log.info(
-            "cross_horizon_rs_divergence: category={} type={} rs20={} rs60={} rs120={}",
-            categoryId,
-            divergenceType,
-            rs20,
-            rs60,
-            rs120);
-        count++;
-      } else if (!hasDivergence && hasActive) {
-        alertRepository.resolveAlertsByRuleAndCategory(RULE_CROSS_HORIZON_RS_DIV, categoryId);
-        log.info(
-            "cross_horizon_rs_divergence: resolved for category={} (horizons aligned)", categoryId);
-      }
-    }
-    return count;
-  }
-
-  /**
-   * Fires when a cyclical sector (TECH, DISR, FINL, INDU, ENRG, MATL) is in RRG Leading or
-   * Improving phase (quadrant 3 or 4) while the macro regime is risk-off (STAGFLATION or
-   * RISK_OFF_FLIGHT). A cyclical sector leading during a risk-off macro backdrop is anomalous:
-   * either the market is early-pricing a recovery (watch for confirmation) or the RRG signal is a
-   * false leader that will reverse. Resolves when the regime returns to risk-on OR the sector exits
-   * quadrant 3/4.
-   */
-  private int evaluateMacroSectorMismatch(LocalDate signalDate, Set<String> equityCategoryIds) {
-    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_MACRO_SECTOR_MISMATCH);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-    Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
-
-    Map<String, BigDecimal> regimeSignals =
-        signalRepository.findByTypeAndDate(SignalType.MACRO_REGIME, signalDate);
-    if (regimeSignals.isEmpty()) return 0;
-
-    BigDecimal regimeRaw = regimeSignals.values().stream().findFirst().orElse(null);
-    if (regimeRaw == null) return 0;
-
-    int regimeOrdinal = regimeRaw.intValue();
-    boolean isRiskOff = RISK_OFF_REGIME_ORDINALS.contains(regimeOrdinal);
-    String regimeName = MacroRegime.nameForOrdinal(regimeOrdinal);
-
-    Map<String, BigDecimal> rrgMap =
-        signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
-    if (rrgMap.isEmpty()) return 0;
-
-    int count = 0;
-    for (String categoryId : equityCategoryIds) {
-      if (!CYCLICAL_CATEGORY_IDS.contains(categoryId)) continue;
-
-      BigDecimal rrgRaw = rrgMap.get(categoryId);
-      if (rrgRaw == null) continue;
-
-      int rrg = rrgRaw.intValue();
-      boolean isBullishQuadrant = rrg == 3 || rrg == 4;
-      boolean hasMismatch = isRiskOff && isBullishQuadrant;
-      boolean hasActive = alertRepository.existsActiveAlert(RULE_MACRO_SECTOR_MISMATCH, categoryId);
-
-      if (hasMismatch && !hasActive) {
-        CategoryId catId;
-        try {
-          catId = CategoryId.valueOf(categoryId);
-        } catch (IllegalArgumentException e) {
-          log.debug("macro_sector_mismatch: skipping unknown CategoryId={}", categoryId);
-          continue;
-        }
-        String quadrantLabel = rrg == 4 ? "Leading" : "Improving";
-        String message =
-            String.format(
-                "%s cyclical sector in %s RRG while macro regime is %s — anomalous leadership; watch for reversal or early recovery signal",
-                categoryId, quadrantLabel, regimeName);
-        String snapshot =
-            String.format(
-                "{\"regimeOrdinal\":%d,\"regime\":\"%s\",\"rrgQuadrant\":%d,\"categoryType\":\"cyclical\",\"signalDate\":\"%s\"}",
-                regimeOrdinal, regimeName, rrg, signalDate);
-        alertRepository.insert(
-            new Alert(
-                OffsetDateTime.now(),
-                catId,
-                RULE_MACRO_SECTOR_MISMATCH,
-                severity,
-                message,
-                snapshot,
-                AlertStatus.ACTIVE));
-        log.info(
-            "macro_sector_mismatch: category={} rrg={} regime={}", categoryId, rrg, regimeName);
-        count++;
-      } else if (!hasMismatch && hasActive) {
-        alertRepository.resolveAlertsByRuleAndCategory(RULE_MACRO_SECTOR_MISMATCH, categoryId);
-        log.info(
-            "macro_sector_mismatch: resolved for category={} (regime={} or rrg={} changed)",
-            categoryId,
-            regimeName,
-            rrg);
-      }
-    }
-    return count;
-  }
 
   /**
    * Fires when a sector has an active BUY trade signal but less than 40% of its sub-sectors are in
@@ -1528,4 +1237,5 @@ public class AlertRulesEngine {
     return count;
   }
 }
+
 

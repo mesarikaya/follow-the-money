@@ -72,122 +72,201 @@ public class SubSectorBreadthAlertEvaluator implements AlertEvaluator {
 
   private int evaluateBreadthDivergence(AlertEvaluationContext context) {
     Optional<AlertRule> rule = alertRulesRepository.findById(RULE_SUB_SECTOR_BREADTH_DIV);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-    Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
+    if (!rule.map(AlertRule::enabled).orElse(false)) {
+      return 0;
+    }
 
     LocalDate signalDate = context.signalDate();
     Map<String, BigDecimal> rrgMap =
         signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
+    Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
 
-    int count = 0;
-    for (String categoryId : context.equityCategoryIds()) {
-      List<String> subIds = subSectorIds(categoryId, "sub_sector_breadth_divergence");
-      if (subIds == null) continue;
+    List<Verdict> verdicts =
+        context.equityCategoryIds().stream()
+            .map(categoryId -> divergenceVerdict(categoryId, rrgMap))
+            .flatMap(Optional::stream)
+            .toList();
 
-      boolean hasActive = alertRepository.existsActiveAlert(RULE_SUB_SECTOR_BREADTH_DIV, categoryId);
-      if (subIds.size() < SUB_SECTOR_MIN_COUNT) {
-        if (hasActive) {
-          alertRepository.resolveAlertsByRuleAndCategory(RULE_SUB_SECTOR_BREADTH_DIV, categoryId);
-        }
-        continue;
-      }
-
-      List<BigDecimal> subQuadrants = bullishQuadrants(subIds, rrgMap);
-      if (subQuadrants.size() < SUB_SECTOR_MIN_COUNT) continue;
-
-      long bullishCount = bullishCount(subQuadrants);
-      double breadth = (double) bullishCount / subQuadrants.size();
-      boolean hasBuyAlert = alertRepository.existsActiveAlert(RULE_TRADE_SIGNAL_BUY, categoryId);
-      boolean weakBreadth = breadth < SUB_SECTOR_BREADTH_FIRE_FRACTION;
-
-      if (hasBuyAlert && weakBreadth && !hasActive) {
-        CategoryId catId = parseCategory(categoryId);
-        if (catId == null) continue;
-        alertRepository.insert(
-            new Alert(
-                OffsetDateTime.now(),
-                catId,
-                RULE_SUB_SECTOR_BREADTH_DIV,
-                severity,
-                String.format(
-                    "%s BUY signal has weak sub-sector breadth: only %d%% of sub-sectors are in Leading/Improving RRG (%d/%d) — sector signal may lack internal confirmation",
-                    categoryId, Math.round(breadth * 100), (int) bullishCount, subQuadrants.size()),
-                String.format(
-                    "{\"parentSignal\":\"BUY\",\"subBreadth\":%.2f,\"bullishCount\":%d,\"totalSubSectors\":%d,\"signalDate\":\"%s\"}",
-                    breadth, (int) bullishCount, subQuadrants.size(), signalDate),
-                AlertStatus.ACTIVE));
-        count++;
-        log.info(
-            "sub_sector_breadth_divergence: fired category={} breadth={}% ({}/{})",
-            categoryId, Math.round(breadth * 100), (int) bullishCount, subQuadrants.size());
-      } else if (hasActive && (!hasBuyAlert || breadth >= SUB_SECTOR_BREADTH_RESOLVE_FRACTION)) {
-        alertRepository.resolveAlertsByRuleAndCategory(RULE_SUB_SECTOR_BREADTH_DIV, categoryId);
-        log.info(
-            "sub_sector_breadth_divergence: resolved category={} hasBuyAlert={} breadth={}%",
-            categoryId, hasBuyAlert, Math.round(breadth * 100));
-      }
-    }
-    return count;
+    verdicts.stream().filter(Verdict::fire).forEach(v -> fireDivergence(v, severity, signalDate));
+    verdicts.stream()
+        .filter(Verdict::resolve)
+        .forEach(v -> resolve(RULE_SUB_SECTOR_BREADTH_DIV, v.categoryId()));
+    return (int) verdicts.stream().filter(Verdict::fire).count();
   }
 
   private int evaluateBullConfluence(AlertEvaluationContext context) {
     Optional<AlertRule> rule = alertRulesRepository.findById(RULE_SUB_SECTOR_BULL_CONFLUENCE);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-    Severity severity = rule.map(AlertRule::severity).orElse(Severity.INFO);
+    if (!rule.map(AlertRule::enabled).orElse(false)) {
+      return 0;
+    }
 
     LocalDate signalDate = context.signalDate();
     Map<String, BigDecimal> rrgMap =
         signalRepository.findByTypeAndDate(SignalType.RRG_QUADRANT, signalDate);
+    Severity severity = rule.map(AlertRule::severity).orElse(Severity.INFO);
 
-    int count = 0;
-    for (String categoryId : context.equityCategoryIds()) {
-      List<String> subIds = subSectorIds(categoryId, "sub_sector_bull_confluence");
-      if (subIds == null) continue;
+    List<Verdict> verdicts =
+        context.equityCategoryIds().stream()
+            .map(categoryId -> confluenceVerdict(categoryId, rrgMap))
+            .flatMap(Optional::stream)
+            .toList();
 
-      boolean hasActive =
-          alertRepository.existsActiveAlert(RULE_SUB_SECTOR_BULL_CONFLUENCE, categoryId);
-      if (subIds.size() < SUB_SECTOR_MIN_COUNT) {
-        if (hasActive) {
-          alertRepository.resolveAlertsByRuleAndCategory(RULE_SUB_SECTOR_BULL_CONFLUENCE, categoryId);
-        }
-        continue;
-      }
+    verdicts.stream().filter(Verdict::fire).forEach(v -> fireConfluence(v, severity, signalDate));
+    verdicts.stream()
+        .filter(Verdict::resolve)
+        .forEach(v -> resolve(RULE_SUB_SECTOR_BULL_CONFLUENCE, v.categoryId()));
+    return (int) verdicts.stream().filter(Verdict::fire).count();
+  }
 
-      List<BigDecimal> subQuadrants = bullishQuadrants(subIds, rrgMap);
-      if (subQuadrants.size() < SUB_SECTOR_MIN_COUNT) continue;
+  private Optional<Verdict> divergenceVerdict(String categoryId, Map<String, BigDecimal> rrgMap) {
+    return measure(categoryId, RULE_SUB_SECTOR_BREADTH_DIV, rrgMap)
+        .map(
+            measurement -> {
+              boolean active =
+                  alertRepository.existsActiveAlert(RULE_SUB_SECTOR_BREADTH_DIV, categoryId);
+              if (!measurement.sufficient()) {
+                return Verdict.resolveOnly(categoryId, active);
+              }
+              boolean hasBuyAlert =
+                  alertRepository.existsActiveAlert(RULE_TRADE_SIGNAL_BUY, categoryId);
+              double breadth = measurement.breadth();
+              Optional<CategoryId> category = knownCategory(categoryId);
+              boolean fire =
+                  hasBuyAlert
+                      && breadth < SUB_SECTOR_BREADTH_FIRE_FRACTION
+                      && !active
+                      && category.isPresent();
+              boolean resolve =
+                  active && (!hasBuyAlert || breadth >= SUB_SECTOR_BREADTH_RESOLVE_FRACTION);
+              return new Verdict(categoryId, category, measurement, fire, resolve);
+            });
+  }
 
-      long bullishCount = bullishCount(subQuadrants);
-      double breadth = (double) bullishCount / subQuadrants.size();
-      boolean broadConfluence = breadth >= SUB_SECTOR_BULL_CONFLUENCE_FIRE_FRACTION;
+  private Optional<Verdict> confluenceVerdict(String categoryId, Map<String, BigDecimal> rrgMap) {
+    return measure(categoryId, RULE_SUB_SECTOR_BULL_CONFLUENCE, rrgMap)
+        .map(
+            measurement -> {
+              boolean active =
+                  alertRepository.existsActiveAlert(RULE_SUB_SECTOR_BULL_CONFLUENCE, categoryId);
+              if (!measurement.sufficient()) {
+                return Verdict.resolveOnly(categoryId, active);
+              }
+              double breadth = measurement.breadth();
+              Optional<CategoryId> category = knownCategory(categoryId);
+              boolean fire =
+                  breadth >= SUB_SECTOR_BULL_CONFLUENCE_FIRE_FRACTION && !active && category.isPresent();
+              boolean resolve = active && breadth < SUB_SECTOR_BULL_CONFLUENCE_RESOLVE_FRACTION;
+              return new Verdict(categoryId, category, measurement, fire, resolve);
+            });
+  }
 
-      if (broadConfluence && !hasActive) {
-        CategoryId catId = parseCategory(categoryId);
-        if (catId == null) continue;
-        alertRepository.insert(
-            new Alert(
-                OffsetDateTime.now(),
-                catId,
-                RULE_SUB_SECTOR_BULL_CONFLUENCE,
-                severity,
-                String.format(
-                    "%s has broad sub-sector confluence: %d%% of sub-sectors in Leading/Improving RRG (%d/%d) — internally confirmed sector rotation",
-                    categoryId, Math.round(breadth * 100), (int) bullishCount, subQuadrants.size()),
-                String.format(
-                    "{\"subBreadth\":%.2f,\"bullishCount\":%d,\"totalSubSectors\":%d,\"signalDate\":\"%s\"}",
-                    breadth, (int) bullishCount, subQuadrants.size(), signalDate),
-                AlertStatus.ACTIVE));
-        count++;
-        log.info(
-            "sub_sector_bull_confluence: fired category={} breadth={}% ({}/{})",
-            categoryId, Math.round(breadth * 100), (int) bullishCount, subQuadrants.size());
-      } else if (hasActive && breadth < SUB_SECTOR_BULL_CONFLUENCE_RESOLVE_FRACTION) {
-        alertRepository.resolveAlertsByRuleAndCategory(RULE_SUB_SECTOR_BULL_CONFLUENCE, categoryId);
-        log.info(
-            "sub_sector_bull_confluence: resolved category={} breadth={}%",
-            categoryId, Math.round(breadth * 100));
-      }
+  private void fireDivergence(Verdict verdict, Severity severity, LocalDate signalDate) {
+    Measurement measurement = verdict.measurement();
+    int breadthPct = measurement.breadthPercent();
+    alertRepository.insert(
+        new Alert(
+            OffsetDateTime.now(),
+            verdict.category().orElseThrow(),
+            RULE_SUB_SECTOR_BREADTH_DIV,
+            severity,
+            String.format(
+                "%s BUY signal has weak sub-sector breadth: only %d%% of sub-sectors are in Leading/Improving RRG (%d/%d) — sector signal may lack internal confirmation",
+                verdict.categoryId(), breadthPct, measurement.bullishCount(), measurement.total()),
+            String.format(
+                "{\"parentSignal\":\"BUY\",\"subBreadth\":%.2f,\"bullishCount\":%d,\"totalSubSectors\":%d,\"signalDate\":\"%s\"}",
+                measurement.breadth(), measurement.bullishCount(), measurement.total(), signalDate),
+            AlertStatus.ACTIVE));
+    log.info(
+        "sub_sector_breadth_divergence: fired category={} breadth={}% ({}/{})",
+        verdict.categoryId(), breadthPct, measurement.bullishCount(), measurement.total());
+  }
+
+  private void fireConfluence(Verdict verdict, Severity severity, LocalDate signalDate) {
+    Measurement measurement = verdict.measurement();
+    int breadthPct = measurement.breadthPercent();
+    alertRepository.insert(
+        new Alert(
+            OffsetDateTime.now(),
+            verdict.category().orElseThrow(),
+            RULE_SUB_SECTOR_BULL_CONFLUENCE,
+            severity,
+            String.format(
+                "%s has broad sub-sector confluence: %d%% of sub-sectors in Leading/Improving RRG (%d/%d) — internally confirmed sector rotation",
+                verdict.categoryId(), breadthPct, measurement.bullishCount(), measurement.total()),
+            String.format(
+                "{\"subBreadth\":%.2f,\"bullishCount\":%d,\"totalSubSectors\":%d,\"signalDate\":\"%s\"}",
+                measurement.breadth(), measurement.bullishCount(), measurement.total(), signalDate),
+            AlertStatus.ACTIVE));
+    log.info(
+        "sub_sector_bull_confluence: fired category={} breadth={}% ({}/{})",
+        verdict.categoryId(), breadthPct, measurement.bullishCount(), measurement.total());
+  }
+
+  private void resolve(String ruleId, String categoryId) {
+    alertRepository.resolveAlertsByRuleAndCategory(ruleId, categoryId);
+    log.info("{}: resolved category={}", ruleId, categoryId);
+  }
+
+  /**
+   * Counts a parent's Leading/Improving sub-sectors. Empty when the sub-category enum can't be
+   * resolved or fewer than two sub-sectors carry a quadrant; a parent with fewer than two
+   * sub-categories yields an {@link Measurement#insufficient() insufficient} measurement (resolve
+   * only).
+   */
+  private Optional<Measurement> measure(
+      String categoryId, String ruleId, Map<String, BigDecimal> rrgMap) {
+    List<String> subIds = subSectorIds(categoryId, ruleId);
+    if (subIds == null) {
+      return Optional.empty();
     }
-    return count;
+    if (subIds.size() < SUB_SECTOR_MIN_COUNT) {
+      return Optional.of(Measurement.insufficient());
+    }
+    List<BigDecimal> subQuadrants = bullishQuadrants(subIds, rrgMap);
+    if (subQuadrants.size() < SUB_SECTOR_MIN_COUNT) {
+      return Optional.empty();
+    }
+    return Optional.of(Measurement.of((int) bullishCount(subQuadrants), subQuadrants.size()));
+  }
+
+  private Optional<CategoryId> knownCategory(String categoryId) {
+    try {
+      return Optional.of(CategoryId.valueOf(categoryId));
+    } catch (IllegalArgumentException e) {
+      return Optional.empty();
+    }
+  }
+
+  /** A parent sector's sub-sector breadth tally. */
+  private record Measurement(boolean sufficient, int bullishCount, int total) {
+    static Measurement insufficient() {
+      return new Measurement(false, 0, 0);
+    }
+
+    static Measurement of(int bullishCount, int total) {
+      return new Measurement(true, bullishCount, total);
+    }
+
+    double breadth() {
+      return (double) bullishCount / total;
+    }
+
+    int breadthPercent() {
+      return (int) Math.round(breadth() * 100);
+    }
+  }
+
+  /** Per-sector fire/resolve decision for one of the two rules. */
+  private record Verdict(
+      String categoryId,
+      Optional<CategoryId> category,
+      Measurement measurement,
+      boolean fire,
+      boolean resolve) {
+
+    static Verdict resolveOnly(String categoryId, boolean active) {
+      return new Verdict(categoryId, Optional.empty(), Measurement.insufficient(), false, active);
+    }
   }
 
   /** Sub-category ids of a parent, or {@code null} when the sub-category enum can't be resolved. */
@@ -208,13 +287,5 @@ public class SubSectorBreadthAlertEvaluator implements AlertEvaluator {
 
   private long bullishCount(List<BigDecimal> subQuadrants) {
     return subQuadrants.stream().filter(q -> q.intValue() == 3 || q.intValue() == 4).count();
-  }
-
-  private CategoryId parseCategory(String categoryId) {
-    try {
-      return CategoryId.valueOf(categoryId);
-    } catch (IllegalArgumentException e) {
-      return null;
-    }
   }
 }

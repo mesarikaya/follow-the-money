@@ -11,8 +11,11 @@ import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.ToIntFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -27,8 +30,6 @@ public class RsBreadthExtremeAlertEvaluator implements AlertEvaluator {
 
   private static final Logger log = LoggerFactory.getLogger(RsBreadthExtremeAlertEvaluator.class);
 
-  private static final String RULE_RS_BREADTH_BULL = "rs_breadth_bull";
-  private static final String RULE_RS_BREADTH_BEAR = "rs_breadth_bear";
   private static final double RS_BREADTH_FIRE_FRACTION = 0.60;
   private static final double RS_BREADTH_RESOLVE_FRACTION = 0.45;
 
@@ -47,89 +48,130 @@ public class RsBreadthExtremeAlertEvaluator implements AlertEvaluator {
 
   @Override
   public int evaluate(AlertEvaluationContext context) {
-    LocalDate signalDate = context.signalDate();
-
-    // Check rules first — avoid data fetch when both are disabled
-    Optional<AlertRule> bullRule = alertRulesRepository.findById(RULE_RS_BREADTH_BULL);
-    Optional<AlertRule> bearRule = alertRulesRepository.findById(RULE_RS_BREADTH_BEAR);
+    Optional<AlertRule> bullRule = alertRulesRepository.findById(Direction.BULL.ruleId);
+    Optional<AlertRule> bearRule = alertRulesRepository.findById(Direction.BEAR.ruleId);
     boolean bullEnabled = bullRule.map(AlertRule::enabled).orElse(false);
     boolean bearEnabled = bearRule.map(AlertRule::enabled).orElse(false);
-    if (!bullEnabled && !bearEnabled) return 0;
+    if (!bullEnabled && !bearEnabled) {
+      return 0;
+    }
 
+    LocalDate signalDate = context.signalDate();
     Map<String, BigDecimal> rs20Map =
         signalRepository.findByTypeAndDate(SignalType.RS_20, signalDate);
     Map<String, BigDecimal> rs60Map =
         signalRepository.findByTypeAndDate(SignalType.RS_60, signalDate);
-    if (rs20Map.isEmpty() || rs60Map.isEmpty()) return 0;
-
-    int total = 0;
-    int bullCount = 0;
-    int bearCount = 0;
-    for (String categoryId : context.equityCategoryIds()) {
-      BigDecimal r20 = rs20Map.get(categoryId);
-      BigDecimal r60 = rs60Map.get(categoryId);
-      if (r20 == null || r60 == null) continue;
-      total++;
-      int cmp = r20.compareTo(r60);
-      if (cmp > 0) bullCount++;
-      else if (cmp < 0) bearCount++;
+    if (rs20Map.isEmpty() || rs60Map.isEmpty()) {
+      return 0;
     }
-    if (total == 0) return 0;
 
-    double bullFraction = (double) bullCount / total;
-    double bearFraction = (double) bearCount / total;
-    int count = 0;
+    Breadth breadth = computeBreadth(context.equityCategoryIds(), rs20Map, rs60Map);
+    if (breadth.total() == 0) {
+      return 0;
+    }
 
+    int fired = 0;
     if (bullEnabled) {
-      Severity sev = bullRule.map(AlertRule::severity).orElse(Severity.INFO);
-      boolean hasActive = alertRepository.existsActiveAlert(RULE_RS_BREADTH_BULL, null);
-      if (bullFraction >= RS_BREADTH_FIRE_FRACTION && !hasActive) {
-        alertRepository.insert(
-            new Alert(
-                OffsetDateTime.now(),
-                null,
-                RULE_RS_BREADTH_BULL,
-                sev,
-                String.format(
-                    "RS BREADTH BULL: %d/%d equity sectors (%.0f%%) have RS-20 > RS-60 — broad short-term momentum alignment",
-                    bullCount, total, bullFraction * 100),
-                String.format(
-                    "{\"bullCount\":%d,\"total\":%d,\"fraction\":%.2f,\"signalDate\":\"%s\"}",
-                    bullCount, total, bullFraction, signalDate),
-                AlertStatus.ACTIVE));
-        log.info("rs_breadth_bull: bullCount={}/{} fraction={}", bullCount, total, bullFraction);
-        count++;
-      } else if (bullFraction < RS_BREADTH_RESOLVE_FRACTION && hasActive) {
-        alertRepository.resolveAlertsByRuleAndCategory(RULE_RS_BREADTH_BULL, null);
-        log.info("rs_breadth_bull: resolved, fraction dropped to {}", bullFraction);
-      }
+      fired += apply(Direction.BULL, breadth, bullRule.get().severity(), signalDate);
     }
-
     if (bearEnabled) {
-      Severity sev = bearRule.map(AlertRule::severity).orElse(Severity.WARNING);
-      boolean hasActive = alertRepository.existsActiveAlert(RULE_RS_BREADTH_BEAR, null);
-      if (bearFraction >= RS_BREADTH_FIRE_FRACTION && !hasActive) {
-        alertRepository.insert(
-            new Alert(
-                OffsetDateTime.now(),
-                null,
-                RULE_RS_BREADTH_BEAR,
-                sev,
-                String.format(
-                    "RS BREADTH BEAR: %d/%d equity sectors (%.0f%%) have RS-20 < RS-60 — broad momentum deterioration across market",
-                    bearCount, total, bearFraction * 100),
-                String.format(
-                    "{\"bearCount\":%d,\"total\":%d,\"fraction\":%.2f,\"signalDate\":\"%s\"}",
-                    bearCount, total, bearFraction, signalDate),
-                AlertStatus.ACTIVE));
-        log.info("rs_breadth_bear: bearCount={}/{} fraction={}", bearCount, total, bearFraction);
-        count++;
-      } else if (bearFraction < RS_BREADTH_RESOLVE_FRACTION && hasActive) {
-        alertRepository.resolveAlertsByRuleAndCategory(RULE_RS_BREADTH_BEAR, null);
-        log.info("rs_breadth_bear: resolved, fraction dropped to {}", bearFraction);
-      }
+      fired += apply(Direction.BEAR, breadth, bearRule.get().severity(), signalDate);
+    }
+    return fired;
+  }
+
+  private Breadth computeBreadth(
+      Set<String> equityCategoryIds,
+      Map<String, BigDecimal> rs20Map,
+      Map<String, BigDecimal> rs60Map) {
+    List<Integer> comparisons =
+        equityCategoryIds.stream()
+            .map(categoryId -> compare(rs20Map.get(categoryId), rs60Map.get(categoryId)))
+            .flatMap(Optional::stream)
+            .toList();
+    long bull = comparisons.stream().filter(cmp -> cmp > 0).count();
+    long bear = comparisons.stream().filter(cmp -> cmp < 0).count();
+    return new Breadth(comparisons.size(), (int) bull, (int) bear);
+  }
+
+  private Optional<Integer> compare(BigDecimal rs20, BigDecimal rs60) {
+    return rs20 == null || rs60 == null ? Optional.empty() : Optional.of(rs20.compareTo(rs60));
+  }
+
+  private int apply(Direction direction, Breadth breadth, Severity severity, LocalDate signalDate) {
+    double fraction = direction.fraction(breadth);
+    boolean active = alertRepository.existsActiveAlert(direction.ruleId, null);
+    boolean shouldFire = fraction >= RS_BREADTH_FIRE_FRACTION && !active;
+    boolean shouldResolve = fraction < RS_BREADTH_RESOLVE_FRACTION && active;
+    if (shouldFire) {
+      fire(direction, breadth, fraction, severity, signalDate);
+      return 1;
+    }
+    if (shouldResolve) {
+      resolve(direction, fraction);
+    }
+    return 0;
+  }
+
+  private void fire(
+      Direction direction, Breadth breadth, double fraction, Severity severity, LocalDate signalDate) {
+    int count = direction.count(breadth);
+    alertRepository.insert(
+        new Alert(
+            OffsetDateTime.now(),
+            null,
+            direction.ruleId,
+            severity,
+            String.format(direction.messageTemplate, count, breadth.total(), fraction * 100),
+            String.format(
+                "{\"%s\":%d,\"total\":%d,\"fraction\":%.2f,\"signalDate\":\"%s\"}",
+                direction.jsonCountKey, count, breadth.total(), fraction, signalDate),
+            AlertStatus.ACTIVE));
+    log.info("{}: {}={}/{} fraction={}", direction.ruleId, direction.jsonCountKey, count, breadth.total(), fraction);
+  }
+
+  private void resolve(Direction direction, double fraction) {
+    alertRepository.resolveAlertsByRuleAndCategory(direction.ruleId, null);
+    log.info("{}: resolved, fraction dropped to {}", direction.ruleId, fraction);
+  }
+
+  /** Market-wide breadth tallies for the day. */
+  private record Breadth(int total, int bullCount, int bearCount) {}
+
+  private enum Direction {
+    BULL(
+        "rs_breadth_bull",
+        "bullCount",
+        "RS BREADTH BULL: %d/%d equity sectors (%.0f%%) have RS-20 > RS-60 — broad short-term momentum alignment",
+        Breadth::bullCount),
+    BEAR(
+        "rs_breadth_bear",
+        "bearCount",
+        "RS BREADTH BEAR: %d/%d equity sectors (%.0f%%) have RS-20 < RS-60 — broad momentum deterioration across market",
+        Breadth::bearCount);
+
+    private final String ruleId;
+    private final String jsonCountKey;
+    private final String messageTemplate;
+    private final ToIntFunction<Breadth> countExtractor;
+
+    Direction(
+        String ruleId,
+        String jsonCountKey,
+        String messageTemplate,
+        ToIntFunction<Breadth> countExtractor) {
+      this.ruleId = ruleId;
+      this.jsonCountKey = jsonCountKey;
+      this.messageTemplate = messageTemplate;
+      this.countExtractor = countExtractor;
     }
 
-    return count;
+    int count(Breadth breadth) {
+      return countExtractor.applyAsInt(breadth);
+    }
+
+    double fraction(Breadth breadth) {
+      return (double) count(breadth) / breadth.total();
+    }
   }
 }

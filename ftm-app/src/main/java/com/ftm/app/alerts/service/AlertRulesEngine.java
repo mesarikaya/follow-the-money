@@ -1,7 +1,10 @@
 package com.ftm.app.alerts.service;
 
 import com.ftm.app.alerts.evaluator.AlertEvaluationContext;
+import com.ftm.app.alerts.evaluator.BreadthVelocityAlertEvaluator;
 import com.ftm.app.alerts.evaluator.MacroRegimeShiftAlertEvaluator;
+import com.ftm.app.alerts.evaluator.PersistenceLowAlertEvaluator;
+import com.ftm.app.alerts.evaluator.RsAlignedAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsBreadthExtremeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScorePercentileExtremeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScoreVelocityAlertEvaluator;
@@ -171,6 +174,9 @@ public class AlertRulesEngine {
   private final ScoreVelocityAlertEvaluator scoreVelocityAlertEvaluator;
   private final SignalDeteriorationAlertEvaluator signalDeteriorationAlertEvaluator;
   private final RsBreadthExtremeAlertEvaluator rsBreadthExtremeAlertEvaluator;
+  private final PersistenceLowAlertEvaluator persistenceLowAlertEvaluator;
+  private final BreadthVelocityAlertEvaluator breadthVelocityAlertEvaluator;
+  private final RsAlignedAlertEvaluator rsAlignedAlertEvaluator;
 
   public AlertRulesEngine(
       AlertRepository alertRepository,
@@ -193,7 +199,10 @@ public class AlertRulesEngine {
       ScorePercentileExtremeAlertEvaluator scorePercentileExtremeAlertEvaluator,
       ScoreVelocityAlertEvaluator scoreVelocityAlertEvaluator,
       SignalDeteriorationAlertEvaluator signalDeteriorationAlertEvaluator,
-      RsBreadthExtremeAlertEvaluator rsBreadthExtremeAlertEvaluator) {
+      RsBreadthExtremeAlertEvaluator rsBreadthExtremeAlertEvaluator,
+      PersistenceLowAlertEvaluator persistenceLowAlertEvaluator,
+      BreadthVelocityAlertEvaluator breadthVelocityAlertEvaluator,
+      RsAlignedAlertEvaluator rsAlignedAlertEvaluator) {
     this.alertRepository = alertRepository;
     this.alertRulesRepository = alertRulesRepository;
     this.rotationEventRepository = rotationEventRepository;
@@ -215,6 +224,9 @@ public class AlertRulesEngine {
     this.scoreVelocityAlertEvaluator = scoreVelocityAlertEvaluator;
     this.signalDeteriorationAlertEvaluator = signalDeteriorationAlertEvaluator;
     this.rsBreadthExtremeAlertEvaluator = rsBreadthExtremeAlertEvaluator;
+    this.persistenceLowAlertEvaluator = persistenceLowAlertEvaluator;
+    this.breadthVelocityAlertEvaluator = breadthVelocityAlertEvaluator;
+    this.rsAlignedAlertEvaluator = rsAlignedAlertEvaluator;
   }
 
   @EventListener
@@ -236,8 +248,8 @@ public class AlertRulesEngine {
     alertsCreated += evaluateRotationEventAlerts(signalDate);
     alertsCreated += macroRegimeShiftAlertEvaluator.evaluate(context);
     alertsCreated += evaluateRsAccelerationCrossover(signalDate, topLevelCategoryIds);
-    alertsCreated += evaluatePersistenceLow(signalDate, equityCategoryIds);
-    alertsCreated += evaluateBreadthVelocity(signalDate, equityCategoryIds);
+    alertsCreated += persistenceLowAlertEvaluator.evaluate(context);
+    alertsCreated += breadthVelocityAlertEvaluator.evaluate(context);
     alertsCreated += evaluateTradeSignalTransitions(signalDate, topLevelCategoryIds);
     alertsCreated += evaluateApproachingBuySignal(signalDate, topLevelCategoryIds);
     alertsCreated += evaluateApproachingReduceSignal(signalDate, topLevelCategoryIds);
@@ -245,8 +257,7 @@ public class AlertRulesEngine {
     alertsCreated += evaluateHighConvictionCluster(signalDate, topLevelCategoryIds);
     alertsCreated += evaluateHighConvictionReduceCluster(signalDate, topLevelCategoryIds);
     alertsCreated += signalDeteriorationAlertEvaluator.evaluate(context);
-    alertsCreated += evaluateRsAlignedBull(signalDate, topLevelCategoryIds);
-    alertsCreated += evaluateRsAlignedBear(signalDate, topLevelCategoryIds);
+    alertsCreated += rsAlignedAlertEvaluator.evaluate(context);
     alertsCreated += evaluatePreBuyFlowSurge(signalDate, topLevelCategoryIds);
     alertsCreated += rsBreadthExtremeAlertEvaluator.evaluate(context);
     alertsCreated += evaluateRrgRsDivergence(signalDate, equityCategoryIds);
@@ -545,57 +556,6 @@ public class AlertRulesEngine {
         rotationEvent.eventType().name(), rotationEvent.confidence(), rotationEvent.detectedDate());
   }
 
-  private int evaluatePersistenceLow(LocalDate signalDate, Set<String> equityCategoryIds) {
-    Optional<AlertRule> persistenceRule = alertRulesRepository.findById(RULE_PERSISTENCE_LOW);
-    if (!persistenceRule.map(AlertRule::enabled).orElse(false)) return 0;
-
-    AlertRule rule = persistenceRule.get();
-    int threshold = rule.persistenceDays() != null ? rule.persistenceDays() : 7;
-    Severity severity = rule.severity() != null ? rule.severity() : Severity.WARNING;
-
-    Map<String, BigDecimal> persistenceSignals =
-        signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, signalDate);
-    if (persistenceSignals.isEmpty()) return 0;
-
-    int count = 0;
-    for (String categoryId : equityCategoryIds) {
-      BigDecimal persistence = persistenceSignals.get(categoryId);
-      if (persistence == null) continue;
-
-      if (persistence.intValue() < threshold) {
-        if (!alertRepository.existsActiveAlert(RULE_PERSISTENCE_LOW, categoryId)) {
-          CategoryId catId;
-          try {
-            catId = CategoryId.valueOf(categoryId);
-          } catch (IllegalArgumentException e) {
-            log.debug("persistence_low: skipping unknown CategoryId={}", categoryId);
-            continue;
-          }
-          alertRepository.insert(
-              new Alert(
-                  OffsetDateTime.now(),
-                  catId,
-                  RULE_PERSISTENCE_LOW,
-                  severity,
-                  String.format(
-                      "%s outperformed benchmark on only %d of the last 20 trading days — persistence below threshold (%d)",
-                      categoryId, persistence.intValue(), threshold),
-                  String.format(
-                      "{\"persistence20d\":%d,\"threshold\":%d,\"signalDate\":\"%s\"}",
-                      persistence.intValue(), threshold, signalDate),
-                  AlertStatus.ACTIVE));
-          count++;
-          log.info(
-              "persistence_low alert: category={} persistence={}/20 threshold={}",
-              categoryId,
-              persistence.intValue(),
-              threshold);
-        }
-      }
-    }
-    return count;
-  }
-
   private int evaluateRsAccelerationCrossover(
       LocalDate signalDate, Set<String> topLevelCategoryIds) {
     Optional<AlertRule> rsAccelRule = alertRulesRepository.findById(RULE_RS_ACCEL_CROSSOVER);
@@ -672,95 +632,6 @@ public class AlertRulesEngine {
             nowAbove ? "bullish" : "bearish",
             rs60,
             rs120);
-      }
-    }
-    return count;
-  }
-
-  private int evaluateBreadthVelocity(LocalDate signalDate, Set<String> equityCategoryIds) {
-    Optional<AlertRule> accelRule = alertRulesRepository.findById(RULE_BREADTH_VELOCITY_ACCEL);
-    Optional<AlertRule> decelRule = alertRulesRepository.findById(RULE_BREADTH_VELOCITY_DECEL);
-
-    boolean accelEnabled = accelRule.map(AlertRule::enabled).orElse(false);
-    boolean decelEnabled = decelRule.map(AlertRule::enabled).orElse(false);
-    if (!accelEnabled && !decelEnabled) return 0;
-
-    Severity accelSeverity = accelRule.map(AlertRule::severity).orElse(Severity.INFO);
-    Severity decelSeverity = decelRule.map(AlertRule::severity).orElse(Severity.WARNING);
-
-    Map<String, BigDecimal> persistence20d =
-        signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_20D, signalDate);
-    Map<String, BigDecimal> persistence5d =
-        signalRepository.findByTypeAndDate(SignalType.PERSISTENCE_5D, signalDate);
-
-    if (persistence20d.isEmpty() || persistence5d.isEmpty()) return 0;
-
-    int count = 0;
-    for (String categoryId : equityCategoryIds) {
-      BigDecimal p20 = persistence20d.get(categoryId);
-      BigDecimal p5 = persistence5d.get(categoryId);
-      if (p20 == null || p5 == null) continue;
-
-      double rate5d = p5.doubleValue() / 5.0;
-      double rate15 = (p20.doubleValue() - p5.doubleValue()) / 15.0;
-      int velocityPp = (int) Math.round((rate5d - rate15) * 100);
-
-      CategoryId catId;
-      try {
-        catId = CategoryId.valueOf(categoryId);
-      } catch (IllegalArgumentException e) {
-        log.debug("breadth_velocity: skipping unknown CategoryId={}", categoryId);
-        continue;
-      }
-
-      if (accelEnabled && velocityPp >= BREADTH_VELOCITY_THRESHOLD_PP) {
-        if (!alertRepository.existsActiveAlert(RULE_BREADTH_VELOCITY_ACCEL, categoryId)) {
-          alertRepository.insert(
-              new Alert(
-                  OffsetDateTime.now(),
-                  catId,
-                  RULE_BREADTH_VELOCITY_ACCEL,
-                  accelSeverity,
-                  String.format(
-                      "%s breadth velocity +%dpp — recent-5d hit-rate sharply above prior-15d baseline (P5=%d, P20=%d)",
-                      categoryId, velocityPp, p5.intValue(), p20.intValue()),
-                  String.format(
-                      "{\"velocityPp\":%d,\"persistence5d\":%d,\"persistence20d\":%d,\"signalDate\":\"%s\"}",
-                      velocityPp, p5.intValue(), p20.intValue(), signalDate),
-                  AlertStatus.ACTIVE));
-          count++;
-          log.info(
-              "breadth_velocity_accel: category={} velocityPp=+{} p5d={} p20d={}",
-              categoryId,
-              velocityPp,
-              p5.intValue(),
-              p20.intValue());
-        }
-      }
-
-      if (decelEnabled && velocityPp <= -BREADTH_VELOCITY_THRESHOLD_PP) {
-        if (!alertRepository.existsActiveAlert(RULE_BREADTH_VELOCITY_DECEL, categoryId)) {
-          alertRepository.insert(
-              new Alert(
-                  OffsetDateTime.now(),
-                  catId,
-                  RULE_BREADTH_VELOCITY_DECEL,
-                  decelSeverity,
-                  String.format(
-                      "%s breadth velocity %dpp — recent-5d hit-rate sharply below prior-15d baseline (P5=%d, P20=%d)",
-                      categoryId, velocityPp, p5.intValue(), p20.intValue()),
-                  String.format(
-                      "{\"velocityPp\":%d,\"persistence5d\":%d,\"persistence20d\":%d,\"signalDate\":\"%s\"}",
-                      velocityPp, p5.intValue(), p20.intValue(), signalDate),
-                  AlertStatus.ACTIVE));
-          count++;
-          log.info(
-              "breadth_velocity_decel: category={} velocityPp={} p5d={} p20d={}",
-              categoryId,
-              velocityPp,
-              p5.intValue(),
-              p20.intValue());
-        }
       }
     }
     return count;
@@ -1304,175 +1175,6 @@ public class AlertRulesEngine {
     return 0;
   }
 
-
-  /**
-   * Fires when all three RS timeframes align bullishly: RS-20 > RS-60 > RS-120. This multi-horizon
-   * alignment indicates momentum is building across short, medium, and long windows — a strong
-   * confirmation for BUY or WATCH sectors. Resolves when RS-20 drops to or below RS-60 (alignment
-   * breaks).
-   */
-  private int evaluateRsAlignedBull(LocalDate signalDate, Set<String> topLevelCategoryIds) {
-    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_RS_ALIGNED_BULL);
-    if (rule.isEmpty() || !rule.get().enabled()) return 0;
-    Severity severity = rule.get().severity();
-
-    Map<String, BigDecimal> currentRs20 =
-        signalRepository.findByTypeAndDate(SignalType.RS_20, signalDate);
-    Map<String, BigDecimal> currentRs60 =
-        signalRepository.findByTypeAndDate(SignalType.RS_60, signalDate);
-    Map<String, BigDecimal> currentRs120 =
-        signalRepository.findByTypeAndDate(SignalType.RS_120, signalDate);
-    if (currentRs20.isEmpty() || currentRs60.isEmpty() || currentRs120.isEmpty()) return 0;
-
-    LocalDate prevDate = signalRepository.findPreviousSignalDate(SignalType.RS_20, signalDate);
-    Map<String, BigDecimal> prevRs20 =
-        prevDate != null
-            ? signalRepository.findByTypeAndDate(SignalType.RS_20, prevDate)
-            : Collections.emptyMap();
-    Map<String, BigDecimal> prevRs60 =
-        prevDate != null
-            ? signalRepository.findByTypeAndDate(SignalType.RS_60, prevDate)
-            : Collections.emptyMap();
-    Map<String, BigDecimal> prevRs120 =
-        prevDate != null
-            ? signalRepository.findByTypeAndDate(SignalType.RS_120, prevDate)
-            : Collections.emptyMap();
-
-    int count = 0;
-    for (String categoryId : topLevelCategoryIds) {
-      BigDecimal rs20 = currentRs20.get(categoryId);
-      BigDecimal rs60 = currentRs60.get(categoryId);
-      BigDecimal rs120 = currentRs120.get(categoryId);
-      if (rs20 == null || rs60 == null || rs120 == null) continue;
-
-      boolean nowAligned = rs20.compareTo(rs60) > 0 && rs60.compareTo(rs120) > 0;
-      if (!nowAligned) continue;
-      if (alertRepository.existsActiveAlert(RULE_RS_ALIGNED_BULL, categoryId)) continue;
-
-      // Only fire on the first day of alignment (was not fully aligned yesterday)
-      BigDecimal prevRs20Val = prevRs20.get(categoryId);
-      BigDecimal prevRs60Val = prevRs60.get(categoryId);
-      BigDecimal prevRs120Val = prevRs120.get(categoryId);
-      if (prevRs20Val != null && prevRs60Val != null && prevRs120Val != null) {
-        boolean wasAligned =
-            prevRs20Val.compareTo(prevRs60Val) > 0 && prevRs60Val.compareTo(prevRs120Val) > 0;
-        if (wasAligned) continue;
-      }
-
-      CategoryId catId;
-      try {
-        catId = CategoryId.valueOf(categoryId);
-      } catch (IllegalArgumentException e) {
-        log.debug("rs_aligned_bull: skipping unknown CategoryId={}", categoryId);
-        continue;
-      }
-
-      String snapshot =
-          String.format(
-              "{\"rs20\":%.4f,\"rs60\":%.4f,\"rs120\":%.4f,\"signalDate\":\"%s\"}",
-              rs20, rs60, rs120, signalDate);
-      alertRepository.insert(
-          new Alert(
-              OffsetDateTime.now(),
-              catId,
-              RULE_RS_ALIGNED_BULL,
-              severity,
-              String.format(
-                  "%s RS-20 > RS-60 > RS-120 fully aligned — momentum building across all horizons",
-                  categoryId),
-              snapshot,
-              AlertStatus.ACTIVE));
-      count++;
-      log.info(
-          "rs_aligned_bull: category={} rs20={} rs60={} rs120={}", categoryId, rs20, rs60, rs120);
-    }
-    return count;
-  }
-
-  /**
-   * Fires when all three RS timeframes align bearishly: RS-20 &lt; RS-60 &lt; RS-120. This
-   * multi-horizon bearish alignment indicates momentum is deteriorating across all windows — a
-   * strong confirmation for REDUCE or sectors at risk of further weakness. Resolves when RS-20
-   * rises back to or above RS-60 (bearish alignment breaks).
-   */
-  private int evaluateRsAlignedBear(LocalDate signalDate, Set<String> topLevelCategoryIds) {
-    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_RS_ALIGNED_BEAR);
-    if (rule.isEmpty() || !rule.get().enabled()) return 0;
-    Severity severity = rule.get().severity();
-
-    Map<String, BigDecimal> currentRs20 =
-        signalRepository.findByTypeAndDate(SignalType.RS_20, signalDate);
-    Map<String, BigDecimal> currentRs60 =
-        signalRepository.findByTypeAndDate(SignalType.RS_60, signalDate);
-    Map<String, BigDecimal> currentRs120 =
-        signalRepository.findByTypeAndDate(SignalType.RS_120, signalDate);
-    if (currentRs20.isEmpty() || currentRs60.isEmpty() || currentRs120.isEmpty()) return 0;
-
-    LocalDate prevDate = signalRepository.findPreviousSignalDate(SignalType.RS_20, signalDate);
-    Map<String, BigDecimal> prevRs20 =
-        prevDate != null
-            ? signalRepository.findByTypeAndDate(SignalType.RS_20, prevDate)
-            : Collections.emptyMap();
-    Map<String, BigDecimal> prevRs60 =
-        prevDate != null
-            ? signalRepository.findByTypeAndDate(SignalType.RS_60, prevDate)
-            : Collections.emptyMap();
-    Map<String, BigDecimal> prevRs120 =
-        prevDate != null
-            ? signalRepository.findByTypeAndDate(SignalType.RS_120, prevDate)
-            : Collections.emptyMap();
-
-    int count = 0;
-    for (String categoryId : topLevelCategoryIds) {
-      BigDecimal rs20 = currentRs20.get(categoryId);
-      BigDecimal rs60 = currentRs60.get(categoryId);
-      BigDecimal rs120 = currentRs120.get(categoryId);
-      if (rs20 == null || rs60 == null || rs120 == null) continue;
-
-      boolean nowAligned = rs20.compareTo(rs60) < 0 && rs60.compareTo(rs120) < 0;
-      if (!nowAligned) continue;
-      if (alertRepository.existsActiveAlert(RULE_RS_ALIGNED_BEAR, categoryId)) continue;
-
-      // Only fire on the first day of alignment (was not fully aligned yesterday)
-      BigDecimal prevRs20Val = prevRs20.get(categoryId);
-      BigDecimal prevRs60Val = prevRs60.get(categoryId);
-      BigDecimal prevRs120Val = prevRs120.get(categoryId);
-      if (prevRs20Val != null && prevRs60Val != null && prevRs120Val != null) {
-        boolean wasAligned =
-            prevRs20Val.compareTo(prevRs60Val) < 0 && prevRs60Val.compareTo(prevRs120Val) < 0;
-        if (wasAligned) continue;
-      }
-
-      CategoryId catId;
-      try {
-        catId = CategoryId.valueOf(categoryId);
-      } catch (IllegalArgumentException e) {
-        log.debug("rs_aligned_bear: skipping unknown CategoryId={}", categoryId);
-        continue;
-      }
-
-      String snapshot =
-          String.format(
-              "{\"rs20\":%.4f,\"rs60\":%.4f,\"rs120\":%.4f,\"signalDate\":\"%s\"}",
-              rs20, rs60, rs120, signalDate);
-      alertRepository.insert(
-          new Alert(
-              OffsetDateTime.now(),
-              catId,
-              RULE_RS_ALIGNED_BEAR,
-              severity,
-              String.format(
-                  "%s RS-20 < RS-60 < RS-120 fully aligned bearish — momentum deteriorating across all horizons",
-                  categoryId),
-              snapshot,
-              AlertStatus.ACTIVE));
-      count++;
-      log.info(
-          "rs_aligned_bear: category={} rs20={} rs60={} rs120={}", categoryId, rs20, rs60, rs120);
-    }
-    return count;
-  }
-
   /**
    * Fires when a sector is in the pre-BUY approach zone (score 0.55–0.65) AND institutional flow is
    * surging (FLOW_20D z-score ≥ 1.5). This combination means institutional money is moving in
@@ -1550,7 +1252,6 @@ public class AlertRulesEngine {
     }
     return count;
   }
-
 
   /**
    * Fires when RRG quadrant direction contradicts RS-20 vs RS-60 momentum direction.
@@ -1646,8 +1347,6 @@ public class AlertRulesEngine {
     }
     return count;
   }
-
-
 
   /**
    * Meta-alert: fires when a single sector has &ge; 3 bullish alerts simultaneously active.
@@ -2483,5 +2182,4 @@ public class AlertRulesEngine {
     }
     return count;
   }
-
 }

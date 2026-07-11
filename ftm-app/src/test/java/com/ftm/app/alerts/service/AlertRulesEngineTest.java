@@ -10,17 +10,20 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.ftm.app.alerts.evaluator.BreadthVelocityAlertEvaluator;
 import com.ftm.app.alerts.evaluator.MacroRegimeShiftAlertEvaluator;
+import com.ftm.app.alerts.evaluator.PersistenceLowAlertEvaluator;
+import com.ftm.app.alerts.evaluator.RsAlignedAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsBreadthExtremeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScorePercentileExtremeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScoreVelocityAlertEvaluator;
 import com.ftm.app.alerts.evaluator.SignalDeteriorationAlertEvaluator;
 import com.ftm.app.alerts.evaluator.Theme5dAccelerationAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeDistributeWarningAlertEvaluator;
-import com.ftm.app.alerts.evaluator.ThemeMomentumAlertEvaluator;
-import com.ftm.app.alerts.evaluator.ThemePeerDivergenceAlertEvaluator;
-import com.ftm.app.alerts.evaluator.ThemeMomentumExhaustionAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeFailedBreakoutAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ThemeMomentumAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ThemeMomentumExhaustionAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ThemePeerDivergenceAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeScorePriceDivergenceAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeSetupAccelerationAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeSignalTransitionsAlertEvaluator;
@@ -111,7 +114,12 @@ class AlertRulesEngineTest {
             new SignalDeteriorationAlertEvaluator(
                 alertRulesRepository, signalRepository, alertRepository),
             new RsBreadthExtremeAlertEvaluator(
-                alertRulesRepository, signalRepository, alertRepository));
+                alertRulesRepository, signalRepository, alertRepository),
+            new PersistenceLowAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+            new BreadthVelocityAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+            new RsAlignedAlertEvaluator(alertRulesRepository, signalRepository, alertRepository));
     // resolveStaleAlerts always calls these; lenient prevents PotentialStubbingProblem
     // in tests that stub other SignalTypes (RS_60, RS_120, MACRO_REGIME).
     // Tests that need meaningful values for these types override these stubs inline.

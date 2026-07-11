@@ -53,96 +53,130 @@ public class ThemePeerDivergenceAlertEvaluator implements AlertEvaluator {
 
   @Override
   public int evaluate(AlertEvaluationContext context) {
-    LocalDate signalDate = context.signalDate();
-
     Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_PEER_DIVERGENCE);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+    if (!rule.map(AlertRule::enabled).orElse(false)) {
+      return 0;
+    }
 
     Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
-    if (constituentsByTheme.isEmpty()) return 0;
-
-    Map<String, BigDecimal> currentComposite =
+    LocalDate signalDate = context.signalDate();
+    Map<String, BigDecimal> composite =
         signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    if (currentComposite.isEmpty()) return 0;
-
-    int count = 0;
-    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
-      String themeId = entry.getKey();
-      List<String> ids = entry.getValue();
-
-      List<Map.Entry<String, Double>> scoredConstituents =
-          ids.stream()
-              .filter(id -> currentComposite.containsKey(id))
-              .map(id -> Map.entry(id, currentComposite.get(id).doubleValue()))
-              .toList();
-
-      if (scoredConstituents.size() < THEME_PEER_DIVERGENCE_MIN_CONSTITUENTS) continue;
-
-      double maxScore =
-          scoredConstituents.stream().mapToDouble(Map.Entry::getValue).max().getAsDouble();
-      double minScore =
-          scoredConstituents.stream().mapToDouble(Map.Entry::getValue).min().getAsDouble();
-      double avgScore =
-          scoredConstituents.stream().mapToDouble(Map.Entry::getValue).average().getAsDouble();
-      double spread = maxScore - minScore;
-
-      String leaderId =
-          scoredConstituents.stream()
-              .filter(e -> e.getValue() == maxScore)
-              .findFirst()
-              .map(Map.Entry::getKey)
-              .orElse("?");
-      String laggardId =
-          scoredConstituents.stream()
-              .filter(e -> e.getValue() == minScore)
-              .findFirst()
-              .map(Map.Entry::getKey)
-              .orElse("?");
-
-      boolean hasActive =
-          alertRepository.existsActiveAlertForTheme(RULE_THEME_PEER_DIVERGENCE, themeId);
-
-      if (!hasActive
-          && spread > THEME_PEER_DIVERGENCE_SPREAD_FIRE
-          && avgScore > THEME_PEER_DIVERGENCE_AVG_SCORE_MIN) {
-        Severity severity = rule.map(AlertRule::severity).orElse(Severity.INFO);
-        int spreadPct = (int) Math.round(spread * 100);
-        int leaderPct = (int) Math.round(maxScore * 100);
-        int laggardPct = (int) Math.round(minScore * 100);
-        alertRepository.insert(
-            new Alert(
-                null,
-                OffsetDateTime.now(),
-                null,
-                themeId,
-                RULE_THEME_PEER_DIVERGENCE,
-                severity,
-                String.format(
-                    "%s internal rotation: %s leads (score %d) while %s lags (score %d) — spread"
-                        + " of %d pts suggests within-theme catch-up opportunity",
-                    themeId, leaderId, leaderPct, laggardId, laggardPct, spreadPct),
-                String.format(
-                    "{\"themeId\":\"%s\",\"leaderId\":\"%s\",\"laggardId\":\"%s\","
-                        + "\"spread\":%.4f,\"avgScore\":%.4f,\"signalDate\":\"%s\"}",
-                    themeId, leaderId, laggardId, spread, avgScore, signalDate),
-                AlertStatus.ACTIVE,
-                null,
-                null));
-        count++;
-        log.info(
-            "theme_peer_divergence: fired theme={} leader={} laggard={} spread={}",
-            themeId,
-            leaderId,
-            laggardId,
-            spreadPct);
-      } else if (hasActive && spread < THEME_PEER_DIVERGENCE_SPREAD_RESOLVE) {
-        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_PEER_DIVERGENCE, themeId);
-        log.info(
-            "theme_peer_divergence: resolved theme={} (spread={})",
-            themeId,
-            (int) Math.round(spread * 100));
-      }
+    if (constituentsByTheme.isEmpty() || composite.isEmpty()) {
+      return 0;
     }
-    return count;
+
+    Severity severity = rule.map(AlertRule::severity).orElse(Severity.INFO);
+    List<PeerSpread> spreads =
+        constituentsByTheme.entrySet().stream()
+            .map(entry -> assess(entry.getKey(), entry.getValue(), composite))
+            .flatMap(Optional::stream)
+            .toList();
+
+    spreads.stream().filter(PeerSpread::shouldFire).forEach(s -> fire(s, severity, signalDate));
+    spreads.stream().filter(PeerSpread::shouldResolve).forEach(this::resolve);
+    return (int) spreads.stream().filter(PeerSpread::shouldFire).count();
+  }
+
+  private Optional<PeerSpread> assess(
+      String themeId, List<String> constituentIds, Map<String, BigDecimal> composite) {
+    List<Map.Entry<String, Double>> scored =
+        constituentIds.stream()
+            .filter(composite::containsKey)
+            .map(id -> Map.entry(id, composite.get(id).doubleValue()))
+            .toList();
+    if (scored.size() < THEME_PEER_DIVERGENCE_MIN_CONSTITUENTS) {
+      return Optional.empty();
+    }
+    double maxScore = scored.stream().mapToDouble(Map.Entry::getValue).max().getAsDouble();
+    double minScore = scored.stream().mapToDouble(Map.Entry::getValue).min().getAsDouble();
+    double avgScore = scored.stream().mapToDouble(Map.Entry::getValue).average().getAsDouble();
+    boolean active = alertRepository.existsActiveAlertForTheme(RULE_THEME_PEER_DIVERGENCE, themeId);
+    return Optional.of(
+        new PeerSpread(
+            themeId,
+            leaderWithScore(scored, maxScore),
+            leaderWithScore(scored, minScore),
+            maxScore,
+            minScore,
+            avgScore,
+            active));
+  }
+
+  private String leaderWithScore(List<Map.Entry<String, Double>> scored, double target) {
+    return scored.stream()
+        .filter(entry -> entry.getValue() == target)
+        .findFirst()
+        .map(Map.Entry::getKey)
+        .orElse("?");
+  }
+
+  private void fire(PeerSpread spread, Severity severity, LocalDate signalDate) {
+    String themeId = spread.themeId();
+    int spreadPct = spread.spreadPercent();
+    int leaderPct = (int) Math.round(spread.maxScore() * 100);
+    int laggardPct = (int) Math.round(spread.minScore() * 100);
+    alertRepository.insert(
+        new Alert(
+            null,
+            OffsetDateTime.now(),
+            null,
+            themeId,
+            RULE_THEME_PEER_DIVERGENCE,
+            severity,
+            String.format(
+                "%s internal rotation: %s leads (score %d) while %s lags (score %d) — spread"
+                    + " of %d pts suggests within-theme catch-up opportunity",
+                themeId, spread.leaderId(), leaderPct, spread.laggardId(), laggardPct, spreadPct),
+            String.format(
+                "{\"themeId\":\"%s\",\"leaderId\":\"%s\",\"laggardId\":\"%s\","
+                    + "\"spread\":%.4f,\"avgScore\":%.4f,\"signalDate\":\"%s\"}",
+                themeId, spread.leaderId(), spread.laggardId(), spread.spread(), spread.avgScore(), signalDate),
+            AlertStatus.ACTIVE,
+            null,
+            null));
+    log.info(
+        "theme_peer_divergence: fired theme={} leader={} laggard={} spread={}",
+        themeId,
+        spread.leaderId(),
+        spread.laggardId(),
+        spreadPct);
+  }
+
+  private void resolve(PeerSpread spread) {
+    alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_PEER_DIVERGENCE, spread.themeId());
+    log.info(
+        "theme_peer_divergence: resolved theme={} (spread={})",
+        spread.themeId(),
+        spread.spreadPercent());
+  }
+
+  /** A theme's internal composite spread for the day. */
+  private record PeerSpread(
+      String themeId,
+      String leaderId,
+      String laggardId,
+      double maxScore,
+      double minScore,
+      double avgScore,
+      boolean hasActiveAlert) {
+
+    double spread() {
+      return maxScore - minScore;
+    }
+
+    int spreadPercent() {
+      return (int) Math.round(spread() * 100);
+    }
+
+    boolean shouldFire() {
+      return !hasActiveAlert
+          && spread() > THEME_PEER_DIVERGENCE_SPREAD_FIRE
+          && avgScore > THEME_PEER_DIVERGENCE_AVG_SCORE_MIN;
+    }
+
+    boolean shouldResolve() {
+      return hasActiveAlert && spread() < THEME_PEER_DIVERGENCE_SPREAD_RESOLVE;
+    }
   }
 }

@@ -54,89 +54,110 @@ public class ThemeScorePriceDivergenceAlertEvaluator implements AlertEvaluator {
 
   @Override
   public int evaluate(AlertEvaluationContext context) {
-    LocalDate signalDate = context.signalDate();
-
     Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_SCORE_PRICE_DIVERGENCE);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+    if (!rule.map(AlertRule::enabled).orElse(false)) {
+      return 0;
+    }
 
     Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
-    if (constituentsByTheme.isEmpty()) return 0;
-
-    Map<String, BigDecimal> currentComposite =
+    LocalDate signalDate = context.signalDate();
+    Map<String, BigDecimal> composite =
         signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    Map<String, BigDecimal> currentRs20 =
-        signalRepository.findByTypeAndDate(SignalType.RS_20, signalDate);
-    if (currentComposite.isEmpty() || currentRs20.isEmpty()) return 0;
-
-    int count = 0;
-    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
-      String themeId = entry.getKey();
-      List<String> ids = entry.getValue();
-
-      List<String> constituentsWithBothSignals =
-          ids.stream()
-              .filter(id -> currentComposite.containsKey(id) && currentRs20.containsKey(id))
-              .toList();
-
-      if (constituentsWithBothSignals.size() < THEME_SPD_MIN_CONSTITUENTS) continue;
-
-      double avgComposite =
-          constituentsWithBothSignals.stream()
-              .mapToDouble(id -> currentComposite.get(id).doubleValue())
-              .average()
-              .getAsDouble();
-
-      double avgRs20 =
-          constituentsWithBothSignals.stream()
-              .mapToDouble(id -> currentRs20.get(id).doubleValue())
-              .average()
-              .getAsDouble();
-
-      boolean hasActive =
-          alertRepository.existsActiveAlertForTheme(RULE_THEME_SCORE_PRICE_DIVERGENCE, themeId);
-
-      boolean divergenceActive =
-          avgComposite >= THEME_SPD_FIRE_SCORE_MIN && avgRs20 < THEME_SPD_FIRE_RS20_MAX;
-      boolean divergenceResolved = avgComposite < THEME_SPD_RESOLVE_SCORE_MAX || avgRs20 >= 0.0;
-
-      if (!hasActive && divergenceActive) {
-        Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
-        int scorePct = (int) Math.round(avgComposite * 100);
-        alertRepository.insert(
-            new Alert(
-                null,
-                OffsetDateTime.now(),
-                null,
-                themeId,
-                RULE_THEME_SCORE_PRICE_DIVERGENCE,
-                severity,
-                String.format(
-                    "%s score-price divergence: model score %d (bullish) conflicts with negative"
-                        + " RS20 (%.3f) — price momentum not confirming thesis; monitor for"
-                        + " potential mean-reversion or thesis breakdown",
-                    themeId, scorePct, avgRs20),
-                String.format(
-                    "{\"themeId\":\"%s\",\"avgComposite\":%.4f,\"avgRs20\":%.4f,"
-                        + "\"constituents\":%d,\"signalDate\":\"%s\"}",
-                    themeId, avgComposite, avgRs20, constituentsWithBothSignals.size(), signalDate),
-                AlertStatus.ACTIVE,
-                null,
-                null));
-        count++;
-        log.info(
-            "theme_score_price_divergence: fired theme={} avgComposite={} avgRs20={}",
-            themeId,
-            scorePct,
-            String.format("%.3f", avgRs20));
-      } else if (hasActive && divergenceResolved) {
-        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_SCORE_PRICE_DIVERGENCE, themeId);
-        log.info(
-            "theme_score_price_divergence: resolved theme={} (avgComposite={} avgRs20={})",
-            themeId,
-            (int) Math.round(avgComposite * 100),
-            String.format("%.3f", avgRs20));
-      }
+    Map<String, BigDecimal> rs20 = signalRepository.findByTypeAndDate(SignalType.RS_20, signalDate);
+    if (constituentsByTheme.isEmpty() || composite.isEmpty() || rs20.isEmpty()) {
+      return 0;
     }
-    return count;
+
+    Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
+    List<ThemeAverages> averages =
+        constituentsByTheme.entrySet().stream()
+            .map(entry -> assess(entry.getKey(), entry.getValue(), composite, rs20))
+            .flatMap(Optional::stream)
+            .toList();
+
+    averages.stream().filter(ThemeAverages::shouldFire).forEach(a -> fire(a, severity, signalDate));
+    averages.stream().filter(ThemeAverages::shouldResolve).forEach(this::resolve);
+    return (int) averages.stream().filter(ThemeAverages::shouldFire).count();
+  }
+
+  private Optional<ThemeAverages> assess(
+      String themeId,
+      List<String> constituentIds,
+      Map<String, BigDecimal> composite,
+      Map<String, BigDecimal> rs20) {
+    List<String> withBoth =
+        constituentIds.stream()
+            .filter(id -> composite.containsKey(id) && rs20.containsKey(id))
+            .toList();
+    if (withBoth.size() < THEME_SPD_MIN_CONSTITUENTS) {
+      return Optional.empty();
+    }
+    double avgComposite = average(withBoth, composite);
+    double avgRs20 = average(withBoth, rs20);
+    boolean active =
+        alertRepository.existsActiveAlertForTheme(RULE_THEME_SCORE_PRICE_DIVERGENCE, themeId);
+    return Optional.of(new ThemeAverages(themeId, withBoth.size(), avgComposite, avgRs20, active));
+  }
+
+  private double average(List<String> ids, Map<String, BigDecimal> values) {
+    return ids.stream().mapToDouble(id -> values.get(id).doubleValue()).average().getAsDouble();
+  }
+
+  private void fire(ThemeAverages averages, Severity severity, LocalDate signalDate) {
+    String themeId = averages.themeId();
+    int scorePct = averages.scorePercent();
+    alertRepository.insert(
+        new Alert(
+            null,
+            OffsetDateTime.now(),
+            null,
+            themeId,
+            RULE_THEME_SCORE_PRICE_DIVERGENCE,
+            severity,
+            String.format(
+                "%s score-price divergence: model score %d (bullish) conflicts with negative"
+                    + " RS20 (%.3f) — price momentum not confirming thesis; monitor for"
+                    + " potential mean-reversion or thesis breakdown",
+                themeId, scorePct, averages.avgRs20()),
+            String.format(
+                "{\"themeId\":\"%s\",\"avgComposite\":%.4f,\"avgRs20\":%.4f,"
+                    + "\"constituents\":%d,\"signalDate\":\"%s\"}",
+                themeId, averages.avgComposite(), averages.avgRs20(), averages.constituentCount(), signalDate),
+            AlertStatus.ACTIVE,
+            null,
+            null));
+    log.info(
+        "theme_score_price_divergence: fired theme={} avgComposite={} avgRs20={}",
+        themeId,
+        scorePct,
+        String.format("%.3f", averages.avgRs20()));
+  }
+
+  private void resolve(ThemeAverages averages) {
+    alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_SCORE_PRICE_DIVERGENCE, averages.themeId());
+    log.info(
+        "theme_score_price_divergence: resolved theme={} (avgComposite={} avgRs20={})",
+        averages.themeId(),
+        averages.scorePercent(),
+        String.format("%.3f", averages.avgRs20()));
+  }
+
+  /** A theme's average model score and price RS-20 for the day. */
+  private record ThemeAverages(
+      String themeId, int constituentCount, double avgComposite, double avgRs20, boolean hasActiveAlert) {
+
+    int scorePercent() {
+      return (int) Math.round(avgComposite * 100);
+    }
+
+    boolean shouldFire() {
+      return !hasActiveAlert
+          && avgComposite >= THEME_SPD_FIRE_SCORE_MIN
+          && avgRs20 < THEME_SPD_FIRE_RS20_MAX;
+    }
+
+    boolean shouldResolve() {
+      return hasActiveAlert && (avgComposite < THEME_SPD_RESOLVE_SCORE_MAX || avgRs20 >= 0.0);
+    }
   }
 }

@@ -52,73 +52,104 @@ public class Theme5dAccelerationAlertEvaluator implements AlertEvaluator {
 
   @Override
   public int evaluate(AlertEvaluationContext context) {
-    LocalDate signalDate = context.signalDate();
-
     Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_5D_ACCELERATION);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+    if (!rule.map(AlertRule::enabled).orElse(false)) {
+      return 0;
+    }
 
     Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
-    if (constituentsByTheme.isEmpty()) return 0;
-
-    Map<String, BigDecimal> trend5dMap =
+    LocalDate signalDate = context.signalDate();
+    Map<String, BigDecimal> trend5d =
         signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, signalDate);
-    Map<String, BigDecimal> trend20dMap =
+    Map<String, BigDecimal> trend20d =
         signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, signalDate);
-    if (trend5dMap.isEmpty() || trend20dMap.isEmpty()) return 0;
-
-    int count = 0;
-    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
-      String themeId = entry.getKey();
-      List<String> ids = entry.getValue();
-      if (ids.isEmpty()) continue;
-
-      OptionalDouble avg5d =
-          ids.stream()
-              .map(trend5dMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      OptionalDouble avg20d =
-          ids.stream()
-              .map(trend20dMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      if (avg5d.isEmpty() || avg20d.isEmpty()) continue;
-
-      double delta = avg5d.getAsDouble() - avg20d.getAsDouble();
-      boolean hasActive =
-          alertRepository.existsActiveAlertForTheme(RULE_THEME_5D_ACCELERATION, themeId);
-
-      if (delta >= THEME_5D_ACCEL_DELTA_THRESHOLD && !hasActive) {
-        Severity severity = rule.map(AlertRule::severity).orElse(Severity.ACTION);
-        alertRepository.insert(
-            new Alert(
-                null,
-                OffsetDateTime.now(),
-                null,
-                themeId,
-                RULE_THEME_5D_ACCELERATION,
-                severity,
-                String.format(
-                    "%s theme momentum accelerating: 5d trend +%dpt/day ahead of 20d — regime shift in progress",
-                    themeId, (int) Math.round(delta * 100)),
-                String.format(
-                    "{\"themeId\":\"%s\",\"delta5d20d\":%.4f,\"avg5d\":%.4f,\"avg20d\":%.4f,\"signalDate\":\"%s\"}",
-                    themeId, delta, avg5d.getAsDouble(), avg20d.getAsDouble(), signalDate),
-                AlertStatus.ACTIVE,
-                null,
-                null));
-        count++;
-        log.info(
-            "theme_5d_acceleration: theme={} delta={}pt/day",
-            themeId,
-            (int) Math.round(delta * 100));
-      } else if (hasActive && delta < THEME_5D_ACCEL_DELTA_RESOLVE) {
-        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_5D_ACCELERATION, themeId);
-        log.info("theme_5d_acceleration: resolved theme={} (acceleration normalised)", themeId);
-      }
+    if (constituentsByTheme.isEmpty() || trend5d.isEmpty() || trend20d.isEmpty()) {
+      return 0;
     }
-    return count;
+
+    Severity severity = rule.map(AlertRule::severity).orElse(Severity.ACTION);
+    List<Acceleration> accelerations =
+        constituentsByTheme.entrySet().stream()
+            .map(entry -> assess(entry.getKey(), entry.getValue(), trend5d, trend20d))
+            .flatMap(Optional::stream)
+            .toList();
+
+    accelerations.stream()
+        .filter(Acceleration::shouldFire)
+        .forEach(a -> fire(a, severity, signalDate));
+    accelerations.stream().filter(Acceleration::shouldResolve).forEach(this::resolve);
+    return (int) accelerations.stream().filter(Acceleration::shouldFire).count();
+  }
+
+  private Optional<Acceleration> assess(
+      String themeId,
+      List<String> constituentIds,
+      Map<String, BigDecimal> trend5d,
+      Map<String, BigDecimal> trend20d) {
+    if (constituentIds.isEmpty()) {
+      return Optional.empty();
+    }
+    OptionalDouble avg5d = averageOf(constituentIds, trend5d);
+    OptionalDouble avg20d = averageOf(constituentIds, trend20d);
+    if (avg5d.isEmpty() || avg20d.isEmpty()) {
+      return Optional.empty();
+    }
+    boolean active = alertRepository.existsActiveAlertForTheme(RULE_THEME_5D_ACCELERATION, themeId);
+    return Optional.of(new Acceleration(themeId, avg5d.getAsDouble(), avg20d.getAsDouble(), active));
+  }
+
+  private OptionalDouble averageOf(List<String> ids, Map<String, BigDecimal> values) {
+    return ids.stream()
+        .map(values::get)
+        .filter(value -> value != null)
+        .mapToDouble(BigDecimal::doubleValue)
+        .average();
+  }
+
+  private void fire(Acceleration acceleration, Severity severity, LocalDate signalDate) {
+    String themeId = acceleration.themeId();
+    alertRepository.insert(
+        new Alert(
+            null,
+            OffsetDateTime.now(),
+            null,
+            themeId,
+            RULE_THEME_5D_ACCELERATION,
+            severity,
+            String.format(
+                "%s theme momentum accelerating: 5d trend +%dpt/day ahead of 20d — regime shift in progress",
+                themeId, acceleration.deltaPoint()),
+            String.format(
+                "{\"themeId\":\"%s\",\"delta5d20d\":%.4f,\"avg5d\":%.4f,\"avg20d\":%.4f,\"signalDate\":\"%s\"}",
+                themeId, acceleration.delta(), acceleration.avg5d(), acceleration.avg20d(), signalDate),
+            AlertStatus.ACTIVE,
+            null,
+            null));
+    log.info("theme_5d_acceleration: theme={} delta={}pt/day", themeId, acceleration.deltaPoint());
+  }
+
+  private void resolve(Acceleration acceleration) {
+    alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_5D_ACCELERATION, acceleration.themeId());
+    log.info(
+        "theme_5d_acceleration: resolved theme={} (acceleration normalised)", acceleration.themeId());
+  }
+
+  /** A theme's 5d-vs-20d velocity gap for the day. */
+  private record Acceleration(String themeId, double avg5d, double avg20d, boolean hasActiveAlert) {
+    double delta() {
+      return avg5d - avg20d;
+    }
+
+    int deltaPoint() {
+      return (int) Math.round(delta() * 100);
+    }
+
+    boolean shouldFire() {
+      return delta() >= THEME_5D_ACCEL_DELTA_THRESHOLD && !hasActiveAlert;
+    }
+
+    boolean shouldResolve() {
+      return hasActiveAlert && delta() < THEME_5D_ACCEL_DELTA_RESOLVE;
+    }
   }
 }

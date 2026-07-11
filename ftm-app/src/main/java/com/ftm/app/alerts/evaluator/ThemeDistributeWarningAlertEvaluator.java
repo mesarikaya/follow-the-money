@@ -54,77 +54,105 @@ public class ThemeDistributeWarningAlertEvaluator implements AlertEvaluator {
 
   @Override
   public int evaluate(AlertEvaluationContext context) {
-    LocalDate signalDate = context.signalDate();
-
     Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_DISTRIBUTE_WARNING);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
+    if (!rule.map(AlertRule::enabled).orElse(false)) {
+      return 0;
+    }
 
     Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
-    if (constituentsByTheme.isEmpty()) return 0;
-
-    Map<String, BigDecimal> compositeMap =
+    LocalDate signalDate = context.signalDate();
+    Map<String, BigDecimal> composite =
         signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    Map<String, BigDecimal> flowMap =
-        signalRepository.findByTypeAndDate(SignalType.FLOW_20D, signalDate);
-    if (compositeMap.isEmpty() || flowMap.isEmpty()) return 0;
-
-    int count = 0;
-    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
-      String themeId = entry.getKey();
-      List<String> ids = entry.getValue();
-      if (ids.isEmpty()) continue;
-
-      OptionalDouble avgComposite =
-          ids.stream()
-              .map(compositeMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      OptionalDouble avgFlow =
-          ids.stream()
-              .map(flowMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      if (avgComposite.isEmpty() || avgFlow.isEmpty()) continue;
-
-      double score = avgComposite.getAsDouble();
-      double flow = avgFlow.getAsDouble();
-      boolean hasActive =
-          alertRepository.existsActiveAlertForTheme(RULE_THEME_DISTRIBUTE_WARNING, themeId);
-
-      if (score >= THEME_DISTRIBUTE_SCORE_THRESHOLD
-          && flow <= THEME_DISTRIBUTE_FLOW_THRESHOLD
-          && !hasActive) {
-        Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
-        alertRepository.insert(
-            new Alert(
-                null,
-                OffsetDateTime.now(),
-                null,
-                themeId,
-                RULE_THEME_DISTRIBUTE_WARNING,
-                severity,
-                String.format(
-                    "%s theme may be distributing: score %d (BUY territory) but 20d flow %.2fσ — smart money exiting",
-                    themeId, (int) Math.round(score * 100), flow),
-                String.format(
-                    "{\"themeId\":\"%s\",\"avgScore\":%.4f,\"avgFlow\":%.4f,\"signalDate\":\"%s\"}",
-                    themeId, score, flow, signalDate),
-                AlertStatus.ACTIVE,
-                null,
-                null));
-        count++;
-        log.info(
-            "theme_distribute_warning: theme={} score={} flow={}",
-            themeId,
-            (int) Math.round(score * 100),
-            flow);
-      } else if (hasActive && flow > THEME_DISTRIBUTE_FLOW_RESOLVE) {
-        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_DISTRIBUTE_WARNING, themeId);
-        log.info("theme_distribute_warning: resolved theme={} (flow normalising)", themeId);
-      }
+    Map<String, BigDecimal> flow = signalRepository.findByTypeAndDate(SignalType.FLOW_20D, signalDate);
+    if (constituentsByTheme.isEmpty() || composite.isEmpty() || flow.isEmpty()) {
+      return 0;
     }
-    return count;
+
+    Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
+    List<Distribution> distributions =
+        constituentsByTheme.entrySet().stream()
+            .map(entry -> assess(entry.getKey(), entry.getValue(), composite, flow))
+            .flatMap(Optional::stream)
+            .toList();
+
+    distributions.stream()
+        .filter(Distribution::shouldFire)
+        .forEach(d -> fire(d, severity, signalDate));
+    distributions.stream().filter(Distribution::shouldResolve).forEach(this::resolve);
+    return (int) distributions.stream().filter(Distribution::shouldFire).count();
+  }
+
+  private Optional<Distribution> assess(
+      String themeId,
+      List<String> constituentIds,
+      Map<String, BigDecimal> composite,
+      Map<String, BigDecimal> flow) {
+    if (constituentIds.isEmpty()) {
+      return Optional.empty();
+    }
+    OptionalDouble avgComposite = averageOf(constituentIds, composite);
+    OptionalDouble avgFlow = averageOf(constituentIds, flow);
+    if (avgComposite.isEmpty() || avgFlow.isEmpty()) {
+      return Optional.empty();
+    }
+    boolean active = alertRepository.existsActiveAlertForTheme(RULE_THEME_DISTRIBUTE_WARNING, themeId);
+    return Optional.of(
+        new Distribution(themeId, avgComposite.getAsDouble(), avgFlow.getAsDouble(), active));
+  }
+
+  private OptionalDouble averageOf(List<String> ids, Map<String, BigDecimal> values) {
+    return ids.stream()
+        .map(values::get)
+        .filter(value -> value != null)
+        .mapToDouble(BigDecimal::doubleValue)
+        .average();
+  }
+
+  private void fire(Distribution distribution, Severity severity, LocalDate signalDate) {
+    String themeId = distribution.themeId();
+    alertRepository.insert(
+        new Alert(
+            null,
+            OffsetDateTime.now(),
+            null,
+            themeId,
+            RULE_THEME_DISTRIBUTE_WARNING,
+            severity,
+            String.format(
+                "%s theme may be distributing: score %d (BUY territory) but 20d flow %.2fσ — smart money exiting",
+                themeId, distribution.scorePercent(), distribution.flow()),
+            String.format(
+                "{\"themeId\":\"%s\",\"avgScore\":%.4f,\"avgFlow\":%.4f,\"signalDate\":\"%s\"}",
+                themeId, distribution.score(), distribution.flow(), signalDate),
+            AlertStatus.ACTIVE,
+            null,
+            null));
+    log.info(
+        "theme_distribute_warning: theme={} score={} flow={}",
+        themeId,
+        distribution.scorePercent(),
+        distribution.flow());
+  }
+
+  private void resolve(Distribution distribution) {
+    alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_DISTRIBUTE_WARNING, distribution.themeId());
+    log.info("theme_distribute_warning: resolved theme={} (flow normalising)", distribution.themeId());
+  }
+
+  /** A theme's average score-vs-flow reading for the day. */
+  private record Distribution(String themeId, double score, double flow, boolean hasActiveAlert) {
+    int scorePercent() {
+      return (int) Math.round(score * 100);
+    }
+
+    boolean shouldFire() {
+      return score >= THEME_DISTRIBUTE_SCORE_THRESHOLD
+          && flow <= THEME_DISTRIBUTE_FLOW_THRESHOLD
+          && !hasActiveAlert;
+    }
+
+    boolean shouldResolve() {
+      return hasActiveAlert && flow > THEME_DISTRIBUTE_FLOW_RESOLVE;
+    }
   }
 }

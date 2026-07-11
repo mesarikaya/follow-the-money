@@ -13,7 +13,6 @@ import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -98,46 +97,60 @@ public class HighConvictionAlertEvaluator implements AlertEvaluator {
       ConvictionSignalMaps maps,
       Severity severity,
       LocalDate signalDate) {
-    int count = 0;
-    for (String categoryId : context.topLevelCategoryIds()) {
-      BigDecimal score = maps.composite().get(categoryId);
-      if (score == null) continue;
+    List<BuyVerdict> verdicts =
+        context.topLevelCategoryIds().stream()
+            .map(categoryId -> assessBuy(categoryId, maps))
+            .flatMap(Optional::stream)
+            .toList();
 
-      BigDecimal rrg = maps.rrg().get(categoryId);
-      BigDecimal macroFit = maps.macroFit().get(categoryId);
-      BigDecimal percentile = maps.percentile252d().get(categoryId);
-      int conviction = convictionScore(maps, categoryId, score);
-      boolean hasActiveAlert = alertRepository.existsActiveAlert(RULE_HIGH_CONVICTION_BUY, categoryId);
+    verdicts.stream().filter(BuyVerdict::shouldFire).forEach(v -> fireBuy(v, severity, signalDate));
+    verdicts.stream()
+        .filter(BuyVerdict::shouldResolve)
+        .forEach(v -> alertRepository.resolveAlertsByRuleAndCategory(RULE_HIGH_CONVICTION_BUY, v.categoryId()));
+    return (int) verdicts.stream().filter(BuyVerdict::shouldFire).count();
+  }
 
-      if (conviction >= HIGH_CONVICTION_THRESHOLD && !hasActiveAlert) {
-        CategoryId catId = parseCategory(categoryId);
-        if (catId == null) continue;
-        int scorePct = toPercent(score);
-        int macroPct = macroFit != null ? toPercent(macroFit) : 0;
-        int pctRank = percentile != null ? toPercent(percentile) : 0;
-        String rrgLabel = buyRrgLabel(rrg);
-        alertRepository.insert(
-            new Alert(
-                OffsetDateTime.now(),
-                catId,
-                RULE_HIGH_CONVICTION_BUY,
-                severity,
-                String.format(
-                    "%s high-conviction BUY — conviction %d/100: score=%d, macro fit=%d%%, 252d rank=P%d, RRG %s",
-                    categoryId, conviction, scorePct, macroPct, pctRank, rrgLabel),
-                String.format(
-                    "{\"conviction\":%d,\"score\":%d,\"macroFitPct\":%d,\"percentile252d\":%d,\"rrgQuadrant\":\"%s\",\"signalDate\":\"%s\"}",
-                    conviction, scorePct, macroPct, pctRank, rrgLabel, signalDate),
-                AlertStatus.ACTIVE));
-        count++;
-        log.info(
-            "high_conviction_buy: category={} conviction={} score={} macroFit={}% P252={}",
-            categoryId, conviction, scorePct, macroPct, pctRank);
-      } else if (conviction < HIGH_CONVICTION_RESOLVE_THRESHOLD && hasActiveAlert) {
-        alertRepository.resolveAlertsByRuleAndCategory(RULE_HIGH_CONVICTION_BUY, categoryId);
-      }
+  private Optional<BuyVerdict> assessBuy(String categoryId, ConvictionSignalMaps maps) {
+    BigDecimal score = maps.composite().get(categoryId);
+    if (score == null) {
+      return Optional.empty();
     }
-    return count;
+    int conviction = convictionScore(maps, categoryId, score);
+    boolean active = alertRepository.existsActiveAlert(RULE_HIGH_CONVICTION_BUY, categoryId);
+    return Optional.of(
+        new BuyVerdict(
+            categoryId,
+            knownCategory(categoryId),
+            score,
+            maps.rrg().get(categoryId),
+            maps.macroFit().get(categoryId),
+            maps.percentile252d().get(categoryId),
+            conviction,
+            active));
+  }
+
+  private void fireBuy(BuyVerdict verdict, Severity severity, LocalDate signalDate) {
+    int scorePct = toPercent(verdict.score());
+    int macroPct = verdict.macroFit() != null ? toPercent(verdict.macroFit()) : 0;
+    int pctRank = verdict.percentile() != null ? toPercent(verdict.percentile()) : 0;
+    String rrgLabel = buyRrgLabel(verdict.rrg());
+    int conviction = verdict.conviction();
+    alertRepository.insert(
+        new Alert(
+            OffsetDateTime.now(),
+            verdict.category().orElseThrow(),
+            RULE_HIGH_CONVICTION_BUY,
+            severity,
+            String.format(
+                "%s high-conviction BUY — conviction %d/100: score=%d, macro fit=%d%%, 252d rank=P%d, RRG %s",
+                verdict.categoryId(), conviction, scorePct, macroPct, pctRank, rrgLabel),
+            String.format(
+                "{\"conviction\":%d,\"score\":%d,\"macroFitPct\":%d,\"percentile252d\":%d,\"rrgQuadrant\":\"%s\",\"signalDate\":\"%s\"}",
+                conviction, scorePct, macroPct, pctRank, rrgLabel, signalDate),
+            AlertStatus.ACTIVE));
+    log.info(
+        "high_conviction_buy: category={} conviction={} score={} macroFit={}% P252={}",
+        verdict.categoryId(), conviction, scorePct, macroPct, pctRank);
   }
 
   private int evaluateCluster(
@@ -145,40 +158,18 @@ public class HighConvictionAlertEvaluator implements AlertEvaluator {
       ConvictionSignalMaps maps,
       Severity severity,
       LocalDate signalDate) {
-    List<String> highConvictionIds = new ArrayList<>();
-    for (String categoryId : context.topLevelCategoryIds()) {
-      BigDecimal score = maps.composite().get(categoryId);
-      if (score == null) continue;
-      if (convictionScore(maps, categoryId, score) >= HIGH_CONVICTION_THRESHOLD) {
-        highConvictionIds.add(categoryId);
-      }
-    }
-
-    int clusterSize = highConvictionIds.size();
-    boolean hasActiveAlert = alertRepository.existsActiveAlert(RULE_HIGH_CONVICTION_CLUSTER, null);
-
-    if (clusterSize >= CLUSTER_MIN_SIZE && !hasActiveAlert) {
-      String tickers = topFive(highConvictionIds);
-      alertRepository.insert(
-          new Alert(
-              OffsetDateTime.now(),
-              null,
-              RULE_HIGH_CONVICTION_CLUSTER,
-              severity,
-              String.format(
-                  "HIGH CONVICTION CLUSTER: %d sectors at conviction ≥%d — broad RISK-ON regime confirmed (%s)",
-                  clusterSize, HIGH_CONVICTION_THRESHOLD, tickers),
-              String.format(
-                  "{\"clusterSize\":%d,\"sectors\":\"%s\",\"signalDate\":\"%s\"}",
-                  clusterSize, tickers, signalDate),
-              AlertStatus.ACTIVE));
-      log.info("high_conviction_cluster: clusterSize={} sectors={}", clusterSize, tickers);
-      return 1;
-    } else if (clusterSize < CLUSTER_RESOLVE_SIZE && hasActiveAlert) {
-      alertRepository.resolveAlertsByRuleAndCategory(RULE_HIGH_CONVICTION_CLUSTER, null);
-      log.info("high_conviction_cluster: resolved, clusterSize dropped to {}", clusterSize);
-    }
-    return 0;
+    List<String> members =
+        context.topLevelCategoryIds().stream()
+            .filter(categoryId -> maps.composite().get(categoryId) != null)
+            .filter(categoryId -> isHighConviction(categoryId, maps))
+            .toList();
+    return applyCluster(
+        RULE_HIGH_CONVICTION_CLUSTER,
+        "HIGH CONVICTION CLUSTER: %d sectors at conviction ≥%d — broad RISK-ON regime confirmed (%s)",
+        HIGH_CONVICTION_THRESHOLD,
+        members,
+        severity,
+        signalDate);
   }
 
   private int evaluateReduceCluster(
@@ -186,42 +177,64 @@ public class HighConvictionAlertEvaluator implements AlertEvaluator {
       ConvictionSignalMaps maps,
       Severity severity,
       LocalDate signalDate) {
-    List<String> reduceClusterIds = new ArrayList<>();
-    for (String categoryId : context.topLevelCategoryIds()) {
-      BigDecimal score = maps.composite().get(categoryId);
-      if (score == null) continue;
-      String rrgStr = rrgString(maps, categoryId);
-      String signal = TradeSignalDeriver.derive(score, rrgStr, maps.trend20d().get(categoryId));
-      if (!"REDUCE".equals(signal)) continue;
-      if (convictionScore(maps, categoryId, score) >= REDUCE_CLUSTER_CONVICTION_THRESHOLD) {
-        reduceClusterIds.add(categoryId);
-      }
-    }
+    List<String> members =
+        context.topLevelCategoryIds().stream()
+            .filter(categoryId -> maps.composite().get(categoryId) != null)
+            .filter(categoryId -> isReduceClusterMember(categoryId, maps))
+            .toList();
+    return applyCluster(
+        RULE_HIGH_CONVICTION_REDUCE_CLUSTER,
+        "REDUCE CLUSTER: %d sectors at conviction ≥%d — broad RISK-OFF rotation detected (%s)",
+        REDUCE_CLUSTER_CONVICTION_THRESHOLD,
+        members,
+        severity,
+        signalDate);
+  }
 
-    int clusterSize = reduceClusterIds.size();
-    boolean hasActiveAlert =
-        alertRepository.existsActiveAlert(RULE_HIGH_CONVICTION_REDUCE_CLUSTER, null);
+  private boolean isHighConviction(String categoryId, ConvictionSignalMaps maps) {
+    return convictionScore(maps, categoryId, maps.composite().get(categoryId))
+        >= HIGH_CONVICTION_THRESHOLD;
+  }
 
-    if (clusterSize >= CLUSTER_MIN_SIZE && !hasActiveAlert) {
-      String tickers = topFive(reduceClusterIds);
+  private boolean isReduceClusterMember(String categoryId, ConvictionSignalMaps maps) {
+    BigDecimal score = maps.composite().get(categoryId);
+    String signal =
+        TradeSignalDeriver.derive(score, rrgString(maps, categoryId), maps.trend20d().get(categoryId));
+    return "REDUCE".equals(signal)
+        && convictionScore(maps, categoryId, score) >= REDUCE_CLUSTER_CONVICTION_THRESHOLD;
+  }
+
+  /** Shared market-wide cluster fire/resolve for the RISK-ON and RISK-OFF cluster rules. */
+  private int applyCluster(
+      String ruleId,
+      String messageTemplate,
+      int convictionThreshold,
+      List<String> members,
+      Severity severity,
+      LocalDate signalDate) {
+    int clusterSize = members.size();
+    boolean active = alertRepository.existsActiveAlert(ruleId, null);
+    boolean shouldFire = clusterSize >= CLUSTER_MIN_SIZE && !active;
+    boolean shouldResolve = clusterSize < CLUSTER_RESOLVE_SIZE && active;
+    if (shouldFire) {
+      String tickers = topFive(members);
       alertRepository.insert(
           new Alert(
               OffsetDateTime.now(),
               null,
-              RULE_HIGH_CONVICTION_REDUCE_CLUSTER,
+              ruleId,
               severity,
-              String.format(
-                  "REDUCE CLUSTER: %d sectors at conviction ≥%d — broad RISK-OFF rotation detected (%s)",
-                  clusterSize, REDUCE_CLUSTER_CONVICTION_THRESHOLD, tickers),
+              String.format(messageTemplate, clusterSize, convictionThreshold, tickers),
               String.format(
                   "{\"clusterSize\":%d,\"sectors\":\"%s\",\"signalDate\":\"%s\"}",
                   clusterSize, tickers, signalDate),
               AlertStatus.ACTIVE));
-      log.info("high_conviction_reduce_cluster: clusterSize={} sectors={}", clusterSize, tickers);
+      log.info("{}: clusterSize={} sectors={}", ruleId, clusterSize, tickers);
       return 1;
-    } else if (clusterSize < CLUSTER_RESOLVE_SIZE && hasActiveAlert) {
-      alertRepository.resolveAlertsByRuleAndCategory(RULE_HIGH_CONVICTION_REDUCE_CLUSTER, null);
-      log.info("high_conviction_reduce_cluster: resolved, clusterSize dropped to {}", clusterSize);
+    }
+    if (shouldResolve) {
+      alertRepository.resolveAlertsByRuleAndCategory(ruleId, null);
+      log.info("{}: resolved, clusterSize dropped to {}", ruleId, clusterSize);
     }
     return 0;
   }
@@ -254,12 +267,32 @@ public class HighConvictionAlertEvaluator implements AlertEvaluator {
     };
   }
 
-  private CategoryId parseCategory(String categoryId) {
+  private Optional<CategoryId> knownCategory(String categoryId) {
     try {
-      return CategoryId.valueOf(categoryId);
+      return Optional.of(CategoryId.valueOf(categoryId));
     } catch (IllegalArgumentException e) {
       log.debug("high_conviction_buy: skipping unknown CategoryId={}", categoryId);
-      return null;
+      return Optional.empty();
+    }
+  }
+
+  /** One sector's high-conviction BUY verdict for the day. */
+  private record BuyVerdict(
+      String categoryId,
+      Optional<CategoryId> category,
+      BigDecimal score,
+      BigDecimal rrg,
+      BigDecimal macroFit,
+      BigDecimal percentile,
+      int conviction,
+      boolean hasActiveAlert) {
+
+    boolean shouldFire() {
+      return conviction >= HIGH_CONVICTION_THRESHOLD && !hasActiveAlert && category.isPresent();
+    }
+
+    boolean shouldResolve() {
+      return conviction < HIGH_CONVICTION_RESOLVE_THRESHOLD && hasActiveAlert;
     }
   }
 

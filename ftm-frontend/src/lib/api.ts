@@ -237,6 +237,11 @@ export type BacktestResult = {
   rebalanceFrequency: string;
   topN: number;
   signalThreshold: number | null;
+  signalSource: string | null;
+  categoryScope: string | null;
+  invertSignal: boolean | null;
+  trendFilter: boolean | null;
+  transactionCostBps: number | null;
   totalReturnPct: number;
   annualizedReturnPct: number;
   maxDrawdownPct: number;

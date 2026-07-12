@@ -1,19 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
-import { runBacktest, runBacktestSweep, runBacktestFrequencySweep, fetchRecentBacktests, fetchCategories, fetchMacro, BacktestResult, CategorySummary, MacroResponse } from "@/lib/api";
+import { BacktestResult, CategorySummary } from "@/lib/api";
+import { useBacktest, DATA_START } from "./useBacktest";
 import { computeMonthlyReturns, computeSortino } from "@/lib/backtest/metrics";
 import { EquityCurveChart, RollingReturnChart, RollingSharpeChart, DrawdownChart, AnnualReturnsChart, ROLL_WINDOW } from "@/components/backtest/charts";
 import { DrawdownAnalysisTable, RiskAttributionPanel, MonthlyReturnsTable, HoldingHeatmap, RebalanceTimeline, SweepTable, RegimeBreakdownTable, FrequencySweepTable } from "@/components/backtest/tables";
 import { deriveTradeSignal } from "@/lib/signals";
 
-const DATA_START         = "2019-05-16";
 // Default to the full available history rather than an arbitrary hardcoded year. A fixed 2021
 // start happened to land on the strategy's weakest window (mega-cap concentration era), which made
 // the backtest look broken by default; using all data avoids cherry-picking a sub-period.
-const DEFAULT_START_DATE = DATA_START;
-const DEFAULT_END_DATE   = new Date().toISOString().split("T")[0];
 
 
 
@@ -73,94 +70,23 @@ function scopeLabel(run: BacktestResult): string {
 }
 
 export default function BacktesterPage() {
-  const [startDate, setStartDate] = useState(DEFAULT_START_DATE);
-  const [endDate, setEndDate] = useState(DEFAULT_END_DATE);
-  const [rebalanceFrequency, setRebalanceFrequency] = useState<"WEEKLY" | "MONTHLY" | "QUARTERLY">("MONTHLY");
-  const [categoryScope, setCategoryScope] = useState<"ALL" | "EQUITY_SECTORS_ONLY" | "TOP_LEVEL_ONLY">("TOP_LEVEL_ONLY");
-  const [topN, setTopN] = useState(5);
-  const [signalSource, setSignalSource] = useState<"COMPOSITE" | "MOMENTUM_12_1">("COMPOSITE");
-  const [signalThreshold, setSignalThreshold] = useState("");
-  // Realistic default trading cost (10 bps ≈ round-trip commission + spread for liquid ETFs).
-  const [transactionCostBps, setTransactionCostBps] = useState(10);
-  const [result, setResult] = useState<BacktestResult | null>(null);
-  const [isRunning, setIsRunning] = useState(false);
-  const [runError, setRunError] = useState<string | null>(null);
-  const [recentRuns, setRecentRuns] = useState<BacktestResult[]>([]);
-  const [sweepResults, setSweepResults] = useState<BacktestResult[] | null>(null);
-  const [isSweeping, setIsSweeping] = useState(false);
-  const [freqSweepResults, setFreqSweepResults] = useState<BacktestResult[] | null>(null);
-  const [isFreqSweeping, setIsFreqSweeping] = useState(false);
-  const [liveCategories, setLiveCategories] = useState<CategorySummary[]>([]);
-  const [liveRegime, setLiveRegime] = useState<string | null>(null);
-  const [regimeHistory, setRegimeHistory] = useState<MacroResponse["regimeHistory"]>([]);
+  const {
+    startDate, setStartDate,
+    endDate, setEndDate,
+    rebalanceFrequency, setRebalanceFrequency,
+    categoryScope, setCategoryScope,
+    topN, setTopN,
+    signalSource, setSignalSource,
+    signalThreshold, setSignalThreshold,
+    transactionCostBps, setTransactionCostBps,
+    result, setResult,
+    isRunning, runError, recentRuns,
+    sweepResults, isSweeping,
+    freqSweepResults, isFreqSweeping,
+    liveCategories, liveRegime, regimeHistory,
+    handleRun, handleSweep, handleFrequencySweep,
+  } = useBacktest();
 
-  useEffect(() => {
-    fetchRecentBacktests().then(setRecentRuns).catch(() => {});
-    fetchCategories("MONTH").then(r => setLiveCategories(r.categories)).catch(() => {});
-    fetchMacro().then(r => { setLiveRegime(r.regime); setRegimeHistory(r.regimeHistory ?? []); }).catch(() => {});
-  }, []);
-
-  const handleRun = async () => {
-    setIsRunning(true);
-    setRunError(null);
-    setResult(null);
-    try {
-      const data = await runBacktest({
-        startDate,
-        endDate,
-        rebalanceFrequency,
-        topN,
-        signalThreshold: signalThreshold ? parseFloat(signalThreshold) : undefined,
-        categoryScope,
-        transactionCostBps,
-        signalSource,
-      });
-      setResult(data);
-      setRecentRuns(prev => [data, ...prev.filter(r => r.runId !== data.runId).slice(0, 9)]);
-    } catch (error) {
-      setRunError(String(error));
-    } finally {
-      setIsRunning(false);
-    }
-  };
-
-  const handleSweep = async () => {
-    setIsSweeping(true);
-    setSweepResults(null);
-    try {
-      const data = await runBacktestSweep({
-        startDate,
-        endDate,
-        rebalanceFrequency,
-        signalThreshold: signalThreshold ? parseFloat(signalThreshold) : undefined,
-        categoryScope,
-        transactionCostBps,
-        signalSource,
-      });
-      setSweepResults(data);
-    } catch {} finally {
-      setIsSweeping(false);
-    }
-  };
-
-  const handleFrequencySweep = async () => {
-    setIsFreqSweeping(true);
-    setFreqSweepResults(null);
-    try {
-      const data = await runBacktestFrequencySweep({
-        startDate,
-        endDate,
-        topN,
-        signalThreshold: signalThreshold ? parseFloat(signalThreshold) : undefined,
-        categoryScope,
-        transactionCostBps,
-        signalSource,
-      });
-      setFreqSweepResults(data);
-    } catch {} finally {
-      setIsFreqSweeping(false);
-    }
-  };
 
   const formatPct = (value: number | null | undefined) => {
     if (value == null) return "—";

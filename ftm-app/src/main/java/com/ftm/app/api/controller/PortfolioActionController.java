@@ -53,7 +53,9 @@ public class PortfolioActionController {
               + "produce a prioritised action list (EXIT → TRIM → WATCH → HOLD → UNCLASSIFIED).")
   @GetMapping
   public ResponseEntity<List<HoldingActionDto>> getActions(
-      @RequestParam(defaultValue = "60d") String timeframe) {
+      // Canonical timeframe; must be one of DAY/WEEK/MONTH/QUARTER/YEAR (drives the RS horizon used
+      // to rank categories). "MONTH" → RS_60, the same horizon the rest of the app defaults to.
+      @RequestParam(defaultValue = "MONTH") String timeframe) {
 
     List<HoldingDto> holdings = holdingUploadService.getHoldings();
     if (holdings.isEmpty()) {

@@ -1,5 +1,3 @@
-"use client";
-
 import { ThemeConstituent, ThemeHistoryPoint } from "@/lib/api";
 import { scoreColor, signalAgeDays } from "@/lib/themes/themeMetrics";
 

@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { fetchThemes, fetchThemeHistory, fetchAlerts, fetchRecentAlerts, fetchRotationScore, AlertDto, ThemeSummary, ThemeConstituent, ThemeHistoryPoint, CapitalRotationData } from "@/lib/api";
+import { scoreColor, signalAgeDays, phaseAgeDays, getThemeUniqueSectors, themeShortLabel } from "@/lib/themes/themeMetrics";
 import ThemeAlertRiskMap from "@/components/ThemeAlertRiskMap";
 import ThemeBuyCountdown from "@/components/ThemeBuyCountdown";
 import ThemeScoreZPanel from "@/components/ThemeScoreZPanel";
 import ThemeSignalStreakPanel from "@/components/ThemeSignalStreakPanel";
-import { SECTOR_SHORT_NAMES, getParentSectorId } from "@/lib/sectors";
+import { SECTOR_SHORT_NAMES } from "@/lib/sectors";
 
 const SIGNAL_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   BUY:    { label: "BUY",    color: "text-emerald-400", bg: "bg-emerald-500/15 border border-emerald-500/30" },
@@ -13,13 +14,6 @@ const SIGNAL_CONFIG: Record<string, { label: string; color: string; bg: string }
   REDUCE: { label: "REDUCE", color: "text-red-400",     bg: "bg-red-500/15 border border-red-500/30" },
 };
 
-function scoreColor(score: number | null): string {
-  if (score == null) return "text-slate-500";
-  if (score >= 0.65) return "text-emerald-400";
-  if (score >= 0.50) return "text-cyan-400";
-  if (score >= 0.35) return "text-amber-400";
-  return "text-red-400";
-}
 
 function ScoreArc({ score }: { score: number | null }) {
   if (score == null) return <div className="text-slate-600 text-xs font-mono text-center">—</div>;
@@ -309,54 +303,9 @@ function ConfluenceBadge({
   );
 }
 
-function scoreTier(score: number | null): string {
-  if (score == null) return "HOLD";
-  if (score >= 0.65) return "BUY";
-  if (score >= 0.50) return "WATCH";
-  if (score >= 0.35) return "HOLD";
-  return "REDUCE";
-}
 
-function signalAgeDays(history: ThemeHistoryPoint[], dominantSignal: string): number {
-  if (history.length === 0) return 0;
-  let count = 0;
-  for (let i = history.length - 1; i >= 0; i--) {
-    if (scoreTier(history[i].compositeScore) === dominantSignal) count++;
-    else break;
-  }
-  return count;
-}
 
-function phaseFromHistory(score: number, trend5d: number | null, trend20d: number | null): string {
-  if (trend5d == null || trend20d == null) return "NEUTRAL";
-  const accelerating = (trend5d - trend20d) > 0.005;
-  const trending = trend20d > 0.003;
-  const fading = trend20d < -0.003;
-  if (score >= 0.65) {
-    if (accelerating) return "BREAKOUT";
-    if (trending) return "MOMENTUM";
-    return "HOLDING";
-  }
-  if (score >= 0.50) {
-    if (accelerating) return "SETUP";
-    if (fading) return "FADING";
-    return "BUILDING";
-  }
-  if (fading) return "FADING";
-  if (score < 0.35) return "WEAK";
-  return "NEUTRAL";
-}
 
-function phaseAgeDays(history: ThemeHistoryPoint[], currentPhase: string | null): number {
-  if (!currentPhase || history.length === 0) return 0;
-  let count = 0;
-  for (let i = history.length - 1; i >= 0; i--) {
-    const h = history[i];
-    if (phaseFromHistory(h.compositeScore, h.trend5d, h.trend20d) === currentPhase) count++;
-    else break;
-  }
-  return count;
-}
 
 function SignalFreshnessBadge({
   history,
@@ -1319,14 +1268,6 @@ const SECTOR_COLORS: Record<string, string> = {
   COMM: "text-pink-400 bg-pink-900/20 border-pink-700/30",
 };
 
-function getThemeUniqueSectors(theme: ThemeSummary): string[] {
-  const seen = new Set<string>();
-  for (const c of theme.topConstituents) {
-    const sectorId = getParentSectorId(c.categoryId) ?? (c.parentCategoryId ? getParentSectorId(c.parentCategoryId) : null);
-    if (sectorId) seen.add(sectorId);
-  }
-  return [...seen].slice(0, 3);
-}
 
 type ViewPreset = "essential" | "standard" | "full";
 
@@ -1948,11 +1889,6 @@ function ThemeScreener({
   );
 }
 
-function themeShortLabel(theme: ThemeSummary): string {
-  const words = theme.name.split(/[\s_]+/);
-  if (words.length === 1) return theme.name.slice(0, 5).toUpperCase();
-  return words.slice(0, 2).map(w => w.slice(0, 4)).join(" ");
-}
 
 function ThemeScoreHeatmap({
   themes,

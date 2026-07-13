@@ -1,6 +1,9 @@
 package com.ftm.app.alerts.service;
 
 import com.ftm.app.alerts.evaluator.AlertEvaluationContext;
+import com.ftm.app.alerts.evaluator.ThemePhaseBreakoutEntryAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ThemePhaseFadingAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ThemeRecoverySignalAlertEvaluator;
 import com.ftm.app.alerts.evaluator.BreadthVelocityAlertEvaluator;
 import com.ftm.app.alerts.evaluator.CrossHorizonRsDivergenceAlertEvaluator;
 import com.ftm.app.alerts.evaluator.HighConvictionAlertEvaluator;
@@ -164,6 +167,9 @@ public class AlertRulesEngine {
   private final CrossHorizonRsDivergenceAlertEvaluator crossHorizonRsDivergenceAlertEvaluator;
   private final MacroSectorMismatchAlertEvaluator macroSectorMismatchAlertEvaluator;
   private final SubSectorBreadthAlertEvaluator subSectorBreadthAlertEvaluator;
+  private final ThemePhaseBreakoutEntryAlertEvaluator themePhaseBreakoutEntryAlertEvaluator;
+  private final ThemePhaseFadingAlertEvaluator themePhaseFadingAlertEvaluator;
+  private final ThemeRecoverySignalAlertEvaluator themeRecoverySignalAlertEvaluator;
 
   public AlertRulesEngine(
       AlertRepository alertRepository,
@@ -198,7 +204,10 @@ public class AlertRulesEngine {
       TradeSignalTransitionsAlertEvaluator tradeSignalTransitionsAlertEvaluator,
       CrossHorizonRsDivergenceAlertEvaluator crossHorizonRsDivergenceAlertEvaluator,
       MacroSectorMismatchAlertEvaluator macroSectorMismatchAlertEvaluator,
-      SubSectorBreadthAlertEvaluator subSectorBreadthAlertEvaluator) {
+      SubSectorBreadthAlertEvaluator subSectorBreadthAlertEvaluator,
+      ThemePhaseBreakoutEntryAlertEvaluator themePhaseBreakoutEntryAlertEvaluator,
+      ThemePhaseFadingAlertEvaluator themePhaseFadingAlertEvaluator,
+      ThemeRecoverySignalAlertEvaluator themeRecoverySignalAlertEvaluator) {
     this.alertRepository = alertRepository;
     this.alertRulesRepository = alertRulesRepository;
     this.rotationEventRepository = rotationEventRepository;
@@ -232,6 +241,9 @@ public class AlertRulesEngine {
     this.crossHorizonRsDivergenceAlertEvaluator = crossHorizonRsDivergenceAlertEvaluator;
     this.macroSectorMismatchAlertEvaluator = macroSectorMismatchAlertEvaluator;
     this.subSectorBreadthAlertEvaluator = subSectorBreadthAlertEvaluator;
+    this.themePhaseBreakoutEntryAlertEvaluator = themePhaseBreakoutEntryAlertEvaluator;
+    this.themePhaseFadingAlertEvaluator = themePhaseFadingAlertEvaluator;
+    this.themeRecoverySignalAlertEvaluator = themeRecoverySignalAlertEvaluator;
   }
 
   @EventListener
@@ -272,12 +284,12 @@ public class AlertRulesEngine {
     alertsCreated += themeMomentumAlertEvaluator.evaluate(context);
     alertsCreated += theme5dAccelerationAlertEvaluator.evaluate(context);
     alertsCreated += themeDistributeWarningAlertEvaluator.evaluate(context);
-    alertsCreated += evaluateThemePhaseBreakoutEntry(signalDate);
+    alertsCreated += themePhaseBreakoutEntryAlertEvaluator.evaluate(context);
     alertsCreated += themeFailedBreakoutAlertEvaluator.evaluate(context);
     alertsCreated += themeSetupAccelerationAlertEvaluator.evaluate(context);
-    alertsCreated += evaluateThemePhaseFading(signalDate);
+    alertsCreated += themePhaseFadingAlertEvaluator.evaluate(context);
     alertsCreated += themeMomentumExhaustionAlertEvaluator.evaluate(context);
-    alertsCreated += evaluateThemeRecoverySignal(signalDate);
+    alertsCreated += themeRecoverySignalAlertEvaluator.evaluate(context);
     alertsCreated += themeStrongBreakoutAlertEvaluator.evaluate(context);
     alertsCreated += themePeerDivergenceAlertEvaluator.evaluate(context);
     alertsCreated += themeScorePriceDivergenceAlertEvaluator.evaluate(context);
@@ -557,16 +569,6 @@ public class AlertRulesEngine {
         rotationEvent.eventType().name(), rotationEvent.confidence(), rotationEvent.detectedDate());
   }
 
-
-
-
-
-
-
-
-
-
-
   /**
    * Meta-alert: fires when a single sector has &ge; 3 bullish alerts simultaneously active.
    * Multiple concurrent signals indicate high-confidence institutional rotation into a sector — a
@@ -629,439 +631,5 @@ public class AlertRulesEngine {
     return count;
   }
 
-
-
-
-
-  /**
-   * Fires when a theme transitions INTO the BREAKOUT phase. Compares the current phase (computed
-   * from today's avg COMPOSITE + TREND_5D + TREND_20D) with the phase 5 trading days ago. Fires
-   * only on the first day the theme enters BREAKOUT. Resolves when the theme exits BREAKOUT and is
-   * no longer in MOMENTUM either (breakout confirmed ended).
-   */
-  private int evaluateThemePhaseBreakoutEntry(LocalDate signalDate) {
-    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_PHASE_BREAKOUT_ENTRY);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-
-    Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
-    if (constituentsByTheme.isEmpty()) return 0;
-
-    Map<String, BigDecimal> currentComposite =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    Map<String, BigDecimal> currentTrend5d =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, signalDate);
-    Map<String, BigDecimal> currentTrend20d =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, signalDate);
-    if (currentComposite.isEmpty()) return 0;
-
-    // Prior-date signal maps are loaded lazily — only when the first BREAKOUT theme is found.
-    // This avoids 5 chained findPreviousSignalDate calls when no theme is in BREAKOUT.
-    boolean priorDataLoaded = false;
-    Map<String, BigDecimal> priorComposite = Map.of();
-    Map<String, BigDecimal> priorTrend5d = Map.of();
-    Map<String, BigDecimal> priorTrend20d = Map.of();
-
-    int count = 0;
-    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
-      String themeId = entry.getKey();
-      List<String> ids = entry.getValue();
-      if (ids.isEmpty()) continue;
-
-      OptionalDouble avgCurrentScore =
-          ids.stream()
-              .map(currentComposite::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      if (avgCurrentScore.isEmpty()) continue;
-
-      OptionalDouble avgCurrent5d =
-          ids.stream()
-              .map(currentTrend5d::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      OptionalDouble avgCurrent20d =
-          ids.stream()
-              .map(currentTrend20d::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-
-      String currentPhase =
-          computeThemePhaseForAlert(
-              avgCurrentScore.getAsDouble(),
-              avgCurrent5d.isPresent() ? avgCurrent5d.getAsDouble() : null,
-              avgCurrent20d.isPresent() ? avgCurrent20d.getAsDouble() : null);
-
-      boolean hasActive =
-          alertRepository.existsActiveAlertForTheme(RULE_THEME_PHASE_BREAKOUT_ENTRY, themeId);
-
-      if ("BREAKOUT".equals(currentPhase) && !hasActive) {
-        if (!priorDataLoaded) {
-          LocalDate priorDate =
-              findNthPreviousSignalDate(
-                  SignalType.COMPOSITE, signalDate, THEME_PHASE_LOOKBACK_DAYS);
-          if (priorDate != null) {
-            priorComposite = signalRepository.findByTypeAndDate(SignalType.COMPOSITE, priorDate);
-            priorTrend5d =
-                signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, priorDate);
-            priorTrend20d =
-                signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, priorDate);
-          }
-          priorDataLoaded = true;
-        }
-
-        OptionalDouble avgPriorScore =
-            ids.stream()
-                .map(priorComposite::get)
-                .filter(v -> v != null)
-                .mapToDouble(BigDecimal::doubleValue)
-                .average();
-        OptionalDouble avgPrior5d =
-            ids.stream()
-                .map(priorTrend5d::get)
-                .filter(v -> v != null)
-                .mapToDouble(BigDecimal::doubleValue)
-                .average();
-        OptionalDouble avgPrior20d =
-            ids.stream()
-                .map(priorTrend20d::get)
-                .filter(v -> v != null)
-                .mapToDouble(BigDecimal::doubleValue)
-                .average();
-        String priorPhase =
-            avgPriorScore.isPresent()
-                ? computeThemePhaseForAlert(
-                    avgPriorScore.getAsDouble(),
-                    avgPrior5d.isPresent() ? avgPrior5d.getAsDouble() : null,
-                    avgPrior20d.isPresent() ? avgPrior20d.getAsDouble() : null)
-                : "UNKNOWN";
-
-        if (!"BREAKOUT".equals(priorPhase)) {
-          Severity severity = rule.map(AlertRule::severity).orElse(Severity.ACTION);
-          int scorePct = (int) Math.round(avgCurrentScore.getAsDouble() * 100);
-          double delta =
-              (avgCurrent5d.isPresent() && avgCurrent20d.isPresent())
-                  ? avgCurrent5d.getAsDouble() - avgCurrent20d.getAsDouble()
-                  : 0;
-          alertRepository.insert(
-              new Alert(
-                  null,
-                  OffsetDateTime.now(),
-                  null,
-                  themeId,
-                  RULE_THEME_PHASE_BREAKOUT_ENTRY,
-                  severity,
-                  String.format(
-                      "%s theme entered BREAKOUT phase (was %s): score %d, 5d accelerating +%dpt vs 20d — high-conviction entry signal",
-                      themeId, priorPhase, scorePct, (int) Math.round(delta * 100)),
-                  String.format(
-                      "{\"themeId\":\"%s\",\"priorPhase\":\"%s\",\"score\":%.4f,\"delta5d20d\":%.4f,\"signalDate\":\"%s\"}",
-                      themeId, priorPhase, avgCurrentScore.getAsDouble(), delta, signalDate),
-                  AlertStatus.ACTIVE,
-                  null,
-                  null));
-          count++;
-          log.info(
-              "theme_phase_breakout_entry: theme={} priorPhase={} score={}",
-              themeId,
-              priorPhase,
-              scorePct);
-        }
-      } else if (hasActive
-          && !"BREAKOUT".equals(currentPhase)
-          && !"MOMENTUM".equals(currentPhase)) {
-        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_PHASE_BREAKOUT_ENTRY, themeId);
-        log.info(
-            "theme_phase_breakout_entry: resolved theme={} (phase now {})", themeId, currentPhase);
-      }
-    }
-    return count;
-  }
-
-  private LocalDate findNthPreviousSignalDate(SignalType type, LocalDate date, int n) {
-    LocalDate result = date;
-    for (int i = 0; i < n; i++) {
-      result = signalRepository.findPreviousSignalDate(type, result);
-      if (result == null) return null;
-    }
-    return result;
-  }
-
-  private static String computeThemePhaseForAlert(double score, Double trend5d, Double trend20d) {
-    boolean accelerating = trend5d != null && trend20d != null && (trend5d - trend20d) > 0.005;
-    boolean trending = trend20d != null && trend20d > 0.003;
-    boolean fading = trend20d != null && trend20d < -0.003;
-    if (score >= 0.65) {
-      if (accelerating) return "BREAKOUT";
-      if (trending) return "MOMENTUM";
-      return "HOLDING";
-    }
-    if (score >= 0.50) {
-      if (accelerating) return "SETUP";
-      if (fading) return "FADING";
-      return "BUILDING";
-    }
-    if (fading) return "FADING";
-    if (score < 0.35) return "WEAK";
-    return "NEUTRAL";
-  }
-
-  /**
-   * Fires the first time a theme enters the FADING phase (was not FADING N trading days ago, now
-   * is). FADING = score 0.35–0.65 with negative 20d trend OR score below 0.35 with negative trend.
-   *
-   * <p>Resolves when the theme exits FADING: score recovers above THEME_FADING_RESOLVE_SCORE or
-   * trend turns non-negative.
-   */
-  private int evaluateThemePhaseFading(LocalDate signalDate) {
-    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_PHASE_FADING);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-
-    Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
-    if (constituentsByTheme.isEmpty()) return 0;
-
-    Map<String, BigDecimal> currentComposite =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    Map<String, BigDecimal> currentTrend5d =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, signalDate);
-    Map<String, BigDecimal> currentTrend20d =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, signalDate);
-    if (currentComposite.isEmpty()) return 0;
-
-    boolean priorDataLoaded = false;
-    Map<String, BigDecimal> priorComposite = Map.of();
-    Map<String, BigDecimal> priorTrend5d = Map.of();
-    Map<String, BigDecimal> priorTrend20d = Map.of();
-
-    int count = 0;
-    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
-      String themeId = entry.getKey();
-      List<String> ids = entry.getValue();
-      if (ids.isEmpty()) continue;
-
-      OptionalDouble avgCurrentScore =
-          ids.stream()
-              .map(currentComposite::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      if (avgCurrentScore.isEmpty()) continue;
-
-      OptionalDouble avgCurrent5d =
-          ids.stream()
-              .map(currentTrend5d::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      OptionalDouble avgCurrent20d =
-          ids.stream()
-              .map(currentTrend20d::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-
-      String currentPhase =
-          computeThemePhaseForAlert(
-              avgCurrentScore.getAsDouble(),
-              avgCurrent5d.isPresent() ? avgCurrent5d.getAsDouble() : null,
-              avgCurrent20d.isPresent() ? avgCurrent20d.getAsDouble() : null);
-
-      boolean hasActive =
-          alertRepository.existsActiveAlertForTheme(RULE_THEME_PHASE_FADING, themeId);
-
-      if ("FADING".equals(currentPhase) && !hasActive) {
-        if (!priorDataLoaded) {
-          LocalDate priorDate =
-              findNthPreviousSignalDate(
-                  SignalType.COMPOSITE, signalDate, THEME_PHASE_LOOKBACK_DAYS);
-          if (priorDate != null) {
-            priorComposite = signalRepository.findByTypeAndDate(SignalType.COMPOSITE, priorDate);
-            priorTrend5d =
-                signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, priorDate);
-            priorTrend20d =
-                signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, priorDate);
-          }
-          priorDataLoaded = true;
-        }
-
-        OptionalDouble avgPriorScore =
-            ids.stream()
-                .map(priorComposite::get)
-                .filter(v -> v != null)
-                .mapToDouble(BigDecimal::doubleValue)
-                .average();
-        OptionalDouble avgPrior5d =
-            ids.stream()
-                .map(priorTrend5d::get)
-                .filter(v -> v != null)
-                .mapToDouble(BigDecimal::doubleValue)
-                .average();
-        OptionalDouble avgPrior20d =
-            ids.stream()
-                .map(priorTrend20d::get)
-                .filter(v -> v != null)
-                .mapToDouble(BigDecimal::doubleValue)
-                .average();
-        String priorPhase =
-            avgPriorScore.isPresent()
-                ? computeThemePhaseForAlert(
-                    avgPriorScore.getAsDouble(),
-                    avgPrior5d.isPresent() ? avgPrior5d.getAsDouble() : null,
-                    avgPrior20d.isPresent() ? avgPrior20d.getAsDouble() : null)
-                : "UNKNOWN";
-
-        if (!"FADING".equals(priorPhase)) {
-          Severity severity = rule.map(AlertRule::severity).orElse(Severity.WARNING);
-          int scorePct = (int) Math.round(avgCurrentScore.getAsDouble() * 100);
-          String fromPhase = avgPriorScore.isPresent() ? priorPhase : "UNKNOWN";
-          alertRepository.insert(
-              new Alert(
-                  null,
-                  OffsetDateTime.now(),
-                  null,
-                  themeId,
-                  RULE_THEME_PHASE_FADING,
-                  severity,
-                  String.format(
-                      "%s entered FADING phase (was %s): score %d with negative trend — reduce exposure, watch for failed recovery",
-                      themeId, fromPhase, scorePct),
-                  String.format(
-                      "{\"themeId\":\"%s\",\"priorPhase\":\"%s\",\"score\":%.4f,\"signalDate\":\"%s\"}",
-                      themeId, fromPhase, avgCurrentScore.getAsDouble(), signalDate),
-                  AlertStatus.ACTIVE,
-                  null,
-                  null));
-          count++;
-          log.info(
-              "theme_phase_fading: theme={} priorPhase={} score={}", themeId, fromPhase, scorePct);
-        }
-      } else if (hasActive && !"FADING".equals(currentPhase)) {
-        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_PHASE_FADING, themeId);
-        log.info("theme_phase_fading: resolved theme={} (phase now {})", themeId, currentPhase);
-      }
-    }
-    return count;
-  }
-
-  /**
-   * Fires when a FADING or WEAK theme shows nascent recovery: score in [0.35, 0.55], 5d trend
-   * positive (> 0.003), and 5 trading days ago the 20d trend was still negative. This catches the
-   * turn before the phase fully resolves to BUILDING/SETUP.
-   *
-   * <p>Resolves when score rises above 0.60 (confirmed recovery) or drops below 0.30 (failed).
-   */
-  private int evaluateThemeRecoverySignal(LocalDate signalDate) {
-    Optional<AlertRule> rule = alertRulesRepository.findById(RULE_THEME_RECOVERY_SIGNAL);
-    if (!rule.map(AlertRule::enabled).orElse(false)) return 0;
-
-    Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
-    if (constituentsByTheme.isEmpty()) return 0;
-
-    Map<String, BigDecimal> compositeMap =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE, signalDate);
-    Map<String, BigDecimal> trend5dMap =
-        signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_5D, signalDate);
-    if (compositeMap.isEmpty()) return 0;
-
-    int count = 0;
-    boolean priorDataLoaded = false;
-    Map<String, BigDecimal> priorTrend20d = Collections.emptyMap();
-
-    for (Map.Entry<String, List<String>> entry : constituentsByTheme.entrySet()) {
-      String themeId = entry.getKey();
-      List<String> ids = entry.getValue();
-      if (ids.isEmpty()) continue;
-
-      OptionalDouble avgScore =
-          ids.stream()
-              .map(compositeMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-      OptionalDouble avgTrend5d =
-          ids.stream()
-              .map(trend5dMap::get)
-              .filter(v -> v != null)
-              .mapToDouble(BigDecimal::doubleValue)
-              .average();
-
-      if (avgScore.isEmpty() || avgTrend5d.isEmpty()) continue;
-
-      double score = avgScore.getAsDouble();
-      double trend5d = avgTrend5d.getAsDouble();
-      boolean hasActive =
-          alertRepository.existsActiveAlertForTheme(RULE_THEME_RECOVERY_SIGNAL, themeId);
-
-      boolean inRecoveryZone =
-          score >= THEME_RECOVERY_SCORE_MIN
-              && score <= THEME_RECOVERY_SCORE_MAX
-              && trend5d > THEME_RECOVERY_5D_MIN;
-
-      if (inRecoveryZone && !hasActive) {
-        if (!priorDataLoaded) {
-          LocalDate priorDate =
-              findNthPreviousSignalDate(
-                  SignalType.COMPOSITE, signalDate, THEME_PHASE_LOOKBACK_DAYS);
-          if (priorDate != null) {
-            priorTrend20d =
-                signalRepository.findByTypeAndDate(SignalType.COMPOSITE_TREND_20D, priorDate);
-          }
-          priorDataLoaded = true;
-        }
-
-        OptionalDouble avgPrior20d =
-            ids.stream()
-                .map(priorTrend20d::get)
-                .filter(v -> v != null)
-                .mapToDouble(BigDecimal::doubleValue)
-                .average();
-
-        boolean priorWasNegative =
-            avgPrior20d.isPresent() && avgPrior20d.getAsDouble() < THEME_RECOVERY_PRIOR_20D_MAX;
-
-        if (priorWasNegative) {
-          Severity severity = rule.map(AlertRule::severity).orElse(Severity.INFO);
-          int scorePct = (int) Math.round(score * 100);
-          alertRepository.insert(
-              new Alert(
-                  null,
-                  OffsetDateTime.now(),
-                  null,
-                  themeId,
-                  RULE_THEME_RECOVERY_SIGNAL,
-                  severity,
-                  String.format(
-                      "%s showing recovery: score %d, 5d trend +%.1fpt/day (20d was negative 5 days ago) — early turn signal, watch for follow-through",
-                      themeId, scorePct, trend5d * 100),
-                  String.format(
-                      "{\"themeId\":\"%s\",\"score\":%.4f,\"trend5d\":%.4f,\"priorTrend20d\":%.4f,\"signalDate\":\"%s\"}",
-                      themeId, score, trend5d, avgPrior20d.getAsDouble(), signalDate),
-                  AlertStatus.ACTIVE,
-                  null,
-                  null));
-          count++;
-          log.info(
-              "theme_recovery_signal: theme={} score={} trend5d={} priorTrend20d={}",
-              themeId,
-              scorePct,
-              String.format("%.3f", trend5d),
-              String.format("%.3f", avgPrior20d.getAsDouble()));
-        }
-      } else if (hasActive
-          && (score > THEME_RECOVERY_RESOLVE_SCORE_HIGH
-              || score < THEME_RECOVERY_RESOLVE_SCORE_LOW)) {
-        alertRepository.resolveAlertsByRuleAndTheme(RULE_THEME_RECOVERY_SIGNAL, themeId);
-        log.info(
-            "theme_recovery_signal: resolved theme={} (score={})",
-            themeId,
-            (int) Math.round(score * 100));
-      }
-    }
-    return count;
-  }
 }
-
-
 

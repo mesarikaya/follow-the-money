@@ -23,6 +23,10 @@ import com.ftm.app.alerts.evaluator.RsAlignedAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsBreadthExtremeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScoreApproachingSignalEvaluator;
 import com.ftm.app.alerts.evaluator.SubSectorBreadthAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ThemePhaseBreakoutEntryAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ThemePhaseFadingAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ThemeRecoverySignalAlertEvaluator;
+import com.ftm.app.alerts.evaluator.ThemeSignalReader;
 import com.ftm.app.alerts.evaluator.TradeSignalTransitionsAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScorePercentileExtremeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScoreVelocityAlertEvaluator;
@@ -88,6 +92,8 @@ class AlertRulesEngineTest {
 
   @BeforeEach
   void setUp() {
+    ThemeSignalReader themeSignalReader =
+        new ThemeSignalReader(themeRepository, signalRepository);
     engine =
         new AlertRulesEngine(
             alertRepository,
@@ -148,7 +154,13 @@ class AlertRulesEngineTest {
             new MacroSectorMismatchAlertEvaluator(
                 alertRulesRepository, signalRepository, alertRepository),
             new SubSectorBreadthAlertEvaluator(
-                alertRulesRepository, signalRepository, alertRepository, categoryRepository));
+                alertRulesRepository, signalRepository, alertRepository, categoryRepository),
+            new ThemePhaseBreakoutEntryAlertEvaluator(
+                alertRulesRepository, alertRepository, themeSignalReader),
+            new ThemePhaseFadingAlertEvaluator(
+                alertRulesRepository, alertRepository, themeSignalReader),
+            new ThemeRecoverySignalAlertEvaluator(
+                alertRulesRepository, alertRepository, themeSignalReader));
     // resolveStaleAlerts always calls these; lenient prevents PotentialStubbingProblem
     // in tests that stub other SignalTypes (RS_60, RS_120, MACRO_REGIME).
     // Tests that need meaningful values for these types override these stubs inline.

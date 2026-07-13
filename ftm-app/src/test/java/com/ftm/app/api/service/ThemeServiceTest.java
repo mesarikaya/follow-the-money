@@ -30,6 +30,8 @@ import com.ftm.app.themes.momentum.MomentumAlignment;
 import com.ftm.app.themes.momentum.MomentumDivergenceClassifier;
 import com.ftm.app.themes.quality.ThemeInvestmentQualityService;
 import com.ftm.app.themes.quality.ThemeInvestmentQualityService.ThemeQuality;
+import com.ftm.app.themes.assembler.ThemeConstituentAssembler;
+import com.ftm.app.themes.assembler.ThemeSummaryAssembler;
 import com.ftm.app.themes.repository.ThemeRepository;
 import com.ftm.app.themes.risk.ThemeRiskAggregator;
 import com.ftm.app.themes.risk.ThemeRiskContext;
@@ -55,7 +57,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -79,7 +80,35 @@ class ThemeServiceTest {
   @Mock ThemePhaseHistoryService themePhaseHistoryService;
   @Mock ThemePersistenceService themePersistenceService;
   @Mock ThemeInvestmentQualityService themeInvestmentQualityService;
-  @InjectMocks ThemeService themeService;
+
+  ThemeService themeService;
+
+  @BeforeEach
+  void buildService() {
+    // The assemblers are real; they run on the same mocked calculators the tests stub below.
+    themeService =
+        new ThemeService(
+            themeRepository,
+            categoryRepository,
+            signalRepository,
+            alertRepository,
+            new ThemeConstituentAssembler(),
+            new ThemeSummaryAssembler(
+                phaseTransitionDetector,
+                themeRiskAggregator,
+                entryTimingAdvisor,
+                momentumDivergenceClassifier,
+                confluenceScoreService,
+                themePhaseClassifier,
+                themeSignalStreakCounter,
+                themeVolatilityCalculator,
+                themeScorePercentileCalculator,
+                themeConcentrationRiskCalculator,
+                themePhaseHistoryService,
+                themePersistenceService,
+                themeInvestmentQualityService),
+            themePhaseHistoryService);
+  }
 
   @BeforeEach
   void defaultStubs() {

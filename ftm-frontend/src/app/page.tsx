@@ -1,5 +1,4 @@
-import { fetchCategories, fetchMacro, fetchRotation, fetchCategoryScoreHistory, fetchSubSectors, fetchWinRates, fetchPriceLevels, fetchSignalTransitions, fetchScoreComponents, fetchThemes, fetchThemeHistory, fetchThemeSnapshot, fetchApproachingSignals, fetchPortfolioActions, SignalWinRateDto, PriceLevelDto, SubSectorSummary, SignalTransitionDto, ScoreDecompositionDto, ThemeSummary, ThemeHistoryPoint, ThemeSnapshot, ApproachingSignalDto, HoldingActionDto } from "@/lib/api";
-import { SECTOR_DRILLDOWN_IDS } from "@/lib/sectors";
+import { loadDashboard } from "@/app/dashboardData";
 import CategoryTable from "@/components/CategoryTable";
 import MacroPanel from "@/components/MacroPanel";
 import MarketBreadthBar from "@/components/MarketBreadthBar";
@@ -44,94 +43,36 @@ import ThemeSignalQualityPanel from "@/components/ThemeSignalQualityPanel";
 import ThemeMomentumForecast from "@/components/ThemeMomentumForecast";
 import ThemeMarketSnapshot from "@/components/ThemeMarketSnapshot";
 
+
 export const dynamic = "force-dynamic";
 
-type Props = {
+export default async function Home({
+  searchParams,
+}: {
   searchParams: Promise<{ timeframe?: string }>;
-};
-
-export default async function Home({ searchParams }: Props) {
+}) {
   const { timeframe = "MONTH" } = await searchParams;
 
-  const sectorIds = Array.from(SECTOR_DRILLDOWN_IDS);
-
-  const [
-    categoriesResult,
-    macroResult,
-    rotationResult,
-    scoreHistoryResult,
-    winRatesResult,
-    priceLevelsResult,
-    transitionsResult,
-    scoreComponentsResult,
-    approachingSignalsResult,
-    portfolioActionsResult,
-    themesResult,
-    snapshotResult,
-    ...subSectorResults
-  ] = await Promise.allSettled([
-    fetchCategories(timeframe),
-    fetchMacro(),
-    fetchRotation(),
-    fetchCategoryScoreHistory(30),
-    fetchWinRates(365),
-    fetchPriceLevels(),
-    fetchSignalTransitions(7),
-    fetchScoreComponents(),
-    fetchApproachingSignals(),
-    fetchPortfolioActions(),
-    fetchThemes(),
-    fetchThemeSnapshot(),
-    ...sectorIds.map((id) => fetchSubSectors(id)),
-  ]);
-
-  const scoreComponentsByCategory: Record<string, ScoreDecompositionDto> =
-    scoreComponentsResult.status === "fulfilled" ? scoreComponentsResult.value : {};
-
-  const winRates: SignalWinRateDto[] =
-    winRatesResult.status === "fulfilled" ? winRatesResult.value : [];
-
-  const winRateByCategory: Record<string, SignalWinRateDto> = {};
-  winRates.forEach(w => { winRateByCategory[w.categoryId] = w; });
-
-  const priceLevels: PriceLevelDto[] =
-    priceLevelsResult.status === "fulfilled" ? priceLevelsResult.value : [];
-
-  const priceLevelByCategory: Record<string, PriceLevelDto> = {};
-  priceLevels.forEach(p => { priceLevelByCategory[p.categoryId] = p; });
-
-  const signalTransitions: SignalTransitionDto[] =
-    transitionsResult.status === "fulfilled" ? transitionsResult.value : [];
-
-  const topSubSectorByParent: Record<string, SubSectorSummary> = {};
-  const allSubSectorsByParent: Record<string, SubSectorSummary[]> = {};
-  subSectorResults.forEach((result, i) => {
-    if (result.status === "fulfilled" && result.value.length > 0) {
-      const sorted = [...result.value].sort(
-        (a, b) => (b.rs60 ?? -Infinity) - (a.rs60 ?? -Infinity)
-      );
-      topSubSectorByParent[sectorIds[i]] = sorted[0];
-      allSubSectorsByParent[sectorIds[i]] = sorted;
-    }
-  });
-
-  const categories =
-    categoriesResult.status === "fulfilled" ? categoriesResult.value.categories : [];
-  const asOfDate =
-    categoriesResult.status === "fulfilled" ? categoriesResult.value.asOfDate : null;
-  const macro = macroResult.status === "fulfilled" ? macroResult.value : null;
-  const rotation = rotationResult.status === "fulfilled" ? rotationResult.value : null;
-  const scoreHistory =
-    scoreHistoryResult.status === "fulfilled" ? scoreHistoryResult.value : {};
-
-  const approachingSignals: ApproachingSignalDto[] =
-    approachingSignalsResult.status === "fulfilled" ? approachingSignalsResult.value : [];
-  const portfolioActions: HoldingActionDto[] =
-    portfolioActionsResult.status === "fulfilled" ? portfolioActionsResult.value : [];
-  const themes: ThemeSummary[] =
-    themesResult.status === "fulfilled" ? themesResult.value : [];
-  const snapshot: ThemeSnapshot | null =
-    snapshotResult.status === "fulfilled" ? snapshotResult.value : null;
+  const {
+    categories,
+    asOfDate,
+    macro,
+    rotation,
+    scoreHistory,
+    scoreComponentsByCategory,
+    winRateByCategory,
+    priceLevelByCategory,
+    signalTransitions,
+    approachingSignals,
+    portfolioActions,
+    themes,
+    themeSnapshot: snapshot,
+    historiesByThemeId,
+    topSubSectorByParent,
+    allSubSectorsByParent,
+    categoriesError,
+    macroError,
+  } = await loadDashboard(timeframe);
 
   const priorityActions = derivePriorityActions(
     categories,
@@ -142,22 +83,13 @@ export default async function Home({ searchParams }: Props) {
     portfolioActions,
   );
 
-  const themeHistoryResults = await Promise.allSettled(
-    themes.map(t => fetchThemeHistory(t.id, 30))
-  );
-  const historiesByThemeId: Record<string, ThemeHistoryPoint[]> = {};
-  themes.forEach((t, i) => {
-    const result = themeHistoryResults[i];
-    historiesByThemeId[t.id] = result.status === "fulfilled" ? result.value : [];
-  });
 
   return (
     <div className="flex flex-col h-full">
       <main className="flex-1 p-6 space-y-6 overflow-auto">
-        {categoriesResult.status === "rejected" && (
+        {categoriesError && (
           <div className="bg-red-900/40 border border-red-700 text-red-300 px-4 py-3 rounded-md text-sm">
-            Failed to load categories:{" "}
-            {String((categoriesResult as PromiseRejectedResult).reason)}
+            Failed to load categories: {categoriesError}
           </div>
         )}
 
@@ -261,10 +193,9 @@ export default async function Home({ searchParams }: Props) {
 
         {macro && <MacroPanel macro={macro} />}
 
-        {macroResult.status === "rejected" && (
+        {macroError && (
           <div className="bg-red-900/40 border border-red-700 text-red-300 px-4 py-3 rounded-md text-sm">
-            Failed to load macro data:{" "}
-            {String((macroResult as PromiseRejectedResult).reason)}
+            Failed to load macro data: {macroError}
           </div>
         )}
 

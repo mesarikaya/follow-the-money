@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 class DistributionSignalTransitionRule implements PhaseTransitionRule {
 
   @Override
-  public Optional<String> evaluate(PhaseTransitionContext context) {
+  public Optional<PhaseTransitionSignal> evaluate(PhaseTransitionContext context) {
     if (context.compositeScore() == null
         || context.flow20d() == null
         || context.compositeTrend20d() == null) {
@@ -17,7 +17,7 @@ class DistributionSignalTransitionRule implements PhaseTransitionRule {
     boolean outflows = context.flow20d() < -0.5;
     boolean trendFading = context.compositeTrend20d() < 0;
     if (inHighZone && outflows && trendFading) {
-      return Optional.of("DISTRIBUTION");
+      return Optional.of(PhaseTransitionSignal.DISTRIBUTION);
     }
     return Optional.empty();
   }

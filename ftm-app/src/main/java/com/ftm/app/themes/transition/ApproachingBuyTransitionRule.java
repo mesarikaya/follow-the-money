@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 class ApproachingBuyTransitionRule implements PhaseTransitionRule {
 
   @Override
-  public Optional<String> evaluate(PhaseTransitionContext context) {
+  public Optional<PhaseTransitionSignal> evaluate(PhaseTransitionContext context) {
     if (context.compositeScore() == null || context.compositeTrend5d() == null) {
       return Optional.empty();
     }
@@ -16,7 +16,7 @@ class ApproachingBuyTransitionRule implements PhaseTransitionRule {
     boolean accelerating = context.compositeTrend5d() > 0.005;
     boolean hasConviction = context.signalStreakDays() >= 5;
     if (scoreInApproachZone && accelerating && hasConviction) {
-      return Optional.of("APPROACHING_BUY");
+      return Optional.of(PhaseTransitionSignal.APPROACHING_BUY);
     }
     return Optional.empty();
   }

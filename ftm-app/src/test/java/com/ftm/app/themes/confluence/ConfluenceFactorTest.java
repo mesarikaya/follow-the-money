@@ -2,6 +2,9 @@ package com.ftm.app.themes.confluence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ftm.app.themes.entry.EntryAction;
+import com.ftm.app.themes.transition.PhaseTransitionSignal;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -16,24 +19,30 @@ class ConfluenceFactorTest {
     @Test
     @DisplayName("ENTER scores +3")
     void enterScoresPositive() {
-      assertThat(factor.score(input("ENTER", null, null, null))).isEqualTo(3);
+      assertThat(factor.score(input(EntryAction.ENTER, null, null, null))).isEqualTo(3);
     }
 
     @Test
-    @DisplayName("WAIT scores 0")
-    void waitScoresNeutral() {
-      assertThat(factor.score(input("WAIT", null, null, null))).isEqualTo(0);
+    @DisplayName("SCALE_IN scores +2 — constructive, but less than a full entry")
+    void scaleInScoresPositive() {
+      assertThat(factor.score(input(EntryAction.SCALE_IN, null, null, null))).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("WATCH scores 0")
+    void watchScoresNeutral() {
+      assertThat(factor.score(input(EntryAction.WATCH, null, null, null))).isEqualTo(0);
     }
 
     @Test
     @DisplayName("AVOID scores -3")
     void avoidScoresNegative() {
-      assertThat(factor.score(input("AVOID", null, null, null))).isEqualTo(-3);
+      assertThat(factor.score(input(EntryAction.AVOID, null, null, null))).isEqualTo(-3);
     }
 
     @Test
-    @DisplayName("unknown entry action scores 0")
-    void unknownScoresNeutral() {
+    @DisplayName("no entry action scores 0")
+    void noActionScoresNeutral() {
       assertThat(factor.score(input(null, null, null, null))).isEqualTo(0);
     }
 
@@ -134,21 +143,31 @@ class ConfluenceFactorTest {
     private final PhaseTransitionFactor factor = new PhaseTransitionFactor();
 
     @Test
-    @DisplayName("WATCH_FOR_ENTRY scores +2")
-    void watchForEntry() {
-      assertThat(factor.score(input(null, null, null, "WATCH_FOR_ENTRY"))).isEqualTo(2);
+    @DisplayName("APPROACHING_BUY scores +2")
+    void approachingBuy() {
+      assertThat(factor.score(input(null, null, null, PhaseTransitionSignal.APPROACHING_BUY)))
+          .isEqualTo(2);
     }
 
     @Test
-    @DisplayName("CYCLE_RESET scores +1")
-    void cycleReset() {
-      assertThat(factor.score(input(null, null, null, "CYCLE_RESET"))).isEqualTo(1);
+    @DisplayName("EARLY_RECOVERY scores +1")
+    void earlyRecovery() {
+      assertThat(factor.score(input(null, null, null, PhaseTransitionSignal.EARLY_RECOVERY)))
+          .isEqualTo(1);
     }
 
     @Test
-    @DisplayName("APPROACHING_EXIT scores -2")
-    void approachingExit() {
-      assertThat(factor.score(input(null, null, null, "APPROACHING_EXIT"))).isEqualTo(-2);
+    @DisplayName("BREAKOUT_AT_RISK scores -2")
+    void breakoutAtRisk() {
+      assertThat(factor.score(input(null, null, null, PhaseTransitionSignal.BREAKOUT_AT_RISK)))
+          .isEqualTo(-2);
+    }
+
+    @Test
+    @DisplayName("DISTRIBUTION scores -2")
+    void distribution() {
+      assertThat(factor.score(input(null, null, null, PhaseTransitionSignal.DISTRIBUTION)))
+          .isEqualTo(-2);
     }
 
     @Test
@@ -165,10 +184,10 @@ class ConfluenceFactorTest {
   }
 
   private static ConfluenceInput input(
-      String entryAction,
+      EntryAction entryAction,
       String riskLevel,
       String momentumAlignment,
-      String phaseTransitionSignal) {
+      PhaseTransitionSignal phaseTransitionSignal) {
     return new ConfluenceInput(entryAction, riskLevel, momentumAlignment, phaseTransitionSignal);
   }
 }

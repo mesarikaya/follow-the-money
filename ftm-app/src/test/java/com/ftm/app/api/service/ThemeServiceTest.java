@@ -46,6 +46,7 @@ import com.ftm.app.themes.signal.ThemeSignalStreakCounter;
 import com.ftm.app.themes.signal.ThemeVolatilityCalculator;
 import com.ftm.app.themes.transition.PhaseTransitionContext;
 import com.ftm.app.themes.transition.PhaseTransitionDetector;
+import com.ftm.app.themes.transition.PhaseTransitionSignal;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collections;
@@ -559,7 +560,7 @@ class ThemeServiceTest {
     stubHistoryEmpty();
     when(phaseTransitionDetector.detect(
             org.mockito.ArgumentMatchers.any(PhaseTransitionContext.class)))
-        .thenReturn(Optional.of("APPROACHING_BUY"));
+        .thenReturn(Optional.of(PhaseTransitionSignal.APPROACHING_BUY));
 
     List<ThemeSummaryDto> result = themeService.getThemes();
 

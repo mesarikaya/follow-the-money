@@ -17,9 +17,25 @@ import {
 } from "@/components/themes/badges";
 
 
-export type ViewPreset = "essential" | "standard" | "full";
+import {
+  SortLink,
+  ThemeScreenerFilterBar,
+  ViewSwitcher,
+} from "@/components/themes/screenerControls";
+import {
+  ESSENTIAL_COLS,
+  STANDARD_COLS,
+  ScreenerParams,
+  ViewPreset,
+  buildScreenerUrl,
+  isVisible,
+  priorScoreRanks,
+  sortThemes,
+} from "@/lib/themes/themeScreener";
 
-export type ScreenerParams = { sort?: string; signal?: string; phase?: string; entry?: string; confidence?: string; view?: string };
+// Re-exported so `@/components/themes/screener` stays the one import the themes page needs.
+export type { ViewPreset, ScreenerParams };
+export { isVisible, buildScreenerUrl, ESSENTIAL_COLS, STANDARD_COLS };
 
 export const SECTOR_COLORS: Record<string, string> = {
   TECH: "text-blue-400 bg-blue-900/20 border-blue-700/30",
@@ -35,179 +51,7 @@ export const SECTOR_COLORS: Record<string, string> = {
   COMM: "text-pink-400 bg-pink-900/20 border-pink-700/30",
 };
 
-export const ESSENTIAL_COLS = new Set([
-  "rank", "rankDelta", "theme", "sector", "signal", "score",
-  "trend5d", "phase", "iqs", "bullish", "alerts",
-]);
 
-export const STANDARD_COLS = new Set([
-  ...ESSENTIAL_COLS,
-  "rs60", "entry", "momentum", "trend", "persist", "conf",
-]);
-
-export const isVisible = (col: string, view: ViewPreset): boolean => {
-  if (view === "full") return true;
-  if (view === "standard") return STANDARD_COLS.has(col);
-  return ESSENTIAL_COLS.has(col);
-}
-
-export const buildScreenerUrl = (current: ScreenerParams, overrides: Partial<ScreenerParams>): string => {
-  const merged = { ...current, ...overrides };
-  const params = new URLSearchParams();
-  for (const [k, v] of Object.entries(merged)) {
-    if (v != null && v !== "") params.set(k, v);
-  }
-  const qs = params.toString();
-  return `/themes${qs ? `?${qs}` : ""}`;
-}
-
-export const SortLink = ({
-  label, sortKey, currentSort, title, allParams,
-}: {
-  label: string; sortKey: string; currentSort: string; title?: string;
-  allParams: ScreenerParams;
-}) => {
-  const isActive = currentSort === sortKey;
-  return (
-    <Link
-      href={buildScreenerUrl(allParams, { sort: sortKey })}
-      className={`hover:text-slate-300 transition-colors ${isActive ? "text-cyan-400" : "text-slate-600"}`}
-      title={title}
-    >
-      {label}{isActive ? " ↓" : ""}
-    </Link>
-  );
-}
-
-export const FilterChip = ({
-  label, paramKey, value, activeValue, allParams,
-}: {
-  label: string; paramKey: keyof ScreenerParams; value: string;
-  activeValue: string | undefined; allParams: ScreenerParams;
-}) => {
-  const isActive = activeValue === value;
-  const href = buildScreenerUrl(allParams, { [paramKey]: isActive ? undefined : value });
-  return (
-    <Link
-      href={href}
-      className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
-        isActive
-          ? "bg-cyan-500/25 text-cyan-300 border border-cyan-500/40"
-          : "bg-slate-700/40 text-slate-500 border border-slate-600/30 hover:text-slate-300 hover:border-slate-500/50"
-      }`}
-    >
-      {isActive && <span className="mr-0.5 text-cyan-400">✕</span>}
-      {label}
-    </Link>
-  );
-}
-
-export const ViewSwitcher = ({ view, allParams }: { view: ViewPreset; allParams: ScreenerParams }) => {
-  const colCount = view === "full" ? 23 : view === "standard" ? 17 : 11;
-  return (
-    <div className="flex items-center gap-1.5" data-testid="view-switcher">
-      <span className="text-[9px] font-mono text-slate-600 uppercase tracking-wider mr-0.5">Cols:</span>
-      {(["essential", "standard", "full"] as ViewPreset[]).map(v => (
-        <Link
-          key={v}
-          data-testid={`view-${v}`}
-          href={buildScreenerUrl(allParams, { view: v === "standard" ? undefined : v })}
-          className={`text-[9px] font-mono px-2 py-0.5 rounded border transition-colors ${
-            view === v
-              ? "bg-slate-700/60 text-slate-300 border-slate-600/50"
-              : "text-slate-600 border-transparent hover:text-slate-400 hover:border-slate-700/40"
-          }`}
-        >
-          {v}
-        </Link>
-      ))}
-      <span className="text-[9px] font-mono text-slate-700">{colCount}c</span>
-    </div>
-  );
-}
-
-export const ThemeScreenerFilterBar = ({
-  allParams, totalCount, filteredCount,
-}: {
-  allParams: ScreenerParams; totalCount: number; filteredCount: number;
-}) => {
-  const hasActiveFilter = allParams.signal != null || allParams.phase != null || allParams.entry != null || allParams.confidence != null;
-  const filterGroups: { label: string; paramKey: keyof ScreenerParams; options: { label: string; value: string }[] }[] = [
-    {
-      label: "Signal",
-      paramKey: "signal",
-      options: [
-        { label: "BUY", value: "BUY" },
-        { label: "WATCH", value: "WATCH" },
-        { label: "HOLD", value: "HOLD" },
-        { label: "REDUCE", value: "REDUCE" },
-      ],
-    },
-    {
-      label: "Phase",
-      paramKey: "phase",
-      options: [
-        { label: "Breakout", value: "BREAKOUT" },
-        { label: "Momentum", value: "MOMENTUM" },
-        { label: "Setup", value: "SETUP" },
-        { label: "Building", value: "BUILDING" },
-        { label: "Fading", value: "FADING" },
-        { label: "Distribute", value: "DISTRIBUTE" },
-        { label: "Weak", value: "WEAK" },
-      ],
-    },
-    {
-      label: "Entry",
-      paramKey: "entry",
-      options: [
-        { label: "Enter", value: "ENTER" },
-        { label: "Scale In", value: "SCALE_IN" },
-        { label: "Watch", value: "WATCH" },
-        { label: "Avoid", value: "AVOID" },
-      ],
-    },
-    {
-      label: "Confidence",
-      paramKey: "confidence",
-      options: [
-        { label: "High", value: "HIGH_CONFIDENCE" },
-        { label: "Moderate", value: "MODERATE" },
-        { label: "Cautious", value: "CAUTIOUS" },
-        { label: "Avoid", value: "AVOID" },
-      ],
-    },
-  ];
-  return (
-    <div className="px-3 py-2 border-b border-slate-700/40 bg-slate-800/20 flex flex-wrap items-center gap-3">
-      {filterGroups.map(group => (
-        <div key={group.paramKey} className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[9px] font-mono text-slate-600 uppercase tracking-wider shrink-0">{group.label}:</span>
-          {group.options.map(opt => (
-            <FilterChip
-              key={opt.value}
-              label={opt.label}
-              paramKey={group.paramKey}
-              value={opt.value}
-              activeValue={allParams[group.paramKey]}
-              allParams={allParams}
-            />
-          ))}
-        </div>
-      ))}
-      {hasActiveFilter && (
-        <Link
-          href={buildScreenerUrl(allParams, { signal: undefined, phase: undefined, entry: undefined, confidence: undefined })}
-          className="ml-auto text-[10px] font-mono text-slate-500 hover:text-slate-300 transition-colors"
-        >
-          Clear filters · {filteredCount}/{totalCount}
-        </Link>
-      )}
-      {!hasActiveFilter && (
-        <span className="ml-auto text-[10px] font-mono text-slate-600">{totalCount} themes</span>
-      )}
-    </div>
-  );
-}
 
 export const ThemeScreener = ({
   themes,
@@ -228,60 +72,8 @@ export const ThemeScreener = ({
 }) => {
   if (allThemes.length === 0) return null;
 
-  const sortedByScore = [...themes].sort((a, b) => (b.compositeScore ?? -1) - (a.compositeScore ?? -1));
-  const scoreRankById: Record<string, number> = {};
-  sortedByScore.forEach((t, i) => { scoreRankById[t.id] = i + 1; });
-
-  const sorted: ThemeSummary[] = (() => {
-    if (sort === "delta5d") {
-      return [...themes].sort((a, b) => {
-        const histA = historiesByThemeId[a.id] ?? [];
-        const histB = historiesByThemeId[b.id] ?? [];
-        const dA = histA.length >= 6 ? histA[histA.length - 1].compositeScore - histA[histA.length - 6].compositeScore : -Infinity;
-        const dB = histB.length >= 6 ? histB[histB.length - 1].compositeScore - histB[histB.length - 6].compositeScore : -Infinity;
-        return dB - dA;
-      });
-    }
-    if (sort === "alerts") {
-      return [...themes].sort((a, b) => (alertsByThemeId[b.id] ?? 0) - (alertsByThemeId[a.id] ?? 0) || (b.compositeScore ?? -1) - (a.compositeScore ?? -1));
-    }
-    if (sort === "rs60") {
-      return [...themes].sort((a, b) => (b.rs60 ?? -Infinity) - (a.rs60 ?? -Infinity));
-    }
-    if (sort === "velocity") {
-      const accel = (t: ThemeSummary) =>
-        t.compositeTrend5d != null && t.compositeTrend20d != null
-          ? t.compositeTrend5d - t.compositeTrend20d : -Infinity;
-      return [...themes].sort((a, b) => accel(b) - accel(a));
-    }
-    if (sort === "percentile") {
-      return [...themes].sort((a, b) => (a.scorePercentile30d ?? 1) - (b.scorePercentile30d ?? 1));
-    }
-    if (sort === "confluence") {
-      return [...themes].sort((a, b) => b.confluenceScore - a.confluenceScore);
-    }
-    if (sort === "persistence") {
-      return [...themes].sort((a, b) => b.persistenceScore - a.persistenceScore);
-    }
-    if (sort === "iqs") {
-      return [...themes].sort((a, b) => b.investmentQualityScore - a.investmentQualityScore);
-    }
-    return sortedByScore;
-  })();
-
-  // Rank from 5 days ago: sort by score at history[length - 6] (index 0 = oldest when 30 fetched)
-  const LOOKBACK = 5;
-  const priorRankById: Record<string, number> = {};
-  const priorSorted = [...themes]
-    .map(t => {
-      const hist = historiesByThemeId[t.id] ?? [];
-      const idx = hist.length - 1 - LOOKBACK;
-      const score = idx >= 0 ? hist[idx].compositeScore : null;
-      return { id: t.id, score };
-    })
-    .filter(x => x.score != null)
-    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-  priorSorted.forEach((x, rank) => { priorRankById[x.id] = rank + 1; });
+  const sorted = sortThemes(themes, sort, historiesByThemeId, alertsByThemeId);
+  const priorRankById = priorScoreRanks(themes, historiesByThemeId);
 
   const columnCount = view === "full" ? 23 : view === "standard" ? 17 : 11;
 

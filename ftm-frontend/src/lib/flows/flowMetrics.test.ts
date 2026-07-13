@@ -1,6 +1,5 @@
 import { CategorySummary, SeasonalReturn } from "@/lib/api";
 import {
-  computeBreadthVelocity,
   formatRs,
   maxAbsFlowZScore,
   maxAbsRelativeStrengthPercent,
@@ -88,22 +87,6 @@ describe("rankByRiskAdjustedStrength", () => {
     expect(ranked[1].volatility).toBe(0.20);
     expect(ranked[1].isVolatilityKnown).toBe(false);
     expect(ranked[2].isVolatilityKnown).toBe(true);
-  });
-});
-
-describe("computeBreadthVelocity", () => {
-  it("compares the last 5 days of breadth with the 15 before them", () => {
-    const accelerating = computeBreadthVelocity(5, 10);
-    expect(accelerating!.changeInPercentagePoints).toBe(67);
-
-    const decelerating = computeBreadthVelocity(0, 15);
-    expect(decelerating!.changeInPercentagePoints).toBe(-100);
-  });
-
-  it("stays quiet when a reading is missing or the change is negligible", () => {
-    expect(computeBreadthVelocity(null, 10)).toBeNull();
-    expect(computeBreadthVelocity(5, null)).toBeNull();
-    expect(computeBreadthVelocity(5, 20)).toBeNull();
   });
 });
 

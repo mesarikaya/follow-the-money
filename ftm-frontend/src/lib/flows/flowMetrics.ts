@@ -70,30 +70,6 @@ export const rankByRiskAdjustedStrength = (categories: CategorySummary[]): RiskA
 export const maxAbsSharpeProxy = (ranked: RiskAdjustedCategory[]): number =>
   Math.max(Math.abs(ranked[0].sharpeProxy), Math.abs(ranked[ranked.length - 1].sharpeProxy), 0.5);
 
-export type BreadthVelocity = {
-  recentRate: number;
-  priorRate: number;
-  changeInPercentagePoints: number;
-};
-
-const MIN_REPORTABLE_VELOCITY_POINTS = 5;
-
-/**
- * How the last 5 days of breadth compare with the 15 before them. Null when either reading is
- * missing or the change is too small to be worth showing.
- */
-export const computeBreadthVelocity = (
-  persistence5d: number | null,
-  persistence20d: number | null,
-): BreadthVelocity | null => {
-  if (persistence5d == null || persistence20d == null) return null;
-  const recentRate = persistence5d / 5;
-  const priorRate = (persistence20d - persistence5d) / 15;
-  const changeInPercentagePoints = Math.round((recentRate - priorRate) * 100);
-  if (Math.abs(changeInPercentagePoints) < MIN_REPORTABLE_VELOCITY_POINTS) return null;
-  return { recentRate, priorRate, changeInPercentagePoints };
-};
-
 export type SeasonalEntry = { category: CategorySummary; seasonal: SeasonalReturn };
 export type SeasonalWinds = { tailwinds: SeasonalEntry[]; headwinds: SeasonalEntry[] };
 

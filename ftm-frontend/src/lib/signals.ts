@@ -35,6 +35,30 @@ export function countBuyConditions(cat: SignalSource): number {
   return count;
 }
 
+export type BreadthVelocity = {
+  recentRate: number;
+  priorRate: number;
+  changeInPercentagePoints: number;
+};
+
+const MIN_REPORTABLE_VELOCITY_POINTS = 5;
+
+/**
+ * How the last 5 days of breadth compare with the 15 before them. Null when either reading is
+ * missing or the change is too small to be worth showing.
+ */
+export function computeBreadthVelocity(
+  persistence5d: number | null,
+  persistence20d: number | null,
+): BreadthVelocity | null {
+  if (persistence5d == null || persistence20d == null) return null;
+  const recentRate = persistence5d / 5;
+  const priorRate = (persistence20d - persistence5d) / 15;
+  const changeInPercentagePoints = Math.round((recentRate - priorRate) * 100);
+  if (Math.abs(changeInPercentagePoints) < MIN_REPORTABLE_VELOCITY_POINTS) return null;
+  return { recentRate, priorRate, changeInPercentagePoints };
+}
+
 export function missingBuyConditions(cat: SignalSource): string[] {
   const score = cat.compositeScore ?? 0;
   const quadrant = cat.rrgQuadrant != null ? Number(cat.rrgQuadrant) : null;

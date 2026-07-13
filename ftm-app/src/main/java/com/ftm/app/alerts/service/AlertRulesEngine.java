@@ -1,6 +1,7 @@
 package com.ftm.app.alerts.service;
 
 import com.ftm.app.alerts.evaluator.AlertEvaluationContext;
+import com.ftm.app.alerts.evaluator.RotationEventAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemePhaseBreakoutEntryAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemePhaseFadingAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemeRecoverySignalAlertEvaluator;
@@ -170,6 +171,7 @@ public class AlertRulesEngine {
   private final ThemePhaseBreakoutEntryAlertEvaluator themePhaseBreakoutEntryAlertEvaluator;
   private final ThemePhaseFadingAlertEvaluator themePhaseFadingAlertEvaluator;
   private final ThemeRecoverySignalAlertEvaluator themeRecoverySignalAlertEvaluator;
+  private final RotationEventAlertEvaluator rotationEventAlertEvaluator;
 
   public AlertRulesEngine(
       AlertRepository alertRepository,
@@ -207,7 +209,8 @@ public class AlertRulesEngine {
       SubSectorBreadthAlertEvaluator subSectorBreadthAlertEvaluator,
       ThemePhaseBreakoutEntryAlertEvaluator themePhaseBreakoutEntryAlertEvaluator,
       ThemePhaseFadingAlertEvaluator themePhaseFadingAlertEvaluator,
-      ThemeRecoverySignalAlertEvaluator themeRecoverySignalAlertEvaluator) {
+      ThemeRecoverySignalAlertEvaluator themeRecoverySignalAlertEvaluator,
+      RotationEventAlertEvaluator rotationEventAlertEvaluator) {
     this.alertRepository = alertRepository;
     this.alertRulesRepository = alertRulesRepository;
     this.rotationEventRepository = rotationEventRepository;
@@ -244,6 +247,7 @@ public class AlertRulesEngine {
     this.themePhaseBreakoutEntryAlertEvaluator = themePhaseBreakoutEntryAlertEvaluator;
     this.themePhaseFadingAlertEvaluator = themePhaseFadingAlertEvaluator;
     this.themeRecoverySignalAlertEvaluator = themeRecoverySignalAlertEvaluator;
+    this.rotationEventAlertEvaluator = rotationEventAlertEvaluator;
   }
 
   @EventListener
@@ -262,7 +266,7 @@ public class AlertRulesEngine {
         new AlertEvaluationContext(signalDate, topLevelCategoryIds, equityCategoryIds);
 
     int alertsCreated = 0;
-    alertsCreated += evaluateRotationEventAlerts(signalDate);
+    alertsCreated += rotationEventAlertEvaluator.evaluate(context);
     alertsCreated += macroRegimeShiftAlertEvaluator.evaluate(context);
     alertsCreated += rsAccelerationCrossoverAlertEvaluator.evaluate(context);
     alertsCreated += persistenceLowAlertEvaluator.evaluate(context);
@@ -438,135 +442,6 @@ public class AlertRulesEngine {
       log.info("Resolved {} stale alert(s) for date={}", resolved, signalDate);
     }
     return resolved;
-  }
-
-  private int evaluateRotationEventAlerts(LocalDate signalDate) {
-    List<RotationEvent> recentRotationEvents = rotationEventRepository.findRecentEvents(signalDate);
-    List<RotationEvent> todaysEvents =
-        recentRotationEvents.stream().filter(e -> e.detectedDate().equals(signalDate)).toList();
-
-    Optional<AlertRule> rrgRule = alertRulesRepository.findById(RULE_RRG_TRANSITION);
-    Optional<AlertRule> breakoutRule = alertRulesRepository.findById(RULE_COMPOSITE_BREAKOUT);
-    Optional<AlertRule> breakdownRule = alertRulesRepository.findById(RULE_COMPOSITE_BREAKDOWN);
-    Optional<AlertRule> flowSurgeRule = alertRulesRepository.findById(RULE_FLOW_SURGE);
-
-    boolean rrgRuleEnabled = rrgRule.map(AlertRule::enabled).orElse(false);
-    boolean breakoutRuleEnabled = breakoutRule.map(AlertRule::enabled).orElse(false);
-    boolean breakdownRuleEnabled = breakdownRule.map(AlertRule::enabled).orElse(false);
-    boolean flowSurgeRuleEnabled = flowSurgeRule.map(AlertRule::enabled).orElse(false);
-    Severity rrgSeverity = rrgRule.map(AlertRule::severity).orElse(Severity.INFO);
-    Severity breakoutSeverity = breakoutRule.map(AlertRule::severity).orElse(Severity.ACTION);
-    Severity breakdownSeverity = breakdownRule.map(AlertRule::severity).orElse(Severity.WARNING);
-    Severity flowSurgeSeverity = flowSurgeRule.map(AlertRule::severity).orElse(Severity.INFO);
-
-    int count = 0;
-    for (RotationEvent rotationEvent : todaysEvents) {
-      String categoryId = rotationEvent.categoryId().name();
-
-      if (rrgRuleEnabled && isRrgTransitionEvent(rotationEvent.eventType())) {
-        if (!alertRepository.existsActiveAlert(RULE_RRG_TRANSITION, categoryId)) {
-          alertRepository.insert(
-              new Alert(
-                  OffsetDateTime.now(),
-                  rotationEvent.categoryId(),
-                  RULE_RRG_TRANSITION,
-                  rrgSeverity,
-                  buildRrgTransitionMessage(rotationEvent),
-                  buildRrgSnapshot(rotationEvent),
-                  AlertStatus.ACTIVE));
-          count++;
-        }
-      }
-
-      if (breakoutRuleEnabled
-          && rotationEvent.eventType() == RotationEventType.COMPOSITE_BREAKOUT) {
-        if (!alertRepository.existsActiveAlert(RULE_COMPOSITE_BREAKOUT, categoryId)) {
-          int scorePercent = Math.round(rotationEvent.confidence().floatValue() * 100);
-          alertRepository.insert(
-              new Alert(
-                  OffsetDateTime.now(),
-                  rotationEvent.categoryId(),
-                  RULE_COMPOSITE_BREAKOUT,
-                  breakoutSeverity,
-                  String.format(
-                      "%s composite score reached %d — crossed breakout threshold (70)",
-                      categoryId, scorePercent),
-                  buildBreakoutSnapshot(rotationEvent),
-                  AlertStatus.ACTIVE));
-          count++;
-        }
-      }
-
-      if (breakdownRuleEnabled
-          && rotationEvent.eventType() == RotationEventType.COMPOSITE_BREAKDOWN) {
-        if (!alertRepository.existsActiveAlert(RULE_COMPOSITE_BREAKDOWN, categoryId)) {
-          long scorePercent = Math.round((1.0 - rotationEvent.confidence().doubleValue()) * 100);
-          alertRepository.insert(
-              new Alert(
-                  OffsetDateTime.now(),
-                  rotationEvent.categoryId(),
-                  RULE_COMPOSITE_BREAKDOWN,
-                  breakdownSeverity,
-                  String.format(
-                      "%s composite score fell to %d — crossed REDUCE threshold (35)",
-                      categoryId, scorePercent),
-                  buildBreakoutSnapshot(rotationEvent),
-                  AlertStatus.ACTIVE));
-          count++;
-        }
-      }
-
-      if (flowSurgeRuleEnabled && rotationEvent.eventType() == RotationEventType.FLOW_SURGE) {
-        if (!alertRepository.existsActiveAlert(RULE_FLOW_SURGE, categoryId)) {
-          alertRepository.insert(
-              new Alert(
-                  OffsetDateTime.now(),
-                  rotationEvent.categoryId(),
-                  RULE_FLOW_SURGE,
-                  flowSurgeSeverity,
-                  String.format(
-                      "%s flow z-score crossed 2σ — unusual institutional inflow activity detected",
-                      categoryId),
-                  rotationEvent.signalSnapshot(),
-                  AlertStatus.ACTIVE));
-          count++;
-          log.info("flow_surge alert: category={} signalDate={}", categoryId, signalDate);
-        }
-      }
-    }
-    return count;
-  }
-
-  private boolean isRrgTransitionEvent(RotationEventType eventType) {
-    return eventType == RotationEventType.ENTERING_IMPROVING
-        || eventType == RotationEventType.ENTERING_LEADING
-        || eventType == RotationEventType.ENTERING_WEAKENING
-        || eventType == RotationEventType.ENTERING_LAGGING;
-  }
-
-  private String buildRrgTransitionMessage(RotationEvent rotationEvent) {
-    String transitionDescription =
-        switch (rotationEvent.eventType()) {
-          case ENTERING_LEADING -> "entered Leading quadrant (Improving → Leading)";
-          case ENTERING_WEAKENING ->
-              "entered Weakening quadrant (Leading → Weakening) — rotation peak";
-          case ENTERING_LAGGING ->
-              "entered Lagging quadrant (Weakening → Lagging) — losing relative strength";
-          default -> "entered Improving quadrant — strengthening momentum";
-        };
-    return String.format("%s %s", rotationEvent.categoryId().name(), transitionDescription);
-  }
-
-  private String buildRrgSnapshot(RotationEvent rotationEvent) {
-    return String.format(
-        "{\"eventType\":\"%s\",\"confidence\":%.3f,\"detectedDate\":\"%s\"}",
-        rotationEvent.eventType().name(), rotationEvent.confidence(), rotationEvent.detectedDate());
-  }
-
-  private String buildBreakoutSnapshot(RotationEvent rotationEvent) {
-    return String.format(
-        "{\"eventType\":\"%s\",\"confidence\":%.3f,\"detectedDate\":\"%s\"}",
-        rotationEvent.eventType().name(), rotationEvent.confidence(), rotationEvent.detectedDate());
   }
 
   /**

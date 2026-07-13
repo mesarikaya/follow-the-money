@@ -22,6 +22,7 @@ import com.ftm.app.alerts.evaluator.RsAccelerationCrossoverAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsAlignedAlertEvaluator;
 import com.ftm.app.alerts.evaluator.RsBreadthExtremeAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ScoreApproachingSignalEvaluator;
+import com.ftm.app.alerts.evaluator.RotationEventAlertEvaluator;
 import com.ftm.app.alerts.evaluator.SubSectorBreadthAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemePhaseBreakoutEntryAlertEvaluator;
 import com.ftm.app.alerts.evaluator.ThemePhaseFadingAlertEvaluator;
@@ -160,7 +161,9 @@ class AlertRulesEngineTest {
             new ThemePhaseFadingAlertEvaluator(
                 alertRulesRepository, alertRepository, themeSignalReader),
             new ThemeRecoverySignalAlertEvaluator(
-                alertRulesRepository, alertRepository, themeSignalReader));
+                alertRulesRepository, alertRepository, themeSignalReader),
+            new RotationEventAlertEvaluator(
+                alertRulesRepository, alertRepository, rotationEventRepository));
     // resolveStaleAlerts always calls these; lenient prevents PotentialStubbingProblem
     // in tests that stub other SignalTypes (RS_60, RS_120, MACRO_REGIME).
     // Tests that need meaningful values for these types override these stubs inline.

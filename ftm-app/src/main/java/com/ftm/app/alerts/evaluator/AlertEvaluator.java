@@ -10,6 +10,13 @@ package com.ftm.app.alerts.evaluator;
  */
 public interface AlertEvaluator {
 
+  /**
+   * The position of a rule whose alerts other rules read within the same pass. Only
+   * {@code trade_signal_buy} is such a rule: three others suppress themselves when it has fired, so
+   * it has to fire first.
+   */
+  int RUNS_FIRST = Integer.MIN_VALUE;
+
   /** The position of a rule that must see what every other rule created. */
   int RUNS_LAST = Integer.MAX_VALUE;
 
@@ -19,8 +26,11 @@ public interface AlertEvaluator {
   int evaluate(AlertEvaluationContext context);
 
   /**
-   * Rules are independent of each other and run in no meaningful order — except the meta-alert that
-   * counts the alerts the others have just created, which has to run after them.
+   * Rules are independent of each other and run in no meaningful order — with two exceptions, and
+   * both of them are read-after-write inside a single pass: a rule whose alerts others check must
+   * run before them ({@link #RUNS_FIRST}), and the meta-alert that counts what everything else
+   * created must run after them ({@link #RUNS_LAST}). Pin an order only for a real dependency like
+   * those; the rest genuinely do not care.
    *
    * @return where this rule runs in the pass; lower goes first
    */

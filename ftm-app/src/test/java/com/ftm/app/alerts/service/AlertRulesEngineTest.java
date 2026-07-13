@@ -3,6 +3,7 @@ package com.ftm.app.alerts.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.instancio.Select.field;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -167,6 +168,11 @@ class AlertRulesEngineTest {
                 new ThemeScorePriceDivergenceAlertEvaluator(
                 alertRulesRepository, themeRepository, signalRepository, alertRepository),
                 new MultiAlertBullConfluenceAlertEvaluator(alertRulesRepository, alertRepository)));
+    // Every rule asks whether it is enabled. A rule a test says nothing about is simply off, but
+    // Mockito's strict stubbing would rather throw than assume that, so say it explicitly — the
+    // rules run in whatever order Spring hands them over, and a test cannot know which asks first.
+    lenient().when(alertRulesRepository.findById(anyString())).thenReturn(Optional.empty());
+
     // resolveStaleAlerts always calls these; lenient prevents PotentialStubbingProblem
     // in tests that stub other SignalTypes (RS_60, RS_120, MACRO_REGIME).
     // Tests that need meaningful values for these types override these stubs inline.

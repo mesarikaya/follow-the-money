@@ -1,5 +1,6 @@
 import { CategorySummary, RotationEventEntry, RotationLeaderEntry } from "@/lib/api";
-import { computeBreadthVelocity, formatRs } from "@/lib/flows/flowMetrics";
+import { formatRs } from "@/lib/flows/flowMetrics";
+import { computeBreadthVelocity } from "@/lib/signals";
 
 /** The row types the capital-flows page stacks inside its panels. */
 

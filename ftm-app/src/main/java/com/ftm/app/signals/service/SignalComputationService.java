@@ -1,65 +1,59 @@
 package com.ftm.app.signals.service;
 
-import static com.ftm.app.jooq.Tables.BENCHMARK_PRICES;
-import static com.ftm.app.jooq.Tables.RAW_PRICES;
-
 import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.domain.Category;
-import com.ftm.app.domain.SignalType;
 import com.ftm.app.signals.domain.MacroRegime;
 import com.ftm.app.signals.event.SignalsUpdatedEvent;
+import com.ftm.app.signals.repository.PriceHistoryRepository;
 import com.ftm.app.signals.repository.SignalRepository;
+import com.ftm.app.signals.repository.SignalRepository.Row;
+import com.ftm.app.signals.service.DailySignalComputer.MarketContext;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.*;
-import java.util.Arrays;
-import java.util.stream.Collectors;
-import org.jooq.DSLContext;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Brings the signal table up to date: work out which trading days are missing, compute every signal
+ * for each of them, write them in chunks, derive the composite trends, and tell the rest of the app
+ * that new signals have landed.
+ */
 @Service
 public class SignalComputationService {
 
   private static final Logger log = LoggerFactory.getLogger(SignalComputationService.class);
 
-  private static final int LOOKBACK_DAYS = 365;
-  private static final int MOM_LAG = 10;
-  private static final int RRG_RS_PERIOD = 20;
-  private static final int RRG_RATIO_EMA = 10;
-  private static final int RRG_MOM_EMA = 5;
   private static final int UPSERT_CHUNK_SIZE = 5_000;
-
-  private record DatePrice(LocalDate date, BigDecimal price, Long volume) {}
 
   private final CategoryRepository categoryRepository;
   private final SignalRepository signalRepository;
-  private final RelativeStrengthCalculator rsCalc;
-  private final RrgCalculator rrgCalc;
+  private final PriceHistoryRepository priceHistoryRepository;
   private final MacroRegimeService macroRegimeService;
-  private final CompositeScoreService compositeScoreService;
-  private final DSLContext dsl;
+  private final DailySignalComputer dailySignalComputer;
+  private final CompositeTrendComputer compositeTrendComputer;
   private final ApplicationEventPublisher events;
 
   public SignalComputationService(
       CategoryRepository categoryRepository,
       SignalRepository signalRepository,
-      RelativeStrengthCalculator rsCalc,
-      RrgCalculator rrgCalc,
+      PriceHistoryRepository priceHistoryRepository,
       MacroRegimeService macroRegimeService,
-      CompositeScoreService compositeScoreService,
-      DSLContext dsl,
+      DailySignalComputer dailySignalComputer,
+      CompositeTrendComputer compositeTrendComputer,
       ApplicationEventPublisher events) {
     this.categoryRepository = categoryRepository;
     this.signalRepository = signalRepository;
-    this.rsCalc = rsCalc;
-    this.rrgCalc = rrgCalc;
+    this.priceHistoryRepository = priceHistoryRepository;
     this.macroRegimeService = macroRegimeService;
-    this.compositeScoreService = compositeScoreService;
-    this.dsl = dsl;
+    this.dailySignalComputer = dailySignalComputer;
+    this.compositeTrendComputer = compositeTrendComputer;
     this.events = events;
   }
 
@@ -71,26 +65,13 @@ public class SignalComputationService {
       return;
     }
 
+    List<Category> categories = categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc();
     Optional<LocalDate> latestSignalDate = signalRepository.findLatestSignalDate();
     List<LocalDate> datesToProcess =
-        latestSignalDate
-            .map(lastDate -> allTradeDates.stream().filter(d -> d.isAfter(lastDate)).toList())
-            .orElse(allTradeDates);
-
-    List<Category> categories = categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc();
-
+        datesToProcess(allTradeDates, latestSignalDate, categories);
     if (datesToProcess.isEmpty()) {
-      Set<String> categoryIdsWithSignals = signalRepository.findAllCategoryIdsWithSignals();
-      boolean hasNewCategories =
-          categories.stream().anyMatch(c -> !categoryIdsWithSignals.contains(c.id().name()));
-      if (!hasNewCategories) {
-        log.info("Signals are up to date through {} — nothing to compute", latestSignalDate.get());
-        return;
-      }
-      log.info(
-          "New categories detected without signals — running full historical backfill for all {} trade dates",
-          allTradeDates.size());
-      datesToProcess = allTradeDates;
+      log.info("Signals are up to date through {} — nothing to compute", latestSignalDate.get());
+      return;
     }
 
     LocalDate latestDate = datesToProcess.get(datesToProcess.size() - 1);
@@ -101,126 +82,11 @@ public class SignalComputationService {
         latestDate,
         latestSignalDate.orElse(null));
 
-    if (datesToProcess.size() > 1) {
-      log.warn(
-          "Historical backfill uses the CURRENT macro regime ({}) for all {} dates. "
-              + "Backtesting results covering different market regimes may be biased.",
-          macroRegimeService.classifyCurrentRegime(),
-          datesToProcess.size());
-    }
-    Map<String, List<DatePrice>> categoryPricesByCategory = loadAllCategoryPricesWithDates();
-    Map<String, List<DatePrice>> benchmarkPricesByTicker = loadAllBenchmarkPricesWithDates();
-
     MacroRegime currentRegime = macroRegimeService.classifyCurrentRegime();
-    Map<String, BigDecimal> macroFitByCategoryId =
-        macroRegimeService.computeMacroFitByCategory(currentRegime);
-    BigDecimal regimeOrdinal = BigDecimal.valueOf(currentRegime.ordinal());
+    warnIfBackfillingAcrossRegimes(datesToProcess, currentRegime);
 
-    List<SignalRepository.Row> pendingRows = new ArrayList<>();
-    int totalWritten = 0;
-
-    for (LocalDate signalDate : datesToProcess) {
-      LocalDate windowStart = signalDate.minusDays(LOOKBACK_DAYS);
-
-      Map<String, BigDecimal> rs60ByCategoryId = new HashMap<>();
-      Map<String, BigDecimal> rs120ByCategoryId = new HashMap<>();
-      Map<String, BigDecimal> persistence20dByCategoryId = new HashMap<>();
-      Map<String, BigDecimal> momentumByCategoryId = new HashMap<>();
-      Map<String, BigDecimal> rrgQuadrantByCategoryId = new HashMap<>();
-      Map<String, BigDecimal> flow20dByCategoryId = new HashMap<>();
-
-      for (Category category : categories) {
-        String categoryId = category.id().name();
-        List<DatePrice> categoryDatePrices =
-            extractWindowRows(categoryPricesByCategory.get(categoryId), windowStart, signalDate);
-        List<BigDecimal> categoryPrices =
-            categoryDatePrices.stream().map(DatePrice::price).toList();
-        List<BigDecimal> benchmarkPrices =
-            extractPricesInWindow(
-                benchmarkPricesByTicker.get(category.benchmarkTicker()), windowStart, signalDate);
-
-        BigDecimal rs20 = rsCalc.computeRs(categoryPrices, benchmarkPrices, 20);
-        BigDecimal rs60 = rsCalc.computeRs(categoryPrices, benchmarkPrices, 60);
-        BigDecimal rs120 = rsCalc.computeRs(categoryPrices, benchmarkPrices, 120);
-        BigDecimal momentum = rsCalc.computeMom(categoryPrices, benchmarkPrices, MOM_LAG);
-        BigDecimal persistence5d = rsCalc.computePersistence(categoryPrices, benchmarkPrices, 5);
-        BigDecimal persistence20d = rsCalc.computePersistence(categoryPrices, benchmarkPrices, 20);
-
-        addIfNotNull(pendingRows, signalDate, categoryId, SignalType.RS_20, rs20);
-        addIfNotNull(pendingRows, signalDate, categoryId, SignalType.RS_60, rs60);
-        addIfNotNull(pendingRows, signalDate, categoryId, SignalType.RS_120, rs120);
-        addIfNotNull(pendingRows, signalDate, categoryId, SignalType.MOM, momentum);
-        addIfNotNull(pendingRows, signalDate, categoryId, SignalType.PERSISTENCE_5D, persistence5d);
-        addIfNotNull(
-            pendingRows, signalDate, categoryId, SignalType.PERSISTENCE_20D, persistence20d);
-
-        BigDecimal flow20d = computeDollarVolumeZScore(categoryDatePrices, 20);
-        addIfNotNull(pendingRows, signalDate, categoryId, SignalType.FLOW_20D, flow20d);
-
-        if (rs60 != null) rs60ByCategoryId.put(categoryId, rs60);
-        if (rs120 != null) rs120ByCategoryId.put(categoryId, rs120);
-        if (persistence20d != null) persistence20dByCategoryId.put(categoryId, persistence20d);
-        if (momentum != null) momentumByCategoryId.put(categoryId, momentum);
-        if (flow20d != null) flow20dByCategoryId.put(categoryId, flow20d);
-
-        List<BigDecimal> rs20Series =
-            rsCalc.computeRsSeries(categoryPrices, benchmarkPrices, RRG_RS_PERIOD);
-        List<BigDecimal> ratioSeries = rrgCalc.computeRatioSeries(rs20Series, RRG_RATIO_EMA);
-        List<BigDecimal> momentumSeries = rrgCalc.computeMomentumSeries(ratioSeries, RRG_MOM_EMA);
-        BigDecimal latestRatio = lastNonNull(ratioSeries);
-        BigDecimal latestRrgMom = lastNonNull(momentumSeries);
-
-        addIfNotNull(pendingRows, signalDate, categoryId, SignalType.RRG_RATIO, latestRatio);
-        addIfNotNull(pendingRows, signalDate, categoryId, SignalType.RRG_MOM, latestRrgMom);
-        if (latestRatio != null && latestRrgMom != null) {
-          BigDecimal quadrant =
-              BigDecimal.valueOf(rrgCalc.computeQuadrant(latestRatio, latestRrgMom));
-          pendingRows.add(
-              new SignalRepository.Row(signalDate, categoryId, SignalType.RRG_QUADRANT, quadrant));
-          rrgQuadrantByCategoryId.put(categoryId, quadrant);
-        }
-      }
-
-      Map<String, BigDecimal> compositeScoresByCategoryId =
-          compositeScoreService.computeCompositeScores(
-              rs60ByCategoryId,
-              rs120ByCategoryId,
-              persistence20dByCategoryId,
-              flow20dByCategoryId,
-              momentumByCategoryId,
-              macroFitByCategoryId,
-              rrgQuadrantByCategoryId);
-
-      for (Category category : categories) {
-        String categoryId = category.id().name();
-        if (category.parentId() == null) {
-          pendingRows.add(
-              new SignalRepository.Row(
-                  signalDate, categoryId, SignalType.MACRO_REGIME, regimeOrdinal));
-          addIfNotNull(
-              pendingRows,
-              signalDate,
-              categoryId,
-              SignalType.MACRO_FIT,
-              macroFitByCategoryId.get(categoryId));
-        }
-        addIfNotNull(
-            pendingRows,
-            signalDate,
-            categoryId,
-            SignalType.COMPOSITE,
-            compositeScoresByCategoryId.get(categoryId));
-      }
-
-      if (pendingRows.size() >= UPSERT_CHUNK_SIZE) {
-        totalWritten += signalRepository.batchUpsert(pendingRows);
-        pendingRows.clear();
-      }
-    }
-
-    if (!pendingRows.isEmpty()) {
-      totalWritten += signalRepository.batchUpsert(pendingRows);
-    }
+    MarketContext context = loadMarketContext(categories, currentRegime);
+    int totalWritten = computeAndWrite(datesToProcess, context);
 
     log.info(
         "Signal computation complete: {} signals written for {} dates, regime={}",
@@ -228,142 +94,72 @@ public class SignalComputationService {
         datesToProcess.size(),
         currentRegime);
 
-    int trendSignals = computeAndStoreTrends();
-    log.info("Composite trend signals stored: {}", trendSignals);
+    log.info("Composite trend signals stored: {}", compositeTrendComputer.computeAndStore());
 
     events.publishEvent(new SignalsUpdatedEvent(latestDate));
   }
 
-  private int computeAndStoreTrends() {
-    List<SignalRepository.Row> allComposites = signalRepository.findAllByType(SignalType.COMPOSITE);
-    if (allComposites.isEmpty()) return 0;
+  /**
+   * The trading days still missing signals. Normally that is everything after the last signal date —
+   * but a category added later has no history at all, which forces a full backfill.
+   */
+  private List<LocalDate> datesToProcess(
+      List<LocalDate> allTradeDates,
+      Optional<LocalDate> latestSignalDate,
+      List<Category> categories) {
+    List<LocalDate> newDates =
+        latestSignalDate
+            .map(lastDate -> allTradeDates.stream().filter(date -> date.isAfter(lastDate)).toList())
+            .orElse(allTradeDates);
+    if (!newDates.isEmpty()) return newDates;
 
-    Map<String, List<SignalRepository.Row>> byCategory =
-        allComposites.stream()
-            .collect(
-                Collectors.groupingBy(
-                    SignalRepository.Row::categoryId, LinkedHashMap::new, Collectors.toList()));
+    if (!hasCategoryWithoutSignals(categories)) return List.of();
+    log.info(
+        "New categories detected without signals — running full historical backfill for all {} trade dates",
+        allTradeDates.size());
+    return allTradeDates;
+  }
 
-    int[] lags = {5, 10, 20};
-    SignalType[] trendTypes = {
-      SignalType.COMPOSITE_TREND_5D, SignalType.COMPOSITE_TREND_10D, SignalType.COMPOSITE_TREND_20D
-    };
+  private boolean hasCategoryWithoutSignals(List<Category> categories) {
+    Set<String> categoryIdsWithSignals = signalRepository.findAllCategoryIdsWithSignals();
+    return categories.stream()
+        .anyMatch(category -> !categoryIdsWithSignals.contains(category.id().name()));
+  }
 
-    List<SignalRepository.Row> trendRows = new ArrayList<>();
+  private void warnIfBackfillingAcrossRegimes(
+      List<LocalDate> datesToProcess, MacroRegime currentRegime) {
+    if (datesToProcess.size() <= 1) return;
+    log.warn(
+        "Historical backfill uses the CURRENT macro regime ({}) for all {} dates. "
+            + "Backtesting results covering different market regimes may be biased.",
+        currentRegime,
+        datesToProcess.size());
+  }
 
-    for (Map.Entry<String, List<SignalRepository.Row>> entry : byCategory.entrySet()) {
-      String categoryId = entry.getKey();
-      List<SignalRepository.Row> composites = entry.getValue();
+  private MarketContext loadMarketContext(List<Category> categories, MacroRegime currentRegime) {
+    return new MarketContext(
+        categories,
+        priceHistoryRepository.findCategoryPricesByCategoryId(),
+        priceHistoryRepository.findBenchmarkPricesByTicker(),
+        macroRegimeService.computeMacroFitByCategory(currentRegime),
+        BigDecimal.valueOf(currentRegime.ordinal()));
+  }
 
-      for (int li = 0; li < lags.length; li++) {
-        int lag = lags[li];
-        SignalType trendType = trendTypes[li];
+  /** Writes in chunks so a long backfill does not hold every row in memory at once. */
+  private int computeAndWrite(List<LocalDate> datesToProcess, MarketContext context) {
+    List<Row> pendingRows = new ArrayList<>();
+    int totalWritten = 0;
 
-        for (int j = lag; j < composites.size(); j++) {
-          BigDecimal current = composites.get(j).value();
-          BigDecimal prior = composites.get(j - lag).value();
-          if (current != null && prior != null) {
-            trendRows.add(
-                new SignalRepository.Row(
-                    composites.get(j).signalDate(),
-                    categoryId,
-                    trendType,
-                    current.subtract(prior)));
-          }
-        }
+    for (LocalDate signalDate : datesToProcess) {
+      pendingRows.addAll(dailySignalComputer.compute(signalDate, context));
+      if (pendingRows.size() >= UPSERT_CHUNK_SIZE) {
+        totalWritten += signalRepository.batchUpsert(pendingRows);
+        pendingRows.clear();
       }
     }
-
-    return trendRows.isEmpty() ? 0 : signalRepository.batchUpsert(trendRows);
-  }
-
-  private Map<String, List<DatePrice>> loadAllCategoryPricesWithDates() {
-    return dsl
-        .select(
-            RAW_PRICES.CATEGORY_ID, RAW_PRICES.TRADE_DATE, RAW_PRICES.ADJ_CLOSE, RAW_PRICES.VOLUME)
-        .from(RAW_PRICES)
-        .orderBy(RAW_PRICES.CATEGORY_ID, RAW_PRICES.TRADE_DATE.asc())
-        .fetch()
-        .stream()
-        .collect(
-            Collectors.groupingBy(
-                r -> r.get(RAW_PRICES.CATEGORY_ID),
-                Collectors.mapping(
-                    r ->
-                        new DatePrice(
-                            r.get(RAW_PRICES.TRADE_DATE),
-                            r.get(RAW_PRICES.ADJ_CLOSE),
-                            r.get(RAW_PRICES.VOLUME)),
-                    Collectors.toList())));
-  }
-
-  private Map<String, List<DatePrice>> loadAllBenchmarkPricesWithDates() {
-    return dsl
-        .select(BENCHMARK_PRICES.TICKER, BENCHMARK_PRICES.TRADE_DATE, BENCHMARK_PRICES.ADJ_CLOSE)
-        .from(BENCHMARK_PRICES)
-        .orderBy(BENCHMARK_PRICES.TICKER, BENCHMARK_PRICES.TRADE_DATE.asc())
-        .fetch()
-        .stream()
-        .collect(
-            Collectors.groupingBy(
-                r -> r.get(BENCHMARK_PRICES.TICKER),
-                Collectors.mapping(
-                    r ->
-                        new DatePrice(
-                            r.get(BENCHMARK_PRICES.TRADE_DATE),
-                            r.get(BENCHMARK_PRICES.ADJ_CLOSE),
-                            null),
-                    Collectors.toList())));
-  }
-
-  private List<DatePrice> extractWindowRows(
-      List<DatePrice> allPrices, LocalDate windowStart, LocalDate windowEnd) {
-    if (allPrices == null || allPrices.isEmpty()) return List.of();
-    return allPrices.stream()
-        .filter(dp -> !dp.date().isBefore(windowStart) && !dp.date().isAfter(windowEnd))
-        .toList();
-  }
-
-  private List<BigDecimal> extractPricesInWindow(
-      List<DatePrice> allPrices, LocalDate windowStart, LocalDate windowEnd) {
-    return extractWindowRows(allPrices, windowStart, windowEnd).stream()
-        .map(DatePrice::price)
-        .toList();
-  }
-
-  private BigDecimal computeDollarVolumeZScore(List<DatePrice> window, int period) {
-    if (window.size() < period) return null;
-    List<DatePrice> recent = window.subList(window.size() - period, window.size());
-    double[] dollarVols =
-        recent.stream()
-            .filter(dp -> dp.price() != null && dp.volume() != null && dp.volume() > 0)
-            .mapToDouble(dp -> dp.price().doubleValue() * dp.volume())
-            .toArray();
-    if (dollarVols.length < period) return null;
-    double mean = Arrays.stream(dollarVols).average().orElse(0);
-    double variance = Arrays.stream(dollarVols).map(v -> Math.pow(v - mean, 2)).average().orElse(0);
-    double stdev = Math.sqrt(variance);
-    if (stdev < 1.0) return BigDecimal.ZERO;
-    double current = dollarVols[dollarVols.length - 1];
-    return BigDecimal.valueOf((current - mean) / stdev).setScale(6, java.math.RoundingMode.HALF_UP);
-  }
-
-  private void addIfNotNull(
-      List<SignalRepository.Row> rows,
-      LocalDate date,
-      String categoryId,
-      SignalType type,
-      BigDecimal value) {
-    if (value != null) {
-      rows.add(new SignalRepository.Row(date, categoryId, type, value));
+    if (!pendingRows.isEmpty()) {
+      totalWritten += signalRepository.batchUpsert(pendingRows);
     }
-  }
-
-  private BigDecimal lastNonNull(List<BigDecimal> series) {
-    for (int i = series.size() - 1; i >= 0; i--) {
-      BigDecimal value = series.get(i);
-      if (value != null) return value;
-    }
-    return null;
+    return totalWritten;
   }
 }

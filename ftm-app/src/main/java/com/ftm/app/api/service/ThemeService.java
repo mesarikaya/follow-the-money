@@ -11,136 +11,91 @@ import com.ftm.app.domain.SignalType;
 import com.ftm.app.domain.Theme;
 import com.ftm.app.signals.repository.SignalRepository;
 import com.ftm.app.signals.repository.SignalRepository.DateHistory;
-import com.ftm.app.themes.confluence.ConfluenceInput;
-import com.ftm.app.themes.confluence.ConfluenceResult;
-import com.ftm.app.themes.confluence.ConfluenceScoreService;
-import com.ftm.app.themes.entry.EntryTimingAdvisor;
-import com.ftm.app.themes.entry.EntryTimingContext;
-import com.ftm.app.themes.momentum.MomentumDivergenceClassifier;
-import com.ftm.app.themes.quality.ThemeInvestmentQualityService;
-import com.ftm.app.themes.quality.ThemeQualityContext;
+import com.ftm.app.themes.assembler.ThemeConstituentAssembler;
+import com.ftm.app.themes.assembler.ThemeSummaryAssembler;
 import com.ftm.app.themes.repository.ThemeRepository;
-import com.ftm.app.themes.risk.ThemeRiskAggregator;
-import com.ftm.app.themes.risk.ThemeRiskContext;
-import com.ftm.app.themes.signal.ThemeConcentrationRiskCalculator;
-import com.ftm.app.themes.signal.ThemePersistenceService;
-import com.ftm.app.themes.signal.ThemePhaseClassifier;
 import com.ftm.app.themes.signal.ThemePhaseHistoryService;
-import com.ftm.app.themes.signal.ThemeScorePercentileCalculator;
-import com.ftm.app.themes.signal.ThemeSignalStreakCounter;
-import com.ftm.app.themes.signal.ThemeVolatilityCalculator;
-import com.ftm.app.themes.transition.PhaseTransitionContext;
-import com.ftm.app.themes.transition.PhaseTransitionDetector;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Objects;
-import java.util.OptionalDouble;
 import java.util.stream.Collectors;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
+/**
+ * Serves the theme views. It loads what a theme is made of — its constituents, their latest signals,
+ * their recent history and alerts — and hands that to the assemblers, which turn it into the DTOs
+ * the API returns.
+ */
 @Service
 public class ThemeService {
+
+  private static final int ALERT_LOOKBACK_DAYS = 30;
+  private static final int HISTORY_DAYS = 30;
+  private static final int TOP_CONSTITUENT_COUNT = 3;
+
+  private static final List<SignalType> SIGNAL_TYPES =
+      List.of(
+          SignalType.COMPOSITE,
+          SignalType.RS_60,
+          SignalType.FLOW_20D,
+          SignalType.COMPOSITE_TREND_20D,
+          SignalType.RRG_QUADRANT,
+          SignalType.MACRO_FIT,
+          SignalType.RS_120,
+          SignalType.COMPOSITE_TREND_5D);
 
   private final ThemeRepository themeRepository;
   private final CategoryRepository categoryRepository;
   private final SignalRepository signalRepository;
   private final AlertRepository alertRepository;
-  private final PhaseTransitionDetector phaseTransitionDetector;
-  private final ThemeRiskAggregator themeRiskAggregator;
-  private final EntryTimingAdvisor entryTimingAdvisor;
-  private final MomentumDivergenceClassifier momentumDivergenceClassifier;
-  private final ConfluenceScoreService confluenceScoreService;
-  private final ThemePhaseClassifier themePhaseClassifier;
-  private final ThemeSignalStreakCounter themeSignalStreakCounter;
-  private final ThemeVolatilityCalculator themeVolatilityCalculator;
-  private final ThemeScorePercentileCalculator themeScorePercentileCalculator;
-  private final ThemeConcentrationRiskCalculator themeConcentrationRiskCalculator;
+  private final ThemeConstituentAssembler constituentAssembler;
+  private final ThemeSummaryAssembler summaryAssembler;
   private final ThemePhaseHistoryService themePhaseHistoryService;
-  private final ThemePersistenceService themePersistenceService;
-  private final ThemeInvestmentQualityService themeInvestmentQualityService;
 
   public ThemeService(
       ThemeRepository themeRepository,
       CategoryRepository categoryRepository,
       SignalRepository signalRepository,
       AlertRepository alertRepository,
-      PhaseTransitionDetector phaseTransitionDetector,
-      ThemeRiskAggregator themeRiskAggregator,
-      EntryTimingAdvisor entryTimingAdvisor,
-      MomentumDivergenceClassifier momentumDivergenceClassifier,
-      ConfluenceScoreService confluenceScoreService,
-      ThemePhaseClassifier themePhaseClassifier,
-      ThemeSignalStreakCounter themeSignalStreakCounter,
-      ThemeVolatilityCalculator themeVolatilityCalculator,
-      ThemeScorePercentileCalculator themeScorePercentileCalculator,
-      ThemeConcentrationRiskCalculator themeConcentrationRiskCalculator,
-      ThemePhaseHistoryService themePhaseHistoryService,
-      ThemePersistenceService themePersistenceService,
-      ThemeInvestmentQualityService themeInvestmentQualityService) {
+      ThemeConstituentAssembler constituentAssembler,
+      ThemeSummaryAssembler summaryAssembler,
+      ThemePhaseHistoryService themePhaseHistoryService) {
     this.themeRepository = themeRepository;
     this.categoryRepository = categoryRepository;
     this.signalRepository = signalRepository;
     this.alertRepository = alertRepository;
-    this.phaseTransitionDetector = phaseTransitionDetector;
-    this.themeRiskAggregator = themeRiskAggregator;
-    this.entryTimingAdvisor = entryTimingAdvisor;
-    this.momentumDivergenceClassifier = momentumDivergenceClassifier;
-    this.confluenceScoreService = confluenceScoreService;
-    this.themePhaseClassifier = themePhaseClassifier;
-    this.themeSignalStreakCounter = themeSignalStreakCounter;
-    this.themeVolatilityCalculator = themeVolatilityCalculator;
-    this.themeScorePercentileCalculator = themeScorePercentileCalculator;
-    this.themeConcentrationRiskCalculator = themeConcentrationRiskCalculator;
+    this.constituentAssembler = constituentAssembler;
+    this.summaryAssembler = summaryAssembler;
     this.themePhaseHistoryService = themePhaseHistoryService;
-    this.themePersistenceService = themePersistenceService;
-    this.themeInvestmentQualityService = themeInvestmentQualityService;
+  }
+
+  /** The market-wide data every theme summary is built from — loaded once, reused for each theme. */
+  private record MarketSnapshot(
+      Map<String, List<String>> constituentIdsByTheme,
+      Map<String, Category> categoriesById,
+      Map<SignalType, Map<String, BigDecimal>> signals) {
+
+    Map<String, BigDecimal> latest(SignalType type) {
+      return signals.getOrDefault(type, Collections.emptyMap());
+    }
+
+    List<String> constituentIdsOf(String themeId) {
+      return constituentIdsByTheme.getOrDefault(themeId, List.of());
+    }
   }
 
   @Cacheable("themes-latest")
   public List<ThemeSummaryDto> getThemes() {
-    List<Theme> themes = themeRepository.findAll();
-    Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
-    Map<String, Category> categoriesById = buildCategoryIndex();
-    Map<SignalType, Map<String, BigDecimal>> signals = fetchSignals();
-
-    Map<String, BigDecimal> compositeMap =
-        signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap());
-    Map<String, BigDecimal> trend5dMap =
-        signals.getOrDefault(SignalType.COMPOSITE_TREND_5D, Collections.emptyMap());
-
-    return themes.stream()
+    MarketSnapshot snapshot = loadMarketSnapshot();
+    return themeRepository.findAll().stream()
         .map(
             theme -> {
-              List<String> ids = constituentsByTheme.getOrDefault(theme.id(), List.of());
-              List<ThemeConstituentDto> allConstituents =
-                  buildConstituents(ids, categoriesById, signals);
-              List<ThemeConstituentDto> top3 =
-                  allConstituents.stream()
-                      .filter(c -> c.compositeScore() != null)
-                      .sorted(
-                          Comparator.comparing(
-                              ThemeConstituentDto::compositeScore, Comparator.reverseOrder()))
-                      .limit(3)
-                      .toList();
-              int alertCount =
-                  alertRepository.countRecentByCategoryIds(ids, 30)
-                      + alertRepository.countRecentByThemeId(theme.id(), 30);
-              List<DateHistory> history =
-                  ids.isEmpty() ? List.of() : signalRepository.findAverageHistoryByDate(ids, 30);
-              return toSummary(
-                  theme,
-                  allConstituents,
-                  top3,
-                  categoriesById,
-                  compositeMap,
-                  trend5dMap,
-                  alertCount,
-                  history);
+              List<ThemeConstituentDto> constituents = constituentsOf(theme.id(), snapshot);
+              return summarize(theme, snapshot, constituents, topScoredConstituents(constituents));
             })
         .toList();
   }
@@ -162,47 +117,104 @@ public class ThemeService {
 
   @Cacheable(value = "theme-detail", key = "#themeId")
   public ThemeDetailDto getTheme(String themeId) {
-    List<Theme> themes = themeRepository.findAll();
     Theme theme =
-        themes.stream()
-            .filter(t -> t.id().equals(themeId))
+        themeRepository.findAll().stream()
+            .filter(candidate -> candidate.id().equals(themeId))
             .findFirst()
             .orElseThrow(() -> new NoSuchElementException("Theme not found: " + themeId));
 
-    Map<String, List<String>> constituentsByTheme = themeRepository.findAllConstituentsByTheme();
-    List<String> ids = constituentsByTheme.getOrDefault(themeId, List.of());
-    Map<String, Category> categoriesById = buildCategoryIndex();
-    Map<SignalType, Map<String, BigDecimal>> signals = fetchSignals();
+    MarketSnapshot snapshot = loadMarketSnapshot();
+    List<ThemeConstituentDto> constituents = constituentsOf(themeId, snapshot);
+    List<ThemeConstituentDto> ranked = byCompositeScoreDescending(constituents);
 
-    List<ThemeConstituentDto> constituents = buildConstituents(ids, categoriesById, signals);
-    List<ThemeConstituentDto> sorted =
-        constituents.stream()
-            .sorted(
-                Comparator.comparing(
-                    c -> c.compositeScore() != null ? c.compositeScore() : BigDecimal.ZERO,
-                    Comparator.<BigDecimal>reverseOrder()))
-            .toList();
-
-    Map<String, BigDecimal> compositeMap =
-        signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap());
-    Map<String, BigDecimal> trend5dMap =
-        signals.getOrDefault(SignalType.COMPOSITE_TREND_5D, Collections.emptyMap());
-    int alertCount =
-        alertRepository.countRecentByCategoryIds(ids, 30)
-            + alertRepository.countRecentByThemeId(themeId, 30);
-    List<DateHistory> history =
-        ids.isEmpty() ? List.of() : signalRepository.findAverageHistoryByDate(ids, 30);
     ThemeSummaryDto summary =
-        toSummary(
-            theme,
-            constituents,
-            sorted.stream().limit(3).toList(),
-            categoriesById,
-            compositeMap,
-            trend5dMap,
-            alertCount,
-            history);
-    List<String> phaseHistory30d = themePhaseHistoryService.computeHistory(history);
+        summarize(theme, snapshot, constituents, ranked.stream().limit(TOP_CONSTITUENT_COUNT).toList());
+    List<String> phaseHistory30d =
+        themePhaseHistoryService.computeHistory(recentHistory(snapshot.constituentIdsOf(themeId)));
+
+    return toDetail(summary, ranked, phaseHistory30d);
+  }
+
+  private MarketSnapshot loadMarketSnapshot() {
+    return new MarketSnapshot(
+        themeRepository.findAllConstituentsByTheme(),
+        buildCategoryIndex(),
+        signalRepository.findLatestByTypes(SIGNAL_TYPES));
+  }
+
+  private List<ThemeConstituentDto> constituentsOf(String themeId, MarketSnapshot snapshot) {
+    return constituentAssembler.assemble(
+        snapshot.constituentIdsOf(themeId), snapshot.categoriesById(), snapshot.signals());
+  }
+
+  private ThemeSummaryDto summarize(
+      Theme theme,
+      MarketSnapshot snapshot,
+      List<ThemeConstituentDto> constituents,
+      List<ThemeConstituentDto> topConstituents) {
+    List<String> constituentIds = snapshot.constituentIdsOf(theme.id());
+    return summaryAssembler.assemble(
+        theme,
+        constituents,
+        topConstituents,
+        snapshot.categoriesById(),
+        snapshot.latest(SignalType.COMPOSITE),
+        snapshot.latest(SignalType.COMPOSITE_TREND_5D),
+        countRecentAlerts(theme.id(), constituentIds),
+        recentHistory(constituentIds));
+  }
+
+  /** The strongest few scored constituents, which is all the summary card shows. */
+  private static List<ThemeConstituentDto> topScoredConstituents(
+      List<ThemeConstituentDto> constituents) {
+    return constituents.stream()
+        .filter(constituent -> constituent.compositeScore() != null)
+        .sorted(Comparator.comparing(ThemeConstituentDto::compositeScore, Comparator.reverseOrder()))
+        .limit(TOP_CONSTITUENT_COUNT)
+        .toList();
+  }
+
+  private static List<ThemeConstituentDto> byCompositeScoreDescending(
+      List<ThemeConstituentDto> constituents) {
+    return constituents.stream()
+        .sorted(
+            Comparator.comparing(
+                constituent ->
+                    constituent.compositeScore() != null
+                        ? constituent.compositeScore()
+                        : BigDecimal.ZERO,
+                Comparator.<BigDecimal>reverseOrder()))
+        .toList();
+  }
+
+  /** Alerts raised recently against the theme itself or against any of its constituents. */
+  private int countRecentAlerts(String themeId, List<String> constituentIds) {
+    return alertRepository.countRecentByCategoryIds(constituentIds, ALERT_LOOKBACK_DAYS)
+        + alertRepository.countRecentByThemeId(themeId, ALERT_LOOKBACK_DAYS);
+  }
+
+  private List<DateHistory> recentHistory(List<String> constituentIds) {
+    return constituentIds.isEmpty()
+        ? List.of()
+        : signalRepository.findAverageHistoryByDate(constituentIds, HISTORY_DAYS);
+  }
+
+  private void assertThemeExists(String themeId) {
+    if (!themeRepository.existsById(themeId)) {
+      throw new NoSuchElementException("Theme not found: " + themeId);
+    }
+  }
+
+  private Map<String, Category> buildCategoryIndex() {
+    return categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc().stream()
+        .collect(Collectors.toMap(category -> category.id().name(), category -> category));
+  }
+
+  /** The detail view is the summary plus every constituent and the theme's phase history. */
+  private static ThemeDetailDto toDetail(
+      ThemeSummaryDto summary,
+      List<ThemeConstituentDto> constituents,
+      List<String> phaseHistory30d) {
     return new ThemeDetailDto(
         summary.id(),
         summary.name(),
@@ -217,8 +229,8 @@ public class ThemeService {
         summary.dominantSignal(),
         summary.divergenceFromParentSectors(),
         summary.themePhase(),
-        sorted,
-        alertCount,
+        constituents,
+        summary.alertCount30d(),
         summary.signalStreakDays(),
         summary.phaseStreakDays(),
         summary.volatility30d(),
@@ -236,251 +248,5 @@ public class ThemeService {
         summary.investmentQualityScore(),
         summary.investmentQualityGrade(),
         phaseHistory30d);
-  }
-
-  private void assertThemeExists(String themeId) {
-    if (!themeRepository.existsById(themeId)) {
-      throw new NoSuchElementException("Theme not found: " + themeId);
-    }
-  }
-
-  private Map<String, Category> buildCategoryIndex() {
-    return categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc().stream()
-        .collect(Collectors.toMap(c -> c.id().name(), c -> c));
-  }
-
-  private Map<SignalType, Map<String, BigDecimal>> fetchSignals() {
-    return signalRepository.findLatestByTypes(
-        List.of(
-            SignalType.COMPOSITE,
-            SignalType.RS_60,
-            SignalType.FLOW_20D,
-            SignalType.COMPOSITE_TREND_20D,
-            SignalType.RRG_QUADRANT,
-            SignalType.MACRO_FIT,
-            SignalType.RS_120,
-            SignalType.COMPOSITE_TREND_5D));
-  }
-
-  private List<ThemeConstituentDto> buildConstituents(
-      List<String> categoryIds,
-      Map<String, Category> categoriesById,
-      Map<SignalType, Map<String, BigDecimal>> signals) {
-
-    Map<String, BigDecimal> compositeMap =
-        signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap());
-    Map<String, BigDecimal> rs60Map =
-        signals.getOrDefault(SignalType.RS_60, Collections.emptyMap());
-    Map<String, BigDecimal> flow20dMap =
-        signals.getOrDefault(SignalType.FLOW_20D, Collections.emptyMap());
-    Map<String, BigDecimal> trend20dMap =
-        signals.getOrDefault(SignalType.COMPOSITE_TREND_20D, Collections.emptyMap());
-    Map<String, BigDecimal> rrgMap =
-        signals.getOrDefault(SignalType.RRG_QUADRANT, Collections.emptyMap());
-    Map<String, BigDecimal> macroFitMap =
-        signals.getOrDefault(SignalType.MACRO_FIT, Collections.emptyMap());
-    Map<String, BigDecimal> rs120Map =
-        signals.getOrDefault(SignalType.RS_120, Collections.emptyMap());
-    Map<String, BigDecimal> trend5dMap =
-        signals.getOrDefault(SignalType.COMPOSITE_TREND_5D, Collections.emptyMap());
-
-    return categoryIds.stream()
-        .map(
-            id -> {
-              Category cat = categoriesById.get(id);
-              String name = cat != null ? cat.name() : id;
-              String ticker = cat != null ? cat.etfTicker() : "";
-              String parentId = cat != null && cat.parentId() != null ? cat.parentId() : id;
-              BigDecimal composite = compositeMap.get(id);
-              BigDecimal rs60 = rs60Map.get(id);
-              BigDecimal flow20d = flow20dMap.get(id);
-              BigDecimal trend20d = trend20dMap.get(id);
-              BigDecimal rrgRaw = rrgMap.get(id);
-              String rrg = rrgRaw != null ? String.valueOf(rrgRaw.intValue()) : null;
-              int conviction =
-                  TradeSignalDeriver.convictionScore(
-                      composite,
-                      rrg,
-                      trend20d,
-                      macroFitMap.get(id),
-                      null,
-                      trend5dMap.get(id),
-                      rs60,
-                      rs120Map.get(id),
-                      flow20d,
-                      null);
-              return new ThemeConstituentDto(
-                  id,
-                  parentId,
-                  name,
-                  ticker,
-                  composite,
-                  rs60,
-                  flow20d,
-                  trend5dMap.get(id),
-                  trend20d,
-                  TradeSignalDeriver.derive(composite, rrg, trend20d),
-                  conviction > 0 ? conviction : null);
-            })
-        .toList();
-  }
-
-  private ThemeSummaryDto toSummary(
-      Theme theme,
-      List<ThemeConstituentDto> allConstituents,
-      List<ThemeConstituentDto> topConstituents,
-      Map<String, Category> categoriesById,
-      Map<String, BigDecimal> compositeByCategory,
-      Map<String, BigDecimal> trend5dByCategory,
-      int alertCount30d,
-      List<DateHistory> history) {
-
-    OptionalDouble avgComposite =
-        allConstituents.stream()
-            .filter(c -> c.compositeScore() != null)
-            .mapToDouble(c -> c.compositeScore().doubleValue())
-            .average();
-    OptionalDouble avgRs60 =
-        allConstituents.stream()
-            .filter(c -> c.rs60() != null)
-            .mapToDouble(c -> c.rs60().doubleValue())
-            .average();
-    OptionalDouble avgFlow =
-        allConstituents.stream()
-            .filter(c -> c.flow20d() != null)
-            .mapToDouble(c -> c.flow20d().doubleValue())
-            .average();
-    OptionalDouble avgTrend5d =
-        allConstituents.stream()
-            .filter(c -> trend5dByCategory.containsKey(c.categoryId()))
-            .mapToDouble(c -> trend5dByCategory.get(c.categoryId()).doubleValue())
-            .average();
-    OptionalDouble avgTrend =
-        allConstituents.stream()
-            .filter(c -> c.compositeTrend20d() != null)
-            .mapToDouble(c -> c.compositeTrend20d().doubleValue())
-            .average();
-
-    long buyCount = allConstituents.stream().filter(c -> "BUY".equals(c.tradeSignal())).count();
-    long watchCount = allConstituents.stream().filter(c -> "WATCH".equals(c.tradeSignal())).count();
-    long reduceCount =
-        allConstituents.stream().filter(c -> "REDUCE".equals(c.tradeSignal())).count();
-    int bullishCount = (int) (buyCount + watchCount);
-    int total = allConstituents.size();
-
-    String dominantSignal;
-    if (total > 0 && buyCount * 2 >= total) dominantSignal = "BUY";
-    else if (total > 0 && (buyCount + watchCount) * 2 >= total) dominantSignal = "WATCH";
-    else if (total > 0 && reduceCount * 2 > total) dominantSignal = "REDUCE";
-    else dominantSignal = "HOLD";
-
-    // Divergence: theme composite − average composite of constituent parent sectors.
-    // Positive = theme sub-sectors outpacing their sectors → early rotation signal.
-    Double divergence = null;
-    if (avgComposite.isPresent()) {
-      OptionalDouble parentAvg =
-          allConstituents.stream()
-              .map(
-                  c -> {
-                    Category cat = categoriesById.get(c.categoryId());
-                    if (cat == null) return null;
-                    String parentId = cat.parentId();
-                    if (parentId == null) parentId = c.categoryId();
-                    BigDecimal parentScore = compositeByCategory.get(parentId);
-                    return parentScore != null ? parentScore.doubleValue() : null;
-                  })
-              .filter(Objects::nonNull)
-              .mapToDouble(Double::doubleValue)
-              .average();
-      if (parentAvg.isPresent()) {
-        divergence = avgComposite.getAsDouble() - parentAvg.getAsDouble();
-      }
-    }
-
-    Double scoreVal = avgComposite.isPresent() ? avgComposite.getAsDouble() : null;
-    Double trend5dVal = avgTrend5d.isPresent() ? avgTrend5d.getAsDouble() : null;
-    Double trend20dVal = avgTrend.isPresent() ? avgTrend.getAsDouble() : null;
-    Double flowVal = avgFlow.isPresent() ? avgFlow.getAsDouble() : null;
-    String themePhase = themePhaseClassifier.classify(scoreVal, trend5dVal, trend20dVal, flowVal);
-    int signalStreakDays = themeSignalStreakCounter.count(history, dominantSignal);
-    int phaseStreakDays = themePhaseHistoryService.computePhaseStreak(history, themePhase);
-    Double volatility30d = themeVolatilityCalculator.calculate(history);
-    Double scorePercentile30d = themeScorePercentileCalculator.calculate(history, scoreVal);
-    Double concentrationRisk = themeConcentrationRiskCalculator.calculate(allConstituents);
-    PhaseTransitionContext transitionContext =
-        new PhaseTransitionContext(
-            themePhase,
-            scoreVal,
-            signalStreakDays,
-            trend5dVal,
-            trend20dVal,
-            flowVal,
-            volatility30d,
-            alertCount30d);
-    String phaseTransitionSignal = phaseTransitionDetector.detect(transitionContext).orElse(null);
-    ThemeRiskContext riskContext =
-        new ThemeRiskContext(
-            themePhase,
-            scoreVal,
-            volatility30d,
-            trend5dVal,
-            trend20dVal,
-            alertCount30d,
-            signalStreakDays);
-    String riskLevel = themeRiskAggregator.aggregate(riskContext).name();
-    EntryTimingContext entryContext =
-        new EntryTimingContext(themePhase, scoreVal, riskLevel, trend5dVal, trend20dVal);
-    var entryRecommendation = entryTimingAdvisor.advise(entryContext);
-    String entryAction = entryRecommendation.map(r -> r.action().name()).orElse(null);
-    String entryRationale = entryRecommendation.map(r -> r.rationale()).orElse(null);
-    String momentumAlignment =
-        momentumDivergenceClassifier.classify(trend5dVal, trend20dVal).map(Enum::name).orElse(null);
-    ConfluenceResult confluence =
-        confluenceScoreService.compute(
-            new ConfluenceInput(entryAction, riskLevel, momentumAlignment, phaseTransitionSignal));
-    ThemePersistenceService.ThemePersistence persistence =
-        themePersistenceService.computePersistence(history);
-    ThemeInvestmentQualityService.ThemeQuality quality =
-        themeInvestmentQualityService.computeQuality(
-            new ThemeQualityContext(
-                confluence.confluenceScore(),
-                persistence.persistenceScore(),
-                signalStreakDays,
-                volatility30d,
-                concentrationRisk,
-                scorePercentile30d));
-
-    return new ThemeSummaryDto(
-        theme.id(),
-        theme.name(),
-        theme.thesis(),
-        total,
-        scoreVal,
-        avgRs60.isPresent() ? avgRs60.getAsDouble() : null,
-        flowVal,
-        trend5dVal,
-        trend20dVal,
-        bullishCount,
-        dominantSignal,
-        divergence,
-        themePhase,
-        topConstituents,
-        alertCount30d,
-        signalStreakDays,
-        phaseStreakDays,
-        volatility30d,
-        scorePercentile30d,
-        concentrationRisk,
-        phaseTransitionSignal,
-        riskLevel,
-        entryAction,
-        entryRationale,
-        momentumAlignment,
-        confluence.confluenceScore(),
-        confluence.confidenceLabel(),
-        persistence.persistenceScore(),
-        persistence.persistenceGrade(),
-        quality.investmentQualityScore(),
-        quality.investmentQualityGrade());
   }
 }

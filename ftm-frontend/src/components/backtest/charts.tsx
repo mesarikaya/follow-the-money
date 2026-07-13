@@ -16,7 +16,7 @@ export const ROLL_WINDOW = 252; // 1 trading year
 export const SHARPE_H = 90;
 export const DD_H = 90;
 
-export function EquityCurveChart({ curve, rebalanceDates }: { curve: EquityCurvePoint[]; rebalanceDates?: string[] }) {
+export const EquityCurveChart = ({ curve, rebalanceDates }: { curve: EquityCurvePoint[]; rebalanceDates?: string[] }) => {
   if (curve.length < 2) {
     return <p className="text-xs text-slate-500 text-center py-8">Insufficient data to draw chart.</p>;
   }
@@ -197,7 +197,7 @@ export function EquityCurveChart({ curve, rebalanceDates }: { curve: EquityCurve
   );
 }
 
-export function RollingReturnChart({ curve }: { curve: EquityCurvePoint[] }) {
+export const RollingReturnChart = ({ curve }: { curve: EquityCurvePoint[] }) => {
   if (curve.length <= ROLL_WINDOW) return null;
 
   const innerW = CHART_W - PAD_L - PAD_R;
@@ -296,7 +296,7 @@ export function RollingReturnChart({ curve }: { curve: EquityCurvePoint[] }) {
   );
 }
 
-export function RollingSharpeChart({ curve }: { curve: EquityCurvePoint[] }) {
+export const RollingSharpeChart = ({ curve }: { curve: EquityCurvePoint[] }) => {
   if (curve.length <= ROLL_WINDOW + 5) return null;
 
   const portRet: number[] = [];
@@ -384,7 +384,7 @@ export function RollingSharpeChart({ curve }: { curve: EquityCurvePoint[] }) {
   );
 }
 
-export function DrawdownChart({ curve }: { curve: EquityCurvePoint[] }) {
+export const DrawdownChart = ({ curve }: { curve: EquityCurvePoint[] }) => {
   if (curve.length < 2) return null;
 
   const innerW = CHART_W - PAD_L - PAD_R;
@@ -451,7 +451,7 @@ export function DrawdownChart({ curve }: { curve: EquityCurvePoint[] }) {
   );
 }
 
-export function AnnualReturnsChart({ curve }: { curve: EquityCurvePoint[] }) {
+export const AnnualReturnsChart = ({ curve }: { curve: EquityCurvePoint[] }) => {
   const annuals = computeAnnualReturns(curve);
   if (annuals.length < 2) return null;
 

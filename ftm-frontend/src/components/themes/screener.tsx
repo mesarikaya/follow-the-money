@@ -45,13 +45,13 @@ export const STANDARD_COLS = new Set([
   "rs60", "entry", "momentum", "trend", "persist", "conf",
 ]);
 
-export function isVisible(col: string, view: ViewPreset): boolean {
+export const isVisible = (col: string, view: ViewPreset): boolean => {
   if (view === "full") return true;
   if (view === "standard") return STANDARD_COLS.has(col);
   return ESSENTIAL_COLS.has(col);
 }
 
-export function buildScreenerUrl(current: ScreenerParams, overrides: Partial<ScreenerParams>): string {
+export const buildScreenerUrl = (current: ScreenerParams, overrides: Partial<ScreenerParams>): string => {
   const merged = { ...current, ...overrides };
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(merged)) {
@@ -61,12 +61,12 @@ export function buildScreenerUrl(current: ScreenerParams, overrides: Partial<Scr
   return `/themes${qs ? `?${qs}` : ""}`;
 }
 
-export function SortLink({
+export const SortLink = ({
   label, sortKey, currentSort, title, allParams,
 }: {
   label: string; sortKey: string; currentSort: string; title?: string;
   allParams: ScreenerParams;
-}) {
+}) => {
   const isActive = currentSort === sortKey;
   return (
     <Link
@@ -79,12 +79,12 @@ export function SortLink({
   );
 }
 
-export function FilterChip({
+export const FilterChip = ({
   label, paramKey, value, activeValue, allParams,
 }: {
   label: string; paramKey: keyof ScreenerParams; value: string;
   activeValue: string | undefined; allParams: ScreenerParams;
-}) {
+}) => {
   const isActive = activeValue === value;
   const href = buildScreenerUrl(allParams, { [paramKey]: isActive ? undefined : value });
   return (
@@ -102,7 +102,7 @@ export function FilterChip({
   );
 }
 
-export function ViewSwitcher({ view, allParams }: { view: ViewPreset; allParams: ScreenerParams }) {
+export const ViewSwitcher = ({ view, allParams }: { view: ViewPreset; allParams: ScreenerParams }) => {
   const colCount = view === "full" ? 23 : view === "standard" ? 17 : 11;
   return (
     <div className="flex items-center gap-1.5" data-testid="view-switcher">
@@ -126,11 +126,11 @@ export function ViewSwitcher({ view, allParams }: { view: ViewPreset; allParams:
   );
 }
 
-export function ThemeScreenerFilterBar({
+export const ThemeScreenerFilterBar = ({
   allParams, totalCount, filteredCount,
 }: {
   allParams: ScreenerParams; totalCount: number; filteredCount: number;
-}) {
+}) => {
   const hasActiveFilter = allParams.signal != null || allParams.phase != null || allParams.entry != null || allParams.confidence != null;
   const filterGroups: { label: string; paramKey: keyof ScreenerParams; options: { label: string; value: string }[] }[] = [
     {
@@ -209,7 +209,7 @@ export function ThemeScreenerFilterBar({
   );
 }
 
-export function ThemeScreener({
+export const ThemeScreener = ({
   themes,
   allThemes,
   historiesByThemeId,
@@ -225,7 +225,7 @@ export function ThemeScreener({
   sort: string;
   allParams: ScreenerParams;
   view: ViewPreset;
-}) {
+}) => {
   if (allThemes.length === 0) return null;
 
   const sortedByScore = [...themes].sort((a, b) => (b.compositeScore ?? -1) - (a.compositeScore ?? -1));

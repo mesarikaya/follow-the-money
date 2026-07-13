@@ -1,5 +1,5 @@
 import { ThemeConstituent, ThemeHistoryPoint } from "@/lib/api";
-import { scoreColor, signalAgeDays } from "@/lib/themes/themeMetrics";
+import { signalAgeDays } from "@/lib/themes/themeMetrics";
 
 
 export const SIGNAL_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -56,7 +56,7 @@ export const CONFIDENCE_CONFIG: Record<string, { label: string; className: strin
   AVOID:           { label: "✕ AVOID",   className: "bg-red-500/15 text-red-400 border border-red-500/25" },
 };
 
-export function ScoreArc({ score }: { score: number | null }) {
+export const ScoreArc = ({ score }: { score: number | null }) => {
   if (score == null) return <div className="text-slate-600 text-xs font-mono text-center">—</div>;
   const pct = Math.round(score * 100);
   const color = score >= 0.65 ? "#34d399" : score >= 0.50 ? "#22d3ee" : score >= 0.35 ? "#fbbf24" : "#f87171";
@@ -82,7 +82,7 @@ export function ScoreArc({ score }: { score: number | null }) {
   );
 }
 
-export function FlowChip({ flow }: { flow: number | null }) {
+export const FlowChip = ({ flow }: { flow: number | null }) => {
   if (flow == null) return null;
   const z = flow.toFixed(2);
   const isIn = flow > 0.3;
@@ -98,7 +98,7 @@ export function FlowChip({ flow }: { flow: number | null }) {
   );
 }
 
-export function TrendChip({ trend }: { trend: number | null }) {
+export const TrendChip = ({ trend }: { trend: number | null }) => {
   if (trend == null) return null;
   const isUp = trend > 0.005;
   const isDown = trend < -0.005;
@@ -111,7 +111,7 @@ export function TrendChip({ trend }: { trend: number | null }) {
   );
 }
 
-export function EtfBubble({ c }: { c: ThemeConstituent }) {
+export const EtfBubble = ({ c }: { c: ThemeConstituent }) => {
   const color = c.compositeScore == null ? "bg-slate-700 text-slate-400"
     : c.compositeScore >= 0.65 ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
     : c.compositeScore >= 0.50 ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
@@ -127,7 +127,7 @@ export function EtfBubble({ c }: { c: ThemeConstituent }) {
   );
 }
 
-export function DivergenceChip({ divergence }: { divergence: number | null }) {
+export const DivergenceChip = ({ divergence }: { divergence: number | null }) => {
   if (divergence == null) return null;
   const pts = Math.round(divergence * 100);
   const isPositive = divergence > 0.02;
@@ -148,7 +148,7 @@ export function DivergenceChip({ divergence }: { divergence: number | null }) {
   );
 }
 
-export function ThemeSparkline({ history }: { history: ThemeHistoryPoint[] }) {
+export const ThemeSparkline = ({ history }: { history: ThemeHistoryPoint[] }) => {
   if (history.length < 2) return null;
   const values = history.map(h => h.compositeScore);
   const min = Math.min(...values);
@@ -184,7 +184,7 @@ export function ThemeSparkline({ history }: { history: ThemeHistoryPoint[] }) {
   );
 }
 
-export function ScoreDeltaBadge({ history }: { history: ThemeHistoryPoint[] }) {
+export const ScoreDeltaBadge = ({ history }: { history: ThemeHistoryPoint[] }) => {
   if (history.length < 5) return null;
   const first = history[0].compositeScore;
   const last = history[history.length - 1].compositeScore;
@@ -201,7 +201,7 @@ export function ScoreDeltaBadge({ history }: { history: ThemeHistoryPoint[] }) {
   );
 }
 
-export function ThemePhaseBadge({ phase }: { phase: string | null }) {
+export const ThemePhaseBadge = ({ phase }: { phase: string | null }) => {
   if (!phase) return null;
   const cfg = PHASE_CONFIG[phase];
   if (!cfg) return null;
@@ -215,7 +215,7 @@ export function ThemePhaseBadge({ phase }: { phase: string | null }) {
   );
 }
 
-export function PhaseTransitionBadge({ signal }: { signal: string | null }) {
+export const PhaseTransitionBadge = ({ signal }: { signal: string | null }) => {
   if (!signal) return null;
   const cfg = TRANSITION_CONFIG[signal];
   if (!cfg) return null;
@@ -229,7 +229,7 @@ export function PhaseTransitionBadge({ signal }: { signal: string | null }) {
   );
 }
 
-export function RiskLevelBadge({ riskLevel }: { riskLevel: string | null }) {
+export const RiskLevelBadge = ({ riskLevel }: { riskLevel: string | null }) => {
   if (!riskLevel) return null;
   const cfg = RISK_CONFIG[riskLevel];
   if (!cfg) return null;
@@ -243,7 +243,7 @@ export function RiskLevelBadge({ riskLevel }: { riskLevel: string | null }) {
   );
 }
 
-export function MomentumAlignmentBadge({ alignment }: { alignment: string | null }) {
+export const MomentumAlignmentBadge = ({ alignment }: { alignment: string | null }) => {
   if (!alignment) return null;
   const cfg = ALIGNMENT_CONFIG[alignment];
   if (!cfg) return null;
@@ -257,13 +257,13 @@ export function MomentumAlignmentBadge({ alignment }: { alignment: string | null
   );
 }
 
-export function EntryActionBadge({
+export const EntryActionBadge = ({
   action,
   rationale,
 }: {
   action: string | null;
   rationale: string | null;
-}) {
+}) => {
   if (!action) return null;
   const cfg = ENTRY_CONFIG[action];
   if (!cfg) return null;
@@ -278,13 +278,13 @@ export function EntryActionBadge({
   );
 }
 
-export function ConfluenceBadge({
+export const ConfluenceBadge = ({
   confluenceScore,
   confidenceLabel,
 }: {
   confluenceScore: number;
   confidenceLabel: string;
-}) {
+}) => {
   const cfg = CONFIDENCE_CONFIG[confidenceLabel];
   if (!cfg) return null;
   return (
@@ -297,13 +297,13 @@ export function ConfluenceBadge({
   );
 }
 
-export function SignalFreshnessBadge({
+export const SignalFreshnessBadge = ({
   history,
   signal,
 }: {
   history: ThemeHistoryPoint[];
   signal: string;
-}) {
+}) => {
   const days = signalAgeDays(history, signal);
   if (days === 0 || days > 10) return null;
   if (days <= 3) {
@@ -326,7 +326,7 @@ export function SignalFreshnessBadge({
   );
 }
 
-export function BullishBar({ bullish, total }: { bullish: number; total: number }) {
+export const BullishBar = ({ bullish, total }: { bullish: number; total: number }) => {
   const pct = total > 0 ? bullish / total : 0;
   const color = pct >= 0.6 ? "bg-emerald-500" : pct >= 0.4 ? "bg-amber-500" : "bg-red-500";
   return (

@@ -8,7 +8,7 @@ import { getParentSectorId } from "@/lib/sectors";
  */
 
 /** Tailwind text colour for a composite score band (BUY→emerald … REDUCE→red). */
-export function scoreColor(score: number | null): string {
+export const scoreColor = (score: number | null): string => {
   if (score == null) return "text-slate-500";
   if (score >= 0.65) return "text-emerald-400";
   if (score >= 0.5) return "text-cyan-400";
@@ -17,7 +17,7 @@ export function scoreColor(score: number | null): string {
 }
 
 /** Signal tier a composite score maps to: BUY / WATCH / HOLD / REDUCE. */
-export function scoreTier(score: number | null): string {
+export const scoreTier = (score: number | null): string => {
   if (score == null) return "HOLD";
   if (score >= 0.65) return "BUY";
   if (score >= 0.5) return "WATCH";
@@ -26,7 +26,7 @@ export function scoreTier(score: number | null): string {
 }
 
 /** How many trailing days the score has continuously held the given signal tier. */
-export function signalAgeDays(history: ThemeHistoryPoint[], dominantSignal: string): number {
+export const signalAgeDays = (history: ThemeHistoryPoint[], dominantSignal: string): number => {
   if (history.length === 0) return 0;
   let count = 0;
   for (let i = history.length - 1; i >= 0; i--) {
@@ -40,7 +40,7 @@ export function signalAgeDays(history: ThemeHistoryPoint[], dominantSignal: stri
  * The theme's lifecycle phase from its score and 5d/20d trends: BREAKOUT / MOMENTUM / HOLDING /
  * SETUP / BUILDING / FADING / WEAK / NEUTRAL.
  */
-export function phaseFromHistory(score: number, trend5d: number | null, trend20d: number | null): string {
+export const phaseFromHistory = (score: number, trend5d: number | null, trend20d: number | null): string => {
   if (trend5d == null || trend20d == null) return "NEUTRAL";
   const accelerating = trend5d - trend20d > 0.005;
   const trending = trend20d > 0.003;
@@ -61,7 +61,7 @@ export function phaseFromHistory(score: number, trend5d: number | null, trend20d
 }
 
 /** How many trailing days the theme has continuously been in the given phase. */
-export function phaseAgeDays(history: ThemeHistoryPoint[], currentPhase: string | null): number {
+export const phaseAgeDays = (history: ThemeHistoryPoint[], currentPhase: string | null): number => {
   if (!currentPhase || history.length === 0) return 0;
   let count = 0;
   for (let i = history.length - 1; i >= 0; i--) {
@@ -73,7 +73,7 @@ export function phaseAgeDays(history: ThemeHistoryPoint[], currentPhase: string 
 }
 
 /** Up to three distinct parent sectors represented by a theme's top constituents. */
-export function getThemeUniqueSectors(theme: ThemeSummary): string[] {
+export const getThemeUniqueSectors = (theme: ThemeSummary): string[] => {
   const seen = new Set<string>();
   for (const c of theme.topConstituents as ThemeConstituent[]) {
     const sectorId = getParentSectorId(c.categoryId) ?? (c.parentCategoryId ? getParentSectorId(c.parentCategoryId) : null);
@@ -83,7 +83,7 @@ export function getThemeUniqueSectors(theme: ThemeSummary): string[] {
 }
 
 /** A compact label for a theme (single word → 5 chars; else first two words → 4 chars each). */
-export function themeShortLabel(theme: ThemeSummary): string {
+export const themeShortLabel = (theme: ThemeSummary): string => {
   const words = theme.name.split(/[\s_]+/);
   if (words.length === 1) return theme.name.slice(0, 5).toUpperCase();
   return words.slice(0, 2).map(w => w.slice(0, 4)).join(" ");

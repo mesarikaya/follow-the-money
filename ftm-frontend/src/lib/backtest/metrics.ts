@@ -16,7 +16,7 @@ export type DrawdownPeriod = {
 };
 
 /** The five deepest peak-to-trough drawdowns (≥2%) of the portfolio (or SPY) curve, deepest first. */
-export function computeDrawdownPeriods(curve: EquityCurvePoint[], useSpy = false): DrawdownPeriod[] {
+export const computeDrawdownPeriods = (curve: EquityCurvePoint[], useSpy = false): DrawdownPeriod[] => {
   if (curve.length < 2) return [];
   const getValue = (pt: EquityCurvePoint) => (useSpy ? pt.spyValue : pt.portfolioValue);
   const periods: DrawdownPeriod[] = [];
@@ -73,7 +73,7 @@ export type RiskAttribution = {
 };
 
 /** Beta/correlation/alpha/capture ratios of the strategy vs SPY, from daily returns. */
-export function computeRiskAttribution(curve: EquityCurvePoint[]): RiskAttribution | null {
+export const computeRiskAttribution = (curve: EquityCurvePoint[]): RiskAttribution | null => {
   if (curve.length < 30) return null;
   const portRet: number[] = [];
   const spyRet: number[] = [];
@@ -118,7 +118,7 @@ export function computeRiskAttribution(curve: EquityCurvePoint[]): RiskAttributi
 export type MonthlyReturn = { ym: string; year: number; month: number; port: number; spy: number };
 
 /** Month-over-month returns of the portfolio and SPY (using each month's last curve point). */
-export function computeMonthlyReturns(curve: EquityCurvePoint[]): MonthlyReturn[] {
+export const computeMonthlyReturns = (curve: EquityCurvePoint[]): MonthlyReturn[] => {
   if (curve.length < 2) return [];
   const monthEnd = new Map<string, { portfolio: number; spy: number }>();
   for (const pt of curve) {
@@ -139,7 +139,7 @@ export function computeMonthlyReturns(curve: EquityCurvePoint[]): MonthlyReturn[
 export type AnnualReturn = { yr: number; port: number; spy: number };
 
 /** Calendar-year returns, chaining from the prior year's last month-end when available. */
-export function computeAnnualReturns(curve: EquityCurvePoint[]): AnnualReturn[] {
+export const computeAnnualReturns = (curve: EquityCurvePoint[]): AnnualReturn[] => {
   if (curve.length < 2) return [];
   const monthEnd = new Map<string, { portfolio: number; spy: number }>();
   for (const pt of curve) monthEnd.set(pt.date.slice(0, 7), { portfolio: pt.portfolioValue, spy: pt.spyValue });
@@ -154,7 +154,7 @@ export function computeAnnualReturns(curve: EquityCurvePoint[]): AnnualReturn[] 
 }
 
 /** Annualized Sortino ratio (downside-deviation risk-adjusted return) of the portfolio (or SPY). */
-export function computeSortino(curve: EquityCurvePoint[], useSpy: boolean): number | null {
+export const computeSortino = (curve: EquityCurvePoint[], useSpy: boolean): number | null => {
   if (curve.length < 2) return null;
   const returns: number[] = [];
   for (let i = 1; i < curve.length; i++) {
@@ -178,10 +178,10 @@ export type RegimeBreakdown = {
 };
 
 /** Compounded portfolio vs SPY return within each macro regime, by extending weekly regimes forward. */
-export function computeRegimeBreakdown(
+export const computeRegimeBreakdown = (
   curve: EquityCurvePoint[],
   history: { date: string; regime: string }[],
-): RegimeBreakdown[] {
+): RegimeBreakdown[] => {
   if (curve.length < 2 || history.length === 0) return [];
   const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date));
 

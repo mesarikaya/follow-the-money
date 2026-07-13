@@ -1,624 +1,48 @@
-import { fetchMacro, fetchCategories, fetchMacroHistory, CategorySummary, MacroSeriesPoint } from "@/lib/api";
-import type { MacroResponse, MacroIndicators } from "@/lib/api";
+import { fetchCategories, fetchMacro, fetchMacroHistory } from "@/lib/api";
+import { MacroHistory, computeMacroStress } from "@/lib/macro/macroMetrics";
+import { INDICATOR_LABELS, REGIME_DESCRIPTIONS, REGIME_STYLES } from "@/components/macro/regimeConfig";
+import {
+  IndicatorCard,
+  MacroStressMeter,
+  RealYieldCard,
+  YieldCurveChart,
+} from "@/components/macro/indicators";
+import {
+  RegimeAlignmentTable,
+  RegimePlaybook,
+  RegimeTimeline,
+} from "@/components/macro/panels";
+import type { MacroIndicators } from "@/lib/api";
 
-const REGIME_STYLES: Record<string, { label: string; color: string; ring: string; bg: string }> = {
-  RISK_ON_GROWTH:    { label: "Risk On — Growth",    color: "text-emerald-300", ring: "border-emerald-600", bg: "bg-emerald-900/30" },
-  RISK_ON_DEFENSIVE: { label: "Risk On — Defensive", color: "text-blue-300",    ring: "border-blue-600",    bg: "bg-blue-900/30"    },
-  RISK_OFF_FLIGHT:   { label: "Risk Off — Flight",   color: "text-red-300",     ring: "border-red-600",     bg: "bg-red-900/30"     },
-  STAGFLATION:       { label: "Stagflation",          color: "text-amber-300",   ring: "border-amber-600",   bg: "bg-amber-900/30"   },
+const HISTORY_DAYS = 365;
+
+const UNSTYLED_REGIME = {
+  label: "UNKNOWN",
+  color: "text-slate-400",
+  ring: "border-slate-600",
+  bg: "bg-slate-800/50",
 };
-
-const REGIME_DESCRIPTIONS: Record<string, string> = {
-  RISK_ON_GROWTH:    "Spread positive, VIX low, inflation contained. Equities and cyclicals favored.",
-  RISK_ON_DEFENSIVE: "Spread narrow or flat, VIX moderate. Rotate toward quality and dividend sectors.",
-  RISK_OFF_FLIGHT:   "Spread deeply inverted, VIX spiking, USD surging. Gold and Treasuries lead.",
-  STAGFLATION:       "Inflation above 3%, breakeven rising, growth slowing. Commodities and energy.",
-};
-
-const REGIME_PLAYBOOK: Record<string, { leaders: string[]; laggards: string[]; note: string }> = {
-  RISK_ON_GROWTH: {
-    leaders:  ["Technology (XLK)", "Consumer Discretionary (XLY)", "Industrials (XLI)", "Financials (XLF)", "Momentum (MTUM)"],
-    laggards: ["Utilities (XLU)", "Consumer Staples (XLP)", "Gold (GLD)", "Long Bonds (TLT)", "Low Volatility (USMV)"],
-    note: "Classic bull market rotation. Cyclicals and growth lead; defensives and safe-havens lag.",
-  },
-  RISK_ON_DEFENSIVE: {
-    leaders:  ["Healthcare (XLV)", "Financials (XLF)", "Quality (QUAL)", "Consumer Staples (XLP)", "Dividend payers"],
-    laggards: ["Speculative growth tech", "High-beta small caps", "Momentum (MTUM)", "Crypto proxies"],
-    note: "Late-cycle risk-on: prefer quality over momentum. Watch for spread narrowing as a regime shift signal.",
-  },
-  RISK_OFF_FLIGHT: {
-    leaders:  ["Gold (GLD)", "Long Treasuries (TLT)", "USD (UUP)", "Low Volatility (USMV)", "Utilities (XLU)"],
-    laggards: ["All equities (broad)", "High-yield bonds (HYG)", "Emerging markets (EEM)", "Energy (XLE)", "Financials (XLF)"],
-    note: "Crisis mode: VIX > 30, yield curve deeply inverted. Gold and short-duration Treasuries are the only safe harbors.",
-  },
-  STAGFLATION: {
-    leaders:  ["Energy (XLE)", "Materials (XLB)", "Gold (GLD)", "Commodities (DJP)", "Value (VLUE)"],
-    laggards: ["Growth tech (XLK)", "Consumer Discretionary (XLY)", "Long Bonds (TLT)", "REITs (XLRE)", "Momentum (MTUM)"],
-    note: "Inflation > 3% with slowing growth. Real assets and commodity producers outperform; duration and growth suffer.",
-  },
-};
-
-type IndicatorConfig = {
-  label: string;
-  series: string;
-  format: (v: number | null) => string;
-  tooltip: string;
-  lowerIsBetter?: boolean;
-};
-
-const INDICATOR_LABELS: Record<keyof MacroIndicators, IndicatorConfig> = {
-  vix:                { label: "VIX",                series: "VIXCLS",     format: v => v == null ? "—" : v.toFixed(2),        tooltip: "CBOE Volatility Index — market fear gauge. <20 = calm, >30 = stress", lowerIsBetter: true },
-  tenYearYield:       { label: "10Y Yield",           series: "DGS10",      format: v => v == null ? "—" : `${v.toFixed(2)}%`, tooltip: "US 10-year Treasury yield (FRED DGS10)" },
-  twoYearYield:       { label: "2Y Yield",            series: "DGS2",       format: v => v == null ? "—" : `${v.toFixed(2)}%`, tooltip: "US 2-year Treasury yield (FRED DGS2)" },
-  yieldSpread10y2y:   { label: "10Y–2Y Spread",      series: "T10Y2Y",     format: v => v == null ? "—" : `${v.toFixed(2)}%`, tooltip: "10Y minus 2Y Treasury spread. Negative = inverted yield curve = recession signal" },
-  breakevenInflation: { label: "Breakeven Inflation", series: "T10YIE",     format: v => v == null ? "—" : `${v.toFixed(2)}%`, tooltip: "10Y breakeven inflation rate (FRED T10YIE) — market's inflation expectation" },
-  fedFundsRate:       { label: "Fed Funds Rate",      series: "FEDFUNDS",   format: v => v == null ? "—" : `${v.toFixed(2)}%`, tooltip: "Effective Federal Funds Rate (FRED FEDFUNDS)" },
-  usdIndex:           { label: "USD Index",           series: "DTWEXBGS",   format: v => v == null ? "—" : v.toFixed(2),        tooltip: "US Dollar Index — DXY proxy. Rising = USD strengthening" },
-  wtiCrudeOilPrice:   { label: "WTI Crude Oil",       series: "DCOILWTICO", format: v => v == null ? "—" : `$${v.toFixed(2)}`, tooltip: "WTI crude oil price USD/barrel (FRED DCOILWTICO). Key cross-asset inflation signal" },
-};
-
-type MacroHistory = Record<string, MacroSeriesPoint[]>;
-
-function computeMacroStress(history: MacroHistory, indicators: MacroIndicators): { score: number; components: { label: string; score: number; weight: number }[] } {
-  const vixPts = history["VIXCLS"] ?? [];
-  const spreadPts = history["T10Y2Y"] ?? [];
-  const usdPts = history["DTWEXBGS"] ?? [];
-  const inflPts = history["T10YIE"] ?? [];
-
-  function zScore(pts: MacroSeriesPoint[], current: number | null): number {
-    if (!current || pts.length < 20) return 0;
-    const vals = pts.map(p => p.value);
-    const mean = vals.reduce((s, v) => s + v, 0) / vals.length;
-    const std = Math.sqrt(vals.reduce((s, v) => s + (v - mean) ** 2, 0) / vals.length) || 1;
-    return (current - mean) / std;
-  }
-
-  const vixZ = zScore(vixPts, indicators.vix);
-  const vixStress = Math.max(0, Math.min(100, 50 + vixZ * 20));
-
-  const spread = indicators.yieldSpread10y2y ?? 0;
-  const spreadStress = Math.max(0, Math.min(100, spread < 0 ? Math.min(-spread / 1.5, 1) * 100 : 0));
-
-  const usdZ = zScore(usdPts, indicators.usdIndex);
-  const usdStress = Math.max(0, Math.min(100, Math.max(0, usdZ) * 20));
-
-  const infl = indicators.breakevenInflation ?? 2;
-  const inflStress = Math.max(0, Math.min(100, Math.abs(infl - 2.2) / 1.5 * 60));
-
-  const weights = [0.40, 0.35, 0.15, 0.10];
-  const scores  = [vixStress, spreadStress, usdStress, inflStress];
-  const score = Math.round(weights.reduce((s, w, i) => s + w * scores[i], 0));
-  return {
-    score,
-    components: [
-      { label: "VIX",           score: Math.round(vixStress),    weight: 40 },
-      { label: "Yield Curve",   score: Math.round(spreadStress), weight: 35 },
-      { label: "USD Strength",  score: Math.round(usdStress),    weight: 15 },
-      { label: "Inflation",     score: Math.round(inflStress),   weight: 10 },
-    ],
-  };
-}
-
-function MacroStressMeter({ score, components }: { score: number; components: { label: string; score: number; weight: number }[] }) {
-  const label = score >= 70 ? "High Stress" : score >= 40 ? "Moderate" : "Low Stress";
-  const color = score >= 70 ? "#f87171" : score >= 40 ? "#fbbf24" : "#34d399";
-  const bgColor = score >= 70 ? "border-red-700/50 bg-red-950/20" : score >= 40 ? "border-amber-700/50 bg-amber-950/15" : "border-emerald-700/40 bg-emerald-950/10";
-  const W = 240, H = 12;
-  return (
-    <div className={`bg-slate-800/60 border rounded-xl px-4 py-3 space-y-2.5 ${bgColor}`}
-      title="Composite macro stress score: weighted blend of VIX z-score (40%), yield curve inversion (35%), USD strength vs 1Y avg (15%), and breakeven inflation deviation from 2.2% (10%). 0 = calm, 100 = maximum stress.">
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-slate-500 font-medium">Macro Stress</span>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-slate-500">{label}</span>
-          <span className="text-xl font-bold tabular-nums" style={{ color, fontFamily: "var(--font-jetbrains-mono)" }}>
-            {score}
-          </span>
-          <span className="text-[10px] text-slate-600">/100</span>
-        </div>
-      </div>
-      <div className="space-y-1">
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-3">
-          <rect x={0} y={0} width={W} height={H} rx={H / 2} fill="#1e293b" />
-          <rect x={0} y={0} width={Math.round(score / 100 * W)} height={H} rx={H / 2} fill={color} opacity="0.85" />
-        </svg>
-        <div className="flex items-center gap-3 flex-wrap">
-          {components.map(c => {
-            const cColor = c.score >= 70 ? "text-red-400" : c.score >= 40 ? "text-amber-400" : "text-emerald-400";
-            return (
-              <span key={c.label} className="text-[10px] flex items-center gap-1 text-slate-500">
-                {c.label}
-                <span className={`font-mono ${cColor}`}>{c.score}</span>
-                <span className="text-slate-700">({c.weight}%)</span>
-              </span>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function IndicatorSparkline({ points, seriesId }: { points: MacroSeriesPoint[]; seriesId: string }) {
-  if (!points || points.length < 2) return null;
-  const W = 120, H = 32, padX = 2, padY = 4;
-  const values = points.map(p => p.value);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-  const toX = (i: number) => padX + (i / (points.length - 1)) * (W - padX * 2);
-  const toY = (v: number) => padY + (1 - (v - min) / range) * (H - padY * 2);
-  const last = points[points.length - 1].value;
-  const first = points[0].value;
-  const isUp = last >= first;
-  const strokeColor = isUp ? "#34d399" : "#f87171";
-  const polyline = points.map((p, i) => `${toX(i).toFixed(1)},${toY(p.value).toFixed(1)}`).join(" ");
-  const dotY = toY(last);
-  void seriesId;
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-8" preserveAspectRatio="none">
-      <polyline points={polyline} fill="none" stroke={strokeColor} strokeWidth="1.5" opacity="0.7" />
-      <circle cx={toX(points.length - 1).toFixed(1)} cy={dotY.toFixed(1)} r="2" fill={strokeColor} />
-    </svg>
-  );
-}
-
-function IndicatorCard({
-  indicatorKey,
-  value,
-  previousValue,
-  history,
-}: {
-  indicatorKey: keyof MacroIndicators;
-  value: number | null;
-  previousValue: number | null;
-  history?: MacroSeriesPoint[];
-}) {
-  const config = INDICATOR_LABELS[indicatorKey];
-  if (!config) return null;
-
-  let trendEl: React.ReactNode = null;
-  if (value != null && previousValue != null) {
-    const delta = value - previousValue;
-    const absDelta = Math.abs(delta);
-    const threshold = Math.abs(previousValue) * 0.001;
-    if (absDelta <= threshold) {
-      trendEl = <span className="flex items-center gap-1 text-slate-500">→ Unchanged</span>;
-    } else {
-      const up = delta > 0;
-      const arrow = up ? "↑" : "↓";
-      const wasStr = config.format(previousValue);
-      trendEl = (
-        <span className="flex items-center gap-1 text-slate-400">
-          <span>{arrow}</span>
-          <span>was {wasStr}</span>
-        </span>
-      );
-    }
-  }
-
-  return (
-    <div
-      className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 space-y-1"
-      title={config.tooltip}
-    >
-      <div className="text-xs text-slate-500">{config.label}</div>
-      <div className="text-2xl font-semibold tabular-nums text-slate-100">{config.format(value)}</div>
-      {trendEl && <div className="text-xs">{trendEl}</div>}
-      {history && history.length > 1 && (
-        <div className="pt-1">
-          <IndicatorSparkline points={history} seriesId={config.series} />
-        </div>
-      )}
-      <div className="text-[10px] text-slate-600">Series: {config.series} · 1Y · FRED</div>
-    </div>
-  );
-}
-
-const REGIME_BAR_COLOR: Record<string, string> = {
-  RISK_ON_GROWTH:    "bg-green-600",
-  RISK_ON_DEFENSIVE: "bg-blue-600",
-  RISK_OFF_FLIGHT:   "bg-red-600",
-  STAGFLATION:       "bg-amber-500",
-};
-
-function RegimeTimeline({ history }: { history: MacroResponse["regimeHistory"] }) {
-  if (!history || history.length === 0) return null;
-
-  const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date));
-  const segments = sorted.slice(-13);
-  const first = segments[0]?.date ?? "";
-  const last = segments[segments.length - 1]?.date ?? "";
-
-  const currentRegime = segments[segments.length - 1]?.regime;
-  const currentStyle = REGIME_STYLES[currentRegime ?? ""] ?? { label: currentRegime ?? "Unknown", color: "text-slate-400" };
-
-  const currentRun = (() => {
-    let count = 0;
-    for (let i = segments.length - 1; i >= 0; i--) {
-      if (segments[i].regime === currentRegime) count++;
-      else break;
-    }
-    return count;
-  })();
-
-  return (
-    <section className="space-y-3">
-      <h2 className="text-sm font-semibold text-slate-300">Regime History</h2>
-      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-400 font-medium">Last {segments.length} {segments.length === 1 ? "week" : "weeks"}</span>
-          <span className="text-xs text-slate-600">— each bar = one weekly observation</span>
-          {segments.length < 4 && (
-            <span className="text-[10px] text-slate-600 ml-1">· grows with each ingestion run</span>
-          )}
-        </div>
-
-        <div className="flex items-end gap-1">
-          {segments.map((entry, i) => {
-            const barColor = REGIME_BAR_COLOR[entry.regime] ?? "bg-slate-600";
-            const isLatest = i === segments.length - 1;
-            const label = REGIME_STYLES[entry.regime]?.label ?? entry.regime;
-            return (
-              <div
-                key={entry.date}
-                className={`flex-1 h-6 rounded-sm opacity-80 ${barColor} ${isLatest ? "ring-2 ring-white opacity-90" : ""}`}
-                title={`${entry.date} · ${label}`}
-              />
-            );
-          })}
-          <span className="ml-1 text-[10px] text-slate-500 whitespace-nowrap pb-0.5">← Now</span>
-        </div>
-
-        <div className="flex items-center text-[10px] text-slate-500">
-          <span className="flex-1 text-left">{first}</span>
-          <span className="flex-1 text-right">{last}</span>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
-          {(["RISK_ON_GROWTH", "RISK_ON_DEFENSIVE", "RISK_OFF_FLIGHT", "STAGFLATION"] as const).map((key) => (
-            <span key={key} className="flex items-center gap-1.5">
-              <span className={`w-3 h-3 rounded-sm inline-block ${REGIME_BAR_COLOR[key]}`} />
-              {REGIME_STYLES[key]?.label ?? key}
-            </span>
-          ))}
-          {currentRun > 0 && (
-            <span className={`ml-auto text-[10px] ${currentStyle.color}`}>
-              {currentRun}w in current {currentStyle.label} phase
-            </span>
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function RegimePlaybook({ regime }: { regime: string }) {
-  const playbook = REGIME_PLAYBOOK[regime];
-  if (!playbook) return null;
-
-  return (
-    <section className="space-y-3">
-      <h2 className="text-sm font-semibold text-slate-300">Regime Playbook</h2>
-      <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-700">
-          <p className="text-xs text-slate-400">{playbook.note}</p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-700">
-          <div className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
-              <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Expected Leaders</span>
-            </div>
-            <ul className="space-y-1.5">
-              {playbook.leaders.map((item) => (
-                <li key={item} className="flex items-center gap-2 text-xs text-slate-300">
-                  <span className="text-emerald-500 text-sm leading-none">↑</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />
-              <span className="text-xs font-semibold text-red-400 uppercase tracking-wider">Expected Laggards</span>
-            </div>
-            <ul className="space-y-1.5">
-              {playbook.laggards.map((item) => (
-                <li key={item} className="flex items-center gap-2 text-xs text-slate-300">
-                  <span className="text-red-500 text-sm leading-none">↓</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-        <div className="px-4 py-2 border-t border-slate-700 text-[10px] text-slate-600">
-          Historical sector rotation patterns during {REGIME_STYLES[regime]?.label ?? regime} regimes · Not financial advice
-        </div>
-      </div>
-    </section>
-  );
-}
-
-type YieldPoint = { label: string; maturity: number; value: number };
-
-function YieldCurveChart({ indicators }: { indicators: MacroIndicators }) {
-  const raw: { label: string; maturity: number; value: number | null }[] = [
-    { label: "FF", maturity: 0,  value: indicators.fedFundsRate },
-    { label: "2Y", maturity: 2,  value: indicators.twoYearYield },
-    { label: "10Y", maturity: 10, value: indicators.tenYearYield },
-  ];
-  const points: YieldPoint[] = raw.filter((p): p is YieldPoint => p.value != null);
-  if (points.length < 2) return null;
-
-  const spread = (indicators.tenYearYield ?? 0) - (indicators.twoYearYield ?? 0);
-  const ffTo10 = (indicators.tenYearYield ?? 0) - (indicators.fedFundsRate ?? 0);
-  const isInverted = spread < -0.1 || ffTo10 < -0.1;
-  const isFlat = !isInverted && Math.abs(spread) < 0.25;
-  const shapeLabel = isInverted ? "Inverted" : isFlat ? "Flat" : "Normal";
-  const shapeColor = isInverted ? "text-red-400" : isFlat ? "text-amber-400" : "text-emerald-400";
-  const lineColor  = isInverted ? "#f87171"    : isFlat ? "#fbbf24"    : "#34d399";
-
-  const W = 300, H = 80, padX = 36, padY = 10;
-  const values = points.map(p => p.value);
-  const yMin = Math.min(...values) - 0.4;
-  const yMax = Math.max(...values) + 0.4;
-  const yRange = yMax - yMin || 1;
-  const maxMat = 10;
-
-  const toX = (mat: number) => padX + (mat / maxMat) * (W - padX * 2);
-  const toY = (v: number) => padY + (1 - (v - yMin) / yRange) * (H - padY * 2 - 14);
-  const polyline = points.map(p => `${toX(p.maturity).toFixed(1)},${toY(p.value).toFixed(1)}`).join(" ");
-
-  const yGridValues = [Math.floor(yMin * 2) / 2, Math.ceil(yMax * 2) / 2];
-
-  return (
-    <div
-      className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 space-y-1"
-      title="Term structure (yield curve): Fed Funds rate, 2Y Treasury, 10Y Treasury. Shape indicates economic cycle phase — inverted curves precede recessions."
-    >
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-slate-500">Yield Curve</span>
-        <span className={`text-xs font-semibold tabular-nums ${shapeColor}`}>
-          {shapeLabel}
-          {spread != null && (
-            <span className="ml-1.5 text-[10px] text-slate-500 font-normal">
-              10Y–2Y {spread >= 0 ? "+" : ""}{spread.toFixed(2)}%
-            </span>
-          )}
-        </span>
-      </div>
-
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-20">
-        {/* Y-axis grid lines */}
-        {yGridValues.map(v => (
-          <g key={v}>
-            <line x1={padX} y1={toY(v).toFixed(1)} x2={W - 10} y2={toY(v).toFixed(1)} stroke="#334155" strokeWidth="0.5" strokeDasharray="3,2" />
-            <text x={padX - 4} y={(toY(v) + 3).toFixed(1)} fill="#475569" fontSize="7" textAnchor="end">{v.toFixed(1)}%</text>
-          </g>
-        ))}
-        {/* Fill area under curve */}
-        <polygon
-          points={`${toX(points[0].maturity).toFixed(1)},${(H - 14).toFixed(1)} ${polyline} ${toX(points[points.length - 1].maturity).toFixed(1)},${(H - 14).toFixed(1)}`}
-          fill={lineColor}
-          opacity="0.08"
-        />
-        {/* Curve line */}
-        <polyline points={polyline} fill="none" stroke={lineColor} strokeWidth="1.8" strokeLinejoin="round" />
-        {/* Data points */}
-        {points.map(p => (
-          <g key={p.maturity}>
-            <circle cx={toX(p.maturity).toFixed(1)} cy={toY(p.value).toFixed(1)} r="3" fill={lineColor} />
-            <text x={toX(p.maturity).toFixed(1)} y={(H - 4).toFixed(1)} fill="#64748b" fontSize="8" textAnchor="middle">{p.label}</text>
-            <text x={toX(p.maturity).toFixed(1)} y={(toY(p.value) - 5).toFixed(1)} fill="#94a3b8" fontSize="7.5" textAnchor="middle">
-              {p.value.toFixed(2)}%
-            </text>
-          </g>
-        ))}
-      </svg>
-
-      <div className="text-[9px] text-slate-600">
-        FF (overnight) · 2Y · 10Y · FRED · Inverted = recession signal · Normal = growth
-      </div>
-    </div>
-  );
-}
-
-function RealYieldCard({ indicators, history }: { indicators: MacroIndicators; history: MacroHistory }) {
-  const nominal = indicators.tenYearYield;
-  const breakeven = indicators.breakevenInflation;
-  if (nominal == null || breakeven == null) return null;
-
-  const realYield = nominal - breakeven;
-
-  // Compute historical real yield from DGS10 and T10YIE series (inner join on date)
-  const nominalSeries = history["DGS10"] ?? [];
-  const breakevenSeries = history["T10YIE"] ?? [];
-  const nominalByDate = new Map(nominalSeries.map(p => [p.date, p.value]));
-  const realHistory: number[] = breakevenSeries
-    .filter(p => nominalByDate.has(p.date))
-    .map(p => (nominalByDate.get(p.date)! - p.value))
-    .slice(-60);
-
-  const isNegative = realYield < 0;
-  const isExtreme = realYield < -1 || realYield > 2;
-  const label = realYield < -1
-    ? "Deeply Negative"
-    : realYield < 0
-    ? "Negative"
-    : realYield < 1
-    ? "Low Positive"
-    : realYield < 2
-    ? "Moderate"
-    : "Elevated";
-  const color = realYield < 0 ? "text-emerald-400" : realYield < 1.5 ? "text-amber-400" : "text-red-400";
-  const interpretation = realYield < -0.5
-    ? "Stimulative — favors risk assets, growth stocks, gold"
-    : realYield < 0.5
-    ? "Near-neutral — modest headwind to valuations"
-    : "Restrictive — headwind for long-duration assets";
-
-  const W = 280, H = 44, padX = 4, padY = 6;
-  const sparkColor = isNegative ? "#34d399" : isExtreme ? "#f87171" : "#fbbf24";
-  const hasSparkline = realHistory.length >= 5;
-  const sparkMin = hasSparkline ? Math.min(...realHistory) - 0.1 : 0;
-  const sparkMax = hasSparkline ? Math.max(...realHistory) + 0.1 : 1;
-  const sparkRange = sparkMax - sparkMin || 1;
-  const toSX = (i: number) => padX + (i / (realHistory.length - 1)) * (W - padX * 2);
-  const toSY = (v: number) => padY + (1 - (v - sparkMin) / sparkRange) * (H - padY * 2);
-  const sparkPts = realHistory.map((v, i) => `${toSX(i).toFixed(1)},${toSY(v).toFixed(1)}`).join(" ");
-  const zeroY = sparkMin < 0 && sparkMax > 0 ? toSY(0) : null;
-
-  return (
-    <div
-      className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 space-y-1"
-      title={`Real 10Y yield = nominal DGS10 minus T10YIE breakeven. Negative = real rates below inflation; gold and growth equities historically outperform. Current: ${realYield.toFixed(2)}%`}
-    >
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-slate-500">Real 10Y Yield</span>
-        <span className={`text-[10px] font-semibold ${color}`}>{label}</span>
-      </div>
-      <div className={`text-xl font-bold tabular-nums ${color}`} style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
-        {realYield >= 0 ? "+" : ""}{realYield.toFixed(2)}%
-      </div>
-      {hasSparkline && (
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-8">
-          {zeroY != null && (
-            <line x1={padX} x2={W - padX} y1={zeroY.toFixed(1)} y2={zeroY.toFixed(1)}
-              stroke="#475569" strokeWidth="0.8" strokeDasharray="2,3" />
-          )}
-          <polyline points={sparkPts} fill="none" stroke={sparkColor} strokeWidth="1.5" opacity="0.8" />
-          <circle cx={toSX(realHistory.length - 1).toFixed(1)} cy={toSY(realYield).toFixed(1)} r="2.5" fill={sparkColor} />
-        </svg>
-      )}
-      <div className="text-[9px] text-slate-600">{interpretation}</div>
-    </div>
-  );
-}
-
-const SIGNAL_STYLES: Record<string, { className: string }> = {
-  BUY:    { className: "bg-green-900/60 text-green-300 border-green-700/60" },
-  WATCH:  { className: "bg-cyan-900/50 text-cyan-300 border-cyan-700/50" },
-  HOLD:   { className: "bg-slate-700/60 text-slate-400 border-slate-600/60" },
-  REDUCE: { className: "bg-red-900/50 text-red-400 border-red-700/50" },
-};
-
-function RegimeAlignmentTable({
-  categories,
-  regime,
-}: {
-  categories: CategorySummary[];
-  regime: string;
-}) {
-  const regimeLabel = REGIME_STYLES[regime]?.label ?? regime;
-  const withFit = categories
-    .filter(c => c.macroFit != null && c.type !== "CASH")
-    .sort((a, b) => (b.macroFit ?? 0) - (a.macroFit ?? 0));
-
-  if (withFit.length === 0) return null;
-
-  return (
-    <section className="space-y-3">
-      <h2 className="text-sm font-semibold text-slate-300">Regime Alignment</h2>
-      <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-slate-700 flex items-center justify-between">
-          <span className="text-xs text-slate-400">
-            Historical RS win rate in{" "}
-            <span className="text-slate-200 font-medium">{regimeLabel}</span>
-            {" "}· sorted by fit (highest = historically strongest in this regime)
-          </span>
-        </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-700 bg-slate-800/80 text-slate-500 text-xs uppercase tracking-wider">
-              <th className="text-left px-4 py-2.5">Category</th>
-              <th className="text-left px-4 py-2.5">ETF</th>
-              <th className="text-center px-4 py-2.5">Score</th>
-              <th className="text-center px-4 py-2.5">Signal</th>
-              <th className="text-right px-4 py-2.5">Regime Fit</th>
-              <th className="text-left px-4 py-2.5 w-36">Win Rate</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-700/50">
-            {withFit.map((cat) => {
-              const fitPct = Math.round((cat.macroFit ?? 0) * 100);
-              const scorePct = cat.compositeScore != null ? Math.round(cat.compositeScore * 100) : null;
-              const barColor = fitPct >= 60 ? "bg-violet-500" : fitPct >= 40 ? "bg-violet-400/60" : "bg-slate-600";
-              const fitTextColor = fitPct >= 60 ? "text-violet-400" : fitPct >= 40 ? "text-violet-500" : "text-slate-600";
-              const signal = cat.tradeSignal;
-              const signalCls = signal ? (SIGNAL_STYLES[signal]?.className ?? "bg-slate-700/60 text-slate-400 border-slate-600/60") : null;
-              const isAligned = fitPct >= 60 && (signal === "BUY" || signal === "WATCH");
-              return (
-                <tr
-                  key={cat.id}
-                  className={`hover:bg-slate-800/40 transition-colors ${isAligned ? "bg-violet-950/15" : ""}`}
-                >
-                  <td className="px-4 py-2.5">
-                    <span className="text-slate-200 font-medium text-sm">{cat.name}</span>
-                    {isAligned && (
-                      <span className="ml-2 text-[9px] text-violet-400 font-semibold uppercase tracking-wider">aligned</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 font-mono text-blue-300 text-xs">{cat.etfTicker}</td>
-                  <td className="px-4 py-2.5 text-center">
-                    {scorePct != null ? (
-                      <span className={`text-xs tabular-nums font-medium ${scorePct >= 65 ? "text-green-400" : scorePct >= 45 ? "text-slate-300" : "text-red-400"}`}
-                        style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
-                        {scorePct}
-                      </span>
-                    ) : (
-                      <span className="text-slate-600 text-xs">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-center">
-                    {signalCls ? (
-                      <span className={`inline-block px-1.5 py-0.5 rounded border text-[10px] font-bold ${signalCls}`}
-                        style={{ fontFamily: "var(--font-rajdhani)", letterSpacing: "0.04em" }}>
-                        {signal}
-                      </span>
-                    ) : (
-                      <span className="text-slate-600 text-xs">—</span>
-                    )}
-                  </td>
-                  <td className={`px-4 py-2.5 text-right tabular-nums font-semibold text-sm ${fitTextColor}`}
-                    style={{ fontFamily: "var(--font-jetbrains-mono)" }}>
-                    {fitPct}%
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <div className="h-1.5 w-full bg-slate-700 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${barColor}`} style={{ width: `${fitPct}%` }} />
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        <div className="px-4 py-2 border-t border-slate-700 text-[10px] text-slate-600">
-          "aligned" = regime fit ≥60% AND trade signal is BUY or WATCH · Regime fit computed from 5yr OHLCV history
-        </div>
-      </div>
-    </section>
-  );
-}
 
 export default async function MacroRegimePage() {
   const [macroResult, categoriesResult, historyResult] = await Promise.allSettled([
     fetchMacro(),
     fetchCategories("MONTH"),
-    fetchMacroHistory(365),
+    fetchMacroHistory(HISTORY_DAYS),
   ]);
 
-  const indicatorHistory = historyResult.status === "fulfilled" ? historyResult.value : {};
-
   const macro = macroResult.status === "fulfilled" ? macroResult.value : null;
-  const categories = categoriesResult.status === "fulfilled" ? categoriesResult.value.categories : [];
-  const error = macroResult.status === "rejected" ? String((macroResult as PromiseRejectedResult).reason) : null;
+  const categories =
+    categoriesResult.status === "fulfilled" ? categoriesResult.value.categories : [];
+  const indicatorHistory: MacroHistory =
+    historyResult.status === "fulfilled" ? historyResult.value : {};
+  const error =
+    macroResult.status === "rejected"
+      ? String((macroResult as PromiseRejectedResult).reason)
+      : null;
 
   const regime = macro?.regime ?? "UNKNOWN";
-  const style = REGIME_STYLES[regime] ?? { label: regime, color: "text-slate-400", ring: "border-slate-600", bg: "bg-slate-800/50" };
+  const style = REGIME_STYLES[regime] ?? { ...UNSTYLED_REGIME, label: regime };
+  const hasHistory = Object.keys(indicatorHistory).length > 0;
 
   return (
     <div className="flex flex-col h-full">
@@ -636,9 +60,7 @@ export default async function MacroRegimePage() {
             </span>
           )}
         </div>
-        {macro?.asOfDate && (
-          <span className="text-xs text-slate-500">Data as of {macro.asOfDate}</span>
-        )}
+        {macro?.asOfDate && <span className="text-xs text-slate-500">Data as of {macro.asOfDate}</span>}
       </header>
 
       <main className="flex-1 p-6 space-y-6 overflow-auto">
@@ -661,39 +83,28 @@ export default async function MacroRegimePage() {
               </div>
             </section>
 
-            {Object.keys(indicatorHistory).length > 0 && (() => {
-              const stress = computeMacroStress(indicatorHistory, macro!.indicators);
-              return <MacroStressMeter score={stress.score} components={stress.components} />;
-            })()}
+            {hasHistory && <MacroStressMeter {...computeMacroStress(indicatorHistory, macro.indicators)} />}
 
             <section className="space-y-3">
               <h2 className="text-sm font-semibold text-slate-300">Indicators</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {(Object.keys(INDICATOR_LABELS) as (keyof MacroIndicators)[]).map((key) => {
-                  const seriesId = INDICATOR_LABELS[key].series;
-                  const history = indicatorHistory[seriesId] ?? [];
-                  return (
-                    <IndicatorCard
-                      key={key}
-                      indicatorKey={key}
-                      value={macro!.indicators[key] ?? null}
-                      previousValue={macro!.previousIndicators?.[key] ?? null}
-                      history={history}
-                    />
-                  );
-                })}
-                <YieldCurveChart indicators={macro!.indicators} />
-                <RealYieldCard indicators={macro!.indicators} history={indicatorHistory} />
+                {(Object.keys(INDICATOR_LABELS) as (keyof MacroIndicators)[]).map(key => (
+                  <IndicatorCard
+                    key={key}
+                    indicatorKey={key}
+                    value={macro.indicators[key] ?? null}
+                    previousValue={macro.previousIndicators?.[key] ?? null}
+                    history={indicatorHistory[INDICATOR_LABELS[key].series] ?? []}
+                  />
+                ))}
+                <YieldCurveChart indicators={macro.indicators} />
+                <RealYieldCard indicators={macro.indicators} history={indicatorHistory} />
               </div>
             </section>
 
             <RegimeTimeline history={macro.regimeHistory} />
-
             <RegimePlaybook regime={regime} />
-
-            {categories.length > 0 && (
-              <RegimeAlignmentTable categories={categories} regime={regime} />
-            )}
+            {categories.length > 0 && <RegimeAlignmentTable categories={categories} regime={regime} />}
           </>
         )}
       </main>

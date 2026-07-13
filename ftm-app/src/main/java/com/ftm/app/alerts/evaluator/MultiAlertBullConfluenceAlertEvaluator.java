@@ -51,6 +51,12 @@ public class MultiAlertBullConfluenceAlertEvaluator implements AlertEvaluator {
     this.alertRepository = alertRepository;
   }
 
+  /** Counts what the other rules created this pass, so it can only run once they all have. */
+  @Override
+  public int order() {
+    return RUNS_LAST;
+  }
+
   @Override
   public int evaluate(AlertEvaluationContext context) {
     Optional<AlertRule> rule = alertRulesRepository.findById(RULE_MULTI_ALERT_BULL);

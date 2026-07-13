@@ -1,38 +1,7 @@
 package com.ftm.app.alerts.service;
 
 import com.ftm.app.alerts.evaluator.AlertEvaluationContext;
-import com.ftm.app.alerts.evaluator.MultiAlertBullConfluenceAlertEvaluator;
-import com.ftm.app.alerts.evaluator.RotationEventAlertEvaluator;
-import com.ftm.app.alerts.evaluator.ThemePhaseBreakoutEntryAlertEvaluator;
-import com.ftm.app.alerts.evaluator.ThemePhaseFadingAlertEvaluator;
-import com.ftm.app.alerts.evaluator.ThemeRecoverySignalAlertEvaluator;
-import com.ftm.app.alerts.evaluator.BreadthVelocityAlertEvaluator;
-import com.ftm.app.alerts.evaluator.CrossHorizonRsDivergenceAlertEvaluator;
-import com.ftm.app.alerts.evaluator.HighConvictionAlertEvaluator;
-import com.ftm.app.alerts.evaluator.MacroRegimeShiftAlertEvaluator;
-import com.ftm.app.alerts.evaluator.MacroSectorMismatchAlertEvaluator;
-import com.ftm.app.alerts.evaluator.PersistenceLowAlertEvaluator;
-import com.ftm.app.alerts.evaluator.PreBuyFlowSurgeAlertEvaluator;
-import com.ftm.app.alerts.evaluator.RrgRsDivergenceAlertEvaluator;
-import com.ftm.app.alerts.evaluator.RsAccelerationCrossoverAlertEvaluator;
-import com.ftm.app.alerts.evaluator.RsAlignedAlertEvaluator;
-import com.ftm.app.alerts.evaluator.RsBreadthExtremeAlertEvaluator;
-import com.ftm.app.alerts.evaluator.ScoreApproachingSignalEvaluator;
-import com.ftm.app.alerts.evaluator.SubSectorBreadthAlertEvaluator;
-import com.ftm.app.alerts.evaluator.TradeSignalTransitionsAlertEvaluator;
-import com.ftm.app.alerts.evaluator.ScorePercentileExtremeAlertEvaluator;
-import com.ftm.app.alerts.evaluator.ScoreVelocityAlertEvaluator;
-import com.ftm.app.alerts.evaluator.SignalDeteriorationAlertEvaluator;
-import com.ftm.app.alerts.evaluator.Theme5dAccelerationAlertEvaluator;
-import com.ftm.app.alerts.evaluator.ThemeDistributeWarningAlertEvaluator;
-import com.ftm.app.alerts.evaluator.ThemeFailedBreakoutAlertEvaluator;
-import com.ftm.app.alerts.evaluator.ThemeMomentumAlertEvaluator;
-import com.ftm.app.alerts.evaluator.ThemeMomentumExhaustionAlertEvaluator;
-import com.ftm.app.alerts.evaluator.ThemePeerDivergenceAlertEvaluator;
-import com.ftm.app.alerts.evaluator.ThemeScorePriceDivergenceAlertEvaluator;
-import com.ftm.app.alerts.evaluator.ThemeSetupAccelerationAlertEvaluator;
-import com.ftm.app.alerts.evaluator.ThemeSignalTransitionsAlertEvaluator;
-import com.ftm.app.alerts.evaluator.ThemeStrongBreakoutAlertEvaluator;
+import com.ftm.app.alerts.evaluator.AlertEvaluator;
 import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.alerts.repository.AlertRulesRepository;
 import com.ftm.app.api.repository.CategoryRepository;
@@ -54,6 +23,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -129,40 +99,8 @@ public class AlertRulesEngine {
   private final CategoryRepository categoryRepository;
   private final ThemeRepository themeRepository;
 
-  // Rules being migrated out of this class into their own AlertEvaluator components (see the
-  // clean-code refactoring plan). The engine still orchestrates; each extracted rule is one class.
-  private final MacroRegimeShiftAlertEvaluator macroRegimeShiftAlertEvaluator;
-  private final ThemeMomentumAlertEvaluator themeMomentumAlertEvaluator;
-  private final Theme5dAccelerationAlertEvaluator theme5dAccelerationAlertEvaluator;
-  private final ThemeDistributeWarningAlertEvaluator themeDistributeWarningAlertEvaluator;
-  private final ThemePeerDivergenceAlertEvaluator themePeerDivergenceAlertEvaluator;
-  private final ThemeScorePriceDivergenceAlertEvaluator themeScorePriceDivergenceAlertEvaluator;
-  private final ThemeStrongBreakoutAlertEvaluator themeStrongBreakoutAlertEvaluator;
-  private final ThemeMomentumExhaustionAlertEvaluator themeMomentumExhaustionAlertEvaluator;
-  private final ThemeSignalTransitionsAlertEvaluator themeSignalTransitionsAlertEvaluator;
-  private final ThemeSetupAccelerationAlertEvaluator themeSetupAccelerationAlertEvaluator;
-  private final ThemeFailedBreakoutAlertEvaluator themeFailedBreakoutAlertEvaluator;
-  private final ScorePercentileExtremeAlertEvaluator scorePercentileExtremeAlertEvaluator;
-  private final ScoreVelocityAlertEvaluator scoreVelocityAlertEvaluator;
-  private final SignalDeteriorationAlertEvaluator signalDeteriorationAlertEvaluator;
-  private final RsBreadthExtremeAlertEvaluator rsBreadthExtremeAlertEvaluator;
-  private final PersistenceLowAlertEvaluator persistenceLowAlertEvaluator;
-  private final BreadthVelocityAlertEvaluator breadthVelocityAlertEvaluator;
-  private final RsAlignedAlertEvaluator rsAlignedAlertEvaluator;
-  private final ScoreApproachingSignalEvaluator scoreApproachingSignalEvaluator;
-  private final HighConvictionAlertEvaluator highConvictionAlertEvaluator;
-  private final RsAccelerationCrossoverAlertEvaluator rsAccelerationCrossoverAlertEvaluator;
-  private final PreBuyFlowSurgeAlertEvaluator preBuyFlowSurgeAlertEvaluator;
-  private final RrgRsDivergenceAlertEvaluator rrgRsDivergenceAlertEvaluator;
-  private final TradeSignalTransitionsAlertEvaluator tradeSignalTransitionsAlertEvaluator;
-  private final CrossHorizonRsDivergenceAlertEvaluator crossHorizonRsDivergenceAlertEvaluator;
-  private final MacroSectorMismatchAlertEvaluator macroSectorMismatchAlertEvaluator;
-  private final SubSectorBreadthAlertEvaluator subSectorBreadthAlertEvaluator;
-  private final ThemePhaseBreakoutEntryAlertEvaluator themePhaseBreakoutEntryAlertEvaluator;
-  private final ThemePhaseFadingAlertEvaluator themePhaseFadingAlertEvaluator;
-  private final ThemeRecoverySignalAlertEvaluator themeRecoverySignalAlertEvaluator;
-  private final RotationEventAlertEvaluator rotationEventAlertEvaluator;
-  private final MultiAlertBullConfluenceAlertEvaluator multiAlertBullConfluenceAlertEvaluator;
+  /** Every alert rule, injected by Spring — adding a rule is a new class, not a new field. */
+  private final List<AlertEvaluator> alertEvaluators;
 
   public AlertRulesEngine(
       AlertRepository alertRepository,
@@ -171,76 +109,15 @@ public class AlertRulesEngine {
       SignalRepository signalRepository,
       CategoryRepository categoryRepository,
       ThemeRepository themeRepository,
-      MacroRegimeShiftAlertEvaluator macroRegimeShiftAlertEvaluator,
-      ThemeMomentumAlertEvaluator themeMomentumAlertEvaluator,
-      Theme5dAccelerationAlertEvaluator theme5dAccelerationAlertEvaluator,
-      ThemeDistributeWarningAlertEvaluator themeDistributeWarningAlertEvaluator,
-      ThemePeerDivergenceAlertEvaluator themePeerDivergenceAlertEvaluator,
-      ThemeScorePriceDivergenceAlertEvaluator themeScorePriceDivergenceAlertEvaluator,
-      ThemeStrongBreakoutAlertEvaluator themeStrongBreakoutAlertEvaluator,
-      ThemeMomentumExhaustionAlertEvaluator themeMomentumExhaustionAlertEvaluator,
-      ThemeSignalTransitionsAlertEvaluator themeSignalTransitionsAlertEvaluator,
-      ThemeSetupAccelerationAlertEvaluator themeSetupAccelerationAlertEvaluator,
-      ThemeFailedBreakoutAlertEvaluator themeFailedBreakoutAlertEvaluator,
-      ScorePercentileExtremeAlertEvaluator scorePercentileExtremeAlertEvaluator,
-      ScoreVelocityAlertEvaluator scoreVelocityAlertEvaluator,
-      SignalDeteriorationAlertEvaluator signalDeteriorationAlertEvaluator,
-      RsBreadthExtremeAlertEvaluator rsBreadthExtremeAlertEvaluator,
-      PersistenceLowAlertEvaluator persistenceLowAlertEvaluator,
-      BreadthVelocityAlertEvaluator breadthVelocityAlertEvaluator,
-      RsAlignedAlertEvaluator rsAlignedAlertEvaluator,
-      ScoreApproachingSignalEvaluator scoreApproachingSignalEvaluator,
-      HighConvictionAlertEvaluator highConvictionAlertEvaluator,
-      RsAccelerationCrossoverAlertEvaluator rsAccelerationCrossoverAlertEvaluator,
-      PreBuyFlowSurgeAlertEvaluator preBuyFlowSurgeAlertEvaluator,
-      RrgRsDivergenceAlertEvaluator rrgRsDivergenceAlertEvaluator,
-      TradeSignalTransitionsAlertEvaluator tradeSignalTransitionsAlertEvaluator,
-      CrossHorizonRsDivergenceAlertEvaluator crossHorizonRsDivergenceAlertEvaluator,
-      MacroSectorMismatchAlertEvaluator macroSectorMismatchAlertEvaluator,
-      SubSectorBreadthAlertEvaluator subSectorBreadthAlertEvaluator,
-      ThemePhaseBreakoutEntryAlertEvaluator themePhaseBreakoutEntryAlertEvaluator,
-      ThemePhaseFadingAlertEvaluator themePhaseFadingAlertEvaluator,
-      ThemeRecoverySignalAlertEvaluator themeRecoverySignalAlertEvaluator,
-      RotationEventAlertEvaluator rotationEventAlertEvaluator,
-      MultiAlertBullConfluenceAlertEvaluator multiAlertBullConfluenceAlertEvaluator) {
+      List<AlertEvaluator> alertEvaluators) {
     this.alertRepository = alertRepository;
     this.alertRulesRepository = alertRulesRepository;
     this.rotationEventRepository = rotationEventRepository;
     this.signalRepository = signalRepository;
     this.categoryRepository = categoryRepository;
     this.themeRepository = themeRepository;
-    this.macroRegimeShiftAlertEvaluator = macroRegimeShiftAlertEvaluator;
-    this.themeMomentumAlertEvaluator = themeMomentumAlertEvaluator;
-    this.theme5dAccelerationAlertEvaluator = theme5dAccelerationAlertEvaluator;
-    this.themeDistributeWarningAlertEvaluator = themeDistributeWarningAlertEvaluator;
-    this.themePeerDivergenceAlertEvaluator = themePeerDivergenceAlertEvaluator;
-    this.themeScorePriceDivergenceAlertEvaluator = themeScorePriceDivergenceAlertEvaluator;
-    this.themeStrongBreakoutAlertEvaluator = themeStrongBreakoutAlertEvaluator;
-    this.themeMomentumExhaustionAlertEvaluator = themeMomentumExhaustionAlertEvaluator;
-    this.themeSignalTransitionsAlertEvaluator = themeSignalTransitionsAlertEvaluator;
-    this.themeSetupAccelerationAlertEvaluator = themeSetupAccelerationAlertEvaluator;
-    this.themeFailedBreakoutAlertEvaluator = themeFailedBreakoutAlertEvaluator;
-    this.scorePercentileExtremeAlertEvaluator = scorePercentileExtremeAlertEvaluator;
-    this.scoreVelocityAlertEvaluator = scoreVelocityAlertEvaluator;
-    this.signalDeteriorationAlertEvaluator = signalDeteriorationAlertEvaluator;
-    this.rsBreadthExtremeAlertEvaluator = rsBreadthExtremeAlertEvaluator;
-    this.persistenceLowAlertEvaluator = persistenceLowAlertEvaluator;
-    this.breadthVelocityAlertEvaluator = breadthVelocityAlertEvaluator;
-    this.rsAlignedAlertEvaluator = rsAlignedAlertEvaluator;
-    this.scoreApproachingSignalEvaluator = scoreApproachingSignalEvaluator;
-    this.highConvictionAlertEvaluator = highConvictionAlertEvaluator;
-    this.rsAccelerationCrossoverAlertEvaluator = rsAccelerationCrossoverAlertEvaluator;
-    this.preBuyFlowSurgeAlertEvaluator = preBuyFlowSurgeAlertEvaluator;
-    this.rrgRsDivergenceAlertEvaluator = rrgRsDivergenceAlertEvaluator;
-    this.tradeSignalTransitionsAlertEvaluator = tradeSignalTransitionsAlertEvaluator;
-    this.crossHorizonRsDivergenceAlertEvaluator = crossHorizonRsDivergenceAlertEvaluator;
-    this.macroSectorMismatchAlertEvaluator = macroSectorMismatchAlertEvaluator;
-    this.subSectorBreadthAlertEvaluator = subSectorBreadthAlertEvaluator;
-    this.themePhaseBreakoutEntryAlertEvaluator = themePhaseBreakoutEntryAlertEvaluator;
-    this.themePhaseFadingAlertEvaluator = themePhaseFadingAlertEvaluator;
-    this.themeRecoverySignalAlertEvaluator = themeRecoverySignalAlertEvaluator;
-    this.rotationEventAlertEvaluator = rotationEventAlertEvaluator;
-    this.multiAlertBullConfluenceAlertEvaluator = multiAlertBullConfluenceAlertEvaluator;
+    this.alertEvaluators =
+        alertEvaluators.stream().sorted(Comparator.comparingInt(AlertEvaluator::order)).toList();
   }
 
   @EventListener
@@ -258,41 +135,12 @@ public class AlertRulesEngine {
     AlertEvaluationContext context =
         new AlertEvaluationContext(signalDate, topLevelCategoryIds, equityCategoryIds);
 
+    // Sorted by order(), so the bull-confluence meta-alert — which counts what the others just
+    // created — runs after them.
     int alertsCreated = 0;
-    alertsCreated += rotationEventAlertEvaluator.evaluate(context);
-    alertsCreated += macroRegimeShiftAlertEvaluator.evaluate(context);
-    alertsCreated += rsAccelerationCrossoverAlertEvaluator.evaluate(context);
-    alertsCreated += persistenceLowAlertEvaluator.evaluate(context);
-    alertsCreated += breadthVelocityAlertEvaluator.evaluate(context);
-    alertsCreated += tradeSignalTransitionsAlertEvaluator.evaluate(context);
-    alertsCreated += scoreApproachingSignalEvaluator.evaluate(context);
-    alertsCreated += highConvictionAlertEvaluator.evaluate(context);
-    alertsCreated += signalDeteriorationAlertEvaluator.evaluate(context);
-    alertsCreated += rsAlignedAlertEvaluator.evaluate(context);
-    alertsCreated += preBuyFlowSurgeAlertEvaluator.evaluate(context);
-    alertsCreated += rsBreadthExtremeAlertEvaluator.evaluate(context);
-    alertsCreated += rrgRsDivergenceAlertEvaluator.evaluate(context);
-    alertsCreated += scorePercentileExtremeAlertEvaluator.evaluate(context);
-    alertsCreated += scoreVelocityAlertEvaluator.evaluate(context);
-    alertsCreated += crossHorizonRsDivergenceAlertEvaluator.evaluate(context);
-    alertsCreated += macroSectorMismatchAlertEvaluator.evaluate(context);
-    alertsCreated += subSectorBreadthAlertEvaluator.evaluate(context);
-    alertsCreated += themeSignalTransitionsAlertEvaluator.evaluate(context);
-    alertsCreated += themeMomentumAlertEvaluator.evaluate(context);
-    alertsCreated += theme5dAccelerationAlertEvaluator.evaluate(context);
-    alertsCreated += themeDistributeWarningAlertEvaluator.evaluate(context);
-    alertsCreated += themePhaseBreakoutEntryAlertEvaluator.evaluate(context);
-    alertsCreated += themeFailedBreakoutAlertEvaluator.evaluate(context);
-    alertsCreated += themeSetupAccelerationAlertEvaluator.evaluate(context);
-    alertsCreated += themePhaseFadingAlertEvaluator.evaluate(context);
-    alertsCreated += themeMomentumExhaustionAlertEvaluator.evaluate(context);
-    alertsCreated += themeRecoverySignalAlertEvaluator.evaluate(context);
-    alertsCreated += themeStrongBreakoutAlertEvaluator.evaluate(context);
-    alertsCreated += themePeerDivergenceAlertEvaluator.evaluate(context);
-    alertsCreated += themeScorePriceDivergenceAlertEvaluator.evaluate(context);
-    // Must run last: reads active alerts inserted by earlier evaluators in this cycle
-    // Must stay last: it counts the alerts the rules above created in this same run.
-    alertsCreated += multiAlertBullConfluenceAlertEvaluator.evaluate(context);
+    for (AlertEvaluator evaluator : alertEvaluators) {
+      alertsCreated += evaluator.evaluate(context);
+    }
 
     log.info(
         "Alert rule evaluation complete: {} created, {} resolved for date={}",

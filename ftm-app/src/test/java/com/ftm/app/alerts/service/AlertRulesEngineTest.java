@@ -104,68 +104,69 @@ class AlertRulesEngineTest {
             signalRepository,
             categoryRepository,
             themeRepository,
-            new MacroRegimeShiftAlertEvaluator(
-                alertRulesRepository, signalRepository, alertRepository),
-            new ThemeMomentumAlertEvaluator(
-                alertRulesRepository, themeRepository, signalRepository, alertRepository),
-            new Theme5dAccelerationAlertEvaluator(
-                alertRulesRepository, themeRepository, signalRepository, alertRepository),
-            new ThemeDistributeWarningAlertEvaluator(
-                alertRulesRepository, themeRepository, signalRepository, alertRepository),
-            new ThemePeerDivergenceAlertEvaluator(
-                alertRulesRepository, themeRepository, signalRepository, alertRepository),
-            new ThemeScorePriceDivergenceAlertEvaluator(
-                alertRulesRepository, themeRepository, signalRepository, alertRepository),
-            new ThemeStrongBreakoutAlertEvaluator(
-                alertRulesRepository, themeRepository, signalRepository, alertRepository),
-            new ThemeMomentumExhaustionAlertEvaluator(
-                alertRulesRepository, themeRepository, signalRepository, alertRepository),
-            new ThemeSignalTransitionsAlertEvaluator(
-                alertRulesRepository, themeRepository, signalRepository, alertRepository),
-            new ThemeSetupAccelerationAlertEvaluator(
-                alertRulesRepository, themeRepository, signalRepository, alertRepository),
-            new ThemeFailedBreakoutAlertEvaluator(
-                alertRulesRepository, themeRepository, signalRepository, alertRepository),
-            new ScorePercentileExtremeAlertEvaluator(
-                alertRulesRepository, signalRepository, signalAnalyticsRepository, alertRepository),
-            new ScoreVelocityAlertEvaluator(
-                alertRulesRepository, signalRepository, alertRepository),
-            new SignalDeteriorationAlertEvaluator(
-                alertRulesRepository, signalRepository, alertRepository),
-            new RsBreadthExtremeAlertEvaluator(
-                alertRulesRepository, signalRepository, alertRepository),
-            new PersistenceLowAlertEvaluator(
-                alertRulesRepository, signalRepository, alertRepository),
-            new BreadthVelocityAlertEvaluator(
-                alertRulesRepository, signalRepository, alertRepository),
-            new RsAlignedAlertEvaluator(alertRulesRepository, signalRepository, alertRepository),
-            new ScoreApproachingSignalEvaluator(
-                alertRulesRepository, signalRepository, alertRepository),
-            new HighConvictionAlertEvaluator(
-                alertRulesRepository, signalRepository, signalAnalyticsRepository, alertRepository),
-            new RsAccelerationCrossoverAlertEvaluator(
-                alertRulesRepository, signalRepository, alertRepository),
-            new PreBuyFlowSurgeAlertEvaluator(
-                alertRulesRepository, signalRepository, alertRepository),
-            new RrgRsDivergenceAlertEvaluator(
-                alertRulesRepository, signalRepository, alertRepository),
-            new TradeSignalTransitionsAlertEvaluator(
-                alertRulesRepository, signalRepository, alertRepository),
-            new CrossHorizonRsDivergenceAlertEvaluator(
-                alertRulesRepository, signalRepository, alertRepository),
-            new MacroSectorMismatchAlertEvaluator(
-                alertRulesRepository, signalRepository, alertRepository),
-            new SubSectorBreadthAlertEvaluator(
-                alertRulesRepository, signalRepository, alertRepository, categoryRepository),
-            new ThemePhaseBreakoutEntryAlertEvaluator(
-                alertRulesRepository, alertRepository, themeSignalReader),
-            new ThemePhaseFadingAlertEvaluator(
-                alertRulesRepository, alertRepository, themeSignalReader),
-            new ThemeRecoverySignalAlertEvaluator(
-                alertRulesRepository, alertRepository, themeSignalReader),
-            new RotationEventAlertEvaluator(
+            List.of(
+                new RotationEventAlertEvaluator(
                 alertRulesRepository, alertRepository, rotationEventRepository),
-            new MultiAlertBullConfluenceAlertEvaluator(alertRulesRepository, alertRepository));
+                new MacroRegimeShiftAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+                new RsAccelerationCrossoverAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+                new PersistenceLowAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+                new BreadthVelocityAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+                new TradeSignalTransitionsAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+                new ScoreApproachingSignalEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+                new HighConvictionAlertEvaluator(
+                alertRulesRepository, signalRepository, signalAnalyticsRepository, alertRepository),
+                new SignalDeteriorationAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+                new RsAlignedAlertEvaluator(alertRulesRepository, signalRepository, alertRepository),
+                new PreBuyFlowSurgeAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+                new RsBreadthExtremeAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+                new RrgRsDivergenceAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+                new ScorePercentileExtremeAlertEvaluator(
+                alertRulesRepository, signalRepository, signalAnalyticsRepository, alertRepository),
+                new ScoreVelocityAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+                new CrossHorizonRsDivergenceAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+                new MacroSectorMismatchAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository),
+                new SubSectorBreadthAlertEvaluator(
+                alertRulesRepository, signalRepository, alertRepository, categoryRepository),
+                new ThemeSignalTransitionsAlertEvaluator(
+                alertRulesRepository, themeRepository, signalRepository, alertRepository),
+                new ThemeMomentumAlertEvaluator(
+                alertRulesRepository, themeRepository, signalRepository, alertRepository),
+                new Theme5dAccelerationAlertEvaluator(
+                alertRulesRepository, themeRepository, signalRepository, alertRepository),
+                new ThemeDistributeWarningAlertEvaluator(
+                alertRulesRepository, themeRepository, signalRepository, alertRepository),
+                new ThemePhaseBreakoutEntryAlertEvaluator(
+                alertRulesRepository, alertRepository, themeSignalReader),
+                new ThemeFailedBreakoutAlertEvaluator(
+                alertRulesRepository, themeRepository, signalRepository, alertRepository),
+                new ThemeSetupAccelerationAlertEvaluator(
+                alertRulesRepository, themeRepository, signalRepository, alertRepository),
+                new ThemePhaseFadingAlertEvaluator(
+                alertRulesRepository, alertRepository, themeSignalReader),
+                new ThemeMomentumExhaustionAlertEvaluator(
+                alertRulesRepository, themeRepository, signalRepository, alertRepository),
+                new ThemeRecoverySignalAlertEvaluator(
+                alertRulesRepository, alertRepository, themeSignalReader),
+                new ThemeStrongBreakoutAlertEvaluator(
+                alertRulesRepository, themeRepository, signalRepository, alertRepository),
+                new ThemePeerDivergenceAlertEvaluator(
+                alertRulesRepository, themeRepository, signalRepository, alertRepository),
+                new ThemeScorePriceDivergenceAlertEvaluator(
+                alertRulesRepository, themeRepository, signalRepository, alertRepository),
+                new MultiAlertBullConfluenceAlertEvaluator(alertRulesRepository, alertRepository)));
     // resolveStaleAlerts always calls these; lenient prevents PotentialStubbingProblem
     // in tests that stub other SignalTypes (RS_60, RS_120, MACRO_REGIME).
     // Tests that need meaningful values for these types override these stubs inline.

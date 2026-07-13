@@ -53,6 +53,16 @@ public class TradeSignalTransitionsAlertEvaluator implements AlertEvaluator {
     this.alertRepository = alertRepository;
   }
 
+  /**
+   * Runs first: pre_buy_flow_surge, score_approaching_buy and sub_sector_breadth_divergence all
+   * suppress themselves when this rule has already raised a trade_signal_buy for the category, so
+   * they must see this pass's alerts, not just the previous run's.
+   */
+  @Override
+  public int order() {
+    return RUNS_FIRST;
+  }
+
   @Override
   public int evaluate(AlertEvaluationContext context) {
     Optional<AlertRule> buyRule = alertRulesRepository.findById(Direction.BUY.ruleId);

@@ -6,7 +6,7 @@ import com.ftm.app.api.dto.RrgTrailPoint;
 import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.SignalType;
-import com.ftm.app.signals.repository.SignalRepository;
+import com.ftm.app.signals.repository.SignalAnalyticsRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Comparator;
@@ -27,17 +27,17 @@ public class RrgService {
           "#F97316", "#6366F1", "#14B8A6", "#F43F5E", "#22D3EE", "#A855F7", "#FCD34D", "#34D399",
           "#FB7185", "#60A5FA", "#A3E635", "#FBBF24");
 
-  private final SignalRepository signalRepository;
+  private final SignalAnalyticsRepository signalAnalyticsRepository;
   private final CategoryRepository categoryRepository;
 
-  public RrgService(SignalRepository signalRepository, CategoryRepository categoryRepository) {
-    this.signalRepository = signalRepository;
+  public RrgService(SignalAnalyticsRepository signalAnalyticsRepository, CategoryRepository categoryRepository) {
+    this.signalAnalyticsRepository = signalAnalyticsRepository;
     this.categoryRepository = categoryRepository;
   }
 
   @Cacheable("rrg-latest")
   public RrgResponse getLatest() {
-    List<SignalRepository.RrgRow> rows = signalRepository.findRrgTrail(TRAIL_DAYS);
+    List<SignalAnalyticsRepository.RrgRow> rows = signalAnalyticsRepository.findRrgTrail(TRAIL_DAYS);
     if (rows.isEmpty()) return new RrgResponse(LocalDate.now(), List.of());
 
     Map<String, Category> categoryById =
@@ -46,13 +46,13 @@ public class RrgService {
 
     LocalDate latestDate =
         rows.stream()
-            .map(SignalRepository.RrgRow::signalDate)
+            .map(SignalAnalyticsRepository.RrgRow::signalDate)
             .max(LocalDate::compareTo)
             .orElse(LocalDate.now());
 
     List<RrgCategoryEntry> entries =
         rows.stream()
-            .collect(Collectors.groupingBy(SignalRepository.RrgRow::categoryId))
+            .collect(Collectors.groupingBy(SignalAnalyticsRepository.RrgRow::categoryId))
             .entrySet()
             .stream()
             .filter(e -> categoryById.containsKey(e.getKey()))
@@ -64,25 +64,25 @@ public class RrgService {
   }
 
   private RrgCategoryEntry buildEntry(
-      String catId, List<SignalRepository.RrgRow> rows, Category cat) {
+      String catId, List<SignalAnalyticsRepository.RrgRow> rows, Category cat) {
     Map<LocalDate, BigDecimal> ratioByDate =
         rows.stream()
             .filter(r -> r.signalType() == SignalType.RRG_RATIO)
             .collect(
                 Collectors.toMap(
-                    SignalRepository.RrgRow::signalDate, SignalRepository.RrgRow::value));
+                    SignalAnalyticsRepository.RrgRow::signalDate, SignalAnalyticsRepository.RrgRow::value));
 
     Map<LocalDate, BigDecimal> momByDate =
         rows.stream()
             .filter(r -> r.signalType() == SignalType.RRG_MOM)
             .collect(
                 Collectors.toMap(
-                    SignalRepository.RrgRow::signalDate, SignalRepository.RrgRow::value));
+                    SignalAnalyticsRepository.RrgRow::signalDate, SignalAnalyticsRepository.RrgRow::value));
 
     int latestQuadrant =
         rows.stream()
             .filter(r -> r.signalType() == SignalType.RRG_QUADRANT)
-            .max(Comparator.comparing(SignalRepository.RrgRow::signalDate))
+            .max(Comparator.comparing(SignalAnalyticsRepository.RrgRow::signalDate))
             .map(r -> r.value().intValue())
             .orElse(0);
 

@@ -13,6 +13,7 @@ import com.ftm.app.alerts.repository.AlertRulesRepository;
 import com.ftm.app.domain.Alert;
 import com.ftm.app.domain.AlertRule;
 import com.ftm.app.domain.Severity;
+import com.ftm.app.signals.repository.SignalAnalyticsRepository;
 import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -33,11 +34,12 @@ class ScorePercentileExtremeAlertEvaluatorTest {
 
   @Mock AlertRulesRepository alertRulesRepository;
   @Mock SignalRepository signalRepository;
+  @Mock SignalAnalyticsRepository signalAnalyticsRepository;
   @Mock AlertRepository alertRepository;
 
   private ScorePercentileExtremeAlertEvaluator evaluator() {
     return new ScorePercentileExtremeAlertEvaluator(
-        alertRulesRepository, signalRepository, alertRepository);
+        alertRulesRepository, signalRepository, signalAnalyticsRepository, alertRepository);
   }
 
   private AlertEvaluationContext context() {
@@ -62,7 +64,7 @@ class ScorePercentileExtremeAlertEvaluatorTest {
   @Test
   void firesWhenPercentileAtHighExtreme() {
     when(alertRulesRepository.findById(RULE)).thenReturn(Optional.of(rule(true)));
-    when(signalRepository.findScorePercentile252d())
+    when(signalAnalyticsRepository.findScorePercentile252d())
         .thenReturn(Map.of("TECH", new BigDecimal("0.95")));
     lenient().when(alertRepository.existsActiveAlert(RULE, "TECH")).thenReturn(false);
 
@@ -73,7 +75,7 @@ class ScorePercentileExtremeAlertEvaluatorTest {
   @Test
   void doesNotFireWhenPercentileNormal() {
     when(alertRulesRepository.findById(RULE)).thenReturn(Optional.of(rule(true)));
-    when(signalRepository.findScorePercentile252d())
+    when(signalAnalyticsRepository.findScorePercentile252d())
         .thenReturn(Map.of("TECH", new BigDecimal("0.50")));
     lenient().when(alertRepository.existsActiveAlert(RULE, "TECH")).thenReturn(false);
 

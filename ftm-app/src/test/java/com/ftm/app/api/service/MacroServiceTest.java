@@ -11,8 +11,9 @@ import com.ftm.app.api.dto.MacroResponse;
 import com.ftm.app.api.repository.MacroIndicatorReadRepository;
 import com.ftm.app.domain.MacroIndicator;
 import com.ftm.app.signals.domain.MacroRegime;
+import com.ftm.app.signals.repository.SignalAnalyticsRepository;
 import com.ftm.app.signals.repository.SignalRepository;
-import com.ftm.app.signals.repository.SignalRepository.MacroRegimeHistoryRow;
+import com.ftm.app.signals.repository.SignalAnalyticsRepository.MacroRegimeHistoryRow;
 import com.ftm.app.signals.service.MacroRegimeService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -32,6 +33,7 @@ class MacroServiceTest {
   @Mock MacroIndicatorReadRepository macroIndicatorRepository;
   @Mock MacroRegimeService macroRegimeService;
   @Mock SignalRepository signalRepository;
+  @Mock SignalAnalyticsRepository signalAnalyticsRepository;
   @InjectMocks MacroService macroService;
 
   private MacroIndicator indicator(String seriesId, BigDecimal value, LocalDate date) {
@@ -44,7 +46,7 @@ class MacroServiceTest {
 
   private void stubDefaults(MacroRegime regime) {
     when(macroIndicatorRepository.findPreviousPerSeries(any())).thenReturn(List.of());
-    when(signalRepository.findMacroRegimeHistory(anyInt())).thenReturn(List.of());
+    when(signalAnalyticsRepository.findMacroRegimeHistory(anyInt())).thenReturn(List.of());
     when(macroRegimeService.computeMacroFitByCategory(regime)).thenReturn(Map.of());
   }
 
@@ -87,7 +89,7 @@ class MacroServiceTest {
     MacroIndicator vix = indicator("VIXCLS", new BigDecimal("18.5"), today);
     when(macroIndicatorRepository.findLatestPerSeries()).thenReturn(List.of(vix));
     when(macroRegimeService.classifyCurrentRegime()).thenReturn(MacroRegime.RISK_ON_GROWTH);
-    when(signalRepository.findMacroRegimeHistory(anyInt())).thenReturn(List.of());
+    when(signalAnalyticsRepository.findMacroRegimeHistory(anyInt())).thenReturn(List.of());
     when(macroRegimeService.computeMacroFitByCategory(MacroRegime.RISK_ON_GROWTH))
         .thenReturn(Map.of());
     when(macroIndicatorRepository.findPreviousPerSeries(today)).thenReturn(List.of());
@@ -120,7 +122,7 @@ class MacroServiceTest {
         .thenReturn(List.of(indicator("VIXCLS", new BigDecimal("18.0"), today)));
     when(macroRegimeService.classifyCurrentRegime()).thenReturn(MacroRegime.RISK_ON_GROWTH);
     when(macroIndicatorRepository.findPreviousPerSeries(any())).thenReturn(List.of());
-    when(signalRepository.findMacroRegimeHistory(anyInt())).thenReturn(List.of());
+    when(signalAnalyticsRepository.findMacroRegimeHistory(anyInt())).thenReturn(List.of());
     when(macroRegimeService.computeMacroFitByCategory(MacroRegime.RISK_ON_GROWTH))
         .thenReturn(Map.of("TECH", new BigDecimal("0.78"), "UTIL", new BigDecimal("0.32")));
 
@@ -141,7 +143,7 @@ class MacroServiceTest {
     when(macroIndicatorRepository.findPreviousPerSeries(any())).thenReturn(List.of());
     when(macroRegimeService.computeMacroFitByCategory(MacroRegime.RISK_ON_GROWTH))
         .thenReturn(Map.of());
-    when(signalRepository.findMacroRegimeHistory(anyInt()))
+    when(signalAnalyticsRepository.findMacroRegimeHistory(anyInt()))
         .thenReturn(
             List.of(
                 new MacroRegimeHistoryRow(
@@ -170,7 +172,7 @@ class MacroServiceTest {
     when(macroIndicatorRepository.findPreviousPerSeries(any())).thenReturn(List.of());
     when(macroRegimeService.computeMacroFitByCategory(MacroRegime.STAGFLATION))
         .thenReturn(Map.of());
-    when(signalRepository.findMacroRegimeHistory(anyInt()))
+    when(signalAnalyticsRepository.findMacroRegimeHistory(anyInt()))
         .thenReturn(
             List.of(
                 new MacroRegimeHistoryRow(
@@ -193,7 +195,7 @@ class MacroServiceTest {
     when(macroIndicatorRepository.findPreviousPerSeries(any())).thenReturn(List.of());
     when(macroRegimeService.computeMacroFitByCategory(MacroRegime.RISK_ON_GROWTH))
         .thenReturn(Map.of());
-    when(signalRepository.findMacroRegimeHistory(anyInt()))
+    when(signalAnalyticsRepository.findMacroRegimeHistory(anyInt()))
         .thenReturn(
             List.of(
                 new MacroRegimeHistoryRow(
@@ -214,7 +216,7 @@ class MacroServiceTest {
         .thenReturn(List.of(indicator("VIXCLS", new BigDecimal("18.0"), today)));
     when(macroRegimeService.classifyCurrentRegime()).thenReturn(MacroRegime.STAGFLATION);
     when(macroIndicatorRepository.findPreviousPerSeries(any())).thenReturn(List.of());
-    when(signalRepository.findMacroRegimeHistory(anyInt())).thenReturn(List.of());
+    when(signalAnalyticsRepository.findMacroRegimeHistory(anyInt())).thenReturn(List.of());
     when(macroRegimeService.computeMacroFitByCategory(MacroRegime.STAGFLATION))
         .thenReturn(Map.of());
 

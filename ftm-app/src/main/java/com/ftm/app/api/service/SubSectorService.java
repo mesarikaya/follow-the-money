@@ -4,6 +4,7 @@ import com.ftm.app.api.dto.SubSectorSummaryDto;
 import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.SignalType;
+import com.ftm.app.signals.repository.SignalAnalyticsRepository;
 import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.util.Collections;
@@ -17,11 +18,15 @@ public class SubSectorService {
 
   private final CategoryRepository categoryRepository;
   private final SignalRepository signalRepository;
+  private final SignalAnalyticsRepository signalAnalyticsRepository;
 
   public SubSectorService(
-      CategoryRepository categoryRepository, SignalRepository signalRepository) {
+      CategoryRepository categoryRepository,
+      SignalRepository signalRepository,
+      SignalAnalyticsRepository signalAnalyticsRepository) {
     this.categoryRepository = categoryRepository;
     this.signalRepository = signalRepository;
+    this.signalAnalyticsRepository = signalAnalyticsRepository;
   }
 
   @Cacheable(value = "sub-sectors-latest", key = "#parentCategoryId")
@@ -71,8 +76,8 @@ public class SubSectorService {
         signals.getOrDefault(SignalType.FLOW_20D, Collections.emptyMap());
 
     Map<String, Integer> signalDaysActiveByCategory =
-        signalRepository.findSignalDaysActive(new java.math.BigDecimal("0.50"));
-    Map<String, BigDecimal> percentile252dByCategory = signalRepository.findScorePercentile252d();
+        signalAnalyticsRepository.findSignalDaysActive(new java.math.BigDecimal("0.50"));
+    Map<String, BigDecimal> percentile252dByCategory = signalAnalyticsRepository.findScorePercentile252d();
 
     return subCategories.stream()
         .map(

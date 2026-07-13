@@ -10,6 +10,7 @@ import com.ftm.app.api.mapper.CategoryMapper;
 import com.ftm.app.api.repository.CategoryRepository;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.SignalType;
+import com.ftm.app.signals.repository.SignalAnalyticsRepository;
 import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -34,16 +35,19 @@ public class CategoryService {
 
   private final CategoryRepository categoryRepository;
   private final SignalRepository signalRepository;
+  private final SignalAnalyticsRepository signalAnalyticsRepository;
   private final CategoryMapper categoryMapper;
   private final AlertService alertService;
 
   public CategoryService(
       CategoryRepository categoryRepository,
       SignalRepository signalRepository,
+      SignalAnalyticsRepository signalAnalyticsRepository,
       CategoryMapper categoryMapper,
       AlertService alertService) {
     this.categoryRepository = categoryRepository;
     this.signalRepository = signalRepository;
+    this.signalAnalyticsRepository = signalAnalyticsRepository;
     this.categoryMapper = categoryMapper;
     this.alertService = alertService;
   }
@@ -98,14 +102,14 @@ public class CategoryService {
     Map<String, BigDecimal> momentumByCategoryId =
         signals.getOrDefault(SignalType.MOM, Collections.emptyMap());
     Map<String, Integer> signalDaysActiveByCategoryId =
-        signalRepository.findSignalDaysActive(new java.math.BigDecimal("0.50"));
+        signalAnalyticsRepository.findSignalDaysActive(new java.math.BigDecimal("0.50"));
     Map<String, BigDecimal> realizedVol20dByCategoryId =
-        signalRepository.findRealizedVolatility20d();
+        signalAnalyticsRepository.findRealizedVolatility20d();
     Map<String, BigDecimal> scorePercentile252dByCategoryId =
-        signalRepository.findScorePercentile252d();
+        signalAnalyticsRepository.findScorePercentile252d();
     Map<String, Integer> activeAlertCountByCategoryId =
         alertService.getActiveAlertCountsByCategory();
-    Map<String, Integer> scoreStreakDaysByCategoryId = signalRepository.findScoreStreakDays();
+    Map<String, Integer> scoreStreakDaysByCategoryId = signalAnalyticsRepository.findScoreStreakDays();
 
     // Primary sort: timeframe RS signal; secondary: composite score (tiebreaker)
     var sortedRows =
@@ -164,7 +168,7 @@ public class CategoryService {
   public Map<String, List<Double>> getCompositeScoreHistory(int days) {
     int clamped = Math.max(5, Math.min(days, 120));
     Set<String> topLevelIds = categoryRepository.findTopLevelActiveCategoryIds();
-    return signalRepository.findCompositeScoreHistory(clamped, topLevelIds).entrySet().stream()
+    return signalAnalyticsRepository.findCompositeScoreHistory(clamped, topLevelIds).entrySet().stream()
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,
@@ -193,7 +197,7 @@ public class CategoryService {
   @Cacheable(value = "win-rates", key = "#lookbackDays")
   public List<SignalWinRateDto> getBuySignalWinRates(int lookbackDays) {
     int clamped = Math.max(90, Math.min(lookbackDays, 730));
-    return signalRepository.findBuySignalWinRates(clamped).stream()
+    return signalAnalyticsRepository.findBuySignalWinRates(clamped).stream()
         .map(
             r ->
                 new SignalWinRateDto(
@@ -213,15 +217,15 @@ public class CategoryService {
             .filter(c -> c.parentId() == null)
             .collect(Collectors.toMap(c -> c.id().name(), c -> c));
 
-    Map<String, BigDecimal> scorePercentile252d = signalRepository.findScorePercentile252d();
+    Map<String, BigDecimal> scorePercentile252d = signalAnalyticsRepository.findScorePercentile252d();
     Map<String, Integer> signalDaysActive =
-        signalRepository.findSignalDaysActive(new BigDecimal("0.50"));
+        signalAnalyticsRepository.findSignalDaysActive(new BigDecimal("0.50"));
     Map<String, BigDecimal> macroFitByCategory =
         signalRepository
             .findLatestByTypes(List.of(SignalType.MACRO_FIT))
             .getOrDefault(SignalType.MACRO_FIT, Collections.emptyMap());
 
-    return signalRepository.findSignalSnapshotPairs(clamped).stream()
+    return signalAnalyticsRepository.findSignalSnapshotPairs(clamped).stream()
         .map(
             pair -> {
               String currentRrg =

@@ -20,6 +20,7 @@ import org.springframework.test.context.ActiveProfiles;
 class SignalRepositoryIT {
 
   @Autowired SignalRepository repository;
+  @Autowired SignalAnalyticsRepository analyticsRepository;
   @Autowired JdbcTemplate jdbcTemplate;
 
   private static final LocalDate DATE = LocalDate.of(2024, 6, 1);
@@ -140,7 +141,7 @@ class SignalRepositoryIT {
             new SignalRepository.Row(
                 DATE, FINL, SignalType.COMPOSITE, new BigDecimal("0.500000"))));
 
-    var result = repository.findCompositeScoreHistory(3, List.of(TECH));
+    var result = analyticsRepository.findCompositeScoreHistory(3, List.of(TECH));
 
     assertThat(result).containsOnlyKeys(TECH);
     assertThat(result.get(TECH)).hasSize(3);
@@ -165,7 +166,7 @@ class SignalRepositoryIT {
             new SignalRepository.Row(
                 DATE, TECH, SignalType.COMPOSITE, new BigDecimal("0.800000"))));
 
-    var result = repository.findCompositeScoreHistory(3, List.of(TECH));
+    var result = analyticsRepository.findCompositeScoreHistory(3, List.of(TECH));
 
     assertThat(result.get(TECH)).hasSize(3);
     assertThat(result.get(TECH).get(0)).isEqualByComparingTo("0.600000"); // DATE-2 (oldest of 3)
@@ -180,7 +181,7 @@ class SignalRepositoryIT {
             new SignalRepository.Row(
                 DATE, TECH, SignalType.COMPOSITE, new BigDecimal("0.700000"))));
 
-    var result = repository.findCompositeScoreHistory(10, List.of());
+    var result = analyticsRepository.findCompositeScoreHistory(10, List.of());
 
     assertThat(result).isEmpty();
   }

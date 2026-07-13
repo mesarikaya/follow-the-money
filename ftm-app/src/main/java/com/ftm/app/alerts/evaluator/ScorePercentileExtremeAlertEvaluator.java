@@ -7,6 +7,7 @@ import com.ftm.app.domain.AlertRule;
 import com.ftm.app.domain.AlertStatus;
 import com.ftm.app.domain.CategoryId;
 import com.ftm.app.domain.Severity;
+import com.ftm.app.signals.repository.SignalAnalyticsRepository;
 import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -36,14 +37,17 @@ public class ScorePercentileExtremeAlertEvaluator implements AlertEvaluator {
 
   private final AlertRulesRepository alertRulesRepository;
   private final SignalRepository signalRepository;
+  private final SignalAnalyticsRepository signalAnalyticsRepository;
   private final AlertRepository alertRepository;
 
   public ScorePercentileExtremeAlertEvaluator(
       AlertRulesRepository alertRulesRepository,
       SignalRepository signalRepository,
+      SignalAnalyticsRepository signalAnalyticsRepository,
       AlertRepository alertRepository) {
     this.alertRulesRepository = alertRulesRepository;
     this.signalRepository = signalRepository;
+    this.signalAnalyticsRepository = signalAnalyticsRepository;
     this.alertRepository = alertRepository;
   }
 
@@ -54,7 +58,7 @@ public class ScorePercentileExtremeAlertEvaluator implements AlertEvaluator {
       return 0;
     }
 
-    Map<String, BigDecimal> percentiles = signalRepository.findScorePercentile252d();
+    Map<String, BigDecimal> percentiles = signalAnalyticsRepository.findScorePercentile252d();
     if (percentiles.isEmpty()) {
       return 0;
     }

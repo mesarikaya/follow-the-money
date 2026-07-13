@@ -52,6 +52,7 @@ import com.ftm.app.domain.Severity;
 import com.ftm.app.domain.SignalType;
 import com.ftm.app.signals.event.SignalsUpdatedEvent;
 import com.ftm.app.signals.repository.RotationEventRepository;
+import com.ftm.app.signals.repository.SignalAnalyticsRepository;
 import com.ftm.app.signals.repository.SignalRepository;
 import com.ftm.app.themes.repository.ThemeRepository;
 import java.math.BigDecimal;
@@ -76,6 +77,7 @@ class AlertRulesEngineTest {
   @Mock AlertRulesRepository alertRulesRepository;
   @Mock RotationEventRepository rotationEventRepository;
   @Mock SignalRepository signalRepository;
+  @Mock SignalAnalyticsRepository signalAnalyticsRepository;
   @Mock CategoryRepository categoryRepository;
   @Mock ThemeRepository themeRepository;
 
@@ -117,7 +119,7 @@ class AlertRulesEngineTest {
             new ThemeFailedBreakoutAlertEvaluator(
                 alertRulesRepository, themeRepository, signalRepository, alertRepository),
             new ScorePercentileExtremeAlertEvaluator(
-                alertRulesRepository, signalRepository, alertRepository),
+                alertRulesRepository, signalRepository, signalAnalyticsRepository, alertRepository),
             new ScoreVelocityAlertEvaluator(
                 alertRulesRepository, signalRepository, alertRepository),
             new SignalDeteriorationAlertEvaluator(
@@ -132,7 +134,7 @@ class AlertRulesEngineTest {
             new ScoreApproachingSignalEvaluator(
                 alertRulesRepository, signalRepository, alertRepository),
             new HighConvictionAlertEvaluator(
-                alertRulesRepository, signalRepository, alertRepository),
+                alertRulesRepository, signalRepository, signalAnalyticsRepository, alertRepository),
             new RsAccelerationCrossoverAlertEvaluator(
                 alertRulesRepository, signalRepository, alertRepository),
             new PreBuyFlowSurgeAlertEvaluator(
@@ -218,7 +220,7 @@ class AlertRulesEngineTest {
     lenient()
         .when(alertRulesRepository.findById("sub_sector_bull_confluence"))
         .thenReturn(Optional.of(disabled("sub_sector_bull_confluence")));
-    lenient().when(signalRepository.findScorePercentile252d()).thenReturn(Map.of());
+    lenient().when(signalAnalyticsRepository.findScorePercentile252d()).thenReturn(Map.of());
   }
 
   private AlertRule enabled(String ruleId, Severity severity) {
@@ -1017,7 +1019,7 @@ class AlertRulesEngineTest {
                 SignalType.COMPOSITE_TREND_20D, Map.of("TECH", new BigDecimal("0.05")),
                 SignalType.MACRO_FIT, Map.of("TECH", new BigDecimal("0.80")),
                 SignalType.COMPOSITE_TREND_5D, Map.of("TECH", new BigDecimal("0.06"))));
-    when(signalRepository.findScorePercentile252d())
+    when(signalAnalyticsRepository.findScorePercentile252d())
         .thenReturn(Map.of("TECH", new BigDecimal("0.90")));
     when(alertRepository.existsActiveAlert("high_conviction_buy", "TECH")).thenReturn(false);
 
@@ -1057,7 +1059,7 @@ class AlertRulesEngineTest {
                 SignalType.COMPOSITE_TREND_20D, Map.of("TECH", new BigDecimal("0.02")),
                 SignalType.MACRO_FIT, Map.of("TECH", new BigDecimal("0.45")),
                 SignalType.COMPOSITE_TREND_5D, Map.of("TECH", new BigDecimal("0.03"))));
-    when(signalRepository.findScorePercentile252d())
+    when(signalAnalyticsRepository.findScorePercentile252d())
         .thenReturn(Map.of("TECH", new BigDecimal("0.60")));
 
     engine.onSignalsUpdated(new SignalsUpdatedEvent(DATE));
@@ -1089,7 +1091,7 @@ class AlertRulesEngineTest {
                 SignalType.COMPOSITE_TREND_20D, Map.of("TECH", new BigDecimal("0.01")),
                 SignalType.MACRO_FIT, Map.of("TECH", new BigDecimal("0.25")),
                 SignalType.COMPOSITE_TREND_5D, Map.of("TECH", new BigDecimal("0.01"))));
-    when(signalRepository.findScorePercentile252d())
+    when(signalAnalyticsRepository.findScorePercentile252d())
         .thenReturn(Map.of("TECH", new BigDecimal("0.35")));
     when(alertRepository.existsActiveAlert("high_conviction_buy", "TECH")).thenReturn(true);
 
@@ -1123,7 +1125,7 @@ class AlertRulesEngineTest {
                 SignalType.COMPOSITE_TREND_20D, Map.of("TECH", new BigDecimal("0.06")),
                 SignalType.MACRO_FIT, Map.of("TECH", new BigDecimal("0.80")),
                 SignalType.COMPOSITE_TREND_5D, Map.of("TECH", new BigDecimal("0.08"))));
-    when(signalRepository.findScorePercentile252d())
+    when(signalAnalyticsRepository.findScorePercentile252d())
         .thenReturn(Map.of("TECH", new BigDecimal("0.88")));
     when(alertRepository.existsActiveAlert("high_conviction_buy", "TECH")).thenReturn(true);
 
@@ -1196,7 +1198,7 @@ class AlertRulesEngineTest {
                         new BigDecimal("0.06"),
                         "HLTH",
                         new BigDecimal("0.06"))));
-    when(signalRepository.findScorePercentile252d())
+    when(signalAnalyticsRepository.findScorePercentile252d())
         .thenReturn(
             Map.of(
                 "TECH",
@@ -1279,7 +1281,7 @@ class AlertRulesEngineTest {
                         new BigDecimal("0.03"),
                         "HLTH",
                         new BigDecimal("0.03"))));
-    when(signalRepository.findScorePercentile252d())
+    when(signalAnalyticsRepository.findScorePercentile252d())
         .thenReturn(
             Map.of(
                 "TECH",
@@ -1355,7 +1357,7 @@ class AlertRulesEngineTest {
                         new BigDecimal("0.02"),
                         "HLTH",
                         new BigDecimal("0.01"))));
-    when(signalRepository.findScorePercentile252d())
+    when(signalAnalyticsRepository.findScorePercentile252d())
         .thenReturn(
             Map.of(
                 "TECH",
@@ -1429,7 +1431,7 @@ class AlertRulesEngineTest {
                         new BigDecimal("-2.0"),
                         "HLTH",
                         new BigDecimal("-2.0"))));
-    when(signalRepository.findScorePercentile252d())
+    when(signalAnalyticsRepository.findScorePercentile252d())
         .thenReturn(
             Map.of(
                 "TECH",
@@ -1507,7 +1509,7 @@ class AlertRulesEngineTest {
                         new BigDecimal("0.1"),
                         "HLTH",
                         new BigDecimal("0.1"))));
-    when(signalRepository.findScorePercentile252d())
+    when(signalAnalyticsRepository.findScorePercentile252d())
         .thenReturn(
             Map.of(
                 "TECH",
@@ -2291,7 +2293,7 @@ class AlertRulesEngineTest {
     stubAllRulesDisabledExceptScorePercentileExtreme();
     when(alertRulesRepository.findById("score_percentile_extreme"))
         .thenReturn(Optional.of(enabled("score_percentile_extreme", Severity.WARNING)));
-    when(signalRepository.findScorePercentile252d())
+    when(signalAnalyticsRepository.findScorePercentile252d())
         .thenReturn(Map.of("TECH", new BigDecimal("0.93"))); // 93rd percentile — at historic high
     when(alertRepository.existsActiveAlert("score_percentile_extreme", "TECH")).thenReturn(false);
 
@@ -2316,7 +2318,7 @@ class AlertRulesEngineTest {
     stubAllRulesDisabledExceptScorePercentileExtreme();
     when(alertRulesRepository.findById("score_percentile_extreme"))
         .thenReturn(Optional.of(enabled("score_percentile_extreme", Severity.WARNING)));
-    when(signalRepository.findScorePercentile252d())
+    when(signalAnalyticsRepository.findScorePercentile252d())
         .thenReturn(Map.of("TECH", new BigDecimal("0.07"))); // 7th percentile — at historic low
     when(alertRepository.existsActiveAlert("score_percentile_extreme", "TECH")).thenReturn(false);
 
@@ -2352,7 +2354,7 @@ class AlertRulesEngineTest {
     stubAllRulesDisabledExceptScorePercentileExtreme();
     when(alertRulesRepository.findById("score_percentile_extreme"))
         .thenReturn(Optional.of(enabled("score_percentile_extreme", Severity.WARNING)));
-    when(signalRepository.findScorePercentile252d())
+    when(signalAnalyticsRepository.findScorePercentile252d())
         .thenReturn(Map.of("TECH", new BigDecimal("0.55"))); // 55th percentile — normal range
     when(alertRepository.existsActiveAlert("score_percentile_extreme", "TECH")).thenReturn(false);
 
@@ -2489,7 +2491,7 @@ class AlertRulesEngineTest {
     stubAllRulesDisabledExceptScorePercentileExtreme();
     when(alertRulesRepository.findById("score_percentile_extreme"))
         .thenReturn(Optional.of(enabled("score_percentile_extreme", Severity.WARNING)));
-    when(signalRepository.findScorePercentile252d())
+    when(signalAnalyticsRepository.findScorePercentile252d())
         .thenReturn(Map.of("TECH", new BigDecimal("0.50"))); // returned to mid-range
     when(alertRepository.existsActiveAlert("score_percentile_extreme", "TECH"))
         .thenReturn(true); // was active

@@ -23,8 +23,9 @@ import com.ftm.app.domain.Category;
 import com.ftm.app.domain.CategoryId;
 import com.ftm.app.domain.CategoryType;
 import com.ftm.app.domain.SignalType;
+import com.ftm.app.signals.repository.SignalAnalyticsRepository;
 import com.ftm.app.signals.repository.SignalRepository;
-import com.ftm.app.signals.repository.SignalRepository.BuySignalWinRateRow;
+import com.ftm.app.signals.repository.SignalAnalyticsRepository.BuySignalWinRateRow;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -45,6 +46,7 @@ class CategoryServiceTest {
 
   @Mock CategoryRepository categoryRepository;
   @Mock SignalRepository signalRepository;
+  @Mock SignalAnalyticsRepository signalAnalyticsRepository;
   @Mock CategoryMapper categoryMapper;
   @Mock AlertService alertService;
   @InjectMocks CategoryService categoryService;
@@ -53,7 +55,7 @@ class CategoryServiceTest {
   @DisplayName("getCompositeScoreHistory returns only top-level category scores from DB")
   void shouldReturnOnlyTopLevelCategoryScoresFromDb() {
     when(categoryRepository.findTopLevelActiveCategoryIds()).thenReturn(Set.of("TECH", "FINL"));
-    when(signalRepository.findCompositeScoreHistory(eq(30), anyCollection()))
+    when(signalAnalyticsRepository.findCompositeScoreHistory(eq(30), anyCollection()))
         .thenReturn(
             Map.of(
                 "TECH", List.of(new BigDecimal("0.70"), new BigDecimal("0.75")),
@@ -74,7 +76,7 @@ class CategoryServiceTest {
     valuesWithNull.add(new BigDecimal("0.60"));
     valuesWithNull.add(null);
     valuesWithNull.add(new BigDecimal("0.65"));
-    when(signalRepository.findCompositeScoreHistory(eq(10), anyCollection()))
+    when(signalAnalyticsRepository.findCompositeScoreHistory(eq(10), anyCollection()))
         .thenReturn(Map.of("TECH", valuesWithNull));
 
     Map<String, List<Double>> result = categoryService.getCompositeScoreHistory(10);
@@ -90,29 +92,29 @@ class CategoryServiceTest {
   @DisplayName("getCompositeScoreHistory clamps days below minimum to 5")
   void shouldClampDaysBelowMinimumToFive() {
     when(categoryRepository.findTopLevelActiveCategoryIds()).thenReturn(Set.of());
-    when(signalRepository.findCompositeScoreHistory(eq(5), anyCollection())).thenReturn(Map.of());
+    when(signalAnalyticsRepository.findCompositeScoreHistory(eq(5), anyCollection())).thenReturn(Map.of());
 
     categoryService.getCompositeScoreHistory(2);
 
-    verify(signalRepository).findCompositeScoreHistory(eq(5), anyCollection());
+    verify(signalAnalyticsRepository).findCompositeScoreHistory(eq(5), anyCollection());
   }
 
   @Test
   @DisplayName("getCompositeScoreHistory clamps days above maximum to 120")
   void shouldClampDaysAboveMaximumToOneTwenty() {
     when(categoryRepository.findTopLevelActiveCategoryIds()).thenReturn(Set.of());
-    when(signalRepository.findCompositeScoreHistory(eq(120), anyCollection())).thenReturn(Map.of());
+    when(signalAnalyticsRepository.findCompositeScoreHistory(eq(120), anyCollection())).thenReturn(Map.of());
 
     categoryService.getCompositeScoreHistory(200);
 
-    verify(signalRepository).findCompositeScoreHistory(eq(120), anyCollection());
+    verify(signalAnalyticsRepository).findCompositeScoreHistory(eq(120), anyCollection());
   }
 
   @Test
   @DisplayName("getCompositeScoreHistory returns empty map when repository returns empty")
   void shouldReturnEmptyMapWhenRepositoryReturnsEmpty() {
     when(categoryRepository.findTopLevelActiveCategoryIds()).thenReturn(Set.of("TECH"));
-    when(signalRepository.findCompositeScoreHistory(anyInt(), anyCollection()))
+    when(signalAnalyticsRepository.findCompositeScoreHistory(anyInt(), anyCollection()))
         .thenReturn(Map.of());
 
     Map<String, List<Double>> result = categoryService.getCompositeScoreHistory(30);
@@ -125,11 +127,11 @@ class CategoryServiceTest {
   void shouldPassTopLevelIdsToRepository() {
     Set<String> topLevelIds = Set.of("TECH", "FINL", "HLTH");
     when(categoryRepository.findTopLevelActiveCategoryIds()).thenReturn(topLevelIds);
-    when(signalRepository.findCompositeScoreHistory(eq(30), eq(topLevelIds))).thenReturn(Map.of());
+    when(signalAnalyticsRepository.findCompositeScoreHistory(eq(30), eq(topLevelIds))).thenReturn(Map.of());
 
     categoryService.getCompositeScoreHistory(30);
 
-    verify(signalRepository).findCompositeScoreHistory(30, topLevelIds);
+    verify(signalAnalyticsRepository).findCompositeScoreHistory(30, topLevelIds);
   }
 
   // ===== getCategoriesResponse — timeframe routing =====
@@ -255,11 +257,11 @@ class CategoryServiceTest {
     when(signalRepository.findLatestByTypes(any())).thenReturn(Map.of());
     CategorySummaryDto dto1 = Instancio.create(CategorySummaryDto.class);
     CategorySummaryDto dto2 = Instancio.create(CategorySummaryDto.class);
-    when(signalRepository.findSignalDaysActive(any())).thenReturn(Map.of());
-    when(signalRepository.findRealizedVolatility20d()).thenReturn(Map.of());
-    when(signalRepository.findScorePercentile252d()).thenReturn(Map.of());
+    when(signalAnalyticsRepository.findSignalDaysActive(any())).thenReturn(Map.of());
+    when(signalAnalyticsRepository.findRealizedVolatility20d()).thenReturn(Map.of());
+    when(signalAnalyticsRepository.findScorePercentile252d()).thenReturn(Map.of());
     when(alertService.getActiveAlertCountsByCategory()).thenReturn(Map.of());
-    when(signalRepository.findScoreStreakDays()).thenReturn(Map.of());
+    when(signalAnalyticsRepository.findScoreStreakDays()).thenReturn(Map.of());
     when(categoryMapper.toDto(
             eq(row1), eq(1), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
             any(), any(), any(), any(), any(), any(), any(), any()))
@@ -323,7 +325,7 @@ class CategoryServiceTest {
         new BuySignalWinRateRow(
             "TECH", 42, new BigDecimal("0.74"), new BigDecimal("0.038"), new BigDecimal("0.092"));
 
-    when(signalRepository.findBuySignalWinRates(365)).thenReturn(List.of(row));
+    when(signalAnalyticsRepository.findBuySignalWinRates(365)).thenReturn(List.of(row));
 
     List<SignalWinRateDto> result = categoryService.getBuySignalWinRates(365);
 
@@ -342,7 +344,7 @@ class CategoryServiceTest {
     BuySignalWinRateRow row =
         new BuySignalWinRateRow("TLTD", 12, new BigDecimal("0.50"), new BigDecimal("0.004"), null);
 
-    when(signalRepository.findBuySignalWinRates(365)).thenReturn(List.of(row));
+    when(signalAnalyticsRepository.findBuySignalWinRates(365)).thenReturn(List.of(row));
 
     List<SignalWinRateDto> result = categoryService.getBuySignalWinRates(365);
 
@@ -352,14 +354,14 @@ class CategoryServiceTest {
   @Test
   @DisplayName("getBuySignalWinRates clamps lookback days to [90, 730]")
   void shouldClampWinRateLookbackDays() {
-    when(signalRepository.findBuySignalWinRates(90)).thenReturn(List.of());
-    when(signalRepository.findBuySignalWinRates(730)).thenReturn(List.of());
+    when(signalAnalyticsRepository.findBuySignalWinRates(90)).thenReturn(List.of());
+    when(signalAnalyticsRepository.findBuySignalWinRates(730)).thenReturn(List.of());
 
     categoryService.getBuySignalWinRates(30);
-    verify(signalRepository).findBuySignalWinRates(90);
+    verify(signalAnalyticsRepository).findBuySignalWinRates(90);
 
     categoryService.getBuySignalWinRates(999);
-    verify(signalRepository).findBuySignalWinRates(730);
+    verify(signalAnalyticsRepository).findBuySignalWinRates(730);
   }
 
   @Test
@@ -370,7 +372,7 @@ class CategoryServiceTest {
 
     categoryService.getCategoriesResponse("MONTH");
 
-    verify(signalRepository).findScoreStreakDays();
+    verify(signalAnalyticsRepository).findScoreStreakDays();
   }
 
   // ===== getSeasonalReturns =====

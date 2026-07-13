@@ -146,3 +146,5 @@ export function useBacktest() {
     handleFrequencySweep,
   };
 }
+
+export type UseBacktestResult = ReturnType<typeof useBacktest>;

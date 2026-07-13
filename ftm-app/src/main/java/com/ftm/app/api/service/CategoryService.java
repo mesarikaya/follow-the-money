@@ -8,18 +8,18 @@ import com.ftm.app.api.dto.SignalTransitionDto;
 import com.ftm.app.api.dto.SignalWinRateDto;
 import com.ftm.app.api.mapper.CategoryMapper;
 import com.ftm.app.api.repository.CategoryRepository;
+import com.ftm.app.api.repository.CategoryRepository.CategoryPriceRow;
+import com.ftm.app.api.service.SignalTransitionAssembler.TransitionContext;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.SignalType;
 import com.ftm.app.signals.repository.SignalAnalyticsRepository;
 import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -28,341 +28,264 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
+/**
+ * Serves the category views: the ranked screener table, its snapshot, score history, price levels,
+ * signal transitions, win rates and seasonality. It loads the signals each view needs and hands the
+ * shaping to the mapper and the two calculators.
+ */
 @Service
 public class CategoryService {
 
   private static final Logger log = LoggerFactory.getLogger(CategoryService.class);
+
+  private static final BigDecimal SIGNAL_ACTIVE_THRESHOLD = new BigDecimal("0.50");
+
+  private static final int MIN_HISTORY_DAYS = 5;
+  private static final int MAX_HISTORY_DAYS = 120;
+  private static final int MIN_WIN_RATE_LOOKBACK_DAYS = 90;
+  private static final int MAX_WIN_RATE_LOOKBACK_DAYS = 730;
+  private static final int MIN_TRANSITION_LOOKBACK_DAYS = 1;
+  private static final int MAX_TRANSITION_LOOKBACK_DAYS = 90;
+
+  /** Every signal type the screener table shows, besides the timeframe-dependent RS window. */
+  private static final List<SignalType> SCREENER_SIGNAL_TYPES =
+      List.of(
+          SignalType.COMPOSITE,
+          SignalType.RRG_QUADRANT,
+          SignalType.COMPOSITE_TREND_5D,
+          SignalType.COMPOSITE_TREND_10D,
+          SignalType.COMPOSITE_TREND_20D,
+          SignalType.RS_120,
+          SignalType.RS_20,
+          SignalType.FLOW_20D,
+          SignalType.PERSISTENCE_5D,
+          SignalType.PERSISTENCE_20D,
+          SignalType.MACRO_FIT,
+          SignalType.MOM);
+
+  private static final List<SignalType> SNAPSHOT_SIGNAL_TYPES =
+      List.of(
+          SignalType.COMPOSITE,
+          SignalType.RRG_QUADRANT,
+          SignalType.COMPOSITE_TREND_20D,
+          SignalType.RS_60,
+          SignalType.RS_20);
 
   private final CategoryRepository categoryRepository;
   private final SignalRepository signalRepository;
   private final SignalAnalyticsRepository signalAnalyticsRepository;
   private final CategoryMapper categoryMapper;
   private final AlertService alertService;
+  private final ScreenerSnapshotCalculator screenerSnapshotCalculator;
+  private final SignalTransitionAssembler signalTransitionAssembler;
 
   public CategoryService(
       CategoryRepository categoryRepository,
       SignalRepository signalRepository,
       SignalAnalyticsRepository signalAnalyticsRepository,
       CategoryMapper categoryMapper,
-      AlertService alertService) {
+      AlertService alertService,
+      ScreenerSnapshotCalculator screenerSnapshotCalculator,
+      SignalTransitionAssembler signalTransitionAssembler) {
     this.categoryRepository = categoryRepository;
     this.signalRepository = signalRepository;
     this.signalAnalyticsRepository = signalAnalyticsRepository;
     this.categoryMapper = categoryMapper;
     this.alertService = alertService;
+    this.screenerSnapshotCalculator = screenerSnapshotCalculator;
+    this.signalTransitionAssembler = signalTransitionAssembler;
+  }
+
+  /** The latest value of every signal type a view asked for, per category. */
+  private record LatestSignals(Map<SignalType, Map<String, BigDecimal>> byType) {
+
+    Map<String, BigDecimal> of(SignalType type) {
+      return byType.getOrDefault(type, Collections.emptyMap());
+    }
   }
 
   @Cacheable(value = "signals-latest", key = "#timeframe")
   public CategoriesResponse getCategoriesResponse(String timeframe) {
     log.debug("Loading categories for timeframe={}", timeframe);
-    var rows = categoryRepository.findAllWithLatestPrice();
-    SignalType rsType = rsTypeForTimeframe(timeframe);
-    List<SignalType> typesToFetch =
-        List.of(
-            rsType,
-            SignalType.COMPOSITE,
-            SignalType.RRG_QUADRANT,
-            SignalType.COMPOSITE_TREND_5D,
-            SignalType.COMPOSITE_TREND_10D,
-            SignalType.COMPOSITE_TREND_20D,
-            SignalType.RS_120,
-            SignalType.RS_20,
-            SignalType.FLOW_20D,
-            SignalType.PERSISTENCE_5D,
-            SignalType.PERSISTENCE_20D,
-            SignalType.MACRO_FIT,
-            SignalType.MOM);
-    // Exclude duplicates when rsType is one of the already-listed types (e.g. RS_60 = default)
-    var uniqueTypes = typesToFetch.stream().distinct().toList();
-    Map<SignalType, Map<String, BigDecimal>> signals =
-        signalRepository.findLatestByTypes(uniqueTypes);
-    Map<String, BigDecimal> rsByCategory = signals.getOrDefault(rsType, Collections.emptyMap());
-    Map<String, BigDecimal> compositeByCategoryId =
-        signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap());
-    Map<String, BigDecimal> rrgQuadrantByCategoryId =
-        signals.getOrDefault(SignalType.RRG_QUADRANT, Collections.emptyMap());
-    Map<String, BigDecimal> compositeTrend5dByCategoryId =
-        signals.getOrDefault(SignalType.COMPOSITE_TREND_5D, Collections.emptyMap());
-    Map<String, BigDecimal> compositeTrend10dByCategoryId =
-        signals.getOrDefault(SignalType.COMPOSITE_TREND_10D, Collections.emptyMap());
-    Map<String, BigDecimal> compositeTrend20dByCategoryId =
-        signals.getOrDefault(SignalType.COMPOSITE_TREND_20D, Collections.emptyMap());
-    Map<String, BigDecimal> rs120ByCategoryId =
-        signals.getOrDefault(SignalType.RS_120, Collections.emptyMap());
-    Map<String, BigDecimal> rs20ByCategoryId =
-        signals.getOrDefault(SignalType.RS_20, Collections.emptyMap());
-    Map<String, BigDecimal> flow20dByCategoryId =
-        signals.getOrDefault(SignalType.FLOW_20D, Collections.emptyMap());
-    Map<String, BigDecimal> persistence5dByCategoryId =
-        signals.getOrDefault(SignalType.PERSISTENCE_5D, Collections.emptyMap());
-    Map<String, BigDecimal> persistence20dByCategoryId =
-        signals.getOrDefault(SignalType.PERSISTENCE_20D, Collections.emptyMap());
-    Map<String, BigDecimal> macroFitByCategoryId =
-        signals.getOrDefault(SignalType.MACRO_FIT, Collections.emptyMap());
-    Map<String, BigDecimal> momentumByCategoryId =
-        signals.getOrDefault(SignalType.MOM, Collections.emptyMap());
-    Map<String, Integer> signalDaysActiveByCategoryId =
-        signalAnalyticsRepository.findSignalDaysActive(new java.math.BigDecimal("0.50"));
-    Map<String, BigDecimal> realizedVol20dByCategoryId =
-        signalAnalyticsRepository.findRealizedVolatility20d();
-    Map<String, BigDecimal> scorePercentile252dByCategoryId =
-        signalAnalyticsRepository.findScorePercentile252d();
-    Map<String, Integer> activeAlertCountByCategoryId =
-        alertService.getActiveAlertCountsByCategory();
-    Map<String, Integer> scoreStreakDaysByCategoryId = signalAnalyticsRepository.findScoreStreakDays();
 
-    // Primary sort: timeframe RS signal; secondary: composite score (tiebreaker)
-    var sortedRows =
-        rows.stream()
-            .sorted(
-                Comparator.comparing(
-                        (CategoryRepository.CategoryPriceRow row) ->
-                            rsByCategory.getOrDefault(row.category().id().name(), BigDecimal.ZERO),
-                        Comparator.<BigDecimal>reverseOrder())
-                    .thenComparing(
-                        row ->
-                            compositeByCategoryId.getOrDefault(
-                                row.category().id().name(), BigDecimal.ZERO),
-                        Comparator.<BigDecimal>reverseOrder()))
-            .toList();
+    SignalType rsType = rsTypeForTimeframe(timeframe);
+    LatestSignals signals = fetchScreenerSignals(rsType);
+
+    List<CategoryPriceRow> rankedRows =
+        rankByRelativeStrength(
+            categoryRepository.findAllWithLatestPrice(),
+            signals.of(rsType),
+            signals.of(SignalType.COMPOSITE));
+
+    Map<String, Integer> signalDaysActive =
+        signalAnalyticsRepository.findSignalDaysActive(SIGNAL_ACTIVE_THRESHOLD);
+    Map<String, BigDecimal> realizedVolatility20d =
+        signalAnalyticsRepository.findRealizedVolatility20d();
+    Map<String, BigDecimal> scorePercentile252d = signalAnalyticsRepository.findScorePercentile252d();
+    Map<String, Integer> activeAlertCounts = alertService.getActiveAlertCountsByCategory();
+    Map<String, Integer> scoreStreakDays = signalAnalyticsRepository.findScoreStreakDays();
 
     AtomicInteger rank = new AtomicInteger(1);
-    var categorySummaryDtos =
-        sortedRows.stream()
+    var categorySummaries =
+        rankedRows.stream()
             .map(
                 row ->
                     categoryMapper.toDto(
                         row,
                         rank.getAndIncrement(),
-                        rsByCategory,
-                        compositeByCategoryId,
-                        rrgQuadrantByCategoryId,
-                        compositeTrend5dByCategoryId,
-                        compositeTrend10dByCategoryId,
-                        compositeTrend20dByCategoryId,
-                        rs120ByCategoryId,
-                        rs20ByCategoryId,
-                        flow20dByCategoryId,
-                        persistence5dByCategoryId,
-                        persistence20dByCategoryId,
-                        macroFitByCategoryId,
-                        momentumByCategoryId,
-                        signalDaysActiveByCategoryId,
-                        realizedVol20dByCategoryId,
-                        scorePercentile252dByCategoryId,
-                        activeAlertCountByCategoryId,
-                        scoreStreakDaysByCategoryId))
+                        signals.of(rsType),
+                        signals.of(SignalType.COMPOSITE),
+                        signals.of(SignalType.RRG_QUADRANT),
+                        signals.of(SignalType.COMPOSITE_TREND_5D),
+                        signals.of(SignalType.COMPOSITE_TREND_10D),
+                        signals.of(SignalType.COMPOSITE_TREND_20D),
+                        signals.of(SignalType.RS_120),
+                        signals.of(SignalType.RS_20),
+                        signals.of(SignalType.FLOW_20D),
+                        signals.of(SignalType.PERSISTENCE_5D),
+                        signals.of(SignalType.PERSISTENCE_20D),
+                        signals.of(SignalType.MACRO_FIT),
+                        signals.of(SignalType.MOM),
+                        signalDaysActive,
+                        realizedVolatility20d,
+                        scorePercentile252d,
+                        activeAlertCounts,
+                        scoreStreakDays))
             .toList();
 
-    LocalDate asOfDate =
-        sortedRows.stream()
-            .map(r -> r.priceDate())
-            .filter(d -> d != null)
-            .max(Comparator.naturalOrder())
-            .orElse(LocalDate.now());
+    return new CategoriesResponse(latestPriceDate(rankedRows), timeframe, categorySummaries);
+  }
 
-    return new CategoriesResponse(asOfDate, timeframe, categorySummaryDtos);
+  private LatestSignals fetchScreenerSignals(SignalType rsType) {
+    // The RS type may already be in the list (RS_60 is the default) — ask for it only once.
+    List<SignalType> types =
+        java.util.stream.Stream.concat(java.util.stream.Stream.of(rsType), SCREENER_SIGNAL_TYPES.stream())
+            .distinct()
+            .toList();
+    return new LatestSignals(signalRepository.findLatestByTypes(types));
+  }
+
+  /** Strongest relative strength first; the composite score breaks ties. */
+  private static List<CategoryPriceRow> rankByRelativeStrength(
+      List<CategoryPriceRow> rows,
+      Map<String, BigDecimal> relativeStrength,
+      Map<String, BigDecimal> composites) {
+    Comparator<CategoryPriceRow> byRelativeStrength =
+        Comparator.comparing(
+            (CategoryPriceRow row) -> signalOf(relativeStrength, row), Comparator.reverseOrder());
+    Comparator<CategoryPriceRow> byComposite =
+        Comparator.comparing(
+            (CategoryPriceRow row) -> signalOf(composites, row), Comparator.reverseOrder());
+    return rows.stream().sorted(byRelativeStrength.thenComparing(byComposite)).toList();
+  }
+
+  private static BigDecimal signalOf(Map<String, BigDecimal> signal, CategoryPriceRow row) {
+    return signal.getOrDefault(row.category().id().name(), BigDecimal.ZERO);
+  }
+
+  private static LocalDate latestPriceDate(List<CategoryPriceRow> rows) {
+    return rows.stream()
+        .map(CategoryPriceRow::priceDate)
+        .filter(java.util.Objects::nonNull)
+        .max(Comparator.naturalOrder())
+        .orElse(LocalDate.now());
   }
 
   @Cacheable(value = "score-history", key = "#days")
   public Map<String, List<Double>> getCompositeScoreHistory(int days) {
-    int clamped = Math.max(5, Math.min(days, 120));
+    int clampedDays = clamp(days, MIN_HISTORY_DAYS, MAX_HISTORY_DAYS);
     Set<String> topLevelIds = categoryRepository.findTopLevelActiveCategoryIds();
-    return signalAnalyticsRepository.findCompositeScoreHistory(clamped, topLevelIds).entrySet().stream()
-        .collect(
-            Collectors.toMap(
-                Map.Entry::getKey,
-                e ->
-                    e.getValue().stream()
-                        .map(v -> v == null ? null : v.doubleValue())
-                        .collect(Collectors.toList())));
+    return signalAnalyticsRepository.findCompositeScoreHistory(clampedDays, topLevelIds)
+        .entrySet()
+        .stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> toDoubles(entry.getValue())));
+  }
+
+  private static List<Double> toDoubles(List<BigDecimal> values) {
+    return values.stream()
+        .map(value -> value == null ? null : value.doubleValue())
+        .collect(Collectors.toList());
   }
 
   @Cacheable("price-levels")
   public List<PriceLevelDto> getPriceLevels() {
     return categoryRepository.findPriceLevels().stream()
         .map(
-            r ->
+            level ->
                 new PriceLevelDto(
-                    r.categoryId(),
-                    r.currentPrice(),
-                    r.high252d(),
-                    r.low252d(),
-                    r.drawdownFromHigh(),
-                    r.positionInRange(),
-                    r.daysOfData()))
+                    level.categoryId(),
+                    level.currentPrice(),
+                    level.high252d(),
+                    level.low252d(),
+                    level.drawdownFromHigh(),
+                    level.positionInRange(),
+                    level.daysOfData()))
         .toList();
   }
 
   @Cacheable(value = "win-rates", key = "#lookbackDays")
   public List<SignalWinRateDto> getBuySignalWinRates(int lookbackDays) {
-    int clamped = Math.max(90, Math.min(lookbackDays, 730));
-    return signalAnalyticsRepository.findBuySignalWinRates(clamped).stream()
+    int clampedDays =
+        clamp(lookbackDays, MIN_WIN_RATE_LOOKBACK_DAYS, MAX_WIN_RATE_LOOKBACK_DAYS);
+    return signalAnalyticsRepository.findBuySignalWinRates(clampedDays).stream()
         .map(
-            r ->
+            winRate ->
                 new SignalWinRateDto(
-                    r.categoryId(),
-                    r.signalCount(),
-                    r.winRate(),
-                    r.avgReturn30d(),
-                    r.avgReturn90d()))
+                    winRate.categoryId(),
+                    winRate.signalCount(),
+                    winRate.winRate(),
+                    winRate.avgReturn30d(),
+                    winRate.avgReturn90d()))
         .toList();
   }
 
   @Cacheable(value = "transitions-latest", key = "#lookbackDays")
   public List<SignalTransitionDto> getSignalTransitions(int lookbackDays) {
-    int clamped = Math.max(1, Math.min(lookbackDays, 90));
-    Map<String, Category> categoriesById =
-        categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc().stream()
-            .filter(c -> c.parentId() == null)
-            .collect(Collectors.toMap(c -> c.id().name(), c -> c));
+    int clampedDays =
+        clamp(lookbackDays, MIN_TRANSITION_LOOKBACK_DAYS, MAX_TRANSITION_LOOKBACK_DAYS);
+    TransitionContext context =
+        new TransitionContext(
+            topLevelCategoriesById(),
+            signalAnalyticsRepository.findScorePercentile252d(),
+            signalRepository
+                .findLatestByTypes(List.of(SignalType.MACRO_FIT))
+                .getOrDefault(SignalType.MACRO_FIT, Collections.emptyMap()),
+            signalAnalyticsRepository.findSignalDaysActive(SIGNAL_ACTIVE_THRESHOLD),
+            clampedDays);
+    return signalTransitionAssembler.assemble(
+        signalAnalyticsRepository.findSignalSnapshotPairs(clampedDays), context);
+  }
 
-    Map<String, BigDecimal> scorePercentile252d = signalAnalyticsRepository.findScorePercentile252d();
-    Map<String, Integer> signalDaysActive =
-        signalAnalyticsRepository.findSignalDaysActive(new BigDecimal("0.50"));
-    Map<String, BigDecimal> macroFitByCategory =
-        signalRepository
-            .findLatestByTypes(List.of(SignalType.MACRO_FIT))
-            .getOrDefault(SignalType.MACRO_FIT, Collections.emptyMap());
-
-    return signalAnalyticsRepository.findSignalSnapshotPairs(clamped).stream()
-        .map(
-            pair -> {
-              String currentRrg =
-                  pair.currentRrg() != null ? String.valueOf(pair.currentRrg().intValue()) : null;
-              String prevRrg =
-                  pair.previousRrg() != null ? String.valueOf(pair.previousRrg().intValue()) : null;
-              String currentSignal =
-                  TradeSignalDeriver.derive(pair.currentScore(), currentRrg, pair.currentTrend());
-              String previousSignal =
-                  TradeSignalDeriver.derive(pair.previousScore(), prevRrg, pair.previousTrend());
-              if (Objects.equals(currentSignal, previousSignal)) return null;
-              Category cat = categoriesById.get(pair.categoryId());
-              String categoryName = cat != null ? cat.name() : pair.categoryId();
-              String etfTicker = cat != null ? cat.etfTicker() : "";
-              int daysAgo =
-                  pair.comparisonDate() != null
-                      ? (int) ChronoUnit.DAYS.between(pair.comparisonDate(), LocalDate.now())
-                      : clamped;
-              BigDecimal pct = scorePercentile252d.get(pair.categoryId());
-              BigDecimal fit = macroFitByCategory.get(pair.categoryId());
-              Integer daysActive = signalDaysActive.get(pair.categoryId());
-              // Simplified conviction (no trend5d/RS accel/flow/rs20 since those aren't fetched
-              // here)
-              int conviction =
-                  TradeSignalDeriver.convictionScore(
-                      pair.currentScore(),
-                      currentRrg,
-                      pair.currentTrend(),
-                      fit,
-                      pct,
-                      null,
-                      null,
-                      null,
-                      null,
-                      null);
-              return new SignalTransitionDto(
-                  pair.categoryId(),
-                  categoryName,
-                  etfTicker,
-                  previousSignal,
-                  currentSignal,
-                  pair.currentScore().doubleValue(),
-                  pair.comparisonDate(),
-                  daysAgo,
-                  pct != null ? pct.doubleValue() : null,
-                  fit != null ? fit.doubleValue() : null,
-                  daysActive,
-                  conviction > 0 ? conviction : null);
-            })
-        .filter(Objects::nonNull)
-        .sorted(
-            Comparator.comparing(t -> signalPriority(t.currentSignal()), Comparator.naturalOrder()))
-        .toList();
+  private Map<String, Category> topLevelCategoriesById() {
+    return categoryRepository.findAllByActiveTrueOrderByDisplayOrderAsc().stream()
+        .filter(category -> category.parentId() == null)
+        .collect(Collectors.toMap(category -> category.id().name(), category -> category));
   }
 
   public ScreenerSnapshotDto getScreenerSnapshot() {
     Set<String> topLevelIds = categoryRepository.findTopLevelActiveCategoryIds();
     if (topLevelIds.isEmpty()) {
-      return new ScreenerSnapshotDto(0, 0, 0, 0, 0, 0.0, 0.0, 0.0, 0.0);
+      return screenerSnapshotCalculator.calculate(topLevelIds, Map.of());
     }
-    Map<SignalType, Map<String, BigDecimal>> signals =
-        signalRepository.findLatestByTypes(
-            List.of(
-                SignalType.COMPOSITE,
-                SignalType.RRG_QUADRANT,
-                SignalType.COMPOSITE_TREND_20D,
-                SignalType.RS_60,
-                SignalType.RS_20));
-    Map<String, BigDecimal> compositeMap =
-        signals.getOrDefault(SignalType.COMPOSITE, Collections.emptyMap());
-    Map<String, BigDecimal> rrgMap =
-        signals.getOrDefault(SignalType.RRG_QUADRANT, Collections.emptyMap());
-    Map<String, BigDecimal> trend20dMap =
-        signals.getOrDefault(SignalType.COMPOSITE_TREND_20D, Collections.emptyMap());
-    Map<String, BigDecimal> rs60Map =
-        signals.getOrDefault(SignalType.RS_60, Collections.emptyMap());
-    Map<String, BigDecimal> rs20Map =
-        signals.getOrDefault(SignalType.RS_20, Collections.emptyMap());
-
-    int buyCount = 0, watchCount = 0, holdCount = 0, reduceCount = 0;
-    int withData = 0;
-    double scoreSum = 0.0;
-    int rsBreadthCount = 0, momentumBreadthCount = 0, riskOnCount = 0;
-
-    for (String categoryId : topLevelIds) {
-      BigDecimal score = compositeMap.get(categoryId);
-      if (score == null) continue;
-      withData++;
-      scoreSum += score.doubleValue();
-
-      BigDecimal rrgVal = rrgMap.get(categoryId);
-      String rrgStr = rrgVal != null ? String.valueOf(rrgVal.intValue()) : null;
-      String signal = TradeSignalDeriver.derive(score, rrgStr, trend20dMap.get(categoryId));
-      switch (signal != null ? signal : "HOLD") {
-        case "BUY" -> buyCount++;
-        case "WATCH" -> watchCount++;
-        case "REDUCE" -> reduceCount++;
-        default -> holdCount++;
-      }
-
-      BigDecimal rs60 = rs60Map.get(categoryId);
-      BigDecimal rs20 = rs20Map.get(categoryId);
-      if (rs60 != null && rs60.compareTo(BigDecimal.ZERO) > 0) rsBreadthCount++;
-      if (rs60 != null && rs20 != null && rs20.compareTo(rs60) > 0) momentumBreadthCount++;
-      if (rrgVal != null && (rrgVal.intValue() == 3 || rrgVal.intValue() == 4)) riskOnCount++;
-    }
-
-    if (withData == 0) {
-      return new ScreenerSnapshotDto(0, 0, 0, 0, 0, 0.0, 0.0, 0.0, 0.0);
-    }
-
-    return new ScreenerSnapshotDto(
-        buyCount,
-        watchCount,
-        holdCount,
-        reduceCount,
-        withData,
-        Math.round(scoreSum / withData * 1000.0) / 1000.0,
-        Math.round((double) rsBreadthCount / withData * 1000.0) / 10.0,
-        Math.round((double) momentumBreadthCount / withData * 1000.0) / 10.0,
-        Math.round((double) riskOnCount / withData * 1000.0) / 10.0);
+    return screenerSnapshotCalculator.calculate(
+        topLevelIds, signalRepository.findLatestByTypes(SNAPSHOT_SIGNAL_TYPES));
   }
 
   @Cacheable("seasonal-returns")
   public List<SeasonalReturnDto> getSeasonalReturns() {
     return categoryRepository.findSeasonalMonthlyReturns().stream()
-        .map(r -> new SeasonalReturnDto(r.categoryId(), r.month(), r.avgReturn(), r.sampleCount()))
+        .map(
+            seasonal ->
+                new SeasonalReturnDto(
+                    seasonal.categoryId(),
+                    seasonal.month(),
+                    seasonal.avgReturn(),
+                    seasonal.sampleCount()))
         .toList();
   }
 
-  private int signalPriority(String signal) {
-    return switch (signal == null ? "" : signal) {
-      case "BUY" -> 0;
-      case "WATCH" -> 1;
-      case "REDUCE" -> 2;
-      default -> 3;
-    };
+  private static int clamp(int value, int minimum, int maximum) {
+    return Math.max(minimum, Math.min(value, maximum));
   }
 
   private SignalType rsTypeForTimeframe(String timeframe) {

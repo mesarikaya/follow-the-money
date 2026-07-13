@@ -33,11 +33,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.instancio.Instancio;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -49,7 +49,22 @@ class CategoryServiceTest {
   @Mock SignalAnalyticsRepository signalAnalyticsRepository;
   @Mock CategoryMapper categoryMapper;
   @Mock AlertService alertService;
-  @InjectMocks CategoryService categoryService;
+
+  CategoryService categoryService;
+
+  @BeforeEach
+  void buildService() {
+    // The calculators are real; they run on whatever the mocked repositories return.
+    categoryService =
+        new CategoryService(
+            categoryRepository,
+            signalRepository,
+            signalAnalyticsRepository,
+            categoryMapper,
+            alertService,
+            new ScreenerSnapshotCalculator(),
+            new SignalTransitionAssembler());
+  }
 
   @Test
   @DisplayName("getCompositeScoreHistory returns only top-level category scores from DB")

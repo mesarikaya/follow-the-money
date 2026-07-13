@@ -21,7 +21,7 @@ import {
 } from "@/components/themes/badges";
 import { SIGNAL_STROKE } from "@/components/themes/panels";
 
-export function ThemeCard({ theme, history }: { theme: ThemeSummary; history: ThemeHistoryPoint[] }) {
+export const ThemeCard = ({ theme, history }: { theme: ThemeSummary; history: ThemeHistoryPoint[] }) => {
   const signal = SIGNAL_CONFIG[theme.dominantSignal] ?? SIGNAL_CONFIG.HOLD;
 
   return (
@@ -80,13 +80,13 @@ export function ThemeCard({ theme, history }: { theme: ThemeSummary; history: Th
   );
 }
 
-export function ThemeScoreHeatmap({
+export const ThemeScoreHeatmap = ({
   themes,
   historiesByThemeId,
 }: {
   themes: ThemeSummary[];
   historiesByThemeId: Record<string, ThemeHistoryPoint[]>;
-}) {
+}) => {
   const DAYS = 20;
 
   // Collect all unique dates across all themes, take latest DAYS
@@ -190,13 +190,13 @@ export function ThemeScoreHeatmap({
   );
 }
 
-export function ThemeRaceChart({
+export const ThemeRaceChart = ({
   themes,
   historiesByThemeId,
 }: {
   themes: ThemeSummary[];
   historiesByThemeId: Record<string, ThemeHistoryPoint[]>;
-}) {
+}) => {
   const validThemes = themes.filter(t => (historiesByThemeId[t.id]?.length ?? 0) >= 3);
   if (validThemes.length < 2) return null;
 

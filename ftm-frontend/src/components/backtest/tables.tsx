@@ -20,7 +20,7 @@ export const FREQ_LABELS: Record<string, { label: string; shortLabel: string; co
   QUARTERLY: { label: "Quarterly", shortLabel: "Q", colorClass: "text-cyan-400"   },
 };
 
-export function cellBg(excess: number): string {
+export const cellBg = (excess: number): string => {
   if (excess >= 0.03)  return "bg-emerald-800/80 text-emerald-200";
   if (excess >= 0.01)  return "bg-emerald-900/60 text-emerald-300";
   if (excess >= 0.003) return "bg-emerald-900/30 text-emerald-400";
@@ -30,7 +30,7 @@ export function cellBg(excess: number): string {
   return "bg-red-800/80 text-red-200";
 }
 
-export function DrawdownAnalysisTable({ curve }: { curve: EquityCurvePoint[] }) {
+export const DrawdownAnalysisTable = ({ curve }: { curve: EquityCurvePoint[] }) => {
   const stratPeriods = computeDrawdownPeriods(curve, false);
   if (stratPeriods.length === 0) return null;
 
@@ -88,7 +88,7 @@ export function DrawdownAnalysisTable({ curve }: { curve: EquityCurvePoint[] }) 
   );
 }
 
-export function RiskAttributionPanel({ curve }: { curve: EquityCurvePoint[] }) {
+export const RiskAttributionPanel = ({ curve }: { curve: EquityCurvePoint[] }) => {
   const ra = computeRiskAttribution(curve);
   if (!ra) return null;
 
@@ -161,7 +161,7 @@ export function RiskAttributionPanel({ curve }: { curve: EquityCurvePoint[] }) {
   );
 }
 
-export function MonthlyReturnsTable({ curve }: { curve: EquityCurvePoint[] }) {
+export const MonthlyReturnsTable = ({ curve }: { curve: EquityCurvePoint[] }) => {
   const rows = computeMonthlyReturns(curve);
   if (rows.length === 0) return null;
 
@@ -273,7 +273,7 @@ export function MonthlyReturnsTable({ curve }: { curve: EquityCurvePoint[] }) {
   );
 }
 
-export function HoldingHeatmap({ events, curve }: { events: RebalanceEvent[]; curve: EquityCurvePoint[] }) {
+export const HoldingHeatmap = ({ events, curve }: { events: RebalanceEvent[]; curve: EquityCurvePoint[] }) => {
   if (!events || events.length < 2) return null;
 
   // All unique categories that ever appeared, sorted by frequency (most held first)
@@ -367,7 +367,7 @@ export function HoldingHeatmap({ events, curve }: { events: RebalanceEvent[]; cu
   );
 }
 
-export function RebalanceTimeline({ events }: { events: RebalanceEvent[] }) {
+export const RebalanceTimeline = ({ events }: { events: RebalanceEvent[] }) => {
   if (!events || events.length === 0) {
     return <p className="text-xs text-slate-500 py-4 text-center">No rebalance events recorded.</p>;
   }
@@ -422,7 +422,7 @@ export function RebalanceTimeline({ events }: { events: RebalanceEvent[] }) {
   );
 }
 
-export function SweepTable({ rows, currentTopN }: { rows: BacktestResult[]; currentTopN: number }) {
+export const SweepTable = ({ rows, currentTopN }: { rows: BacktestResult[]; currentTopN: number }) => {
   if (rows.length === 0) return null;
   const spy = rows[0]; // spy metrics are constant across rows
   const best = rows.reduce((best, r) => (r.sortinoRatio ?? 0) > (best.sortinoRatio ?? 0) ? r : best, rows[0]);
@@ -494,7 +494,7 @@ export function SweepTable({ rows, currentTopN }: { rows: BacktestResult[]; curr
   );
 }
 
-export function RegimeBreakdownTable({ curve, history }: { curve: EquityCurvePoint[]; history: { date: string; regime: string }[] }) {
+export const RegimeBreakdownTable = ({ curve, history }: { curve: EquityCurvePoint[]; history: { date: string; regime: string }[] }) => {
   const rows = computeRegimeBreakdown(curve, history);
   if (rows.length === 0) return null;
 
@@ -557,7 +557,7 @@ export function RegimeBreakdownTable({ curve, history }: { curve: EquityCurvePoi
   );
 }
 
-export function FrequencySweepTable({ rows, currentFrequency }: { rows: BacktestResult[]; currentFrequency: string }) {
+export const FrequencySweepTable = ({ rows, currentFrequency }: { rows: BacktestResult[]; currentFrequency: string }) => {
   if (rows.length === 0) return null;
   const spy = rows[0];
   const best = rows.reduce((b, r) => (r.sortinoRatio ?? 0) > (b.sortinoRatio ?? 0) ? r : b, rows[0]);

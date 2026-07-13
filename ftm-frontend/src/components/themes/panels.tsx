@@ -12,13 +12,13 @@ type OpportunityEntry = {
 };
 
 
-export function ThemePlaybook({
+export const ThemePlaybook = ({
   themes,
   historiesByThemeId,
 }: {
   themes: ThemeSummary[];
   historiesByThemeId: Record<string, ThemeHistoryPoint[]>;
-}) {
+}) => {
   type PlaybookEntry = {
     theme: ThemeSummary;
     action: string;
@@ -105,7 +105,7 @@ export function ThemePlaybook({
   );
 }
 
-export function PreBuySetupPanel({ themes }: { themes: ThemeSummary[] }) {
+export const PreBuySetupPanel = ({ themes }: { themes: ThemeSummary[] }) => {
   const setups = themes.filter(
     t =>
       t.phaseTransitionSignal === "APPROACHING_BUY" ||
@@ -149,13 +149,13 @@ export function PreBuySetupPanel({ themes }: { themes: ThemeSummary[] }) {
   );
 }
 
-export function ThemeTippingPoints({
+export const ThemeTippingPoints = ({
   themes,
   historiesByThemeId,
 }: {
   themes: ThemeSummary[];
   historiesByThemeId: Record<string, ThemeHistoryPoint[]>;
-}) {
+}) => {
   const BUY_ZONE = 0.65;
   const HOLD_ZONE = 0.50;
 
@@ -251,7 +251,7 @@ export function ThemeTippingPoints({
   );
 }
 
-export function TopOpportunitiesPanel({ themes }: { themes: ThemeSummary[] }) {
+export const TopOpportunitiesPanel = ({ themes }: { themes: ThemeSummary[] }) => {
   const opportunities: OpportunityEntry[] = [];
 
   for (const t of themes) {
@@ -328,7 +328,7 @@ export function TopOpportunitiesPanel({ themes }: { themes: ThemeSummary[] }) {
   );
 }
 
-export function ThemeNarrative({ themes }: { themes: ThemeSummary[] }) {
+export const ThemeNarrative = ({ themes }: { themes: ThemeSummary[] }) => {
   if (themes.length === 0) return null;
 
   const buy = themes.filter(t => t.dominantSignal === "BUY");
@@ -404,13 +404,13 @@ export const SEVERITY_CONFIG: Record<string, { badge: string; dot: string }> = {
   INFO:    { badge: "bg-slate-700/60 text-slate-400 border border-slate-600/40",      dot: "bg-slate-500"   },
 };
 
-export function ActiveRotationBanner({
+export const ActiveRotationBanner = ({
   themes,
   historiesByThemeId,
 }: {
   themes: ThemeSummary[];
   historiesByThemeId: Record<string, ThemeHistoryPoint[]>;
-}) {
+}) => {
   const scored = themes.filter(t => t.compositeScore != null);
   if (scored.length < 2) return null;
 
@@ -482,7 +482,7 @@ export function ActiveRotationBanner({
   );
 }
 
-export function RotationMomentumStrip({ themes }: { themes: ThemeSummary[] }) {
+export const RotationMomentumStrip = ({ themes }: { themes: ThemeSummary[] }) => {
   const withVelocity = themes.filter(t => t.compositeTrend20d != null);
   if (withVelocity.length < 2) return null;
 
@@ -541,7 +541,7 @@ export function RotationMomentumStrip({ themes }: { themes: ThemeSummary[] }) {
   );
 }
 
-export function ThemeEventsFeed({ events }: { events: AlertDto[] }) {
+export const ThemeEventsFeed = ({ events }: { events: AlertDto[] }) => {
   if (events.length === 0) return null;
 
   const STATUS_STYLE = {
@@ -587,13 +587,13 @@ export function ThemeEventsFeed({ events }: { events: AlertDto[] }) {
   );
 }
 
-export function ThemeAlertFeed({
+export const ThemeAlertFeed = ({
   alerts,
   themes,
 }: {
   alerts: AlertDto[];
   themes: ThemeSummary[];
-}) {
+}) => {
   const themeAlerts = alerts
     .filter(a => a.themeId != null && a.status === "ACTIVE")
     .slice(0, 5);
@@ -646,13 +646,13 @@ export function ThemeAlertFeed({
   );
 }
 
-export function DualSparkline({
+export const DualSparkline = ({
   leaderHistory,
   laggerHistory,
 }: {
   leaderHistory: ThemeHistoryPoint[];
   laggerHistory: ThemeHistoryPoint[];
-}) {
+}) => {
   if (leaderHistory.length < 2 || laggerHistory.length < 2) return null;
   const W = 96, H = 28;
 
@@ -695,7 +695,7 @@ export const RISK_COLORS: Record<string, string> = {
 
 export const RISK_LABELS = ["LOW", "MEDIUM", "HIGH", "EXTREME"];
 
-export function ThemeRelativeStrengthPlot({ themes }: { themes: ThemeSummary[] }) {
+export const ThemeRelativeStrengthPlot = ({ themes }: { themes: ThemeSummary[] }) => {
   const plotThemes = themes.filter(
     t => t.divergenceFromParentSectors != null && t.compositeTrend20d != null
   );
@@ -775,7 +775,7 @@ export function ThemeRelativeStrengthPlot({ themes }: { themes: ThemeSummary[] }
   );
 }
 
-export function ThemePositioningMatrix({ themes }: { themes: ThemeSummary[] }) {
+export const ThemePositioningMatrix = ({ themes }: { themes: ThemeSummary[] }) => {
   const plotThemes = themes.filter(
     t => t.compositeScore != null && t.flow20d != null
   );
@@ -863,7 +863,7 @@ export function ThemePositioningMatrix({ themes }: { themes: ThemeSummary[] }) {
   );
 }
 
-export function ThemeRiskMatrixPanel({ themes }: { themes: ThemeSummary[] }) {
+export const ThemeRiskMatrixPanel = ({ themes }: { themes: ThemeSummary[] }) => {
   const plotThemes = themes.filter(t => t.compositeScore != null && t.riskLevel != null);
   if (plotThemes.length < 2) return null;
 
@@ -927,7 +927,7 @@ export function ThemeRiskMatrixPanel({ themes }: { themes: ThemeSummary[] }) {
   );
 }
 
-export function ThemeEntryAdvisorPanel({ themes }: { themes: ThemeSummary[] }) {
+export const ThemeEntryAdvisorPanel = ({ themes }: { themes: ThemeSummary[] }) => {
   const actionable = themes
     .filter(t => t.entryAction === "ENTER" || t.entryAction === "SCALE_IN")
     .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
@@ -977,7 +977,7 @@ export function ThemeEntryAdvisorPanel({ themes }: { themes: ThemeSummary[] }) {
   );
 }
 
-export function CapitalRotationPanel({ data }: { data: CapitalRotationData }) {
+export const CapitalRotationPanel = ({ data }: { data: CapitalRotationData }) => {
   const INTENSITY_CONFIG: Record<string, { label: string; className: string; barColor: string }> = {
     STRONG:        { label: "STRONG ROTATION",  className: "text-emerald-300 bg-emerald-500/15 border-emerald-500/30", barColor: "bg-emerald-500" },
     MODERATE:      { label: "MODERATE ROTATION", className: "text-cyan-300 bg-cyan-500/15 border-cyan-500/30",          barColor: "bg-cyan-500" },
@@ -1054,7 +1054,7 @@ export function CapitalRotationPanel({ data }: { data: CapitalRotationData }) {
   );
 }
 
-export function MomentumDivergencePanel({ themes }: { themes: ThemeSummary[] }) {
+export const MomentumDivergencePanel = ({ themes }: { themes: ThemeSummary[] }) => {
   const fading = themes.filter(t => t.momentumAlignment === "FADING" && t.compositeScore != null)
     .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
   const recovering = themes.filter(t => t.momentumAlignment === "RECOVERING" && t.compositeScore != null)

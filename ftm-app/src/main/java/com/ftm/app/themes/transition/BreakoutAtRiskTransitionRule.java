@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 class BreakoutAtRiskTransitionRule implements PhaseTransitionRule {
 
   @Override
-  public Optional<String> evaluate(PhaseTransitionContext context) {
+  public Optional<PhaseTransitionSignal> evaluate(PhaseTransitionContext context) {
     if (context.compositeScore() == null || context.compositeTrend5d() == null) {
       return Optional.empty();
     }
@@ -15,7 +15,7 @@ class BreakoutAtRiskTransitionRule implements PhaseTransitionRule {
     boolean trendDecelerating = context.compositeTrend5d() < -0.005;
     boolean alertPressure = context.alertCount30d() >= 5;
     if (inBuyZone && trendDecelerating && alertPressure) {
-      return Optional.of("BREAKOUT_AT_RISK");
+      return Optional.of(PhaseTransitionSignal.BREAKOUT_AT_RISK);
     }
     return Optional.empty();
   }

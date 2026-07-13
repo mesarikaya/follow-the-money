@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 class EarlyRecoveryTransitionRule implements PhaseTransitionRule {
 
   @Override
-  public Optional<String> evaluate(PhaseTransitionContext context) {
+  public Optional<PhaseTransitionSignal> evaluate(PhaseTransitionContext context) {
     if (context.compositeScore() == null || context.compositeTrend5d() == null) {
       return Optional.empty();
     }
@@ -15,7 +15,7 @@ class EarlyRecoveryTransitionRule implements PhaseTransitionRule {
     boolean strongUptrend = context.compositeTrend5d() > 0.010;
     boolean buildingMomentum = context.signalStreakDays() >= 3;
     if (inRecoveryZone && strongUptrend && buildingMomentum) {
-      return Optional.of("EARLY_RECOVERY");
+      return Optional.of(PhaseTransitionSignal.EARLY_RECOVERY);
     }
     return Optional.empty();
   }

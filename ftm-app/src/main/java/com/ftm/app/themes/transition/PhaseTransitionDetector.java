@@ -14,7 +14,7 @@ public class PhaseTransitionDetector {
     this.rules = rules;
   }
 
-  public Optional<String> detect(PhaseTransitionContext context) {
+  public Optional<PhaseTransitionSignal> detect(PhaseTransitionContext context) {
     return rules.stream()
         .sorted(Comparator.comparingInt(PhaseTransitionRule::priority).reversed())
         .map(rule -> rule.evaluate(context))

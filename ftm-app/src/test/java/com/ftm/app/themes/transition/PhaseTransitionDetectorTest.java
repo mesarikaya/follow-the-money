@@ -33,21 +33,21 @@ class PhaseTransitionDetectorTest {
   @DisplayName("returns APPROACHING_BUY for score 0.58, trend5d +0.008, streak 7")
   void shouldDetectApproachingBuy() {
     var ctx = context(0.58, 7, 0.008, 0.005, 0.5, 2);
-    assertThat(detector.detect(ctx)).isEqualTo(Optional.of("APPROACHING_BUY"));
+    assertThat(detector.detect(ctx)).isEqualTo(Optional.of(PhaseTransitionSignal.APPROACHING_BUY));
   }
 
   @Test
   @DisplayName("returns BREAKOUT_AT_RISK for score 0.72, trend5d -0.010, alerts 8")
   void shouldDetectBreakoutAtRisk() {
     var ctx = context(0.72, 20, -0.010, 0.002, 0.3, 8);
-    assertThat(detector.detect(ctx)).isEqualTo(Optional.of("BREAKOUT_AT_RISK"));
+    assertThat(detector.detect(ctx)).isEqualTo(Optional.of(PhaseTransitionSignal.BREAKOUT_AT_RISK));
   }
 
   @Test
   @DisplayName("returns DISTRIBUTION for score 0.70, flow -0.7, trend20d -0.005")
   void shouldDetectDistribution() {
     var ctx = context(0.70, 15, 0.001, -0.005, -0.7, 3);
-    assertThat(detector.detect(ctx)).isEqualTo(Optional.of("DISTRIBUTION"));
+    assertThat(detector.detect(ctx)).isEqualTo(Optional.of(PhaseTransitionSignal.DISTRIBUTION));
   }
 
   @Test
@@ -56,17 +56,18 @@ class PhaseTransitionDetectorTest {
     // score=0.68, trend5d=-0.010 (breakout at risk), flow=-0.7 trend20d=-0.006 (distribution)
     // Both priority=5, but BREAKOUT_AT_RISK fires first (needs alertCount>=5)
     var ctx = context(0.68, 20, -0.010, -0.006, -0.7, 7);
-    Optional<String> result = detector.detect(ctx);
+    Optional<PhaseTransitionSignal> result = detector.detect(ctx);
     // Either BREAKOUT_AT_RISK or DISTRIBUTION is valid — both priority=5
     assertThat(result).isPresent();
-    assertThat(result.get()).isIn("BREAKOUT_AT_RISK", "DISTRIBUTION");
+    assertThat(result.get())
+        .isIn(PhaseTransitionSignal.BREAKOUT_AT_RISK, PhaseTransitionSignal.DISTRIBUTION);
   }
 
   @Test
   @DisplayName("returns EARLY_RECOVERY for score 0.42, trend5d +0.015, streak 4")
   void shouldDetectEarlyRecovery() {
     var ctx = context(0.42, 4, 0.015, 0.003, 0.1, 1);
-    assertThat(detector.detect(ctx)).isEqualTo(Optional.of("EARLY_RECOVERY"));
+    assertThat(detector.detect(ctx)).isEqualTo(Optional.of(PhaseTransitionSignal.EARLY_RECOVERY));
   }
 
   @Test
@@ -88,7 +89,7 @@ class PhaseTransitionDetectorTest {
   @DisplayName("ApproachingBuy does not fire when score above 0.65 (already BUY territory)")
   void shouldNotFireApproachingBuyAboveThreshold() {
     var ctx = context(0.66, 10, 0.008, 0.005, 0.5, 2);
-    Optional<String> result = detector.detect(ctx);
-    assertThat(result).isNotEqualTo(Optional.of("APPROACHING_BUY"));
+    Optional<PhaseTransitionSignal> result = detector.detect(ctx);
+    assertThat(result).isNotEqualTo(Optional.of(PhaseTransitionSignal.APPROACHING_BUY));
   }
 }

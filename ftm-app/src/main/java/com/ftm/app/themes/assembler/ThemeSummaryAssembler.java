@@ -8,6 +8,7 @@ import com.ftm.app.signals.repository.SignalRepository.DateHistory;
 import com.ftm.app.themes.confluence.ConfluenceInput;
 import com.ftm.app.themes.confluence.ConfluenceResult;
 import com.ftm.app.themes.confluence.ConfluenceScoreService;
+import com.ftm.app.themes.entry.EntryAction;
 import com.ftm.app.themes.entry.EntryRecommendation;
 import com.ftm.app.themes.entry.EntryTimingAdvisor;
 import com.ftm.app.themes.entry.EntryTimingContext;
@@ -25,6 +26,7 @@ import com.ftm.app.themes.signal.ThemeSignalStreakCounter;
 import com.ftm.app.themes.signal.ThemeVolatilityCalculator;
 import com.ftm.app.themes.transition.PhaseTransitionContext;
 import com.ftm.app.themes.transition.PhaseTransitionDetector;
+import com.ftm.app.themes.transition.PhaseTransitionSignal;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -114,7 +116,7 @@ public class ThemeSummaryAssembler {
         themeScorePercentileCalculator.calculate(history, averages.compositeScore());
     Double concentrationRisk = themeConcentrationRiskCalculator.calculate(allConstituents);
 
-    String phaseTransitionSignal =
+    PhaseTransitionSignal phaseTransitionSignal =
         phaseTransitionDetector
             .detect(
                 new PhaseTransitionContext(
@@ -149,7 +151,7 @@ public class ThemeSummaryAssembler {
                 riskLevel,
                 averages.trend5d(),
                 averages.trend20d()));
-    String entryAction = entry.map(recommendation -> recommendation.action().name()).orElse(null);
+    EntryAction entryAction = entry.map(EntryRecommendation::action).orElse(null);
     String entryRationale = entry.map(EntryRecommendation::rationale).orElse(null);
 
     String momentumAlignment =
@@ -194,9 +196,9 @@ public class ThemeSummaryAssembler {
         volatility30d,
         scorePercentile30d,
         concentrationRisk,
-        phaseTransitionSignal,
+        nameOf(phaseTransitionSignal),
         riskLevel,
-        entryAction,
+        nameOf(entryAction),
         entryRationale,
         momentumAlignment,
         confluence.confluenceScore(),
@@ -205,6 +207,11 @@ public class ThemeSummaryAssembler {
         persistence.persistenceGrade(),
         quality.investmentQualityScore(),
         quality.investmentQualityGrade());
+  }
+
+  /** The DTO carries these as plain strings; null stays null. */
+  private static String nameOf(Enum<?> value) {
+    return value != null ? value.name() : null;
   }
 
   private ThemeAverages averageSignals(

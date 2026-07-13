@@ -11,6 +11,7 @@ import com.ftm.app.domain.Category;
 import com.ftm.app.domain.CategoryId;
 import com.ftm.app.domain.CategoryType;
 import com.ftm.app.domain.SignalType;
+import com.ftm.app.signals.repository.SignalAnalyticsRepository;
 import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -27,6 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class RrgServiceTest {
 
   @Mock SignalRepository signalRepository;
+  @Mock SignalAnalyticsRepository signalAnalyticsRepository;
   @Mock CategoryRepository categoryRepository;
   @InjectMocks RrgService rrgService;
 
@@ -45,15 +47,15 @@ class RrgServiceTest {
         .create();
   }
 
-  private SignalRepository.RrgRow row(
+  private SignalAnalyticsRepository.RrgRow row(
       LocalDate date, String categoryId, SignalType type, String value) {
-    return new SignalRepository.RrgRow(date, categoryId, type, new BigDecimal(value));
+    return new SignalAnalyticsRepository.RrgRow(date, categoryId, type, new BigDecimal(value));
   }
 
   @Test
   @DisplayName("getLatest returns empty response when no RRG trail data exists")
   void shouldReturnEmptyResponseWhenNoData() {
-    when(signalRepository.findRrgTrail(42)).thenReturn(List.of());
+    when(signalAnalyticsRepository.findRrgTrail(42)).thenReturn(List.of());
 
     RrgResponse response = rrgService.getLatest();
 
@@ -64,7 +66,7 @@ class RrgServiceTest {
   @Test
   @DisplayName("getLatest builds trail from RRG_RATIO and RRG_MOM signals")
   void shouldBuildTrailFromRatioAndMomSignals() {
-    when(signalRepository.findRrgTrail(42))
+    when(signalAnalyticsRepository.findRrgTrail(42))
         .thenReturn(
             List.of(
                 row(DATE1, "TECH", SignalType.RRG_RATIO, "1.05"),
@@ -94,7 +96,7 @@ class RrgServiceTest {
   @Test
   @DisplayName("getLatest uses latest date's quadrant signal")
   void shouldUseLatestDateQuadrant() {
-    when(signalRepository.findRrgTrail(42))
+    when(signalAnalyticsRepository.findRrgTrail(42))
         .thenReturn(
             List.of(
                 row(DATE1, "TECH", SignalType.RRG_QUADRANT, "1"), // older: Lagging
@@ -114,7 +116,7 @@ class RrgServiceTest {
   @Test
   @DisplayName("getLatest sets response date to latest signal date in the trail")
   void shouldSetResponseDateToLatestSignalDate() {
-    when(signalRepository.findRrgTrail(42))
+    when(signalAnalyticsRepository.findRrgTrail(42))
         .thenReturn(
             List.of(
                 row(DATE1, "TECH", SignalType.RRG_RATIO, "1.00"),
@@ -132,7 +134,7 @@ class RrgServiceTest {
   @Test
   @DisplayName("getLatest skips categories not present in the category map")
   void shouldSkipCategoriesNotInCategoryMap() {
-    when(signalRepository.findRrgTrail(42))
+    when(signalAnalyticsRepository.findRrgTrail(42))
         .thenReturn(
             List.of(
                 row(DATE1, "TECH", SignalType.RRG_RATIO, "1.05"),
@@ -152,7 +154,7 @@ class RrgServiceTest {
   @Test
   @DisplayName("getLatest sorts entries by category displayOrder")
   void shouldSortEntriesByDisplayOrder() {
-    when(signalRepository.findRrgTrail(42))
+    when(signalAnalyticsRepository.findRrgTrail(42))
         .thenReturn(
             List.of(
                 row(DATE1, "FINL", SignalType.RRG_RATIO, "1.01"),
@@ -175,7 +177,7 @@ class RrgServiceTest {
   @Test
   @DisplayName("getLatest trail excludes dates with ratio but no momentum (or vice versa)")
   void shouldOnlyIncludeTrailPointsWithBothRatioAndMomentum() {
-    when(signalRepository.findRrgTrail(42))
+    when(signalAnalyticsRepository.findRrgTrail(42))
         .thenReturn(
             List.of(
                 row(DATE1, "TECH", SignalType.RRG_RATIO, "1.05"), // ratio only — excluded

@@ -7,7 +7,7 @@ import com.ftm.app.api.dto.MacroSeriesPoint;
 import com.ftm.app.api.repository.MacroIndicatorReadRepository;
 import com.ftm.app.domain.MacroIndicator;
 import com.ftm.app.signals.domain.MacroRegime;
-import com.ftm.app.signals.repository.SignalRepository;
+import com.ftm.app.signals.repository.SignalAnalyticsRepository;
 import com.ftm.app.signals.service.MacroRegimeService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -29,15 +29,15 @@ public class MacroService {
 
   private final MacroIndicatorReadRepository macroIndicatorRepository;
   private final MacroRegimeService macroRegimeService;
-  private final SignalRepository signalRepository;
+  private final SignalAnalyticsRepository signalAnalyticsRepository;
 
   public MacroService(
       MacroIndicatorReadRepository macroIndicatorRepository,
       MacroRegimeService macroRegimeService,
-      SignalRepository signalRepository) {
+      SignalAnalyticsRepository signalAnalyticsRepository) {
     this.macroIndicatorRepository = macroIndicatorRepository;
     this.macroRegimeService = macroRegimeService;
-    this.signalRepository = signalRepository;
+    this.signalAnalyticsRepository = signalAnalyticsRepository;
   }
 
   @Cacheable("macro-latest")
@@ -67,7 +67,7 @@ public class MacroService {
     MacroRegime currentRegime = macroRegimeService.classifyCurrentRegime();
 
     List<MacroRegimeHistoryEntry> regimeHistory =
-        signalRepository.findMacroRegimeHistory(REGIME_HISTORY_LOOKBACK_DAYS).stream()
+        signalAnalyticsRepository.findMacroRegimeHistory(REGIME_HISTORY_LOOKBACK_DAYS).stream()
             .map(
                 row ->
                     new MacroRegimeHistoryEntry(

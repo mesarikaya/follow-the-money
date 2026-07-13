@@ -12,6 +12,7 @@ import com.ftm.app.domain.Category;
 import com.ftm.app.domain.CategoryId;
 import com.ftm.app.domain.CategoryType;
 import com.ftm.app.domain.SignalType;
+import com.ftm.app.signals.repository.SignalAnalyticsRepository;
 import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.util.List;
@@ -29,6 +30,7 @@ class SubSectorServiceTest {
 
   @Mock CategoryRepository categoryRepository;
   @Mock SignalRepository signalRepository;
+  @Mock SignalAnalyticsRepository signalAnalyticsRepository;
   @InjectMocks SubSectorService subSectorService;
 
   private Category subCategory(CategoryId id, String parentId) {
@@ -221,9 +223,9 @@ class SubSectorServiceTest {
                 Map.entry(SignalType.PERSISTENCE_20D, Map.of()),
                 Map.entry(SignalType.MACRO_FIT, Map.of("SEMI", new BigDecimal("0.80"))),
                 Map.entry(SignalType.FLOW_20D, Map.of())));
-    when(signalRepository.findScorePercentile252d())
+    when(signalAnalyticsRepository.findScorePercentile252d())
         .thenReturn(Map.of("SEMI", new BigDecimal("0.90")));
-    when(signalRepository.findSignalDaysActive(any(BigDecimal.class))).thenReturn(Map.of());
+    when(signalAnalyticsRepository.findSignalDaysActive(any(BigDecimal.class))).thenReturn(Map.of());
 
     List<SubSectorSummaryDto> result = subSectorService.getSubSectors("TECH");
 
@@ -237,9 +239,9 @@ class SubSectorServiceTest {
     Category semi = subCategory(CategoryId.SEMI, "TECH");
     when(categoryRepository.findSubCategoriesByParentId("TECH")).thenReturn(List.of(semi));
     when(signalRepository.findLatestByTypes(anyList())).thenReturn(noSignals());
-    when(signalRepository.findSignalDaysActive(any(BigDecimal.class)))
+    when(signalAnalyticsRepository.findSignalDaysActive(any(BigDecimal.class)))
         .thenReturn(Map.of("SEMI", 12));
-    when(signalRepository.findScorePercentile252d()).thenReturn(Map.of());
+    when(signalAnalyticsRepository.findScorePercentile252d()).thenReturn(Map.of());
 
     List<SubSectorSummaryDto> result = subSectorService.getSubSectors("TECH");
 

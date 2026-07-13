@@ -16,6 +16,7 @@ import com.ftm.app.domain.Alert;
 import com.ftm.app.domain.AlertRule;
 import com.ftm.app.domain.Severity;
 import com.ftm.app.domain.SignalType;
+import com.ftm.app.signals.repository.SignalAnalyticsRepository;
 import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -39,11 +40,12 @@ class HighConvictionAlertEvaluatorTest {
 
   @Mock AlertRulesRepository alertRulesRepository;
   @Mock SignalRepository signalRepository;
+  @Mock SignalAnalyticsRepository signalAnalyticsRepository;
   @Mock AlertRepository alertRepository;
 
   private HighConvictionAlertEvaluator evaluator() {
     return new HighConvictionAlertEvaluator(
-        alertRulesRepository, signalRepository, alertRepository);
+        alertRulesRepository, signalRepository, signalAnalyticsRepository, alertRepository);
   }
 
   private AlertEvaluationContext context(String... categoryIds) {
@@ -103,9 +105,9 @@ class HighConvictionAlertEvaluatorTest {
           .put(SignalType.MACRO_FIT, categoryId, "0.80");
     }
 
-    void install(SignalRepository repo) {
+    void install(SignalRepository repo, SignalAnalyticsRepository analytics) {
       when(repo.findLatestByTypes(any())).thenReturn(byType);
-      lenient().when(repo.findScorePercentile252d()).thenReturn(percentile);
+      lenient().when(analytics.findScorePercentile252d()).thenReturn(percentile);
     }
   }
 
@@ -121,7 +123,7 @@ class HighConvictionAlertEvaluatorTest {
   void firesBuyForHighConvictionSector() {
     stubRules(true, false, false);
     SnapshotBuilder snap = new SnapshotBuilder().strongBuy("TECH");
-    snap.install(signalRepository);
+    snap.install(signalRepository, signalAnalyticsRepository);
     lenient().when(alertRepository.existsActiveAlert(BUY, "TECH")).thenReturn(false);
 
     assertThat(evaluator().evaluate(context("TECH"))).isEqualTo(1);
@@ -137,7 +139,7 @@ class HighConvictionAlertEvaluatorTest {
             .put(SignalType.COMPOSITE, "TECH", "0.60")
             .put(SignalType.RRG_QUADRANT, "TECH", "0")
             .put(SignalType.COMPOSITE_TREND_20D, "TECH", "0.00");
-    snap.install(signalRepository);
+    snap.install(signalRepository, signalAnalyticsRepository);
     when(alertRepository.existsActiveAlert(BUY, "TECH")).thenReturn(true);
 
     assertThat(evaluator().evaluate(context("TECH"))).isZero();
@@ -150,7 +152,7 @@ class HighConvictionAlertEvaluatorTest {
     stubRules(false, true, false);
     SnapshotBuilder snap =
         new SnapshotBuilder().strongBuy("TECH").strongBuy("ENRG").strongBuy("FINL");
-    snap.install(signalRepository);
+    snap.install(signalRepository, signalAnalyticsRepository);
     when(alertRepository.existsActiveAlert(CLUSTER, null)).thenReturn(false);
 
     assertThat(evaluator().evaluate(context("TECH", "ENRG", "FINL"))).isEqualTo(1);
@@ -161,7 +163,7 @@ class HighConvictionAlertEvaluatorTest {
   void firesReduceClusterWhenThreeSectorsReduce() {
     stubRules(false, false, true);
     SnapshotBuilder snap = new SnapshotBuilder().reduce("TECH").reduce("ENRG").reduce("FINL");
-    snap.install(signalRepository);
+    snap.install(signalRepository, signalAnalyticsRepository);
     when(alertRepository.existsActiveAlert(REDUCE_CLUSTER, null)).thenReturn(false);
 
     assertThat(evaluator().evaluate(context("TECH", "ENRG", "FINL"))).isEqualTo(1);
@@ -172,7 +174,7 @@ class HighConvictionAlertEvaluatorTest {
   void fetchesSnapshotOnceEvenWithAllThreeRulesEnabled() {
     stubRules(true, true, true);
     SnapshotBuilder snap = new SnapshotBuilder().strongBuy("TECH");
-    snap.install(signalRepository);
+    snap.install(signalRepository, signalAnalyticsRepository);
     lenient().when(alertRepository.existsActiveAlert(any(), any())).thenReturn(false);
     lenient().when(alertRepository.existsActiveAlert(eq(CLUSTER), any())).thenReturn(false);
 

@@ -9,6 +9,7 @@ import com.ftm.app.domain.AlertStatus;
 import com.ftm.app.domain.CategoryId;
 import com.ftm.app.domain.Severity;
 import com.ftm.app.domain.SignalType;
+import com.ftm.app.signals.repository.SignalAnalyticsRepository;
 import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -53,14 +54,17 @@ public class HighConvictionAlertEvaluator implements AlertEvaluator {
 
   private final AlertRulesRepository alertRulesRepository;
   private final SignalRepository signalRepository;
+  private final SignalAnalyticsRepository signalAnalyticsRepository;
   private final AlertRepository alertRepository;
 
   public HighConvictionAlertEvaluator(
       AlertRulesRepository alertRulesRepository,
       SignalRepository signalRepository,
+      SignalAnalyticsRepository signalAnalyticsRepository,
       AlertRepository alertRepository) {
     this.alertRulesRepository = alertRulesRepository;
     this.signalRepository = signalRepository;
+    this.signalAnalyticsRepository = signalAnalyticsRepository;
     this.alertRepository = alertRepository;
   }
 
@@ -327,7 +331,7 @@ public class HighConvictionAlertEvaluator implements AlertEvaluator {
         signals.getOrDefault(SignalType.RS_120, Collections.emptyMap()),
         signals.getOrDefault(SignalType.FLOW_20D, Collections.emptyMap()),
         signals.getOrDefault(SignalType.RS_20, Collections.emptyMap()),
-        signalRepository.findScorePercentile252d());
+        signalAnalyticsRepository.findScorePercentile252d());
   }
 
   /** The latest signal snapshot needed to compute conviction scores. */

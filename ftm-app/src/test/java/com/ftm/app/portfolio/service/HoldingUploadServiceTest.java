@@ -16,10 +16,10 @@ import com.ftm.app.portfolio.repository.PortfolioRepository;
 import java.math.BigDecimal;
 import java.util.List;
 import org.instancio.Instancio;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -33,7 +33,22 @@ class HoldingUploadServiceTest {
   @Spy HoldingCsvParser csvParser = new HoldingCsvParser();
   @Mock HoldingPriceService holdingPriceService;
   @Mock PortfolioSnapshotService portfolioSnapshotService;
-  @InjectMocks HoldingUploadService holdingUploadService;
+
+  HoldingUploadService holdingUploadService;
+
+  @BeforeEach
+  void buildService() {
+    holdingUploadService =
+        new HoldingUploadService(
+            holdingRepository,
+            portfolioRepository,
+            classificationService,
+            csvParser,
+            holdingPriceService,
+            portfolioSnapshotService,
+            new HoldingValuationCalculator(),
+            new PortfolioAllocationCalculator());
+  }
 
   private static final BigDecimal USD_PER_EUR = new BigDecimal("1.085");
   private static final BigDecimal GBP_USD_RATE = new BigDecimal("1.27");

@@ -60,10 +60,12 @@ const RISK_LEVEL_CONFIG: Record<string, { label: string; className: string }> = 
   EXTREME: { label: "EXTREME RISK", className: "bg-red-500/15 text-red-400 border border-red-500/30" },
 };
 
+// Keys must match the backend EntryAction enum (themes/entry/EntryAction.java).
 const ENTRY_ACTION_CONFIG: Record<string, { icon: string; label: string; color: string; bg: string; border: string }> = {
-  ENTER: { icon: "↗", label: "ENTER", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30" },
-  WAIT:  { icon: "◎", label: "WAIT",  color: "text-amber-400",   bg: "bg-amber-500/10",   border: "border-amber-500/30" },
-  AVOID: { icon: "✕", label: "AVOID", color: "text-red-400",     bg: "bg-red-500/10",     border: "border-red-500/30" },
+  ENTER:    { icon: "↗", label: "ENTER",    color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30" },
+  SCALE_IN: { icon: "↗", label: "SCALE IN", color: "text-teal-400",    bg: "bg-teal-500/10",    border: "border-teal-500/30" },
+  WATCH:    { icon: "◎", label: "WATCH",    color: "text-amber-400",   bg: "bg-amber-500/10",   border: "border-amber-500/30" },
+  AVOID:    { icon: "✕", label: "AVOID",    color: "text-red-400",     bg: "bg-red-500/10",     border: "border-red-500/30" },
 };
 
 const ALIGNMENT_CONFIG_DETAIL: Record<string, { icon: string; label: string; className: string }> = {
@@ -74,10 +76,12 @@ const ALIGNMENT_CONFIG_DETAIL: Record<string, { icon: string; label: string; cla
   NEUTRAL:         { icon: "→",  label: "Neutral",          className: "bg-slate-700/60 text-slate-400 border border-slate-600/40" },
 };
 
+// Keys must match what the backend emits (themes/transition/*TransitionRule.java).
 const PHASE_TRANSITION_CONFIG: Record<string, { label: string; className: string }> = {
-  WATCH_FOR_ENTRY:  { label: "◉ Watch for Entry",  className: "bg-cyan-500/15 text-cyan-400 border border-cyan-500/30" },
-  APPROACHING_EXIT: { label: "⚠ Approaching Exit", className: "bg-orange-500/15 text-orange-400 border border-orange-500/30" },
-  CYCLE_RESET:      { label: "↺ Cycle Reset",      className: "bg-blue-500/15 text-blue-400 border border-blue-500/30" },
+  APPROACHING_BUY:  { label: "◉ Approaching Buy",  className: "bg-cyan-500/15 text-cyan-400 border border-cyan-500/30" },
+  EARLY_RECOVERY:   { label: "↺ Early Recovery",   className: "bg-blue-500/15 text-blue-400 border border-blue-500/30" },
+  BREAKOUT_AT_RISK: { label: "⚠ Breakout at Risk", className: "bg-amber-500/15 text-amber-400 border border-amber-500/30" },
+  DISTRIBUTION:     { label: "↘ Distribution",     className: "bg-orange-500/15 text-orange-400 border border-orange-500/30" },
 };
 
 const DETAIL_CONFIDENCE_CONFIG: Record<string, { label: string; bar: string; text: string }> = {

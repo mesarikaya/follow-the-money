@@ -7,7 +7,6 @@ import com.ftm.app.api.dto.SeasonalReturnDto;
 import com.ftm.app.api.dto.SignalTransitionDto;
 import com.ftm.app.api.dto.SignalWinRateDto;
 import com.ftm.app.alerts.service.AlertService;
-import com.ftm.app.api.service.ScreenerSnapshotCalculator;
 import com.ftm.app.signals.service.SignalTransitionAssembler;
 import com.ftm.app.signals.service.SignalTransitionAssembler.TransitionContext;
 import com.ftm.app.category.mapper.CategoryMapper;

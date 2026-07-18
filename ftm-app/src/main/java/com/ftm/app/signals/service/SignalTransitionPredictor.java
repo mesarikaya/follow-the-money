@@ -2,7 +2,6 @@ package com.ftm.app.signals.service;
 
 import com.ftm.app.api.dto.ApproachingSignalDto;
 import com.ftm.app.api.dto.CategorySummaryDto;
-import com.ftm.app.api.service.TradeSignalDeriver;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;

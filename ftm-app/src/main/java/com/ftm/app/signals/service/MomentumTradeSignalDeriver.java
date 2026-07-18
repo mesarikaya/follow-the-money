@@ -1,4 +1,4 @@
-package com.ftm.app.api.service;
+package com.ftm.app.signals.service;
 
 import java.math.BigDecimal;
 

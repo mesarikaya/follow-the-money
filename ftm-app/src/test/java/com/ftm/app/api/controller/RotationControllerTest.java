@@ -8,7 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.ftm.app.api.dto.RotationResponse;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
-import com.ftm.app.api.service.RotationService;
+import com.ftm.app.signals.service.RotationService;
 import java.util.List;
 import org.instancio.Instancio;
 import org.junit.jupiter.api.BeforeEach;

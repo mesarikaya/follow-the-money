@@ -1,11 +1,11 @@
-package com.ftm.app.api.service;
+package com.ftm.app.signals.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ftm.app.api.dto.SignalHistoryDto;
-import com.ftm.app.api.mapper.SignalHistoryMapper;
+import com.ftm.app.signals.mapper.SignalHistoryMapper;
 import com.ftm.app.domain.SignalType;
 import com.ftm.app.signals.repository.SignalRepository;
 import java.math.BigDecimal;

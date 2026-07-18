@@ -1,7 +1,7 @@
 package com.ftm.app.api.controller;
 
 import com.ftm.app.api.dto.SignalHistoryDto;
-import com.ftm.app.api.service.SignalHistoryService;
+import com.ftm.app.signals.service.SignalHistoryService;
 import com.ftm.app.signals.service.SignalComputationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

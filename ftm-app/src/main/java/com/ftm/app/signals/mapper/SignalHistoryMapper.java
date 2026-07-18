@@ -1,4 +1,4 @@
-package com.ftm.app.api.mapper;
+package com.ftm.app.signals.mapper;
 
 import com.ftm.app.api.dto.SignalHistoryDto;
 import com.ftm.app.signals.repository.SignalRepository;

@@ -6,7 +6,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.ftm.app.api.service.SignalHistoryService;
+import com.ftm.app.signals.service.SignalHistoryService;
 import com.ftm.app.signals.service.SignalComputationService;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;

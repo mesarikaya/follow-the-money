@@ -1,4 +1,4 @@
-package com.ftm.app.api.service;
+package com.ftm.app.themes.service;
 
 import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.api.dto.ThemeConstituentDto;

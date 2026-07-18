@@ -2,7 +2,7 @@ package com.ftm.app.themes.coverage;
 
 import com.ftm.app.api.dto.HoldingDto;
 import com.ftm.app.api.dto.ThemePortfolioCoverageDto;
-import com.ftm.app.api.service.ThemeService;
+import com.ftm.app.themes.service.ThemeService;
 import com.ftm.app.portfolio.service.HoldingUploadService;
 import com.ftm.app.themes.repository.ThemeRepository;
 import java.math.BigDecimal;

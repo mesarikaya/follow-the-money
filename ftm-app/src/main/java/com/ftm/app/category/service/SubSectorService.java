@@ -1,4 +1,4 @@
-package com.ftm.app.api.service;
+package com.ftm.app.category.service;
 
 import com.ftm.app.api.dto.SubSectorSummaryDto;
 import com.ftm.app.category.repository.CategoryRepository;

@@ -1,7 +1,7 @@
 package com.ftm.app.api.controller;
 
 import com.ftm.app.api.dto.SubSectorSummaryDto;
-import com.ftm.app.api.service.SubSectorService;
+import com.ftm.app.category.service.SubSectorService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Pattern;

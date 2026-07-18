@@ -1,4 +1,4 @@
-package com.ftm.app.api.service;
+package com.ftm.app.category.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.instancio.Select.field;

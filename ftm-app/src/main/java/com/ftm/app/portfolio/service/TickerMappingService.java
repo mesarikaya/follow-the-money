@@ -1,6 +1,6 @@
 package com.ftm.app.portfolio.service;
 
-import com.ftm.app.api.repository.CategoryRepository;
+import com.ftm.app.category.repository.CategoryRepository;
 import com.ftm.app.portfolio.domain.TickerMapping;
 import com.ftm.app.portfolio.repository.TickerMappingRepository;
 import java.util.NoSuchElementException;

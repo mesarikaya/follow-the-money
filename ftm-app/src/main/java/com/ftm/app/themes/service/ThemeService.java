@@ -5,7 +5,7 @@ import com.ftm.app.api.dto.ThemeConstituentDto;
 import com.ftm.app.api.dto.ThemeDetailDto;
 import com.ftm.app.api.dto.ThemeHistoryPointDto;
 import com.ftm.app.api.dto.ThemeSummaryDto;
-import com.ftm.app.api.repository.CategoryRepository;
+import com.ftm.app.category.repository.CategoryRepository;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.SignalType;
 import com.ftm.app.domain.Theme;

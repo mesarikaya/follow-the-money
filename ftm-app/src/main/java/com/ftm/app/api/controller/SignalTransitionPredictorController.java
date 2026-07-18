@@ -1,7 +1,7 @@
 package com.ftm.app.api.controller;
 
 import com.ftm.app.api.dto.ApproachingSignalDto;
-import com.ftm.app.api.service.CategoryService;
+import com.ftm.app.category.service.CategoryService;
 import com.ftm.app.api.service.SignalTransitionPredictor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

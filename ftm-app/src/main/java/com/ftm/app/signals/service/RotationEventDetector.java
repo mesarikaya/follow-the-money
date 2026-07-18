@@ -1,6 +1,6 @@
 package com.ftm.app.signals.service;
 
-import com.ftm.app.api.repository.CategoryRepository;
+import com.ftm.app.category.repository.CategoryRepository;
 import com.ftm.app.domain.RotationEvent;
 import com.ftm.app.domain.RotationEventType;
 import com.ftm.app.domain.SignalType;

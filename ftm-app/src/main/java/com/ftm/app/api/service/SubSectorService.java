@@ -1,7 +1,7 @@
 package com.ftm.app.api.service;
 
 import com.ftm.app.api.dto.SubSectorSummaryDto;
-import com.ftm.app.api.repository.CategoryRepository;
+import com.ftm.app.category.repository.CategoryRepository;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.SignalType;
 import com.ftm.app.signals.repository.SignalAnalyticsRepository;

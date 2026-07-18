@@ -1,7 +1,7 @@
-package com.ftm.app.api.mapper;
+package com.ftm.app.category.mapper;
 
 import com.ftm.app.api.dto.CategorySummaryDto;
-import com.ftm.app.api.repository.CategoryRepository;
+import com.ftm.app.category.repository.CategoryRepository;
 import com.ftm.app.api.service.TradeSignalDeriver;
 import java.math.BigDecimal;
 import java.util.Map;

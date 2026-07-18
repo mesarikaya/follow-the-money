@@ -2,7 +2,7 @@ package com.ftm.app.ingestion.service;
 
 import com.ftm.app.api.dto.IngestStatusResponse;
 import com.ftm.app.api.dto.IngestTriggerResponse;
-import com.ftm.app.api.mapper.IngestLogMapper;
+import com.ftm.app.ingestion.mapper.IngestLogMapper;
 import com.ftm.app.domain.IngestLog;
 import com.ftm.app.domain.IngestSource;
 import com.ftm.app.domain.IngestStatus;

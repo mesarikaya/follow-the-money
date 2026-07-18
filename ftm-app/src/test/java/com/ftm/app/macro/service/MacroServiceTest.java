@@ -1,4 +1,4 @@
-package com.ftm.app.api.service;
+package com.ftm.app.macro.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.instancio.Select.field;
@@ -8,13 +8,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ftm.app.api.dto.MacroResponse;
-import com.ftm.app.api.repository.MacroIndicatorReadRepository;
+import com.ftm.app.macro.repository.MacroIndicatorReadRepository;
 import com.ftm.app.domain.MacroIndicator;
 import com.ftm.app.signals.domain.MacroRegime;
 import com.ftm.app.signals.repository.SignalAnalyticsRepository;
 import com.ftm.app.signals.repository.SignalRepository;
 import com.ftm.app.signals.repository.SignalAnalyticsRepository.MacroRegimeHistoryRow;
-import com.ftm.app.signals.service.MacroRegimeService;
+import com.ftm.app.macro.service.MacroRegimeService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;

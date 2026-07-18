@@ -2,7 +2,7 @@ package com.ftm.app.api.controller;
 
 import com.ftm.app.api.dto.MacroResponse;
 import com.ftm.app.api.dto.MacroSeriesPoint;
-import com.ftm.app.api.service.MacroService;
+import com.ftm.app.macro.service.MacroService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;

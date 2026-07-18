@@ -2,6 +2,7 @@ package com.ftm.app.signals.service;
 
 import com.ftm.app.category.repository.CategoryRepository;
 import com.ftm.app.domain.Category;
+import com.ftm.app.macro.service.MacroRegimeService;
 import com.ftm.app.signals.domain.MacroRegime;
 import com.ftm.app.signals.event.SignalsUpdatedEvent;
 import com.ftm.app.signals.repository.PriceHistoryRepository;

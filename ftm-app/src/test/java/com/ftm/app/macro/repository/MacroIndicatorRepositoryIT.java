@@ -1,4 +1,4 @@
-package com.ftm.app.api.repository;
+package com.ftm.app.macro.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

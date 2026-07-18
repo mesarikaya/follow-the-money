@@ -1,6 +1,7 @@
-package com.ftm.app.api.service;
+package com.ftm.app.signals.service;
 
 import com.ftm.app.api.dto.SignalTransitionDto;
+import com.ftm.app.api.service.TradeSignalDeriver;
 import com.ftm.app.domain.Category;
 import com.ftm.app.signals.repository.SignalAnalyticsRepository.SignalSnapshotPair;
 import java.math.BigDecimal;

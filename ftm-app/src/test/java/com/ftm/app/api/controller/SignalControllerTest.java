@@ -9,7 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.ftm.app.api.dto.SignalHistoryDto;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
-import com.ftm.app.api.service.SignalHistoryService;
+import com.ftm.app.signals.service.SignalHistoryService;
 import com.ftm.app.domain.SignalType;
 import com.ftm.app.signals.service.SignalComputationService;
 import java.math.BigDecimal;

@@ -1,7 +1,7 @@
-package com.ftm.app.api.service;
+package com.ftm.app.signals.service;
 
 import com.ftm.app.api.dto.SignalHistoryDto;
-import com.ftm.app.api.mapper.SignalHistoryMapper;
+import com.ftm.app.signals.mapper.SignalHistoryMapper;
 import com.ftm.app.signals.repository.SignalRepository;
 import java.util.List;
 import org.springframework.cache.annotation.Cacheable;

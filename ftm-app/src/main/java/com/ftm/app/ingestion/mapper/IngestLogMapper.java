@@ -1,4 +1,4 @@
-package com.ftm.app.api.mapper;
+package com.ftm.app.ingestion.mapper;
 
 import com.ftm.app.api.dto.IngestStatusResponse;
 import com.ftm.app.domain.IngestLog;

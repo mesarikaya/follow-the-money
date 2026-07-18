@@ -1,4 +1,4 @@
-package com.ftm.app.api.mapper;
+package com.ftm.app.ingestion.mapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.instancio.Select.field;

@@ -1,4 +1,4 @@
-package com.ftm.app.signals.service;
+package com.ftm.app.macro.service;
 
 import com.ftm.app.signals.domain.MacroRegime;
 import com.ftm.app.signals.domain.MacroThresholds;

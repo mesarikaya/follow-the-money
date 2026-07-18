@@ -1,4 +1,4 @@
-package com.ftm.app.api.repository;
+package com.ftm.app.macro.repository;
 
 import static com.ftm.app.jooq.Tables.MACRO_INDICATORS;
 import static org.jooq.impl.DSL.max;

@@ -10,7 +10,7 @@ import com.ftm.app.api.dto.MacroRegimeHistoryEntry;
 import com.ftm.app.api.dto.MacroResponse;
 import com.ftm.app.api.dto.MacroSeriesPoint;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
-import com.ftm.app.api.service.MacroService;
+import com.ftm.app.macro.service.MacroService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;

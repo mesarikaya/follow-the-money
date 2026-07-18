@@ -1,6 +1,6 @@
-package com.ftm.app.signals.service;
+package com.ftm.app.macro.service;
 
-import com.ftm.app.api.repository.MacroIndicatorReadRepository;
+import com.ftm.app.macro.repository.MacroIndicatorReadRepository;
 import com.ftm.app.domain.MacroIndicator;
 import com.ftm.app.domain.SignalType;
 import com.ftm.app.signals.domain.MacroRegime;

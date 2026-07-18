@@ -1,4 +1,4 @@
-package com.ftm.app.signals.service;
+package com.ftm.app.macro.service;
 
 import static com.ftm.app.signals.domain.MacroRegime.RISK_OFF_FLIGHT;
 import static com.ftm.app.signals.domain.MacroRegime.RISK_ON_DEFENSIVE;

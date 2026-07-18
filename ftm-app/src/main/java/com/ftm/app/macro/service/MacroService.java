@@ -1,14 +1,14 @@
-package com.ftm.app.api.service;
+package com.ftm.app.macro.service;
 
 import com.ftm.app.api.dto.MacroIndicatorsDto;
 import com.ftm.app.api.dto.MacroRegimeHistoryEntry;
 import com.ftm.app.api.dto.MacroResponse;
 import com.ftm.app.api.dto.MacroSeriesPoint;
-import com.ftm.app.api.repository.MacroIndicatorReadRepository;
+import com.ftm.app.macro.repository.MacroIndicatorReadRepository;
 import com.ftm.app.domain.MacroIndicator;
 import com.ftm.app.signals.domain.MacroRegime;
 import com.ftm.app.signals.repository.SignalAnalyticsRepository;
-import com.ftm.app.signals.service.MacroRegimeService;
+import com.ftm.app.macro.service.MacroRegimeService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;

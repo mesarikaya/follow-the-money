@@ -7,7 +7,7 @@ import com.ftm.app.api.dto.ThemeHistoryPointDto;
 import com.ftm.app.api.dto.ThemePortfolioCoverageDto;
 import com.ftm.app.api.dto.ThemeSnapshotDto;
 import com.ftm.app.api.dto.ThemeSummaryDto;
-import com.ftm.app.api.service.ThemeService;
+import com.ftm.app.themes.service.ThemeService;
 import com.ftm.app.themes.correlation.ThemeSignalCorrelationService;
 import com.ftm.app.themes.coverage.ThemePortfolioCoverageService;
 import com.ftm.app.themes.rotation.CapitalRotationResult;

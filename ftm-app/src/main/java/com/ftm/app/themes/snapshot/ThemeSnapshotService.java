@@ -1,7 +1,7 @@
 package com.ftm.app.themes.snapshot;
 
 import com.ftm.app.api.dto.ThemeSnapshotDto;
-import com.ftm.app.api.service.ThemeService;
+import com.ftm.app.themes.service.ThemeService;
 import org.springframework.stereotype.Service;
 
 @Service

@@ -4,7 +4,7 @@ import com.ftm.app.api.dto.PortfolioEntryDto;
 import com.ftm.app.api.dto.PortfolioResponse;
 import com.ftm.app.api.dto.PortfolioResponse.PortfolioAllocationEntry;
 import com.ftm.app.api.dto.RebalanceSuggestionDto;
-import com.ftm.app.api.repository.CategoryRepository;
+import com.ftm.app.category.repository.CategoryRepository;
 import com.ftm.app.api.service.MomentumTradeSignalDeriver;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.CategoryId;

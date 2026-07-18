@@ -1,4 +1,4 @@
-package com.ftm.app.api.repository;
+package com.ftm.app.category.repository;
 
 import static com.ftm.app.jooq.Tables.CATEGORIES;
 import static com.ftm.app.jooq.Tables.RAW_PRICES;

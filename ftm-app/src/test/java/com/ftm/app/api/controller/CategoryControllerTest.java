@@ -11,7 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.ftm.app.api.dto.CategoriesResponse;
 import com.ftm.app.api.dto.SeasonalReturnDto;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
-import com.ftm.app.api.service.CategoryService;
+import com.ftm.app.category.service.CategoryService;
 import com.ftm.app.api.service.ScoreDecompositionService;
 import java.math.BigDecimal;
 import java.util.List;

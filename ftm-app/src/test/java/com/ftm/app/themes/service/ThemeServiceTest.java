@@ -12,7 +12,7 @@ import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.api.dto.ThemeDetailDto;
 import com.ftm.app.api.dto.ThemeHistoryPointDto;
 import com.ftm.app.api.dto.ThemeSummaryDto;
-import com.ftm.app.api.repository.CategoryRepository;
+import com.ftm.app.category.repository.CategoryRepository;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.CategoryId;
 import com.ftm.app.domain.CategoryType;

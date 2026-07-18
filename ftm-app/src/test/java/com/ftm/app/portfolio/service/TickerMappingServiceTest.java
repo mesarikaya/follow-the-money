@@ -7,7 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.ftm.app.api.repository.CategoryRepository;
+import com.ftm.app.category.repository.CategoryRepository;
 import com.ftm.app.portfolio.domain.TickerMapping;
 import com.ftm.app.portfolio.repository.TickerMappingRepository;
 import java.time.OffsetDateTime;

@@ -3,7 +3,7 @@ package com.ftm.app.api.service;
 import com.ftm.app.api.dto.RotationEventEntry;
 import com.ftm.app.api.dto.RotationLeaderEntry;
 import com.ftm.app.api.dto.RotationResponse;
-import com.ftm.app.api.repository.CategoryRepository;
+import com.ftm.app.category.repository.CategoryRepository;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.RotationEvent;
 import com.ftm.app.domain.SignalType;

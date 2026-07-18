@@ -1,6 +1,6 @@
 package com.ftm.app.ingestion.service;
 
-import com.ftm.app.api.repository.CategoryRepository;
+import com.ftm.app.category.repository.CategoryRepository;
 import com.ftm.app.domain.Category;
 import com.ftm.app.ingestion.client.YahooFinanceClient;
 import com.ftm.app.ingestion.client.dto.YahooChartResponse;

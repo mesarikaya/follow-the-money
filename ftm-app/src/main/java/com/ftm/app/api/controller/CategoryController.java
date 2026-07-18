@@ -7,7 +7,7 @@ import com.ftm.app.api.dto.ScreenerSnapshotDto;
 import com.ftm.app.api.dto.SeasonalReturnDto;
 import com.ftm.app.api.dto.SignalTransitionDto;
 import com.ftm.app.api.dto.SignalWinRateDto;
-import com.ftm.app.api.service.CategoryService;
+import com.ftm.app.category.service.CategoryService;
 import com.ftm.app.api.service.ScoreDecompositionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

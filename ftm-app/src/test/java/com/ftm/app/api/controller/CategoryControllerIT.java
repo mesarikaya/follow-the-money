@@ -8,7 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ftm.app.api.dto.CategoriesResponse;
-import com.ftm.app.api.service.CategoryService;
+import com.ftm.app.category.service.CategoryService;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;

@@ -1,4 +1,4 @@
-package com.ftm.app.api.service;
+package com.ftm.app.category.service;
 
 import com.ftm.app.api.dto.CategoriesResponse;
 import com.ftm.app.api.dto.PriceLevelDto;
@@ -6,10 +6,13 @@ import com.ftm.app.api.dto.ScreenerSnapshotDto;
 import com.ftm.app.api.dto.SeasonalReturnDto;
 import com.ftm.app.api.dto.SignalTransitionDto;
 import com.ftm.app.api.dto.SignalWinRateDto;
-import com.ftm.app.api.mapper.CategoryMapper;
-import com.ftm.app.api.repository.CategoryRepository;
-import com.ftm.app.api.repository.CategoryRepository.CategoryPriceRow;
+import com.ftm.app.api.service.AlertService;
+import com.ftm.app.api.service.ScreenerSnapshotCalculator;
+import com.ftm.app.api.service.SignalTransitionAssembler;
 import com.ftm.app.api.service.SignalTransitionAssembler.TransitionContext;
+import com.ftm.app.category.mapper.CategoryMapper;
+import com.ftm.app.category.repository.CategoryRepository;
+import com.ftm.app.category.repository.CategoryRepository.CategoryPriceRow;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.SignalType;
 import com.ftm.app.signals.repository.SignalAnalyticsRepository;

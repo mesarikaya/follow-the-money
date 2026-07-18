@@ -1,4 +1,4 @@
-package com.ftm.app.api.mapper;
+package com.ftm.app.portfolio.mapper;
 
 import com.ftm.app.api.dto.TickerMappingDto;
 import com.ftm.app.portfolio.domain.TickerMapping;

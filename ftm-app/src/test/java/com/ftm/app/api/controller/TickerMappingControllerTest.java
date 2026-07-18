@@ -15,7 +15,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ftm.app.api.dto.TickerMappingDto;
 import com.ftm.app.api.dto.TickerMappingRequest;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
-import com.ftm.app.api.mapper.TickerMappingMapper;
+import com.ftm.app.portfolio.mapper.TickerMappingMapper;
 import com.ftm.app.portfolio.domain.TickerMapping;
 import com.ftm.app.portfolio.repository.TickerMappingRepository;
 import com.ftm.app.portfolio.service.TickerMappingService;

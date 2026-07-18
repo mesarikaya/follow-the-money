@@ -41,15 +41,18 @@ check() {
 }
 
 echo "Backend ($API)"
-check "$API/categories"      '"categories":\['
-check "$API/themes"          '"id":'
-check "$API/macro"           '"regime"'
-check "$API/alerts"          '"alerts":\['
-check "$API/portfolio"       '"allocations":\['
-check "$API/signals/history" '\['
-check "$API/rotation"        '{'
-check "$API/rrg"             '{'
-check "$API/sub-sectors"     '\['
+check "$API/categories" '"categories":\[{'
+check "$API/themes"     '"thesis":"'
+check "$API/macro"      '"regime":"'
+check "$API/alerts"     '"alerts":\[{'
+check "$API/portfolio"  '"allocations":\[{'
+# Anchor on a named field with a real value, never on a bare "{" or "[" --
+# those pass on an empty payload and on 200-wrapped error JSON, which is the
+# exact regression this script exists to catch.
+check "$API/signals/TECH?days=30" '"signalType":"COMPOSITE"'
+check "$API/rotation"             '"topLeaders":\[{'
+check "$API/rrg"                  '"trail":\[{'
+check "$API/sub-sectors"          '"parentId":"'
 
 # These pages server-render their data, so the needle proves the backend
 # payload actually reached the HTML.

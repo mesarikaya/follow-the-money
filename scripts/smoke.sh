@@ -1,6 +1,13 @@
 #!/bin/sh
 # Post-merge smoke test: does the running stack actually serve real data?
-# Unit tests + CI prove it compiles; this proves it works. Run after every PR.
+# Unit tests prove it compiles; this proves it works. Run after every PR.
+#
+# NOT the primary gate. e2e/page-health.spec.ts (CI job "Frontend E2E Against
+# Real Backend") is: it drives a real browser, so it catches client-side
+# exceptions, failed XHRs, and error banners on client-fetching pages that curl
+# can only shell-check. This script exists because it runs in seconds on a
+# memory-constrained host where Playwright does not, and because it asserts on
+# *ingested* data — which CI, running a migrations-only database, cannot.
 #
 # Usage: scripts/smoke.sh          (expects backend on 8080, frontend on 3000)
 #        API=http://host:8080 WEB=http://host:3000 scripts/smoke.sh

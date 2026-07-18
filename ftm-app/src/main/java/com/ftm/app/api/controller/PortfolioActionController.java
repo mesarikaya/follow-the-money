@@ -5,7 +5,7 @@ import com.ftm.app.api.dto.HoldingActionDto;
 import com.ftm.app.api.dto.HoldingDto;
 import com.ftm.app.category.repository.CategoryRepository;
 import com.ftm.app.category.service.CategoryService;
-import com.ftm.app.api.service.PortfolioActionEngine;
+import com.ftm.app.portfolio.service.PortfolioActionEngine;
 import com.ftm.app.domain.Category;
 import com.ftm.app.portfolio.service.HoldingUploadService;
 import io.swagger.v3.oas.annotations.Operation;

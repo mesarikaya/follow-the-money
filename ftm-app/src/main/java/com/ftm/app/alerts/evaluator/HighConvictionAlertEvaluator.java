@@ -2,7 +2,7 @@ package com.ftm.app.alerts.evaluator;
 
 import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.alerts.repository.AlertRulesRepository;
-import com.ftm.app.api.service.TradeSignalDeriver;
+import com.ftm.app.signals.service.TradeSignalDeriver;
 import com.ftm.app.domain.Alert;
 import com.ftm.app.domain.AlertRule;
 import com.ftm.app.domain.AlertStatus;

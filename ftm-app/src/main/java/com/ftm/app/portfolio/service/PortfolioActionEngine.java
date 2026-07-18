@@ -3,7 +3,7 @@ package com.ftm.app.portfolio.service;
 import com.ftm.app.api.dto.CategorySummaryDto;
 import com.ftm.app.api.dto.HoldingActionDto;
 import com.ftm.app.api.dto.HoldingDto;
-import com.ftm.app.api.service.TradeSignalDeriver;
+import com.ftm.app.signals.service.TradeSignalDeriver;
 import com.ftm.app.portfolio.service.CategoryHierarchyResolver;
 import java.math.BigDecimal;
 import java.math.RoundingMode;

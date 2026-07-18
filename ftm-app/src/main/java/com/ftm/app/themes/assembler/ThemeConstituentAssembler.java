@@ -3,7 +3,7 @@ package com.ftm.app.themes.assembler;
 import com.ftm.app.api.dto.ThemeConstituentDto;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.SignalType;
-import com.ftm.app.api.service.TradeSignalDeriver;
+import com.ftm.app.signals.service.TradeSignalDeriver;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;

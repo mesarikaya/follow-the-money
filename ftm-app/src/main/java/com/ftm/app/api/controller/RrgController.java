@@ -1,7 +1,7 @@
 package com.ftm.app.api.controller;
 
 import com.ftm.app.api.dto.RrgResponse;
-import com.ftm.app.api.service.RrgService;
+import com.ftm.app.signals.service.RrgService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;

@@ -2,6 +2,7 @@ package com.ftm.app.api.service;
 
 import com.ftm.app.api.dto.ScreenerSnapshotDto;
 import com.ftm.app.domain.SignalType;
+import com.ftm.app.signals.service.TradeSignalDeriver;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.Map;

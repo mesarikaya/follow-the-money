@@ -9,7 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.ftm.app.api.dto.RrgCategoryEntry;
 import com.ftm.app.api.dto.RrgResponse;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
-import com.ftm.app.api.service.RrgService;
+import com.ftm.app.signals.service.RrgService;
 import java.time.LocalDate;
 import java.util.List;
 import org.instancio.Instancio;

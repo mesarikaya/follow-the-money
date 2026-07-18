@@ -6,6 +6,7 @@ import com.ftm.app.domain.Category;
 import com.ftm.app.domain.SignalType;
 import com.ftm.app.signals.repository.SignalAnalyticsRepository;
 import com.ftm.app.signals.repository.SignalRepository;
+import com.ftm.app.signals.service.TradeSignalDeriver;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;

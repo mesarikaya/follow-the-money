@@ -1,4 +1,4 @@
-package com.ftm.app.api.mapper;
+package com.ftm.app.alerts.mapper;
 
 import com.ftm.app.api.dto.AlertDto;
 import com.ftm.app.domain.Alert;

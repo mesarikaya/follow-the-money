@@ -12,7 +12,7 @@ import com.ftm.app.api.dto.AlertDto;
 import com.ftm.app.api.dto.AlertRuleDto;
 import com.ftm.app.api.dto.AlertsResponse;
 import com.ftm.app.api.exceptions.GlobalExceptionHandler;
-import com.ftm.app.api.service.AlertService;
+import com.ftm.app.alerts.service.AlertService;
 import java.util.List;
 import java.util.NoSuchElementException;
 import org.instancio.Instancio;

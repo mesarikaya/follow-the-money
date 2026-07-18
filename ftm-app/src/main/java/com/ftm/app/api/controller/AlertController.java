@@ -4,7 +4,7 @@ import com.ftm.app.api.dto.AlertDto;
 import com.ftm.app.api.dto.AlertRuleDto;
 import com.ftm.app.api.dto.AlertSeverityDayDto;
 import com.ftm.app.api.dto.AlertsResponse;
-import com.ftm.app.api.service.AlertService;
+import com.ftm.app.alerts.service.AlertService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;

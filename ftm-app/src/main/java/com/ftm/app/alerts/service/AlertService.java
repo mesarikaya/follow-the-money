@@ -1,4 +1,4 @@
-package com.ftm.app.api.service;
+package com.ftm.app.alerts.service;
 
 import com.ftm.app.alerts.repository.AlertRepository;
 import com.ftm.app.alerts.repository.AlertRulesRepository;
@@ -6,7 +6,7 @@ import com.ftm.app.api.dto.AlertDto;
 import com.ftm.app.api.dto.AlertRuleDto;
 import com.ftm.app.api.dto.AlertSeverityDayDto;
 import com.ftm.app.api.dto.AlertsResponse;
-import com.ftm.app.api.mapper.AlertMapper;
+import com.ftm.app.alerts.mapper.AlertMapper;
 import com.ftm.app.domain.Alert;
 import com.ftm.app.domain.AlertRule;
 import java.time.LocalDate;

@@ -6,7 +6,7 @@ import com.ftm.app.api.dto.ScreenerSnapshotDto;
 import com.ftm.app.api.dto.SeasonalReturnDto;
 import com.ftm.app.api.dto.SignalTransitionDto;
 import com.ftm.app.api.dto.SignalWinRateDto;
-import com.ftm.app.api.service.AlertService;
+import com.ftm.app.alerts.service.AlertService;
 import com.ftm.app.api.service.ScreenerSnapshotCalculator;
 import com.ftm.app.api.service.SignalTransitionAssembler;
 import com.ftm.app.api.service.SignalTransitionAssembler.TransitionContext;

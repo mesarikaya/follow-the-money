@@ -150,3 +150,117 @@ jobs:
           name: playwright-report
           path: ftm-frontend/playwright-report/
           retention-days: 7
+
+  frontend-e2e-real-backend:
+    name: Frontend E2E Against Real Backend
+    runs-on: ubuntu-latest
+    # The frontend-e2e job above runs against e2e/mock-backend.mjs, so nothing in
+    # CI ever exercised the real frontend-to-backend contract. This job boots the
+    # actual Spring Boot app and runs e2e/page-health.spec.ts against it.
+    #
+    # Only page-health runs here. The other two real-backend specs
+    # (portfolio-overview, backtest-equal-weight) assert mock fixture counts and
+    # fail against real data — see playwright.real.config.ts.
+    #
+    # The database is migrations-only: Flyway seeds structure (categories, themes,
+    # sub-sectors, ticker mappings) but prices/signals come from ingestion against
+    # live market APIs that CI cannot reach. Verified locally that all 12 routes
+    # render clean empty states against a migrations-only DB, so no seed fixture
+    # is needed. If a future page starts erroring on empty data, fix the page —
+    # rendering an empty dataset without crashing is correct behaviour.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ftm
+          POSTGRES_PASSWORD: ftm
+          POSTGRES_DB: ftm
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ftm"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9'
+          run_install: false
+
+      # -DskipTests skips test execution but NOT process-test-resources, where the
+      # flyway-migrate-test-db execution runs — so ftm_test must exist even here.
+      - name: Create isolated test database
+        run: PGPASSWORD=ftm psql -h localhost -U ftm -d ftm -c "CREATE DATABASE ftm_test;"
+
+      # Flyway migrates `ftm` at the initialize phase and jOOQ codegen runs off it,
+      # so this step also proves the migrations apply to an empty database.
+      - name: Build backend jar
+        run: ./mvnw package -DskipTests -q
+        working-directory: ftm-app
+
+      - name: Start backend
+        run: |
+          nohup java -jar target/ftm-app-0.1.0-SNAPSHOT.jar > backend.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf --max-time 5 http://localhost:8080/api/v1/categories > /dev/null; then
+              echo "backend up"; exit 0
+            fi
+            sleep 5
+          done
+          echo "backend failed to start"; cat backend.log; exit 1
+        working-directory: ftm-app
+
+      - name: Install dependencies
+        run: pnpm install
+        working-directory: ftm-frontend
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+        working-directory: ftm-frontend
+
+      - name: Start frontend
+        run: |
+          nohup node_modules/.bin/next dev --port 3000 > frontend.log 2>&1 &
+          for i in $(seq 1 40); do
+            if curl -sf --max-time 5 http://localhost:3000/ > /dev/null; then
+              echo "frontend up"; exit 0
+            fi
+            sleep 3
+          done
+          echo "frontend failed to start"; cat frontend.log; exit 1
+        working-directory: ftm-frontend
+        env:
+          BACKEND_URL: http://127.0.0.1:8080
+          NEXT_PUBLIC_BACKEND_URL: http://127.0.0.1:8080
+
+      - name: Run page-health against the real backend
+        run: pnpm exec playwright test page-health --config playwright.real.config.ts
+        working-directory: ftm-frontend
+        env:
+          CI: 'true'
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-backend-logs
+          path: |
+            ftm-app/backend.log
+            ftm-frontend/frontend.log
+          retention-days: 7

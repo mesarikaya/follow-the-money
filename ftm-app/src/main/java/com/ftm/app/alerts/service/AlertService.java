@@ -83,6 +83,10 @@ public class AlertService {
     return alertRepository.countActive();
   }
 
+  public int countActiveAlertsNeedingAction() {
+    return alertRepository.countActiveNeedingAction();
+  }
+
   @Cacheable(value = "theme-alert-history", key = "#themeId.toUpperCase()")
   public List<AlertDto> getThemeAlertHistory(String themeId) {
     return alertRepository.findRecentByThemeId(themeId.toUpperCase(), RECENT_ALERTS_LIMIT).stream()

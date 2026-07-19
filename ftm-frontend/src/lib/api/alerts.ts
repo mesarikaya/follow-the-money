@@ -52,7 +52,9 @@ export const fetchAlertRules = () => get<AlertRuleDto[]>("/api/v1/alerts/rules")
 export const fetchAlertSeverityHistory = (days = 30) =>
   get<AlertSeverityDayDto[]>(`/api/v1/alerts/severity-history?days=${days}`);
 
-export const fetchActiveAlertCount = () => get<{ active: number }>("/api/v1/alerts/active/count");
+/** `active` is every active alert; `needsAction` counts only the ACTION-grade ones the badges show. */
+export const fetchActiveAlertCount = () =>
+  get<{ active: number; needsAction?: number }>("/api/v1/alerts/active/count");
 
 export const setAlertRuleEnabled = (ruleId: string, enabled: boolean) =>
   fetch(`${BACKEND}/api/v1/alerts/rules/${encodeURIComponent(ruleId)}/enabled?enabled=${enabled}`, {

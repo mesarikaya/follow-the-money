@@ -21,6 +21,13 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class AlertRepository {
 
+  /**
+   * Mirrors the alerts page's default view, so the badge and the page agree on what "needs action"
+   * means. ACTION is the only such severity the enum has — the frontend also recognises URGENT, but
+   * nothing writes it, so listing it here would be dead weight. Add it here if it is ever emitted.
+   */
+  private static final List<String> NEEDS_ACTION_SEVERITIES = List.of(Severity.ACTION.name());
+
   private final DSLContext dsl;
 
   public AlertRepository(DSLContext dsl) {
@@ -72,6 +79,20 @@ public class AlertRepository {
 
   public int countActive() {
     return dsl.fetchCount(ALERTS, ALERTS.STATUS.eq(AlertStatus.ACTIVE.name()));
+  }
+
+  /**
+   * Active alerts at a severity that actually demands attention. This is what the navigation badge
+   * shows: a badge reading the full active count is the wall the alerts page was redesigned to stop
+   * greeting you with, and it undoes that work before you even click.
+   */
+  public int countActiveNeedingAction() {
+    return dsl.fetchCount(
+        ALERTS,
+        ALERTS
+            .STATUS
+            .eq(AlertStatus.ACTIVE.name())
+            .and(ALERTS.SEVERITY.in(NEEDS_ACTION_SEVERITIES)));
   }
 
   public List<Alert> findAllActive() {

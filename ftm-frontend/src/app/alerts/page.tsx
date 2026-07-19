@@ -4,6 +4,7 @@ import {
   activeAlerts,
   alertHistory,
   countBySeverity,
+  priorityAlerts,
 } from "@/lib/alerts/alertFormatting";
 import { useAlerts } from "@/app/alerts/useAlerts";
 import AlertRuleActivityPanel from "@/components/AlertRuleActivityPanel";
@@ -36,7 +37,9 @@ export default function AlertsPage() {
   const allAlerts = alertsResponse?.alerts ?? [];
   const active = activeAlerts(allAlerts);
   const history = alertHistory(allAlerts);
-  const activeCount = alertsResponse?.activeCount ?? 0;
+  // Counts what needs action, matching the feed's default view and the nav badge. The full
+  // active total is still visible in the severity breakdown beside it.
+  const needsActionCount = priorityAlerts(active).length;
   const errorMessage = acknowledgeError
     ? `Failed to acknowledge: ${acknowledgeError}`
     : loadError
@@ -53,9 +56,9 @@ export default function AlertsPage() {
           >
             Alerts
           </h1>
-          {activeCount > 0 && (
+          {needsActionCount > 0 && (
             <span className="text-xs px-1.5 py-0.5 bg-red-500 text-white rounded-full font-semibold">
-              {activeCount}
+              {needsActionCount}
             </span>
           )}
         </div>

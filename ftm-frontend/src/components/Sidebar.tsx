@@ -22,12 +22,17 @@ const MANAGEMENT_ITEMS = [
   { href: "/admin/ticker-mappings",   label: "Ticker Mappings", icon: "🗂️" },
 ];
 
-function useActiveAlertCount(): number {
+/**
+ * Counts what needs action, not every active alert. A badge reading the full count is the wall the
+ * alerts page was redesigned to stop opening with — showing it on every route undoes that before
+ * you even click. Falls back to the total if an older backend has no needsAction field.
+ */
+function useAlertsNeedingActionCount(): number {
   const [count, setCount] = useState(0);
   useEffect(() => {
     fetch("/api/v1/alerts/active/count")
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data?.active) setCount(data.active); })
+      .then(data => { if (data) setCount(data.needsAction ?? data.active ?? 0); })
       .catch(() => {});
   }, []);
   return count;
@@ -58,7 +63,7 @@ function NavItem({ href, label, icon, badge }: { href: string; label: string; ic
 }
 
 export default function Sidebar() {
-  const activeAlertCount = useActiveAlertCount();
+  const alertsNeedingActionCount = useAlertsNeedingActionCount();
   return (
     <aside className="flex flex-col w-14 md:w-52 bg-slate-800 border-r border-slate-700 text-slate-100 shrink-0">
       <nav className="flex-1 py-3 overflow-y-auto">
@@ -76,7 +81,7 @@ export default function Sidebar() {
           <NavItem
             key={item.href}
             {...item}
-            badge={item.href === "/alerts" ? activeAlertCount : undefined}
+            badge={item.href === "/alerts" ? alertsNeedingActionCount : undefined}
           />
         ))}
       </nav>

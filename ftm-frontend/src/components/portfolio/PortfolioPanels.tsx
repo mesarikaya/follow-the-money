@@ -118,10 +118,12 @@ export const ConcentrationRiskBanner = ({
   );
 };
 
+// Mirrors PortfolioActionEngine's urgency tiers. No WATCH: it belonged to the composite model,
+// and the momentum model that now drives these labels has no "not yet BUY-grade" state.
 const ACTION_CONFIG: Record<string, { label: string; className: string }> = {
   EXIT:         { label: "EXIT",  className: "bg-red-500/20 text-red-300 border border-red-500/40" },
   TRIM:         { label: "TRIM",  className: "bg-orange-500/15 text-orange-300 border border-orange-500/30" },
-  WATCH:        { label: "WATCH", className: "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30" },
+  ADD:          { label: "ADD",   className: "bg-sky-500/15 text-sky-300 border border-sky-500/30" },
   HOLD:         { label: "HOLD",  className: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" },
   UNCLASSIFIED: { label: "?",     className: "bg-slate-700/30 text-slate-400 border border-slate-600/30" },
 };
@@ -129,6 +131,7 @@ const ACTION_CONFIG: Record<string, { label: string; className: string }> = {
 const ACTION_ROW_CLASS: Record<string, string> = {
   EXIT: "bg-red-950/10",
   TRIM: "bg-orange-950/10",
+  ADD: "bg-sky-950/10",
 };
 
 const SIGNAL_COLOR: Record<string, string> = {
@@ -149,7 +152,7 @@ export const RecommendedActionsTable = ({ actions }: { actions: HoldingActionDto
         </h2>
         <span
           className="text-[10px] text-slate-600 cursor-help"
-          title="Signal-driven recommendations for each holding. EXIT = REDUCE signal + position >5% of portfolio. TRIM = REDUCE signal, smaller position. WATCH = WATCH signal. HOLD = BUY or neutral signal. UNCLASSIFIED = no FTM sector mapping. Sorted by urgency."
+          title="Driven by 12-1 momentum — the same signal behind the optimal allocation above, so the two always agree. EXIT = negative momentum + position >5% of portfolio. TRIM = negative momentum, smaller position. ADD = among the top-ranked sectors the strategy targets. HOLD = positive momentum but outside the top ranks; keep, don't add. UNCLASSIFIED = no FTM sector mapping. Sorted by urgency."
         >
           (?)
         </span>

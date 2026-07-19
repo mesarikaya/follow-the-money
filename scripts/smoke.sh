@@ -47,10 +47,47 @@ check() {
   printf '  ok   %-40s\n' "$url"
 }
 
+# A 200 is not enough for macro: if FRED ingestion breaks, /macro keeps serving the last
+# numbers it ingested, so every check above still passes while the data quietly rots. That
+# happened -- the backend was started without --spring.profiles.active=local, the FRED key
+# never resolved, and macro drifted 9+ days stale with only a small "MACRO: failed" marker in
+# the page footer to show for it. asOfDate is the tell, so assert on it.
+#
+# 7 days: long enough for a holiday weekend plus FRED's own publication lag, short enough to
+# have caught the real failure.
+MAX_MACRO_AGE_DAYS=7
+
+check_macro_freshness() {
+  as_of=$(curl -s --max-time 30 "$API/macro" | sed -n 's/.*"asOfDate":"\([0-9-]*\)".*/\1/p')
+  if [ -z "$as_of" ]; then
+    printf '  FAIL %-40s (no asOfDate in payload)\n' "$API/macro freshness"
+    failures=$((failures + 1))
+    return
+  fi
+
+  # GNU date first, BSD date as the fallback. ISO dates compare correctly as strings.
+  cutoff=$(date -d "$MAX_MACRO_AGE_DAYS days ago" +%F 2>/dev/null \
+    || date -v-"$MAX_MACRO_AGE_DAYS"d +%F 2>/dev/null)
+  if [ -z "$cutoff" ]; then
+    printf '  skip %-40s (no usable date command)\n' "$API/macro freshness"
+    return
+  fi
+
+  if [ "$as_of" \< "$cutoff" ]; then
+    printf '  FAIL %-40s (asOfDate %s older than %s -- FRED ingestion is failing; check that the\n' \
+      "$API/macro freshness" "$as_of" "$cutoff"
+    printf '       backend was started with --spring.profiles.active=local)\n'
+    failures=$((failures + 1))
+    return
+  fi
+  printf '  ok   %-40s (asOfDate %s)\n' "$API/macro freshness" "$as_of"
+}
+
 echo "Backend ($API)"
 check "$API/categories" '"categories":\[{'
 check "$API/themes"     '"thesis":"'
 check "$API/macro"      '"regime":"'
+check_macro_freshness
 check "$API/alerts"     '"alerts":\[{'
 check "$API/portfolio"  '"allocations":\[{'
 # Anchor on a named field with a real value, never on a bare "{" or "[" --

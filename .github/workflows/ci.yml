@@ -246,8 +246,8 @@ jobs:
           echo "frontend failed to start"; cat frontend.log; exit 1
         working-directory: ftm-frontend
         env:
-          BACKEND_URL: http://127.0.0.1:9999
-          NEXT_PUBLIC_BACKEND_URL: http://127.0.0.1:9999
+          BACKEND_URL: http://127.0.0.1:8080
+          NEXT_PUBLIC_BACKEND_URL: http://127.0.0.1:8080
 
       - name: Run page-health against the real backend
         run: pnpm exec playwright test page-health --config playwright.real.config.ts

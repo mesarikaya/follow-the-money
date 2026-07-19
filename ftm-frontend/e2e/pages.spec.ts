@@ -625,7 +625,24 @@ test.describe("Alerts page — new theme alert rules", () => {
 
   test("shows recovery signal active alert in recent alerts feed", async ({ page }) => {
     await page.goto("/alerts");
-    // Recovery signal alert for SAAS_AT_RISK is in ALERTS_RESPONSE.alerts
+    // The recovery signal alert for SAAS_AT_RISK is INFO severity, and the feed now opens on
+    // URGENT + ACTION only — so it is behind the "lower priority" toggle rather than absent.
+    await page.getByRole("button", { name: /lower priority/ }).click();
+    await expect(page.getByText(/early turn signal/).first()).toBeVisible();
+  });
+
+  test("opens on what needs action, keeping lower-priority alerts one click away", async ({
+    page,
+  }) => {
+    await page.goto("/alerts");
+
+    // The whole point: the page must not greet you with every alert it has.
+    await expect(page.getByText("Needs Action")).toBeVisible();
+    await expect(page.getByText(/early turn signal/)).toHaveCount(0);
+
+    await page.getByRole("button", { name: /lower priority/ }).click();
+
+    await expect(page.getByText("All Alerts")).toBeVisible();
     await expect(page.getByText(/early turn signal/).first()).toBeVisible();
   });
 });

@@ -21,7 +21,11 @@ A local-first investment dashboard that tracks capital flows across 19 investabl
 
 ## Current phase
 
-**All 12 milestones delivered.** 545 backend tests + 127 E2E tests pass. Session 40 delivered EP-073: backend streak+volatility fields on ThemeSummaryDto, Signal Quality Ranking dashboard panel.
+**All 12 milestones delivered.** The Clean Code & SOLID refactor is also complete (EP-110…EP-136),
+and CI now runs the `page-health` E2E against a real backend rather than a mock (#193).
+
+**Next decision is the user's:** the Portfolio page "Actions-first" redesign is the main pending
+item. It needs design direction — do not start it from a cold session.
 
 | Area | Status |
 |------|--------|
@@ -48,7 +52,7 @@ A local-first investment dashboard that tracks capital flows across 19 investabl
 4. `roadmap.md` — milestones, epics, acceptance criteria
 5. `vision.md` — why we're building this (rarely needs re-reading)
 6. `constraints.md` — hard non-negotiables
-7. `plans/clean-code-refactoring-plan.md` — SOLID/Clean-Code restructuring plan (backend + frontend)
+7. `plans/clean-code-refactoring-plan.md` — SOLID/Clean-Code restructuring (✅ complete, 2026-07-19)
 
 ---
 

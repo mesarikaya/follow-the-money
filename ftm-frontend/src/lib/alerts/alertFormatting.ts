@@ -20,6 +20,15 @@ export const activeAlerts = (alerts: AlertDto[]): AlertDto[] =>
         (SEVERITY_RANK[b.severity] ?? UNKNOWN_SEVERITY_RANK),
     );
 
+/**
+ * The severities worth showing unprompted. Everything else is context you go looking for, not
+ * something that should greet you: a page that opens with 78 rows is a page you stop opening.
+ */
+const PRIORITY_SEVERITIES = new Set(["URGENT", "ACTION"]);
+
+export const priorityAlerts = (alerts: AlertDto[]): AlertDto[] =>
+  alerts.filter(alert => PRIORITY_SEVERITIES.has(alert.severity));
+
 export type AlertGroup = {
   key: string;
   ruleId: string;

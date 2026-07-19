@@ -6,6 +6,7 @@ import {
   groupAlertsByEvent,
   marketWideCount,
   parseSnapshot,
+  priorityAlerts,
   worstSeverityBySector,
 } from "./alertFormatting";
 
@@ -25,6 +26,24 @@ function alert(overrides: Partial<AlertDto>): AlertDto {
     ...overrides,
   } as AlertDto;
 }
+
+describe("priorityAlerts", () => {
+  it("keeps only what demands action, so the page does not open with a wall", () => {
+    const kept = priorityAlerts([
+      alert({ id: 1, severity: "INFO" }),
+      alert({ id: 2, severity: "URGENT" }),
+      alert({ id: 3, severity: "WARNING" }),
+      alert({ id: 4, severity: "ACTION" }),
+    ]);
+
+    expect(kept.map(a => a.id)).toEqual([2, 4]);
+  });
+
+  it("hides nothing when everything is high severity", () => {
+    const all = [alert({ id: 1, severity: "ACTION" }), alert({ id: 2, severity: "URGENT" })];
+    expect(priorityAlerts(all)).toHaveLength(2);
+  });
+});
 
 describe("groupAlertsByEvent", () => {
   const themeReduce = (id: number, themeId: string) =>

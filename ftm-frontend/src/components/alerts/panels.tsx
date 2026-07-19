@@ -12,6 +12,7 @@ import {
   groupAlertsByEvent,
   marketWideCount,
   parseSnapshot,
+  priorityAlerts,
   worstSeverityBySector,
 } from "@/lib/alerts/alertFormatting";
 import {
@@ -206,56 +207,86 @@ export const ActiveAlertsPanel = ({
   isBulkDismissing: boolean;
   onAcknowledge: (alertId: number) => void;
   onDismissAll: () => void;
-}) => (
-  <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-    <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-2">
-      <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />
-      <span className="text-sm font-semibold text-slate-200">Active Alerts</span>
-      <span
-        className="text-[10px] text-slate-500 ml-1"
-        title="Alerts fire after each ingestion. Acknowledge to suppress until next trigger."
-      >
-        (?)
-      </span>
-      {alerts.length > 1 && (
-        <button
-          onClick={onDismissAll}
-          disabled={isBulkDismissing}
-          className="ml-auto text-[10px] text-slate-500 hover:text-slate-300 border border-slate-700 hover:border-slate-500 px-2 py-0.5 rounded transition-colors disabled:opacity-50"
+}) => {
+  const [isShowingAll, setIsShowingAll] = useState(false);
+  const visibleAlerts = isShowingAll ? alerts : priorityAlerts(alerts);
+  const hiddenCount = alerts.length - visibleAlerts.length;
+
+  return (
+    <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-2 flex-wrap">
+        <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />
+        <span className="text-sm font-semibold text-slate-200">
+          {isShowingAll ? "All Alerts" : "Needs Action"}
+        </span>
+        <span
+          className="text-[10px] text-slate-500 ml-1"
+          title="Opens with what needs action. Lower-priority alerts are still here, one click away. Alerts fire after each ingestion; acknowledge to suppress until next trigger."
         >
-          {isBulkDismissing ? "Dismissing…" : `Dismiss all ${alerts.length}`}
-        </button>
+          (?)
+        </span>
+        {hiddenCount > 0 && !isShowingAll && (
+          <button
+            onClick={() => setIsShowingAll(true)}
+            className="text-[10px] text-slate-500 hover:text-slate-300 border border-slate-700 hover:border-slate-500 px-2 py-0.5 rounded transition-colors"
+          >
+            + {hiddenCount} lower priority
+          </button>
+        )}
+        {isShowingAll && (
+          <button
+            onClick={() => setIsShowingAll(false)}
+            className="text-[10px] text-slate-500 hover:text-slate-300 border border-slate-700 hover:border-slate-500 px-2 py-0.5 rounded transition-colors"
+          >
+            Needs action only
+          </button>
+        )}
+        {alerts.length > 1 && (
+          <button
+            onClick={onDismissAll}
+            disabled={isBulkDismissing}
+            className="ml-auto text-[10px] text-slate-500 hover:text-slate-300 border border-slate-700 hover:border-slate-500 px-2 py-0.5 rounded transition-colors disabled:opacity-50"
+          >
+            {isBulkDismissing ? "Dismissing…" : `Dismiss all ${alerts.length}`}
+          </button>
+        )}
+      </div>
+
+      {!isLoaded && !hasLoadError && (
+        <div className="px-4 py-8 text-center text-slate-500 text-sm">Loading…</div>
+      )}
+      {isLoaded && alerts.length === 0 && (
+        <div className="px-4 py-8 text-center text-slate-500 text-sm">
+          No active alerts. Alerts fire after signal computation runs.
+        </div>
+      )}
+      {isLoaded && alerts.length > 0 && visibleAlerts.length === 0 && (
+        <div className="px-4 py-8 text-center text-slate-500 text-sm">
+          Nothing needs action. {hiddenCount} lower-priority alert
+          {hiddenCount === 1 ? "" : "s"} — expand above to review.
+        </div>
+      )}
+
+      {groupAlertsByEvent(visibleAlerts).map(group =>
+        group.alerts.length === 1 ? (
+          <AlertRow
+            key={group.key}
+            alert={group.alerts[0]}
+            acknowledgingId={acknowledgingId}
+            onAcknowledge={onAcknowledge}
+          />
+        ) : (
+          <AlertEventGroup
+            key={group.key}
+            group={group}
+            acknowledgingId={acknowledgingId}
+            onAcknowledge={onAcknowledge}
+          />
+        ),
       )}
     </div>
-
-    {!isLoaded && !hasLoadError && (
-      <div className="px-4 py-8 text-center text-slate-500 text-sm">Loading…</div>
-    )}
-    {isLoaded && alerts.length === 0 && (
-      <div className="px-4 py-8 text-center text-slate-500 text-sm">
-        No active alerts. Alerts fire after signal computation runs.
-      </div>
-    )}
-
-    {groupAlertsByEvent(alerts).map(group =>
-      group.alerts.length === 1 ? (
-        <AlertRow
-          key={group.key}
-          alert={group.alerts[0]}
-          acknowledgingId={acknowledgingId}
-          onAcknowledge={onAcknowledge}
-        />
-      ) : (
-        <AlertEventGroup
-          key={group.key}
-          group={group}
-          acknowledgingId={acknowledgingId}
-          onAcknowledge={onAcknowledge}
-        />
-      ),
-    )}
-  </div>
-);
+  );
+};
 
 export const AlertHistoryTable = ({ alerts }: { alerts: AlertDto[] }) => (
   <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">

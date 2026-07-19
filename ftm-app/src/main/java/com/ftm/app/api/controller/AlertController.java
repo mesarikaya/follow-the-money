@@ -55,9 +55,15 @@ public class AlertController {
   }
 
   @GetMapping("/active/count")
-  @Operation(summary = "Count of currently active (unacknowledged) alerts")
+  @Operation(
+      summary = "Counts of currently active (unacknowledged) alerts",
+      description =
+          "\"active\" is every active alert; \"needsAction\" counts only URGENT and ACTION, which is "
+              + "what the navigation badge shows and what the alerts page opens on.")
   public Map<String, Integer> getActiveCount() {
-    return Map.of("active", alertService.countActiveAlerts());
+    return Map.of(
+        "active", alertService.countActiveAlerts(),
+        "needsAction", alertService.countActiveAlertsNeedingAction());
   }
 
   @PostMapping("/bulk-dismiss")

@@ -1,5 +1,10 @@
 # Clean Code & SOLID Refactoring Plan
 
+> **Status: COMPLETE (2026-07-19).** Phases 1–5 shipped across EP-110…EP-136, one PR each.
+> Phase 6 needed almost no work: 6.1 and 6.2 were already satisfied by the phase work, 6.3 found
+> nothing, and 6.4 was dropped deliberately (see below). Verified at close-out: largest backend file
+> 368 lines (`AlertRulesEngine` 3,764 → 290), largest frontend page 293 (`themes` 2,566 → 293).
+
 **Goal:** Restructure the backend and frontend so that any single implementation is small,
 single-purpose, and readable — a non-developer should be able to open one file and follow what it
 does. Behaviour must not change: this is pure refactoring, verified by tests at every step.
@@ -128,11 +133,19 @@ Apply the Phase-1.2 pattern to the remaining ~20 rules, **one rule per PR**:
   query area).
 - **5.7** Fold `api.service.*` domain logic into feature packages; controllers keep only HTTP.
 
-### Phase 6 — Cross-cutting polish
+### Phase 6 — Cross-cutting polish ✅
 
-- **6.1** Consistent naming pass (kill remaining abbreviations). · **6.2** Consistent error/response
-  handling. · **6.3** Remove dead code. · **6.4** Short `README`/header comment per package
-  explaining its one job.
+- **6.1** Consistent naming pass — ✅ nothing to do. A scan for abbreviation-prefixed identifiers
+  (`aum`, `cfg`, `ctx`, `svc`, `dto`, …) across the backend returns zero hits; the phase work and the
+  `aum` → `assetsUnderManagementUsd` rename already cleared these.
+- **6.2** Consistent error/response handling — ✅ nothing to do. `GlobalExceptionHandler` is the
+  single error path and every controller returns `ResponseEntity.ok(...)`; no scattered try/catch.
+- **6.3** Remove dead code — ✅ nothing to do. `ts-prune` surfaces only framework defaults,
+  `.next/` generated types, and same-module false positives.
+- **6.4** Per-package `README`/header comment — **dropped, not deferred.** The package names
+  (`alerts`, `backtest`, `ingestion`, `macro`, `portfolio`, `signals`, `themes`) already say their
+  one job, so the comment would restate the directory name and then rot. Revisit only if a package
+  acquires a job its name doesn't convey.
 
 ---
 

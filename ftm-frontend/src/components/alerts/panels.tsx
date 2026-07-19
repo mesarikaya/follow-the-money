@@ -4,10 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { AlertDto, AlertRuleDto } from "@/lib/api";
 import {
+  AlertGroup,
   EQUITY_SECTORS,
   alertAgeBadge,
   formatAlertDate,
   formatDateShort,
+  groupAlertsByEvent,
   marketWideCount,
   parseSnapshot,
   worstSeverityBySector,
@@ -78,6 +80,116 @@ const AgeBadge = ({ createdAt }: { createdAt: string }) => {
   );
 };
 
+const AlertRow = ({
+  alert,
+  acknowledgingId,
+  onAcknowledge,
+  isNested = false,
+}: {
+  alert: AlertDto;
+  acknowledgingId: number | null;
+  onAcknowledge: (alertId: number) => void;
+  isNested?: boolean;
+}) => (
+  <div
+    className={`px-4 py-3 border-b border-slate-700 last:border-0 flex items-start gap-3 ${severityRowClass(alert.severity)} ${isNested ? "pl-10" : ""}`}
+  >
+    {!isNested && (
+      <div className="mt-0.5 shrink-0">
+        <span
+          className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${severityBadgeClass(alert.severity)}`}
+        >
+          {alert.severity}
+        </span>
+      </div>
+    )}
+    <div className="flex-1 min-w-0">
+      <div className="flex items-center gap-2 mb-1 flex-wrap">
+        <AlertSubject alert={alert} />
+        {!isNested && (
+          <span className="text-xs text-slate-500">{RULE_LABELS[alert.ruleId] ?? alert.ruleId}</span>
+        )}
+        <div className="ml-auto flex items-center gap-1.5">
+          <AgeBadge createdAt={alert.createdAt} />
+          <span className="text-xs text-slate-600">{formatAlertDate(alert.createdAt)}</span>
+        </div>
+      </div>
+      <p className="text-sm text-slate-300">{alert.message}</p>
+      <SnapshotViewer raw={alert.triggerSnapshot} />
+    </div>
+    <button
+      onClick={() => onAcknowledge(alert.id)}
+      disabled={acknowledgingId === alert.id}
+      className="shrink-0 text-xs text-slate-500 hover:text-slate-300 border border-slate-600 hover:border-slate-500 px-2 py-1 rounded transition-colors disabled:opacity-50"
+    >
+      {acknowledgingId === alert.id ? "…" : "Dismiss"}
+    </button>
+  </div>
+);
+
+/**
+ * One market event that fanned out across many themes or sectors. Collapsed by default — the whole
+ * point is that nine rows saying the same thing is one thing worth reading, not nine.
+ */
+const AlertEventGroup = ({
+  group,
+  acknowledgingId,
+  onAcknowledge,
+}: {
+  group: AlertGroup;
+  acknowledgingId: number | null;
+  onAcknowledge: (alertId: number) => void;
+}) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div className="border-b border-slate-700 last:border-0">
+      <button
+        onClick={() => setIsExpanded(expanded => !expanded)}
+        className={`w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-slate-700/20 transition-colors ${severityRowClass(group.severity)}`}
+      >
+        <div className="mt-0.5 shrink-0">
+          <span
+            className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${severityBadgeClass(group.severity)}`}
+          >
+            {group.severity}
+          </span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span className="text-sm font-semibold text-slate-200">
+              {RULE_LABELS[group.ruleId] ?? group.ruleId}
+            </span>
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-300 border border-slate-600">
+              ×{group.alerts.length}
+            </span>
+            <div className="ml-auto flex items-center gap-1.5">
+              <AgeBadge createdAt={group.alerts[0].createdAt} />
+              <span className="text-xs text-slate-600">
+                {formatAlertDate(group.alerts[0].createdAt)}
+              </span>
+            </div>
+          </div>
+          <p className="text-xs text-slate-400 truncate">
+            {group.subjects.map(subject => subject.replace(/_/g, " ")).join(", ")}
+          </p>
+        </div>
+        <span className="shrink-0 text-xs text-slate-500 mt-0.5">{isExpanded ? "▲" : "▼"}</span>
+      </button>
+      {isExpanded &&
+        group.alerts.map(alert => (
+          <AlertRow
+            key={alert.id}
+            alert={alert}
+            acknowledgingId={acknowledgingId}
+            onAcknowledge={onAcknowledge}
+            isNested
+          />
+        ))}
+    </div>
+  );
+};
+
 export const ActiveAlertsPanel = ({
   alerts,
   isLoaded,
@@ -125,39 +237,23 @@ export const ActiveAlertsPanel = ({
       </div>
     )}
 
-    {alerts.map(alert => (
-      <div
-        key={alert.id}
-        className={`px-4 py-3 border-b border-slate-700 last:border-0 flex items-start gap-3 ${severityRowClass(alert.severity)}`}
-      >
-        <div className="mt-0.5 shrink-0">
-          <span
-            className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${severityBadgeClass(alert.severity)}`}
-          >
-            {alert.severity}
-          </span>
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <AlertSubject alert={alert} />
-            <span className="text-xs text-slate-500">{RULE_LABELS[alert.ruleId] ?? alert.ruleId}</span>
-            <div className="ml-auto flex items-center gap-1.5">
-              <AgeBadge createdAt={alert.createdAt} />
-              <span className="text-xs text-slate-600">{formatAlertDate(alert.createdAt)}</span>
-            </div>
-          </div>
-          <p className="text-sm text-slate-300">{alert.message}</p>
-          <SnapshotViewer raw={alert.triggerSnapshot} />
-        </div>
-        <button
-          onClick={() => onAcknowledge(alert.id)}
-          disabled={acknowledgingId === alert.id}
-          className="shrink-0 text-xs text-slate-500 hover:text-slate-300 border border-slate-600 hover:border-slate-500 px-2 py-1 rounded transition-colors disabled:opacity-50"
-        >
-          {acknowledgingId === alert.id ? "…" : "Dismiss"}
-        </button>
-      </div>
-    ))}
+    {groupAlertsByEvent(alerts).map(group =>
+      group.alerts.length === 1 ? (
+        <AlertRow
+          key={group.key}
+          alert={group.alerts[0]}
+          acknowledgingId={acknowledgingId}
+          onAcknowledge={onAcknowledge}
+        />
+      ) : (
+        <AlertEventGroup
+          key={group.key}
+          group={group}
+          acknowledgingId={acknowledgingId}
+          onAcknowledge={onAcknowledge}
+        />
+      ),
+    )}
   </div>
 );
 

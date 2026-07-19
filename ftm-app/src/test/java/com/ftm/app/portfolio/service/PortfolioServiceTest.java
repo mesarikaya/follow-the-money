@@ -25,7 +25,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
+import org.junit.jupiter.api.BeforeEach;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -40,7 +40,24 @@ class PortfolioServiceTest {
   @Mock LiveMomentumScoreService liveMomentumScoreService;
   // Real resolver — the rollup logic is pure and covered by its own test; here it must behave.
   @Spy CategoryHierarchyResolver categoryHierarchyResolver = new CategoryHierarchyResolver();
-  @InjectMocks PortfolioService portfolioService;
+
+  private PortfolioService portfolioService;
+
+  // A REAL MomentumSignalResolver over the SAME mocks: it is pure orchestration over
+  // liveMomentumScoreService + alignmentService, so every existing stub on those still applies and
+  // the momentum assertions below keep testing the behaviour they always did.
+  @BeforeEach
+  void setUp() {
+    portfolioService =
+        new PortfolioService(
+            portfolioRepository,
+            categoryRepository,
+            signalRepository,
+            alignmentService,
+            categoryHierarchyResolver,
+            new MomentumSignalResolver(
+                categoryRepository, liveMomentumScoreService, alignmentService));
+  }
 
   private Category techCategory() {
     return new Category(

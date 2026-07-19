@@ -5,10 +5,8 @@ import com.ftm.app.api.dto.PortfolioResponse;
 import com.ftm.app.api.dto.PortfolioResponse.PortfolioAllocationEntry;
 import com.ftm.app.api.dto.RebalanceSuggestionDto;
 import com.ftm.app.category.repository.CategoryRepository;
-import com.ftm.app.signals.service.MomentumTradeSignalDeriver;
 import com.ftm.app.domain.Category;
 import com.ftm.app.domain.CategoryId;
-import com.ftm.app.domain.CategoryType;
 import com.ftm.app.domain.Portfolio;
 import com.ftm.app.domain.SignalType;
 import com.ftm.app.portfolio.repository.PortfolioRepository;
@@ -39,7 +37,7 @@ public class PortfolioService {
   private final SignalRepository signalRepository;
   private final AlignmentService alignmentService;
   private final CategoryHierarchyResolver categoryHierarchyResolver;
-  private final LiveMomentumScoreService liveMomentumScoreService;
+  private final MomentumSignalResolver momentumSignalResolver;
 
   public PortfolioService(
       PortfolioRepository portfolioRepository,
@@ -47,13 +45,13 @@ public class PortfolioService {
       SignalRepository signalRepository,
       AlignmentService alignmentService,
       CategoryHierarchyResolver categoryHierarchyResolver,
-      LiveMomentumScoreService liveMomentumScoreService) {
+      MomentumSignalResolver momentumSignalResolver) {
     this.portfolioRepository = portfolioRepository;
     this.categoryRepository = categoryRepository;
     this.signalRepository = signalRepository;
     this.alignmentService = alignmentService;
     this.categoryHierarchyResolver = categoryHierarchyResolver;
-    this.liveMomentumScoreService = liveMomentumScoreService;
+    this.momentumSignalResolver = momentumSignalResolver;
   }
 
   /** Portfolio view with recommendations from the default (equity-sector) selection universe. */
@@ -85,27 +83,13 @@ public class PortfolioService {
         signalRepository.findLatestByType(SignalType.COMPOSITE);
 
     // Live 12-1 momentum drives the recommendations — the signal that beat the composite
-    // out-of-sample (the composite's top-ranked pick was historically its worst). Computed for every
-    // top-level category (shown in the table), but see the selection universe below.
-    Map<String, BigDecimal> topLevelMomentumByCategoryId =
-        liveMomentumScoreService.computeLatestMomentumByCategoryId().entrySet().stream()
-            .filter(e -> categoriesById.containsKey(e.getKey()))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-    // Selection universe drives the optimal. EQUITY_SECTORS (default) is where momentum's edge
-    // validated cleanly (top-3 Sharpe ~0.96); ALL_TOP_LEVEL adds gold/metals/bonds for dual-momentum
-    // rotation (top-5 — more names to tame metals whipsaw). Either way the absolute-momentum filter
-    // rotates to cash when nothing in the universe has positive momentum.
-    Map<String, BigDecimal> selectionMomentumByCategoryId =
-        selectionUniverse == PortfolioSelectionUniverse.EQUITY_SECTORS
-            ? topLevelMomentumByCategoryId.entrySet().stream()
-                .filter(e -> categoriesById.get(e.getKey()).type() == CategoryType.EQUITY_SECTOR)
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
-            : topLevelMomentumByCategoryId;
-
+    // out-of-sample (the composite's top-ranked pick was historically its worst). Resolved once,
+    // here, and shared with /portfolio/actions so the two surfaces cannot disagree.
+    MomentumSignalResolver.MomentumSignals momentumSignals =
+        momentumSignalResolver.resolve(categoriesById, selectionUniverse);
+    Map<String, BigDecimal> topLevelMomentumByCategoryId = momentumSignals.momentumByCategoryId();
     Map<String, BigDecimal> optimalAllocationByCategoryId =
-        alignmentService.computeMomentumRankOptimalAllocation(
-            selectionMomentumByCategoryId, selectionUniverse.holdCount());
+        momentumSignals.optimalAllocationByCategoryId();
 
     BigDecimal alignmentScore =
         alignmentService.computeAlignmentScoreAgainstOptimal(
@@ -119,7 +103,6 @@ public class PortfolioService {
                 category -> {
                   String categoryId = category.id().name();
                   BigDecimal momentum = topLevelMomentumByCategoryId.get(categoryId);
-                  boolean selected = optimalAllocationByCategoryId.containsKey(categoryId);
                   return new PortfolioAllocationEntry(
                       categoryId,
                       category.name(),
@@ -128,7 +111,7 @@ public class PortfolioService {
                       compositeScoreByCategoryId.get(categoryId),
                       toPercent(momentum),
                       optimalAllocationByCategoryId.get(categoryId),
-                      MomentumTradeSignalDeriver.derive(momentum, selected));
+                      momentumSignals.tradeSignalByCategoryId().get(categoryId));
                 })
             .sorted(Comparator.comparing(PortfolioAllocationEntry::categoryId))
             .toList();
@@ -138,7 +121,8 @@ public class PortfolioService {
             categoriesById,
             currentAllocationByCategoryId,
             optimalAllocationByCategoryId,
-            topLevelMomentumByCategoryId);
+            topLevelMomentumByCategoryId,
+            momentumSignals.tradeSignalByCategoryId());
 
     log.debug(
         "Portfolio loaded: {} allocations, alignment={}", allocationEntries.size(), alignmentScore);
@@ -188,7 +172,8 @@ public class PortfolioService {
       Map<String, Category> categoriesById,
       Map<String, BigDecimal> currentAllocationByCategoryId,
       Map<String, BigDecimal> optimalAllocationByCategoryId,
-      Map<String, BigDecimal> momentumByCategoryId) {
+      Map<String, BigDecimal> momentumByCategoryId,
+      Map<String, String> tradeSignalByCategoryId) {
 
     List<RebalanceSuggestionDto> suggestions = new ArrayList<>();
 
@@ -201,9 +186,8 @@ public class PortfolioService {
       BigDecimal delta = optimalPct.subtract(currentPct).setScale(2, RoundingMode.HALF_UP);
       String action = delta.compareTo(BigDecimal.ZERO) >= 0 ? "INCREASE" : "DECREASE";
 
-      // In the optimal set → selected top-N momentum sector, so the signal is BUY.
       BigDecimal momentum = momentumByCategoryId.get(categoryId);
-      String tradeSignal = MomentumTradeSignalDeriver.derive(momentum, true);
+      String tradeSignal = tradeSignalByCategoryId.get(categoryId);
       suggestions.add(
           buildSuggestion(
               categoriesById, categoryId, action, currentPct, optimalPct, delta, tradeSignal,
@@ -220,7 +204,7 @@ public class PortfolioService {
       BigDecimal delta = BigDecimal.ZERO.subtract(currentPct).setScale(2, RoundingMode.HALF_UP);
 
       BigDecimal momentum = momentumByCategoryId.get(categoryId);
-      String tradeSignal = MomentumTradeSignalDeriver.derive(momentum, false);
+      String tradeSignal = tradeSignalByCategoryId.get(categoryId);
       suggestions.add(
           buildSuggestion(
               categoriesById, categoryId, "DECREASE", currentPct, BigDecimal.ZERO, delta,

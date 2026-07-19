@@ -5,6 +5,7 @@ import com.ftm.app.api.dto.HoldingActionDto;
 import com.ftm.app.api.dto.HoldingDto;
 import com.ftm.app.category.repository.CategoryRepository;
 import com.ftm.app.category.service.CategoryService;
+import com.ftm.app.portfolio.service.MomentumSignalResolver;
 import com.ftm.app.portfolio.service.PortfolioActionEngine;
 import com.ftm.app.domain.Category;
 import com.ftm.app.portfolio.service.HoldingUploadService;
@@ -27,30 +28,34 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(
     name = "Portfolio Actions",
     description =
-        "Signal-driven action recommendations for each current holding — EXIT, TRIM, WATCH, or HOLD")
+        "Momentum-driven action recommendations for each current holding — EXIT, TRIM, ADD, or HOLD")
 public class PortfolioActionController {
 
   private final HoldingUploadService holdingUploadService;
   private final CategoryService categoryService;
   private final CategoryRepository categoryRepository;
   private final PortfolioActionEngine portfolioActionEngine;
+  private final MomentumSignalResolver momentumSignalResolver;
 
   public PortfolioActionController(
       HoldingUploadService holdingUploadService,
       CategoryService categoryService,
       CategoryRepository categoryRepository,
-      PortfolioActionEngine portfolioActionEngine) {
+      PortfolioActionEngine portfolioActionEngine,
+      MomentumSignalResolver momentumSignalResolver) {
     this.holdingUploadService = holdingUploadService;
     this.categoryService = categoryService;
     this.categoryRepository = categoryRepository;
     this.portfolioActionEngine = portfolioActionEngine;
+    this.momentumSignalResolver = momentumSignalResolver;
   }
 
   @Operation(
       summary = "Recommended actions for all current holdings",
       description =
-          "Fetches current holdings and cross-references them against the latest signal data to "
-              + "produce a prioritised action list (EXIT → TRIM → WATCH → HOLD → UNCLASSIFIED).")
+          "Fetches current holdings and cross-references them against live 12-1 momentum — the same "
+              + "signal GET /portfolio builds its optimal allocation from — to produce a prioritised "
+              + "action list (EXIT → TRIM → ADD → HOLD → UNCLASSIFIED).")
   @GetMapping
   public ResponseEntity<List<HoldingActionDto>> getActions(
       // Canonical timeframe; must be one of DAY/WEEK/MONTH/QUARTER/YEAR (drives the RS horizon used
@@ -80,9 +85,19 @@ public class PortfolioActionController {
             .filter(Objects::nonNull)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+    // Momentum drives the labels, using the same resolver and default universe as GET /portfolio —
+    // so a holding's action always agrees with the optimal allocation shown next to it. The category
+    // summaries above still supply names and conviction scores.
+    Map<String, String> momentumSignalByCategoryId =
+        momentumSignalResolver.resolve().tradeSignalByCategoryId();
+
     List<HoldingActionDto> actions =
         portfolioActionEngine.deriveActions(
-            holdings, categoriesById, parentByCategoryId, totalPortfolioEur);
+            holdings,
+            categoriesById,
+            parentByCategoryId,
+            momentumSignalByCategoryId,
+            totalPortfolioEur);
 
     return ResponseEntity.ok(actions);
   }

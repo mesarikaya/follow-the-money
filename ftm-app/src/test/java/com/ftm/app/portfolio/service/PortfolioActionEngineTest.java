@@ -112,11 +112,12 @@ class PortfolioActionEngineTest {
             List.of(lmt),
             Map.of("INDU", indu),
             Map.of("INDU_ADEF", "INDU"),
+            Map.of(),
             new BigDecimal("100000"));
 
     assertThat(actions).hasSize(1);
     HoldingActionDto action = actions.get(0);
-    assertThat(action.action()).isEqualTo("HOLD"); // BUY signal → HOLD (ride it), not UNCLASSIFIED
+    assertThat(action.action()).isEqualTo("ADD"); // BUY signal → ADD, and crucially not UNCLASSIFIED
     assertThat(action.categoryId()).isEqualTo("INDU");
   }
 
@@ -156,8 +157,8 @@ class PortfolioActionEngineTest {
   // ------------------------------------------------------------------ WATCH
 
   @Test
-  @DisplayName("WATCH for WATCH signal regardless of position size")
-  void shouldReturnWatchForWatchSignal() {
+  @DisplayName("a legacy composite WATCH collapses into HOLD — momentum has no WATCH state")
+  void shouldTreatWatchAsHold() {
     HoldingDto hlth = holding("XLV", "Health Care", "HLTH", new BigDecimal("8000"));
     CategorySummaryDto cat =
         category(
@@ -167,15 +168,15 @@ class PortfolioActionEngineTest {
         engine.deriveActions(List.of(hlth), Map.of("HLTH", cat), new BigDecimal("100000"));
 
     assertThat(actions).hasSize(1);
-    assertThat(actions.get(0).action()).isEqualTo("WATCH");
-    assertThat(actions.get(0).urgency()).isEqualTo(3);
+    assertThat(actions.get(0).action()).isEqualTo("HOLD");
+    assertThat(actions.get(0).urgency()).isEqualTo(4);
   }
 
-  // ------------------------------------------------------------------ HOLD
+  // ------------------------------------------------------------------ ADD
 
   @Test
-  @DisplayName("HOLD for BUY signal")
-  void shouldReturnHoldForBuySignal() {
+  @DisplayName("ADD for BUY signal — the sector is a momentum target, not merely worth keeping")
+  void shouldReturnAddForBuySignal() {
     HoldingDto tech = holding("XLK", "Technology", "TECH", new BigDecimal("20000"));
     CategorySummaryDto cat =
         category(CategoryId.TECH, "BUY", new BigDecimal("0.78"), "4", new BigDecimal("0.03"), 85);
@@ -184,8 +185,8 @@ class PortfolioActionEngineTest {
         engine.deriveActions(List.of(tech), Map.of("TECH", cat), new BigDecimal("100000"));
 
     assertThat(actions).hasSize(1);
-    assertThat(actions.get(0).action()).isEqualTo("HOLD");
-    assertThat(actions.get(0).urgency()).isEqualTo(4);
+    assertThat(actions.get(0).action()).isEqualTo("ADD");
+    assertThat(actions.get(0).urgency()).isEqualTo(3);
     assertThat(actions.get(0).convictionScore()).isEqualTo(85);
   }
 
@@ -276,9 +277,9 @@ class PortfolioActionEngineTest {
             List.of(exitHolding, holdHolding, watchHolding), cats, new BigDecimal("100000"));
 
     assertThat(actions).hasSize(3);
-    assertThat(actions.get(0).action()).isEqualTo("EXIT"); // urgency 1
-    assertThat(actions.get(1).action()).isEqualTo("WATCH"); // urgency 3
-    assertThat(actions.get(2).action()).isEqualTo("HOLD"); // urgency 4
+    assertThat(actions.get(0).action()).isEqualTo("EXIT"); // urgency 1, REDUCE + >5%
+    assertThat(actions.get(1).action()).isEqualTo("ADD"); // urgency 3, BUY
+    assertThat(actions.get(2).action()).isEqualTo("HOLD"); // urgency 4, WATCH collapses here
   }
 
   // ------------------------------------------------------------------ signal derivation fallback
@@ -295,7 +296,52 @@ class PortfolioActionEngineTest {
         engine.deriveActions(List.of(gold), Map.of("GOLD", cat), new BigDecimal("100000"));
 
     assertThat(actions.get(0).signal()).isEqualTo("BUY");
-    assertThat(actions.get(0).action()).isEqualTo("HOLD");
+    assertThat(actions.get(0).action()).isEqualTo("ADD");
+  }
+
+  // ------------------------------------------------------- momentum overrides composite
+
+  @Test
+  @DisplayName("momentum signal wins over the composite trade signal on the category summary")
+  void shouldPreferMomentumSignalOverCompositeSignal() {
+    // The exact contradiction this parameter exists to remove: the composite said HOLD while the
+    // momentum optimal was telling the user to cut the sector.
+    HoldingDto holding = holding("XLV", "Health Care", "HLTH", new BigDecimal("8000"));
+    CategorySummaryDto compositeSaysHold =
+        category(CategoryId.HLTH, "HOLD", new BigDecimal("0.55"), "2", new BigDecimal("0.01"), 40);
+
+    List<HoldingActionDto> actions =
+        engine.deriveActions(
+            List.of(holding),
+            Map.of("HLTH", compositeSaysHold),
+            Map.of(),
+            Map.of("HLTH", "REDUCE"),
+            new BigDecimal("100000"));
+
+    assertThat(actions.get(0).signal()).isEqualTo("REDUCE");
+    assertThat(actions.get(0).action()).isEqualTo("EXIT"); // REDUCE + 8% of portfolio
+    assertThat(actions.get(0).rationale()).contains("negative 12-1 momentum");
+  }
+
+  @Test
+  @DisplayName("falls back to the composite signal for a category momentum could not score")
+  void shouldFallBackToCompositeWhenMomentumMissingForCategory() {
+    // A category with too little price history is absent from the momentum map — it must not become
+    // UNCLASSIFIED, and must not silently read as REDUCE.
+    HoldingDto holding = holding("XLK", "Technology", "TECH", new BigDecimal("4000"));
+    CategorySummaryDto tech =
+        category(CategoryId.TECH, "BUY", new BigDecimal("0.80"), "1", new BigDecimal("0.03"), 80);
+
+    List<HoldingActionDto> actions =
+        engine.deriveActions(
+            List.of(holding),
+            Map.of("TECH", tech),
+            Map.of(),
+            Map.of("HLTH", "REDUCE"), // momentum map covers a different category
+            new BigDecimal("100000"));
+
+    assertThat(actions.get(0).signal()).isEqualTo("BUY");
+    assertThat(actions.get(0).action()).isEqualTo("ADD");
   }
 
   // ------------------------------------------------------------------ empty holdings

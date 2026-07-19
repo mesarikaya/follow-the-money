@@ -3,6 +3,7 @@ import {
   activeAlerts,
   alertAgeBadge,
   alertHistory,
+  groupAlertsByEvent,
   marketWideCount,
   parseSnapshot,
   worstSeverityBySector,
@@ -24,6 +25,82 @@ function alert(overrides: Partial<AlertDto>): AlertDto {
     ...overrides,
   } as AlertDto;
 }
+
+describe("groupAlertsByEvent", () => {
+  const themeReduce = (id: number, themeId: string) =>
+    alert({ id, themeId, ruleId: "theme_dominant_signal_transition", severity: "ACTION" });
+
+  it("collapses one rule firing across many themes on the same day into a single group", () => {
+    // The real case: 9 of 12 themes entered REDUCE at once — one risk-off event, not nine findings.
+    const groups = groupAlertsByEvent([
+      themeReduce(1, "AI_INFRA"),
+      themeReduce(2, "CLEAN_POWER"),
+      themeReduce(3, "DEFENSE_REARM"),
+      themeReduce(4, "CHIP_COMPUTE"),
+    ]);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].alerts).toHaveLength(4);
+    expect(groups[0].subjects).toEqual([
+      "AI_INFRA",
+      "CLEAN_POWER",
+      "DEFENSE_REARM",
+      "CHIP_COMPUTE",
+    ]);
+  });
+
+  it("leaves a pair alone — two rows beat a summary you have to expand", () => {
+    const groups = groupAlertsByEvent([themeReduce(1, "AI_INFRA"), themeReduce(2, "CLEAN_POWER")]);
+
+    expect(groups).toHaveLength(2);
+    expect(groups.every(group => group.alerts.length === 1)).toBe(true);
+  });
+
+  it("keeps different rules, severities and days apart", () => {
+    const groups = groupAlertsByEvent([
+      themeReduce(1, "A"),
+      themeReduce(2, "B"),
+      themeReduce(3, "C"),
+      alert({ id: 4, ruleId: "score_velocity", severity: "ACTION", categoryId: "TECH" }),
+      alert({ id: 5, ruleId: "theme_dominant_signal_transition", severity: "INFO", themeId: "D" }),
+      alert({
+        id: 6,
+        ruleId: "theme_dominant_signal_transition",
+        severity: "ACTION",
+        themeId: "E",
+        createdAt: "2026-07-02T10:00:00Z",
+      }),
+    ]);
+
+    // The 3 same-rule/severity/day alerts group; the other three stand alone.
+    expect(groups.map(group => group.alerts.length)).toEqual([3, 1, 1, 1]);
+  });
+
+  it("preserves the severity ordering it was handed", () => {
+    const groups = groupAlertsByEvent(
+      activeAlerts([
+        alert({ id: 1, severity: "INFO", ruleId: "a" }),
+        alert({ id: 2, severity: "URGENT", ruleId: "b" }),
+        alert({ id: 3, severity: "WARNING", ruleId: "c" }),
+      ]),
+    );
+
+    expect(groups.map(group => group.severity)).toEqual(["URGENT", "WARNING", "INFO"]);
+  });
+
+  it("never loses an alert", () => {
+    const input = [
+      themeReduce(1, "A"),
+      themeReduce(2, "B"),
+      themeReduce(3, "C"),
+      alert({ id: 4, ruleId: "other", severity: "WARNING" }),
+    ];
+
+    const grouped = groupAlertsByEvent(input).flatMap(group => group.alerts);
+
+    expect(grouped.map(a => a.id).sort()).toEqual([1, 2, 3, 4]);
+  });
+});
 
 describe("activeAlerts", () => {
   it("keeps only the active ones, most urgent first", () => {

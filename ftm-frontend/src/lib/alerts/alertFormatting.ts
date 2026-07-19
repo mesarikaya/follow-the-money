@@ -20,6 +20,60 @@ export const activeAlerts = (alerts: AlertDto[]): AlertDto[] =>
         (SEVERITY_RANK[b.severity] ?? UNKNOWN_SEVERITY_RANK),
     );
 
+export type AlertGroup = {
+  key: string;
+  ruleId: string;
+  severity: string;
+  /** Ordered as they arrived, so the panel can render a group exactly like loose alerts. */
+  alerts: AlertDto[];
+  /** The themes or sectors the group covers, in order, with blanks dropped. */
+  subjects: string[];
+};
+
+/**
+ * Below this, a group is not worth collapsing — two rows are easier to read than a summary you have
+ * to expand.
+ */
+const MIN_GROUP_SIZE = 3;
+
+const groupKey = (alert: AlertDto): string =>
+  `${alert.ruleId}|${alert.severity}|${alert.createdAt.slice(0, 10)}`;
+
+/**
+ * Collapses one market event that fanned out across many subjects into a single group.
+ *
+ * <p>A rule fires per theme or per sector, so a broad move raises one alert for each: on a risk-off
+ * day, "theme entered REDUCE" arrived nine times — nine rows describing one event. Grouping by
+ * rule + severity + day puts those under one heading and leaves genuinely distinct alerts alone.
+ *
+ * Presentation only: nothing here changes what fires, and every original alert stays reachable
+ * inside its group.
+ */
+export const groupAlertsByEvent = (alerts: AlertDto[]): AlertGroup[] => {
+  const byKey = new Map<string, AlertDto[]>();
+  for (const alert of alerts) {
+    const key = groupKey(alert);
+    const existing = byKey.get(key);
+    if (existing) existing.push(alert);
+    else byKey.set(key, [alert]);
+  }
+
+  // Map preserves insertion order, so the caller's severity ordering survives grouping.
+  return [...byKey.entries()].flatMap(([key, groupAlerts]) =>
+    groupAlerts.length >= MIN_GROUP_SIZE
+      ? [toGroup(key, groupAlerts)]
+      : groupAlerts.map(alert => toGroup(`${key}|${alert.id}`, [alert])),
+  );
+};
+
+const toGroup = (key: string, alerts: AlertDto[]): AlertGroup => ({
+  key,
+  ruleId: alerts[0].ruleId,
+  severity: alerts[0].severity,
+  alerts,
+  subjects: alerts.map(alert => alert.themeId ?? alert.categoryId ?? "").filter(Boolean),
+});
+
 /** The most recently raised alerts that are no longer active. */
 export const alertHistory = (alerts: AlertDto[]): AlertDto[] =>
   alerts

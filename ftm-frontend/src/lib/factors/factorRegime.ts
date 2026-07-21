@@ -87,8 +87,11 @@ export const deriveFactorRegime = (factors: SubSectorSummary[]): RegimeSignal | 
 
   if (momentum === 1 && lowVolatility === last) return REGIMES.strongRiskOn;
   if (lowVolatility === 1 && momentum === last) return REGIMES.strongRiskOff;
+  // Quality leading with momentum close behind is the more specific read, so it must be checked
+  // before the broad Risk-On rule below — which otherwise catches every quality-led case (momentum
+  // is 2, so low-volatility is necessarily >= 3) and this branch never fires.
+  if (quality === 1 && momentum <= 2) return REGIMES.lateCycle;
   if (momentum <= 2 && lowVolatility >= 3) return REGIMES.riskOn;
   if (lowVolatility <= 2 && momentum >= 3) return REGIMES.riskOff;
-  if (quality === 1 && momentum <= 2) return REGIMES.lateCycle;
   return REGIMES.transitional;
 };

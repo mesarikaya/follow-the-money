@@ -29,13 +29,14 @@ describe("deriveFactorRegime", () => {
   });
 
   /**
-   * Documents existing behaviour, not intended behaviour: the "Late Cycle / Quality" regime can
-   * never be reached. It needs QUAL first and MTUM in the top two — which forces MTUM to 2nd, hence
-   * USMV to 3rd or lower, which the Risk-On branch above already claims. Preserved as-is by the
-   * refactor; whether to reorder the branches is a behaviour decision.
+   * Quality leading with momentum right behind is the late-cycle read. This case used to be
+   * shadowed by the broad Risk-On branch — quality first forces momentum to 2nd and low-vol to 3rd
+   * or lower, which Risk-On also matched — so the quality check now runs first.
    */
-  it("never reports Late Cycle — the Risk-On branch always claims that case first", () => {
-    expect(deriveFactorRegime(factors("QUAL", "MTUM", "USMV", "VLUE"))!.label).toBe("Risk-On");
+  it("reads quality-on-top with momentum behind it as Late Cycle / Quality", () => {
+    expect(deriveFactorRegime(factors("QUAL", "MTUM", "USMV", "VLUE"))!.label).toBe(
+      "Late Cycle / Quality",
+    );
   });
 
   it("admits it does not know when the factors are mixed", () => {

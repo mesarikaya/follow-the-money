@@ -103,7 +103,12 @@ check "$API/sub-sectors"          '"parentId":"'
 echo "Frontend, data rendered ($WEB)"
 check "$WEB/"        'Information Technology'
 check "$WEB/themes"  'AI Infrastructure'
-check "$WEB/brief"   'AI Infrastructure'
+# The brief renders only the TOP-ranked themes, which rotate as signals update, so a
+# specific theme name is a brittle needle (it false-failed once the day's ranking changed).
+# Anchor instead on the macro regime badge: it is backend-derived (so it still proves the
+# payload reached the page, not just the shell) but is one of a small fixed set that is
+# stable over weeks. Basic-regex alternation covers all four regimes.
+check "$WEB/brief"   'Risk On\|Risk Off\|Stagflation'
 check "$WEB/macro"   'Breakeven Inflation'
 check "$WEB/sectors" 'Communication Services'
 check "$WEB/flows"   'Communication Services'

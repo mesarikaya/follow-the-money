@@ -32,10 +32,6 @@ spring:
   cache:
     type: caffeine
 
-  ai:
-    anthropic:
-      api-key: ${SPRING_AI_ANTHROPIC_API_KEY:}
-
 ftm:
   fred:
     base-url: https://api.stlouisfed.org

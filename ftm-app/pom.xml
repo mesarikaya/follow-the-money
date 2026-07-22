@@ -23,8 +23,6 @@
         <testcontainers.version>1.20.6</testcontainers.version>
         <mapstruct.version>1.6.3</mapstruct.version>
         <spring-retry.version>2.0.12</spring-retry.version>
-        <!-- Spring AI BOM version — verify against Spring Boot parent compatibility -->
-        <spring-ai.version>1.0.0</spring-ai.version>
         <!-- JaCoCo 0.8.12 does not support Java 25 class files; skip report until JaCoCo supports it -->
         <jacoco.skip>true</jacoco.skip>
         <commons-csv.version>1.14.0</commons-csv.version>
@@ -36,13 +34,6 @@
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
                 <version>${testcontainers.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.springframework.ai</groupId>
-                <artifactId>spring-ai-bom</artifactId>
-                <version>${spring-ai.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -133,16 +124,6 @@
             <version>${commons-csv.version}</version>
         </dependency>
 
-        <!--
-        ── Spring AI — add in EP-003 once correct artifact name confirmed.
-           Check: https://docs.spring.io/spring-ai/reference/getting-started.html
-           Likely: spring-ai-starter-model-anthropic (Spring AI 1.0+)
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-anthropic-spring-boot-starter</artifactId>
-            <version>${spring-ai.version}</version>
-        </dependency>
-        -->
 
         <!-- ── Docker Compose auto-start (dev only) ─────────────────── -->
         <dependency>

@@ -1,5 +1,11 @@
 # Theme Signal Vocabulary — Bug Fix Plan
 
+> **Status: COMPLETE (verified 2026-07-22).** All four bugs are fixed in current code:
+> B1 `PhaseTransitionFactor` and B2 `EntryTimingFactor` now switch exhaustively over the
+> `PhaseTransitionSignal` / `EntryAction` enums (APPROACHING_BUY→2, SCALE_IN→2, …); B3/B4 the detail
+> page's `PHASE_TRANSITION_CONFIG` and `ENTRY_ACTION_CONFIG` key on the real vocabulary. Shipped via
+> the theme-vocab pass (#160/#162/#163). Kept for its analysis.
+
 Found while refactoring the theme pages (EP-101, #153). Not fixed there: a refactor must not change
 behaviour, and every one of these changes what the app outputs.
 
